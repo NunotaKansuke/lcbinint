@@ -1,0 +1,6404 @@
+{
+  "reference": {
+    "cold": {
+      "rows": 550,
+      "stops": {
+        "Converged": 546,
+        "InnerAccuracyLimited": 4
+      },
+      "reference_unusable": 4,
+      "observed_violations": 0,
+      "note": "128/256 radial + 256/512 angular self-difference estimates reference uncertainty; not a verified enclosure."
+    },
+    "warm": {
+      "rows": 550,
+      "stops": {
+        "Converged": 545,
+        "InnerAccuracyLimited": 5
+      },
+      "reference_unusable": 4,
+      "observed_violations": 0,
+      "note": "128/256 radial + 256/512 angular self-difference estimates reference uncertainty; not a verified enclosure."
+    }
+  },
+  "paired": [
+    {
+      "u": 0.0,
+      "jac": 0,
+      "warm": 0,
+      "rtol": 1e-08,
+      "cache": 0,
+      "cases": 55,
+      "stops": {
+        "Converged": 55
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 0.9593,
+        "p90": 2.1810048,
+        "p95": 7.833254799999954,
+        "p99": 40.634830660000006,
+        "max": 44.294611
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.715367,
+        "p90": 1.1148196,
+        "p95": 1.2523433999999993,
+        "p99": 8.577069200000013,
+        "max": 16.976888
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.677094,
+        "setup_ms": 0.018195,
+        "setup_frame_ms": 1.9e-05,
+        "setup_cuts_ms": 0.000922,
+        "setup_event_ms": 0.015662,
+        "setup_panel_ms": 0.00062,
+        "physics_ms": 0.195524,
+        "estimator_ms": 0.00808,
+        "scheduler_ms": 0.000999
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 139,
+      "median_evaluations": 234,
+      "value_accuracy_qualified_pairs": 28,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": 0.7740548284615261,
+        "p90": 0.8841480883252666,
+        "p95": 0.8968393524877966,
+        "p99": 0.9042591884687287,
+        "max": 0.9056221978627128
+      }
+    },
+    {
+      "u": 0.0,
+      "jac": 0,
+      "warm": 0,
+      "rtol": 1e-08,
+      "cache": 1,
+      "cases": 55,
+      "stops": {
+        "Converged": 55
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 0.889588,
+        "p90": 1.5787180000000003,
+        "p95": 6.698357699999956,
+        "p99": 19.68298804,
+        "max": 19.68589
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.717101,
+        "p90": 1.118253,
+        "p95": 1.2640497999999993,
+        "p99": 8.290192500000012,
+        "max": 16.338717
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.673646,
+        "setup_ms": 0.018009,
+        "setup_frame_ms": 1.9e-05,
+        "setup_cuts_ms": 0.000954,
+        "setup_event_ms": 0.014623,
+        "setup_panel_ms": 0.000612,
+        "physics_ms": 0.116946,
+        "estimator_ms": 0.008666,
+        "scheduler_ms": 0.000992
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 139,
+      "median_evaluations": 139,
+      "value_accuracy_qualified_pairs": 28,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": 0.8726312329229862,
+        "p90": 0.9364309458091417,
+        "p95": 0.9420619468549105,
+        "p99": 0.9630576975551621,
+        "max": 0.970205106342665
+      }
+    },
+    {
+      "u": 0.0,
+      "jac": 0,
+      "warm": 0,
+      "rtol": 1e-06,
+      "cache": 0,
+      "cases": 55,
+      "stops": {
+        "Converged": 55
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 0.894537,
+        "p90": 1.6676148,
+        "p95": 3.204646299999993,
+        "p99": 13.268800200000008,
+        "max": 17.715468
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.725815,
+        "p90": 1.114343,
+        "p95": 1.2462949999999993,
+        "p99": 8.295717400000013,
+        "max": 16.346356
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.670424,
+        "setup_ms": 0.017501,
+        "setup_frame_ms": 1.9e-05,
+        "setup_cuts_ms": 0.000932,
+        "setup_event_ms": 0.015333,
+        "setup_panel_ms": 0.00063,
+        "physics_ms": 0.168515,
+        "estimator_ms": 0.003653,
+        "scheduler_ms": 0.000906
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 93,
+      "median_evaluations": 157,
+      "value_accuracy_qualified_pairs": 28,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": 0.8664958334164015,
+        "p90": 0.9125152496285652,
+        "p95": 0.9186660602895392,
+        "p99": 0.9326572193852781,
+        "max": 0.9367809285980924
+      }
+    },
+    {
+      "u": 0.0,
+      "jac": 0,
+      "warm": 0,
+      "rtol": 1e-06,
+      "cache": 1,
+      "cases": 55,
+      "stops": {
+        "Converged": 55
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 0.829278,
+        "p90": 1.4003910000000004,
+        "p95": 2.1933374999999966,
+        "p99": 10.02056262000001,
+        "max": 16.728279
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.71409,
+        "p90": 1.1188148,
+        "p95": 1.3178066999999996,
+        "p99": 8.248334280000012,
+        "max": 16.26243
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.672521,
+        "setup_ms": 0.017489,
+        "setup_frame_ms": 1.9e-05,
+        "setup_cuts_ms": 0.000939,
+        "setup_event_ms": 0.014869,
+        "setup_panel_ms": 0.000598,
+        "physics_ms": 0.103678,
+        "estimator_ms": 0.003778,
+        "scheduler_ms": 0.00099
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 93,
+      "median_evaluations": 93,
+      "value_accuracy_qualified_pairs": 28,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": 0.9122168570831203,
+        "p90": 0.9661849129285862,
+        "p95": 0.968205171392193,
+        "p99": 0.9962015996255795,
+        "max": 1.0063264241319474
+      }
+    },
+    {
+      "u": 0.0,
+      "jac": 0,
+      "warm": 0,
+      "rtol": 1e-05,
+      "cache": 0,
+      "cases": 55,
+      "stops": {
+        "Converged": 55
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 0.88142,
+        "p90": 1.399744,
+        "p95": 1.6751939999999996,
+        "p99": 9.941085560000012,
+        "max": 17.377823
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.718885,
+        "p90": 1.1153306,
+        "p95": 1.3209114999999996,
+        "p99": 8.299559240000013,
+        "max": 16.347581
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.673239,
+        "setup_ms": 0.017475,
+        "setup_frame_ms": 1.9e-05,
+        "setup_cuts_ms": 0.00095,
+        "setup_event_ms": 0.014562,
+        "setup_panel_ms": 0.000611,
+        "physics_ms": 0.165485,
+        "estimator_ms": 0.003619,
+        "scheduler_ms": 0.000843
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 77,
+      "median_evaluations": 128,
+      "value_accuracy_qualified_pairs": 31,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": 0.8508840496453232,
+        "p90": 0.904657926400826,
+        "p95": 0.9063941545523172,
+        "p99": 0.9091789172423655,
+        "max": 0.9103109150260732
+      }
+    },
+    {
+      "u": 0.0,
+      "jac": 0,
+      "warm": 0,
+      "rtol": 1e-05,
+      "cache": 1,
+      "cases": 55,
+      "stops": {
+        "Converged": 55
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 0.808252,
+        "p90": 1.2084124,
+        "p95": 1.4499935999999998,
+        "p99": 9.038403100000012,
+        "max": 16.646698
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.71705,
+        "p90": 1.1127276,
+        "p95": 1.3478283999999998,
+        "p99": 8.270233640000013,
+        "max": 16.291736
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.675394,
+        "setup_ms": 0.017602,
+        "setup_frame_ms": 1.9e-05,
+        "setup_cuts_ms": 0.000948,
+        "setup_event_ms": 0.014735,
+        "setup_panel_ms": 0.000618,
+        "physics_ms": 0.103024,
+        "estimator_ms": 0.00376,
+        "scheduler_ms": 0.000829
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 77,
+      "median_evaluations": 77,
+      "value_accuracy_qualified_pairs": 31,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": 0.9198650292915981,
+        "p90": 0.9549279058872521,
+        "p95": 0.9771162523036943,
+        "p99": 1.0010687290177083,
+        "max": 1.0058003511951386
+      }
+    },
+    {
+      "u": 0.0,
+      "jac": 0,
+      "warm": 0,
+      "rtol": 0.0001,
+      "cache": 0,
+      "cases": 55,
+      "stops": {
+        "Converged": 55
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 0.861199,
+        "p90": 1.2972792,
+        "p95": 1.5170838,
+        "p99": 8.577842060000012,
+        "max": 16.832504
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.719893,
+        "p90": 1.1194716,
+        "p95": 1.4249995,
+        "p99": 8.327461380000013,
+        "max": 16.258254
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.670698,
+        "setup_ms": 0.017906,
+        "setup_frame_ms": 1.9e-05,
+        "setup_cuts_ms": 0.000991,
+        "setup_event_ms": 0.015434,
+        "setup_panel_ms": 0.000662,
+        "physics_ms": 0.136436,
+        "estimator_ms": 0.003048,
+        "scheduler_ms": 0.000766
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 69,
+      "median_evaluations": 113,
+      "value_accuracy_qualified_pairs": 50,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": 0.8814399702786617,
+        "p90": 1.0018199945932873,
+        "p95": 1.1078884917871827,
+        "p99": 1.3198741926067579,
+        "max": 1.372661672770407
+      }
+    },
+    {
+      "u": 0.0,
+      "jac": 0,
+      "warm": 0,
+      "rtol": 0.0001,
+      "cache": 1,
+      "cases": 55,
+      "stops": {
+        "Converged": 55
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 0.806591,
+        "p90": 1.2235610000000001,
+        "p95": 1.2815335999999997,
+        "p99": 8.250811180000012,
+        "max": 16.292023
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.722562,
+        "p90": 1.1275892,
+        "p95": 1.3906405999999998,
+        "p99": 8.247389100000012,
+        "max": 16.267839
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.675181,
+        "setup_ms": 0.018067,
+        "setup_frame_ms": 1.9e-05,
+        "setup_cuts_ms": 0.001013,
+        "setup_event_ms": 0.014929,
+        "setup_panel_ms": 0.000772,
+        "physics_ms": 0.093747,
+        "estimator_ms": 0.003523,
+        "scheduler_ms": 0.000846
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 69,
+      "median_evaluations": 69,
+      "value_accuracy_qualified_pairs": 50,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": 0.9338283742566149,
+        "p90": 1.0567113798862633,
+        "p95": 1.1931319492741466,
+        "p99": 1.4308769874241831,
+        "max": 1.630129345606197
+      }
+    },
+    {
+      "u": 0.0,
+      "jac": 0,
+      "warm": 0,
+      "rtol": 0.001,
+      "cache": 0,
+      "cases": 55,
+      "stops": {
+        "Converged": 55
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 0.833591,
+        "p90": 1.1447573999999998,
+        "p95": 1.3170243999999998,
+        "p99": 8.388779560000014,
+        "max": 16.586728
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.726024,
+        "p90": 1.1268700000000003,
+        "p95": 1.420382,
+        "p99": 8.272802500000013,
+        "max": 16.294516
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.680596,
+        "setup_ms": 0.018257,
+        "setup_frame_ms": 1.9e-05,
+        "setup_cuts_ms": 0.001077,
+        "setup_event_ms": 0.014986,
+        "setup_panel_ms": 0.000865,
+        "physics_ms": 0.100879,
+        "estimator_ms": 0.003297,
+        "scheduler_ms": 0.000748
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 62,
+      "median_evaluations": 96,
+      "value_accuracy_qualified_pairs": 54,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": 0.9072675833402326,
+        "p90": 1.0668182091767453,
+        "p95": 1.1645547015046258,
+        "p99": 1.2872430400162995,
+        "max": 1.3638711118079412
+      }
+    },
+    {
+      "u": 0.0,
+      "jac": 0,
+      "warm": 0,
+      "rtol": 0.001,
+      "cache": 1,
+      "cases": 55,
+      "stops": {
+        "Converged": 55
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 0.823943,
+        "p90": 1.1247690000000001,
+        "p95": 1.3069080999999998,
+        "p99": 8.289549600000013,
+        "max": 16.386099
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.739839,
+        "p90": 1.1373194,
+        "p95": 1.4272052,
+        "p99": 8.290882060000012,
+        "max": 16.326358
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.699402,
+        "setup_ms": 0.022891,
+        "setup_frame_ms": 1.9e-05,
+        "setup_cuts_ms": 0.002165,
+        "setup_event_ms": 0.015727,
+        "setup_panel_ms": 0.002925,
+        "physics_ms": 0.071015,
+        "estimator_ms": 0.00428,
+        "scheduler_ms": 0.001004
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 62,
+      "median_evaluations": 62,
+      "value_accuracy_qualified_pairs": 54,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": 0.91643914047088,
+        "p90": 1.1256564760353849,
+        "p95": 1.1967021006684584,
+        "p99": 1.3887262481931095,
+        "max": 1.5389259023076987
+      }
+    },
+    {
+      "u": 0.0,
+      "jac": 0,
+      "warm": 1,
+      "rtol": 1e-08,
+      "cache": 0,
+      "cases": 55,
+      "stops": {
+        "Converged": 55
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 0.854148,
+        "p90": 2.2533904000000002,
+        "p95": 5.439779699999999,
+        "p99": 28.06858188000001,
+        "max": 35.47494
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.703237,
+        "p90": 1.1332986,
+        "p95": 1.3795405999999997,
+        "p99": 7.320754880000006,
+        "max": 11.412377
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.538569,
+        "setup_ms": 0.018372,
+        "setup_frame_ms": 1.9e-05,
+        "setup_cuts_ms": 0.001025,
+        "setup_event_ms": 0.015758,
+        "setup_panel_ms": 0.000632,
+        "physics_ms": 0.317681,
+        "estimator_ms": 0.007382,
+        "scheduler_ms": 0.001029
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 139,
+      "median_evaluations": 234,
+      "value_accuracy_qualified_pairs": 28,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": 0.8318487585940847,
+        "p90": 0.928269389310574,
+        "p95": 0.9569054869502007,
+        "p99": 1.0100560770820446,
+        "max": 1.0265898410282512
+      }
+    },
+    {
+      "u": 0.0,
+      "jac": 0,
+      "warm": 1,
+      "rtol": 1e-08,
+      "cache": 1,
+      "cases": 55,
+      "stops": {
+        "Converged": 55
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 0.733645,
+        "p90": 1.5459592,
+        "p95": 3.421206699999998,
+        "p99": 20.670703940000017,
+        "max": 31.11689
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.696441,
+        "p90": 1.0893718000000001,
+        "p95": 1.3887874999999996,
+        "p99": 9.20109862000001,
+        "max": 15.49855
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.536275,
+        "setup_ms": 0.018053,
+        "setup_frame_ms": 1.9e-05,
+        "setup_cuts_ms": 0.001007,
+        "setup_event_ms": 0.015304,
+        "setup_panel_ms": 0.000661,
+        "physics_ms": 0.191684,
+        "estimator_ms": 0.008211,
+        "scheduler_ms": 0.001071
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 139,
+      "median_evaluations": 139,
+      "value_accuracy_qualified_pairs": 28,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": 0.9342022020416714,
+        "p90": 1.038245950739126,
+        "p95": 1.0762192544891742,
+        "p99": 1.1964889064182647,
+        "max": 1.2338870685329255
+      }
+    },
+    {
+      "u": 0.0,
+      "jac": 0,
+      "warm": 1,
+      "rtol": 1e-06,
+      "cache": 0,
+      "cases": 55,
+      "stops": {
+        "Converged": 55
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 0.80867,
+        "p90": 1.6939358000000002,
+        "p95": 4.077160599999998,
+        "p99": 13.909063560000018,
+        "max": 24.995688
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.694374,
+        "p90": 1.0832212,
+        "p95": 1.3779740999999996,
+        "p99": 8.937928840000009,
+        "max": 14.921968
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.5398,
+        "setup_ms": 0.018431,
+        "setup_frame_ms": 1.9e-05,
+        "setup_cuts_ms": 0.000995,
+        "setup_event_ms": 0.015561,
+        "setup_panel_ms": 0.000633,
+        "physics_ms": 0.242312,
+        "estimator_ms": 0.003949,
+        "scheduler_ms": 0.000912
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 93,
+      "median_evaluations": 157,
+      "value_accuracy_qualified_pairs": 28,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": 0.8790069310529344,
+        "p90": 0.9421089562512261,
+        "p95": 0.9674754420290591,
+        "p99": 1.0124412095261186,
+        "max": 1.025409454818949
+      }
+    },
+    {
+      "u": 0.0,
+      "jac": 0,
+      "warm": 1,
+      "rtol": 1e-06,
+      "cache": 1,
+      "cases": 55,
+      "stops": {
+        "Converged": 55
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 0.713302,
+        "p90": 1.3696002,
+        "p95": 2.6768540999999995,
+        "p99": 8.672761060000008,
+        "max": 14.357806
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.693869,
+        "p90": 1.0844858000000002,
+        "p95": 1.4459771999999997,
+        "p99": 7.2551816000000064,
+        "max": 11.266199
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.54386,
+        "setup_ms": 0.01774,
+        "setup_frame_ms": 2e-05,
+        "setup_cuts_ms": 0.000965,
+        "setup_event_ms": 0.015069,
+        "setup_panel_ms": 0.000619,
+        "physics_ms": 0.157162,
+        "estimator_ms": 0.003879,
+        "scheduler_ms": 0.000926
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 93,
+      "median_evaluations": 93,
+      "value_accuracy_qualified_pairs": 28,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": 0.9657598108021073,
+        "p90": 1.0426210192130667,
+        "p95": 1.1068198096768398,
+        "p99": 1.2069684214238867,
+        "max": 1.2340475784335594
+      }
+    },
+    {
+      "u": 0.0,
+      "jac": 0,
+      "warm": 1,
+      "rtol": 1e-05,
+      "cache": 0,
+      "cases": 55,
+      "stops": {
+        "Converged": 55
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 0.765051,
+        "p90": 1.4263626,
+        "p95": 2.3307387999999936,
+        "p99": 8.478459900000008,
+        "max": 13.683717
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.69899,
+        "p90": 1.1047812000000001,
+        "p95": 1.3772040999999997,
+        "p99": 7.2494156800000065,
+        "max": 11.274499
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.540112,
+        "setup_ms": 0.018224,
+        "setup_frame_ms": 1.9e-05,
+        "setup_cuts_ms": 0.001007,
+        "setup_event_ms": 0.01577,
+        "setup_panel_ms": 0.000619,
+        "physics_ms": 0.227788,
+        "estimator_ms": 0.003822,
+        "scheduler_ms": 0.000846
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 77,
+      "median_evaluations": 128,
+      "value_accuracy_qualified_pairs": 31,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": 0.8867574002763162,
+        "p90": 0.9448804026856378,
+        "p95": 0.9597123108395489,
+        "p99": 1.0074475296292746,
+        "max": 1.026563230171337
+      }
+    },
+    {
+      "u": 0.0,
+      "jac": 0,
+      "warm": 1,
+      "rtol": 1e-05,
+      "cache": 1,
+      "cases": 55,
+      "stops": {
+        "Converged": 55
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 0.693381,
+        "p90": 1.1667172,
+        "p95": 1.6861739999999967,
+        "p99": 7.889250440000008,
+        "max": 12.607508
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.69523,
+        "p90": 1.081372,
+        "p95": 1.3876021999999997,
+        "p99": 7.251587260000006,
+        "max": 11.290156
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.539174,
+        "setup_ms": 0.017859,
+        "setup_frame_ms": 1.9e-05,
+        "setup_cuts_ms": 0.000952,
+        "setup_event_ms": 0.014903,
+        "setup_panel_ms": 0.000632,
+        "physics_ms": 0.138797,
+        "estimator_ms": 0.003924,
+        "scheduler_ms": 0.000856
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 77,
+      "median_evaluations": 77,
+      "value_accuracy_qualified_pairs": 31,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": 0.9683873880174722,
+        "p90": 1.0405416832606833,
+        "p95": 1.101730257913006,
+        "p99": 1.2122495558167319,
+        "max": 1.2426237684300885
+      }
+    },
+    {
+      "u": 0.0,
+      "jac": 0,
+      "warm": 1,
+      "rtol": 0.0001,
+      "cache": 0,
+      "cases": 55,
+      "stops": {
+        "Converged": 55
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 0.741062,
+        "p90": 1.2190056,
+        "p95": 1.4952327999999986,
+        "p99": 7.502450080000006,
+        "max": 11.707834
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.698055,
+        "p90": 1.0807644,
+        "p95": 1.3867133999999997,
+        "p99": 7.263981180000006,
+        "max": 11.257596
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.541572,
+        "setup_ms": 0.017744,
+        "setup_frame_ms": 1.9e-05,
+        "setup_cuts_ms": 0.000955,
+        "setup_event_ms": 0.014996,
+        "setup_panel_ms": 0.00059,
+        "physics_ms": 0.194653,
+        "estimator_ms": 0.002987,
+        "scheduler_ms": 0.000778
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 69,
+      "median_evaluations": 113,
+      "value_accuracy_qualified_pairs": 50,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": 0.9219492182585023,
+        "p90": 1.0695000457652566,
+        "p95": 1.182694631891712,
+        "p99": 1.4903772367804473,
+        "max": 1.5337721890565847
+      }
+    },
+    {
+      "u": 0.0,
+      "jac": 0,
+      "warm": 1,
+      "rtol": 0.0001,
+      "cache": 1,
+      "cases": 55,
+      "stops": {
+        "Converged": 55
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 0.670738,
+        "p90": 1.0963724000000001,
+        "p95": 1.2856318,
+        "p99": 7.324881880000007,
+        "max": 11.444098
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.697119,
+        "p90": 1.085275,
+        "p95": 1.3854914999999997,
+        "p99": 7.2615043200000065,
+        "max": 11.274024
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.536932,
+        "setup_ms": 0.017792,
+        "setup_frame_ms": 1.9e-05,
+        "setup_cuts_ms": 0.000981,
+        "setup_event_ms": 0.014973,
+        "setup_panel_ms": 0.000648,
+        "physics_ms": 0.129203,
+        "estimator_ms": 0.003145,
+        "scheduler_ms": 0.000771
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 69,
+      "median_evaluations": 69,
+      "value_accuracy_qualified_pairs": 50,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": 1.0094674017311873,
+        "p90": 1.2453313235869656,
+        "p95": 1.339713749893426,
+        "p99": 1.639314584163036,
+        "max": 1.6726551992638208
+      }
+    },
+    {
+      "u": 0.0,
+      "jac": 0,
+      "warm": 1,
+      "rtol": 0.001,
+      "cache": 0,
+      "cases": 55,
+      "stops": {
+        "Converged": 55
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 0.67952,
+        "p90": 1.0035536,
+        "p95": 1.4376370999999988,
+        "p99": 7.369153720000006,
+        "max": 11.462344
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.694241,
+        "p90": 1.0840408,
+        "p95": 1.3675244999999998,
+        "p99": 7.240247880000007,
+        "max": 11.222979
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.543087,
+        "setup_ms": 0.018287,
+        "setup_frame_ms": 1.9e-05,
+        "setup_cuts_ms": 0.001009,
+        "setup_event_ms": 0.015364,
+        "setup_panel_ms": 0.000668,
+        "physics_ms": 0.143611,
+        "estimator_ms": 0.002636,
+        "scheduler_ms": 0.000663
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 62,
+      "median_evaluations": 96,
+      "value_accuracy_qualified_pairs": 54,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": 0.9974080530456503,
+        "p90": 1.3091439742185818,
+        "p95": 1.5339209114488694,
+        "p99": 1.641775287721872,
+        "max": 1.70317824417649
+      }
+    },
+    {
+      "u": 0.0,
+      "jac": 0,
+      "warm": 1,
+      "rtol": 0.001,
+      "cache": 1,
+      "cases": 55,
+      "stops": {
+        "Converged": 55
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 0.648427,
+        "p90": 0.9801346,
+        "p95": 1.242313,
+        "p99": 5.968881780000009,
+        "max": 11.429844
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.705277,
+        "p90": 1.0956488,
+        "p95": 1.3423057999999999,
+        "p99": 6.312651360000008,
+        "max": 11.997726
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.553533,
+        "setup_ms": 0.017745,
+        "setup_frame_ms": 1.9e-05,
+        "setup_cuts_ms": 0.001021,
+        "setup_event_ms": 0.015031,
+        "setup_panel_ms": 0.000713,
+        "physics_ms": 0.102778,
+        "estimator_ms": 0.002558,
+        "scheduler_ms": 0.000662
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 62,
+      "median_evaluations": 62,
+      "value_accuracy_qualified_pairs": 54,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": 1.0767695248919225,
+        "p90": 1.395035609650985,
+        "p95": 1.6295338423018328,
+        "p99": 1.7932410475765366,
+        "max": 1.8450230478678433
+      }
+    },
+    {
+      "u": 0.0,
+      "jac": 1,
+      "warm": 0,
+      "rtol": 1e-08,
+      "cache": 0,
+      "cases": 55,
+      "stops": {
+        "EventLocationLimited": 51,
+        "BudgetExceeded": 3,
+        "Converged": 1
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 1.009112,
+        "p90": 18.4167732,
+        "p95": 26.73949559999997,
+        "p99": 59.908655460000006,
+        "max": 66.322938
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.886905,
+        "p90": 1.7199200000000001,
+        "p95": 1.8664193999999998,
+        "p99": 11.180594740000016,
+        "max": 21.751537
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.670534,
+        "setup_ms": 0.018422,
+        "setup_frame_ms": 1.9e-05,
+        "setup_cuts_ms": 0.001136,
+        "setup_event_ms": 0.015372,
+        "setup_panel_ms": 0.000807,
+        "physics_ms": 0.200351,
+        "estimator_ms": 0.019093,
+        "scheduler_ms": 0.002218
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 99,
+      "median_evaluations": 159,
+      "value_accuracy_qualified_pairs": 0,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": null,
+        "p90": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      }
+    },
+    {
+      "u": 0.0,
+      "jac": 1,
+      "warm": 0,
+      "rtol": 1e-08,
+      "cache": 1,
+      "cases": 55,
+      "stops": {
+        "EventLocationLimited": 49,
+        "BudgetExceeded": 3,
+        "Converged": 3
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 0.903424,
+        "p90": 11.6934318,
+        "p95": 19.961877899999994,
+        "p99": 32.58178928,
+        "max": 35.241893
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.887976,
+        "p90": 1.7346860000000002,
+        "p95": 1.8215082999999996,
+        "p99": 9.441656900000012,
+        "max": 18.131966
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.675131,
+        "setup_ms": 0.018316,
+        "setup_frame_ms": 1.9e-05,
+        "setup_cuts_ms": 0.001155,
+        "setup_event_ms": 0.014964,
+        "setup_panel_ms": 0.000688,
+        "physics_ms": 0.122034,
+        "estimator_ms": 0.019902,
+        "scheduler_ms": 0.002475
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 99,
+      "median_evaluations": 99,
+      "value_accuracy_qualified_pairs": 0,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": null,
+        "p90": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      }
+    },
+    {
+      "u": 0.0,
+      "jac": 1,
+      "warm": 0,
+      "rtol": 1e-06,
+      "cache": 0,
+      "cases": 55,
+      "stops": {
+        "EventLocationLimited": 51,
+        "BudgetExceeded": 3,
+        "Converged": 1
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 1.010833,
+        "p90": 18.9818064,
+        "p95": 24.468838499999965,
+        "p99": 57.84357754000001,
+        "max": 64.59085
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.886608,
+        "p90": 1.7334054,
+        "p95": 1.8354629999999998,
+        "p99": 12.650148620000019,
+        "max": 25.028864
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.675787,
+        "setup_ms": 0.018683,
+        "setup_frame_ms": 1.9e-05,
+        "setup_cuts_ms": 0.001146,
+        "setup_event_ms": 0.015768,
+        "setup_panel_ms": 0.000715,
+        "physics_ms": 0.192465,
+        "estimator_ms": 0.020286,
+        "scheduler_ms": 0.002517
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 100,
+      "median_evaluations": 166,
+      "value_accuracy_qualified_pairs": 0,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": null,
+        "p90": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      }
+    },
+    {
+      "u": 0.0,
+      "jac": 1,
+      "warm": 0,
+      "rtol": 1e-06,
+      "cache": 1,
+      "cases": 55,
+      "stops": {
+        "EventLocationLimited": 49,
+        "BudgetExceeded": 3,
+        "Converged": 3
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 0.915871,
+        "p90": 11.798273,
+        "p95": 17.821636299999994,
+        "p99": 32.06901108,
+        "max": 34.87269
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.874178,
+        "p90": 1.7348948000000002,
+        "p95": 1.8654753,
+        "p99": 9.164641040000012,
+        "max": 17.415152
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.677681,
+        "setup_ms": 0.019045,
+        "setup_frame_ms": 2e-05,
+        "setup_cuts_ms": 0.001489,
+        "setup_event_ms": 0.015832,
+        "setup_panel_ms": 0.00085,
+        "physics_ms": 0.124867,
+        "estimator_ms": 0.021788,
+        "scheduler_ms": 0.002792
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 100,
+      "median_evaluations": 100,
+      "value_accuracy_qualified_pairs": 0,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": null,
+        "p90": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      }
+    },
+    {
+      "u": 0.0,
+      "jac": 1,
+      "warm": 0,
+      "rtol": 1e-05,
+      "cache": 0,
+      "cases": 55,
+      "stops": {
+        "EventLocationLimited": 48,
+        "BudgetExceeded": 3,
+        "Converged": 4
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 1.246728,
+        "p90": 21.4524704,
+        "p95": 29.669585199999986,
+        "p99": 56.979758300000015,
+        "max": 63.424013
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.898788,
+        "p90": 1.733313,
+        "p95": 1.8886539999999998,
+        "p99": 9.011512280000012,
+        "max": 17.072156
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.675813,
+        "setup_ms": 0.018218,
+        "setup_frame_ms": 2e-05,
+        "setup_cuts_ms": 0.001384,
+        "setup_event_ms": 0.015389,
+        "setup_panel_ms": 0.0008,
+        "physics_ms": 0.314952,
+        "estimator_ms": 0.048826,
+        "scheduler_ms": 0.003363
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 188,
+      "median_evaluations": 340,
+      "value_accuracy_qualified_pairs": 0,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": null,
+        "p90": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      }
+    },
+    {
+      "u": 0.0,
+      "jac": 1,
+      "warm": 0,
+      "rtol": 1e-05,
+      "cache": 1,
+      "cases": 55,
+      "stops": {
+        "EventLocationLimited": 47,
+        "BudgetExceeded": 3,
+        "Converged": 5
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 1.123035,
+        "p90": 12.9617676,
+        "p95": 17.678347399999993,
+        "p99": 31.816019740000005,
+        "max": 34.907125
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.892714,
+        "p90": 1.7241606,
+        "p95": 1.8306789999999997,
+        "p99": 9.099066640000013,
+        "max": 17.200057
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.680201,
+        "setup_ms": 0.020234,
+        "setup_frame_ms": 2.4e-05,
+        "setup_cuts_ms": 0.0015,
+        "setup_event_ms": 0.015609,
+        "setup_panel_ms": 0.001174,
+        "physics_ms": 0.198673,
+        "estimator_ms": 0.050229,
+        "scheduler_ms": 0.003489
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 188,
+      "median_evaluations": 188,
+      "value_accuracy_qualified_pairs": 0,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": null,
+        "p90": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      }
+    },
+    {
+      "u": 0.0,
+      "jac": 1,
+      "warm": 0,
+      "rtol": 0.0001,
+      "cache": 0,
+      "cases": 55,
+      "stops": {
+        "EventLocationLimited": 46,
+        "BudgetExceeded": 3,
+        "Converged": 6
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 8.797111,
+        "p90": 20.764193,
+        "p95": 27.66964029999998,
+        "p99": 56.13953718000001,
+        "max": 62.99148
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.904564,
+        "p90": 1.81224,
+        "p95": 1.8907759999999998,
+        "p99": 9.069647900000014,
+        "max": 17.129615
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.68403,
+        "setup_ms": 0.019662,
+        "setup_frame_ms": 2.1e-05,
+        "setup_cuts_ms": 0.00152,
+        "setup_event_ms": 0.015369,
+        "setup_panel_ms": 0.001242,
+        "physics_ms": 2.58543,
+        "estimator_ms": 1.675063,
+        "scheduler_ms": 0.02202
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 1848,
+      "median_evaluations": 3540,
+      "value_accuracy_qualified_pairs": 0,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": null,
+        "p90": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      }
+    },
+    {
+      "u": 0.0,
+      "jac": 1,
+      "warm": 0,
+      "rtol": 0.0001,
+      "cache": 1,
+      "cases": 55,
+      "stops": {
+        "EventLocationLimited": 46,
+        "BudgetExceeded": 3,
+        "Converged": 6
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 5.740582,
+        "p90": 13.729058600000002,
+        "p95": 17.587535099999997,
+        "p99": 31.199526780000006,
+        "max": 34.076616
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.903032,
+        "p90": 1.7603962000000002,
+        "p95": 1.9029357999999998,
+        "p99": 9.141983720000011,
+        "max": 17.137808
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.692544,
+        "setup_ms": 0.022265,
+        "setup_frame_ms": 4.4e-05,
+        "setup_cuts_ms": 0.002144,
+        "setup_event_ms": 0.017278,
+        "setup_panel_ms": 0.002062,
+        "physics_ms": 1.430596,
+        "estimator_ms": 1.666388,
+        "scheduler_ms": 0.020737
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 1848,
+      "median_evaluations": 1848,
+      "value_accuracy_qualified_pairs": 0,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": null,
+        "p90": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      }
+    },
+    {
+      "u": 0.0,
+      "jac": 1,
+      "warm": 0,
+      "rtol": 0.001,
+      "cache": 0,
+      "cases": 55,
+      "stops": {
+        "EventLocationLimited": 42,
+        "BudgetExceeded": 4,
+        "Converged": 9
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 21.417062,
+        "p90": 34.86532400000001,
+        "p95": 46.835295299999956,
+        "p99": 96.15465392000003,
+        "max": 113.754335
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.921183,
+        "p90": 1.7949712000000002,
+        "p95": 1.9170327,
+        "p99": 9.186524360000014,
+        "max": 17.283563
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.691493,
+        "setup_ms": 0.021059,
+        "setup_frame_ms": 4e-05,
+        "setup_cuts_ms": 0.001772,
+        "setup_event_ms": 0.01593,
+        "setup_panel_ms": 0.002079,
+        "physics_ms": 5.451844,
+        "estimator_ms": 2.165145,
+        "scheduler_ms": 0.036745
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 2429,
+      "median_evaluations": 4683,
+      "value_accuracy_qualified_pairs": 0,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": null,
+        "p90": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      }
+    },
+    {
+      "u": 0.0,
+      "jac": 1,
+      "warm": 0,
+      "rtol": 0.001,
+      "cache": 1,
+      "cases": 55,
+      "stops": {
+        "EventLocationLimited": 44,
+        "BudgetExceeded": 4,
+        "Converged": 7
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 12.891039,
+        "p90": 19.741843600000003,
+        "p95": 28.69650099999995,
+        "p99": 55.56143124000001,
+        "max": 64.995093
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.914719,
+        "p90": 1.7743404000000003,
+        "p95": 1.9047591,
+        "p99": 9.090058800000012,
+        "max": 17.200794
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.683331,
+        "setup_ms": 0.019535,
+        "setup_frame_ms": 1.9e-05,
+        "setup_cuts_ms": 0.001346,
+        "setup_event_ms": 0.015322,
+        "setup_panel_ms": 0.001347,
+        "physics_ms": 2.930498,
+        "estimator_ms": 2.199202,
+        "scheduler_ms": 0.037065
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 2429,
+      "median_evaluations": 2429,
+      "value_accuracy_qualified_pairs": 0,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": null,
+        "p90": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      }
+    },
+    {
+      "u": 0.0,
+      "jac": 1,
+      "warm": 1,
+      "rtol": 1e-08,
+      "cache": 0,
+      "cases": 55,
+      "stops": {
+        "EventLocationLimited": 50,
+        "BudgetExceeded": 4,
+        "Converged": 1
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 0.912449,
+        "p90": 23.2541434,
+        "p95": 47.69776689999995,
+        "p99": 63.58843598,
+        "max": 65.926886
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.891586,
+        "p90": 1.7955192,
+        "p95": 2.0831099999999987,
+        "p99": 7.555410060000007,
+        "max": 11.723568
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.541537,
+        "setup_ms": 0.018715,
+        "setup_frame_ms": 1.9e-05,
+        "setup_cuts_ms": 0.00118,
+        "setup_event_ms": 0.014895,
+        "setup_panel_ms": 0.000733,
+        "physics_ms": 0.319803,
+        "estimator_ms": 0.01901,
+        "scheduler_ms": 0.002288
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 99,
+      "median_evaluations": 159,
+      "value_accuracy_qualified_pairs": 0,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": null,
+        "p90": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      }
+    },
+    {
+      "u": 0.0,
+      "jac": 1,
+      "warm": 1,
+      "rtol": 1e-08,
+      "cache": 1,
+      "cases": 55,
+      "stops": {
+        "EventLocationLimited": 50,
+        "BudgetExceeded": 4,
+        "Converged": 1
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 0.76529,
+        "p90": 13.132897000000002,
+        "p95": 26.929846799999968,
+        "p99": 38.0378388,
+        "max": 39.871425
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.883269,
+        "p90": 1.7568762,
+        "p95": 2.0720343999999993,
+        "p99": 7.547685500000006,
+        "max": 11.701163
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.547712,
+        "setup_ms": 0.019222,
+        "setup_frame_ms": 2e-05,
+        "setup_cuts_ms": 0.001196,
+        "setup_event_ms": 0.015186,
+        "setup_panel_ms": 0.000729,
+        "physics_ms": 0.190814,
+        "estimator_ms": 0.018752,
+        "scheduler_ms": 0.002334
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 99,
+      "median_evaluations": 99,
+      "value_accuracy_qualified_pairs": 0,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": null,
+        "p90": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      }
+    },
+    {
+      "u": 0.0,
+      "jac": 1,
+      "warm": 1,
+      "rtol": 1e-06,
+      "cache": 0,
+      "cases": 55,
+      "stops": {
+        "EventLocationLimited": 50,
+        "BudgetExceeded": 4,
+        "Converged": 1
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 0.953651,
+        "p90": 23.465847,
+        "p95": 46.39410269999995,
+        "p99": 62.53456638,
+        "max": 64.475679
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.871544,
+        "p90": 1.7990336,
+        "p95": 2.061945299999999,
+        "p99": 7.542525040000007,
+        "max": 11.704669
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.541557,
+        "setup_ms": 0.01818,
+        "setup_frame_ms": 1.9e-05,
+        "setup_cuts_ms": 0.001132,
+        "setup_event_ms": 0.015389,
+        "setup_panel_ms": 0.000741,
+        "physics_ms": 0.339155,
+        "estimator_ms": 0.020669,
+        "scheduler_ms": 0.002358
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 100,
+      "median_evaluations": 166,
+      "value_accuracy_qualified_pairs": 0,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": null,
+        "p90": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      }
+    },
+    {
+      "u": 0.0,
+      "jac": 1,
+      "warm": 1,
+      "rtol": 1e-06,
+      "cache": 1,
+      "cases": 55,
+      "stops": {
+        "EventLocationLimited": 50,
+        "BudgetExceeded": 4,
+        "Converged": 1
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 0.822804,
+        "p90": 13.317357200000002,
+        "p95": 27.103022599999967,
+        "p99": 37.75011148,
+        "max": 39.753937
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.870774,
+        "p90": 1.792769,
+        "p95": 2.054517599999999,
+        "p99": 7.5398997000000065,
+        "max": 11.672706
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.549697,
+        "setup_ms": 0.018574,
+        "setup_frame_ms": 1.9e-05,
+        "setup_cuts_ms": 0.001115,
+        "setup_event_ms": 0.015035,
+        "setup_panel_ms": 0.000786,
+        "physics_ms": 0.204206,
+        "estimator_ms": 0.021923,
+        "scheduler_ms": 0.002275
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 100,
+      "median_evaluations": 100,
+      "value_accuracy_qualified_pairs": 0,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": null,
+        "p90": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      }
+    },
+    {
+      "u": 0.0,
+      "jac": 1,
+      "warm": 1,
+      "rtol": 1e-05,
+      "cache": 0,
+      "cases": 55,
+      "stops": {
+        "Converged": 6,
+        "EventLocationLimited": 45,
+        "BudgetExceeded": 4
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 1.176629,
+        "p90": 23.8869784,
+        "p95": 46.69828869999995,
+        "p99": 61.37642022,
+        "max": 62.596878
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.900777,
+        "p90": 1.7926392000000002,
+        "p95": 2.0791820999999993,
+        "p99": 7.5521160800000064,
+        "max": 11.713355
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.541396,
+        "setup_ms": 0.018472,
+        "setup_frame_ms": 2.1e-05,
+        "setup_cuts_ms": 0.001292,
+        "setup_event_ms": 0.015349,
+        "setup_panel_ms": 0.000771,
+        "physics_ms": 0.416036,
+        "estimator_ms": 0.043272,
+        "scheduler_ms": 0.003209
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 140,
+      "median_evaluations": 244,
+      "value_accuracy_qualified_pairs": 0,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": null,
+        "p90": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      }
+    },
+    {
+      "u": 0.0,
+      "jac": 1,
+      "warm": 1,
+      "rtol": 1e-05,
+      "cache": 1,
+      "cases": 55,
+      "stops": {
+        "Converged": 6,
+        "EventLocationLimited": 45,
+        "BudgetExceeded": 4
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 1.051277,
+        "p90": 14.799558000000001,
+        "p95": 26.82020659999997,
+        "p99": 37.32684382000001,
+        "max": 39.203704
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.895436,
+        "p90": 1.8021744,
+        "p95": 2.0909232999999987,
+        "p99": 7.512091420000006,
+        "max": 11.658496
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.55326,
+        "setup_ms": 0.019695,
+        "setup_frame_ms": 2.1e-05,
+        "setup_cuts_ms": 0.001355,
+        "setup_event_ms": 0.015916,
+        "setup_panel_ms": 0.000877,
+        "physics_ms": 0.239411,
+        "estimator_ms": 0.035364,
+        "scheduler_ms": 0.003197
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 140,
+      "median_evaluations": 140,
+      "value_accuracy_qualified_pairs": 0,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": null,
+        "p90": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      }
+    },
+    {
+      "u": 0.0,
+      "jac": 1,
+      "warm": 1,
+      "rtol": 0.0001,
+      "cache": 0,
+      "cases": 55,
+      "stops": {
+        "Converged": 7,
+        "EventLocationLimited": 43,
+        "BudgetExceeded": 4,
+        "TopologyUnresolved": 1
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 9.055921,
+        "p90": 25.8417716,
+        "p95": 51.14988709999997,
+        "p99": 61.621927060000004,
+        "max": 63.851269
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.919336,
+        "p90": 1.8202868,
+        "p95": 2.094293399999999,
+        "p99": 7.586172220000007,
+        "max": 11.792182
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.551071,
+        "setup_ms": 0.021498,
+        "setup_frame_ms": 2.1e-05,
+        "setup_cuts_ms": 0.001489,
+        "setup_event_ms": 0.015726,
+        "setup_panel_ms": 0.001239,
+        "physics_ms": 4.234889,
+        "estimator_ms": 1.694721,
+        "scheduler_ms": 0.019369
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 1944,
+      "median_evaluations": 3741,
+      "value_accuracy_qualified_pairs": 0,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": null,
+        "p90": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      }
+    },
+    {
+      "u": 0.0,
+      "jac": 1,
+      "warm": 1,
+      "rtol": 0.0001,
+      "cache": 1,
+      "cases": 55,
+      "stops": {
+        "Converged": 9,
+        "EventLocationLimited": 41,
+        "BudgetExceeded": 4,
+        "TopologyUnresolved": 1
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 5.869243,
+        "p90": 14.6328694,
+        "p95": 26.56447719999997,
+        "p99": 37.29072672,
+        "max": 38.930022
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.88889,
+        "p90": 1.8437200000000002,
+        "p95": 2.060683299999999,
+        "p99": 7.525937740000007,
+        "max": 11.740459
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.555928,
+        "setup_ms": 0.019791,
+        "setup_frame_ms": 2.1e-05,
+        "setup_cuts_ms": 0.001449,
+        "setup_event_ms": 0.015632,
+        "setup_panel_ms": 0.001201,
+        "physics_ms": 2.347703,
+        "estimator_ms": 1.699302,
+        "scheduler_ms": 0.018945
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 1944,
+      "median_evaluations": 1944,
+      "value_accuracy_qualified_pairs": 0,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": null,
+        "p90": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      }
+    },
+    {
+      "u": 0.0,
+      "jac": 1,
+      "warm": 1,
+      "rtol": 0.001,
+      "cache": 0,
+      "cases": 55,
+      "stops": {
+        "Converged": 8,
+        "EventLocationLimited": 41,
+        "BudgetExceeded": 5,
+        "TopologyUnresolved": 1
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 19.584766,
+        "p90": 25.8215232,
+        "p95": 48.50016859999997,
+        "p99": 77.99883292000004,
+        "max": 100.959067
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.926142,
+        "p90": 1.8170176000000002,
+        "p95": 2.1580575999999994,
+        "p99": 7.5444020800000064,
+        "max": 11.727133
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.554641,
+        "setup_ms": 0.021899,
+        "setup_frame_ms": 3.8e-05,
+        "setup_cuts_ms": 0.001891,
+        "setup_event_ms": 0.016205,
+        "setup_panel_ms": 0.002026,
+        "physics_ms": 9.938079,
+        "estimator_ms": 2.419217,
+        "scheduler_ms": 0.030676
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 2530,
+      "median_evaluations": 4857,
+      "value_accuracy_qualified_pairs": 0,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": null,
+        "p90": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      }
+    },
+    {
+      "u": 0.0,
+      "jac": 1,
+      "warm": 1,
+      "rtol": 0.001,
+      "cache": 1,
+      "cases": 55,
+      "stops": {
+        "Converged": 10,
+        "EventLocationLimited": 39,
+        "BudgetExceeded": 5,
+        "TopologyUnresolved": 1
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 10.988394,
+        "p90": 14.848203,
+        "p95": 29.32863669999998,
+        "p99": 50.25499628000001,
+        "max": 55.188311
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.863315,
+        "p90": 1.7995734,
+        "p95": 2.011498299999999,
+        "p99": 6.636639560000007,
+        "max": 11.712119
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.559213,
+        "setup_ms": 0.021287,
+        "setup_frame_ms": 3.5e-05,
+        "setup_cuts_ms": 0.001834,
+        "setup_event_ms": 0.016095,
+        "setup_panel_ms": 0.00173,
+        "physics_ms": 5.254863,
+        "estimator_ms": 2.20317,
+        "scheduler_ms": 0.031508
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 2530,
+      "median_evaluations": 2530,
+      "value_accuracy_qualified_pairs": 0,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": null,
+        "p90": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      }
+    },
+    {
+      "u": 0.5,
+      "jac": 0,
+      "warm": 0,
+      "rtol": 1e-08,
+      "cache": 0,
+      "cases": 55,
+      "stops": {
+        "Converged": 51,
+        "InnerAccuracyLimited": 4
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 1.077278,
+        "p90": 2.512566,
+        "p95": 4.716987799999988,
+        "p99": 27.93235544000001,
+        "max": 34.863533
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.797404,
+        "p90": 1.4977458,
+        "p95": 1.6442728,
+        "p99": 8.641916580000013,
+        "max": 16.825737
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.672291,
+        "setup_ms": 0.017794,
+        "setup_frame_ms": 1.9e-05,
+        "setup_cuts_ms": 0.00095,
+        "setup_event_ms": 0.015149,
+        "setup_panel_ms": 0.000646,
+        "physics_ms": 0.34875,
+        "estimator_ms": 0.008612,
+        "scheduler_ms": 0.001114
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 140,
+      "median_evaluations": 244,
+      "value_accuracy_qualified_pairs": 0,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": null,
+        "p90": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      }
+    },
+    {
+      "u": 0.5,
+      "jac": 0,
+      "warm": 0,
+      "rtol": 1e-08,
+      "cache": 1,
+      "cases": 55,
+      "stops": {
+        "Converged": 51,
+        "InnerAccuracyLimited": 4
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 0.928847,
+        "p90": 1.7104304000000001,
+        "p95": 2.940934999999993,
+        "p99": 18.8484909,
+        "max": 19.061421
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.795983,
+        "p90": 1.4951894000000001,
+        "p95": 1.6410502999999999,
+        "p99": 8.602622960000014,
+        "max": 16.731365
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.672118,
+        "setup_ms": 0.017596,
+        "setup_frame_ms": 1.9e-05,
+        "setup_cuts_ms": 0.000971,
+        "setup_event_ms": 0.015355,
+        "setup_panel_ms": 0.000599,
+        "physics_ms": 0.205559,
+        "estimator_ms": 0.009412,
+        "scheduler_ms": 0.001082
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 140,
+      "median_evaluations": 140,
+      "value_accuracy_qualified_pairs": 0,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": null,
+        "p90": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      }
+    },
+    {
+      "u": 0.5,
+      "jac": 0,
+      "warm": 0,
+      "rtol": 1e-06,
+      "cache": 0,
+      "cases": 55,
+      "stops": {
+        "Converged": 55
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 0.933053,
+        "p90": 1.8583834000000001,
+        "p95": 2.908353199999991,
+        "p99": 14.792722900000005,
+        "max": 18.005623
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.789572,
+        "p90": 1.4873724,
+        "p95": 1.6565103,
+        "p99": 8.663112820000013,
+        "max": 16.805107
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.674244,
+        "setup_ms": 0.018098,
+        "setup_frame_ms": 1.9e-05,
+        "setup_cuts_ms": 0.000945,
+        "setup_event_ms": 0.014966,
+        "setup_panel_ms": 0.000599,
+        "physics_ms": 0.2077,
+        "estimator_ms": 0.003689,
+        "scheduler_ms": 0.000883
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 93,
+      "median_evaluations": 157,
+      "value_accuracy_qualified_pairs": 29,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": 0.8947947687924962,
+        "p90": 0.9511493610179649,
+        "p95": 0.9643482139487175,
+        "p99": 0.9885511772877498,
+        "max": 0.9949424950291811
+      }
+    },
+    {
+      "u": 0.5,
+      "jac": 0,
+      "warm": 0,
+      "rtol": 1e-06,
+      "cache": 1,
+      "cases": 55,
+      "stops": {
+        "Converged": 55
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 0.862483,
+        "p90": 1.463682,
+        "p95": 2.019721099999996,
+        "p99": 11.273177860000008,
+        "max": 17.22346
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.79531,
+        "p90": 1.4915656000000002,
+        "p95": 1.6415457,
+        "p99": 8.625401500000013,
+        "max": 16.749418
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.673398,
+        "setup_ms": 0.018468,
+        "setup_frame_ms": 1.9e-05,
+        "setup_cuts_ms": 0.000973,
+        "setup_event_ms": 0.014727,
+        "setup_panel_ms": 0.000611,
+        "physics_ms": 0.141827,
+        "estimator_ms": 0.003828,
+        "scheduler_ms": 0.000996
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 93,
+      "median_evaluations": 93,
+      "value_accuracy_qualified_pairs": 29,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": 0.9435724368983825,
+        "p90": 1.0341903768087466,
+        "p95": 1.0484813028348736,
+        "p99": 1.0682421197768714,
+        "max": 1.0759122182757024
+      }
+    },
+    {
+      "u": 0.5,
+      "jac": 0,
+      "warm": 0,
+      "rtol": 1e-05,
+      "cache": 0,
+      "cases": 55,
+      "stops": {
+        "Converged": 55
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 0.938965,
+        "p90": 1.6023206,
+        "p95": 1.7806221999999994,
+        "p99": 10.663114460000012,
+        "max": 18.204161
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.792139,
+        "p90": 1.485223,
+        "p95": 1.6403215,
+        "p99": 8.597428180000012,
+        "max": 16.74664
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.670543,
+        "setup_ms": 0.017696,
+        "setup_frame_ms": 1.9e-05,
+        "setup_cuts_ms": 0.000986,
+        "setup_event_ms": 0.015328,
+        "setup_panel_ms": 0.000641,
+        "physics_ms": 0.206506,
+        "estimator_ms": 0.00379,
+        "scheduler_ms": 0.000872
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 84,
+      "median_evaluations": 135,
+      "value_accuracy_qualified_pairs": 31,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": 0.8907467420533682,
+        "p90": 0.9692268183738164,
+        "p95": 0.9785974246483076,
+        "p99": 1.071642179546001,
+        "max": 1.1099163077767826
+      }
+    },
+    {
+      "u": 0.5,
+      "jac": 0,
+      "warm": 0,
+      "rtol": 1e-05,
+      "cache": 1,
+      "cases": 55,
+      "stops": {
+        "Converged": 55
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 0.849579,
+        "p90": 1.2860676,
+        "p95": 1.5177673999999999,
+        "p99": 9.314332460000012,
+        "max": 17.106965
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.790641,
+        "p90": 1.4875186,
+        "p95": 1.6425159,
+        "p99": 8.595737140000013,
+        "max": 16.728952
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.67692,
+        "setup_ms": 0.018112,
+        "setup_frame_ms": 1.9e-05,
+        "setup_cuts_ms": 0.000959,
+        "setup_event_ms": 0.015367,
+        "setup_panel_ms": 0.000592,
+        "physics_ms": 0.131834,
+        "estimator_ms": 0.003638,
+        "scheduler_ms": 0.000888
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 84,
+      "median_evaluations": 84,
+      "value_accuracy_qualified_pairs": 31,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": 0.9454233395973795,
+        "p90": 1.066182291113842,
+        "p95": 1.100228195292579,
+        "p99": 1.2494156309305158,
+        "max": 1.3044646715782537
+      }
+    },
+    {
+      "u": 0.5,
+      "jac": 0,
+      "warm": 0,
+      "rtol": 0.0001,
+      "cache": 0,
+      "cases": 55,
+      "stops": {
+        "Converged": 55
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 0.892732,
+        "p90": 1.3488704000000002,
+        "p95": 1.5083988999999993,
+        "p99": 8.863915020000011,
+        "max": 16.940472
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.795237,
+        "p90": 1.4916784,
+        "p95": 1.6495072,
+        "p99": 8.605789960000013,
+        "max": 16.762234
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.672994,
+        "setup_ms": 0.017499,
+        "setup_frame_ms": 1.9e-05,
+        "setup_cuts_ms": 0.000993,
+        "setup_event_ms": 0.01521,
+        "setup_panel_ms": 0.000603,
+        "physics_ms": 0.169006,
+        "estimator_ms": 0.003211,
+        "scheduler_ms": 0.000835
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 69,
+      "median_evaluations": 113,
+      "value_accuracy_qualified_pairs": 52,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": 0.9140294567743446,
+        "p90": 1.1860846893805777,
+        "p95": 1.2995809747773908,
+        "p99": 1.470866932205954,
+        "max": 1.609892441340944
+      }
+    },
+    {
+      "u": 0.5,
+      "jac": 0,
+      "warm": 0,
+      "rtol": 0.0001,
+      "cache": 1,
+      "cases": 55,
+      "stops": {
+        "Converged": 55
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 0.8344,
+        "p90": 1.2421060000000002,
+        "p95": 1.3562904999999998,
+        "p99": 8.432761400000011,
+        "max": 16.552196
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.79304,
+        "p90": 1.4966712,
+        "p95": 1.6473749999999998,
+        "p99": 8.584660660000011,
+        "max": 16.6972
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.678667,
+        "setup_ms": 0.017631,
+        "setup_frame_ms": 1.9e-05,
+        "setup_cuts_ms": 0.001005,
+        "setup_event_ms": 0.015821,
+        "setup_panel_ms": 0.000651,
+        "physics_ms": 0.11581,
+        "estimator_ms": 0.003569,
+        "scheduler_ms": 0.000838
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 69,
+      "median_evaluations": 69,
+      "value_accuracy_qualified_pairs": 52,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": 0.9825970249889148,
+        "p90": 1.3393738694471542,
+        "p95": 1.4460699444912186,
+        "p99": 1.6454364491174325,
+        "max": 1.8305317505827163
+      }
+    },
+    {
+      "u": 0.5,
+      "jac": 0,
+      "warm": 0,
+      "rtol": 0.001,
+      "cache": 0,
+      "cases": 55,
+      "stops": {
+        "Converged": 55
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 0.882042,
+        "p90": 1.1705720000000002,
+        "p95": 1.3583009,
+        "p99": 8.706895340000013,
+        "max": 17.056148
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.788486,
+        "p90": 1.4958188,
+        "p95": 1.6540905,
+        "p99": 8.625403420000012,
+        "max": 16.75987
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.67904,
+        "setup_ms": 0.017879,
+        "setup_frame_ms": 1.9e-05,
+        "setup_cuts_ms": 0.001058,
+        "setup_event_ms": 0.01494,
+        "setup_panel_ms": 0.000718,
+        "physics_ms": 0.13916,
+        "estimator_ms": 0.003842,
+        "scheduler_ms": 0.000825
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 69,
+      "median_evaluations": 113,
+      "value_accuracy_qualified_pairs": 54,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": 0.9206920961633229,
+        "p90": 1.3456476450170691,
+        "p95": 1.4333714799589052,
+        "p99": 1.7529166895848798,
+        "max": 2.0760273059248315
+      }
+    },
+    {
+      "u": 0.5,
+      "jac": 0,
+      "warm": 0,
+      "rtol": 0.001,
+      "cache": 1,
+      "cases": 55,
+      "stops": {
+        "Converged": 55
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 0.8431,
+        "p90": 1.1623134,
+        "p95": 1.2900544999999997,
+        "p99": 8.418786040000015,
+        "max": 16.657606
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.80422,
+        "p90": 1.507069,
+        "p95": 1.6610299,
+        "p99": 8.584332080000014,
+        "max": 16.686896
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.687111,
+        "setup_ms": 0.020681,
+        "setup_frame_ms": 1.9e-05,
+        "setup_cuts_ms": 0.002189,
+        "setup_event_ms": 0.015366,
+        "setup_panel_ms": 0.00177,
+        "physics_ms": 0.09637,
+        "estimator_ms": 0.005072,
+        "scheduler_ms": 0.001104
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 69,
+      "median_evaluations": 69,
+      "value_accuracy_qualified_pairs": 54,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": 1.0034370826785177,
+        "p90": 1.4016079770917151,
+        "p95": 1.4771029174039825,
+        "p99": 1.7763822548470645,
+        "max": 1.9789122259397471
+      }
+    },
+    {
+      "u": 0.5,
+      "jac": 0,
+      "warm": 1,
+      "rtol": 1e-08,
+      "cache": 0,
+      "cases": 55,
+      "stops": {
+        "Converged": 49,
+        "InnerAccuracyLimited": 5,
+        "TopologyUnresolved": 1
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 1.037029,
+        "p90": 2.8112814000000013,
+        "p95": 4.3375927,
+        "p99": 20.461901060000006,
+        "max": 23.075804
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.786482,
+        "p90": 1.5764436,
+        "p95": 1.736092199999999,
+        "p99": 7.329735500000007,
+        "max": 11.470118
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.539837,
+        "setup_ms": 0.017844,
+        "setup_frame_ms": 1.9e-05,
+        "setup_cuts_ms": 0.000953,
+        "setup_event_ms": 0.015232,
+        "setup_panel_ms": 0.000628,
+        "physics_ms": 0.453402,
+        "estimator_ms": 0.008643,
+        "scheduler_ms": 0.001092
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 140,
+      "median_evaluations": 244,
+      "value_accuracy_qualified_pairs": 0,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": null,
+        "p90": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      }
+    },
+    {
+      "u": 0.5,
+      "jac": 0,
+      "warm": 1,
+      "rtol": 1e-08,
+      "cache": 1,
+      "cases": 55,
+      "stops": {
+        "Converged": 49,
+        "InnerAccuracyLimited": 5,
+        "TopologyUnresolved": 1
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 0.83115,
+        "p90": 1.9495150000000006,
+        "p95": 2.976904099999996,
+        "p99": 13.586841440000002,
+        "max": 14.918516
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.789612,
+        "p90": 1.5704378,
+        "p95": 1.732947999999999,
+        "p99": 7.366259640000006,
+        "max": 11.486829
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.542203,
+        "setup_ms": 0.018565,
+        "setup_frame_ms": 1.9e-05,
+        "setup_cuts_ms": 0.001006,
+        "setup_event_ms": 0.014924,
+        "setup_panel_ms": 0.000664,
+        "physics_ms": 0.270994,
+        "estimator_ms": 0.008819,
+        "scheduler_ms": 0.001148
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 140,
+      "median_evaluations": 140,
+      "value_accuracy_qualified_pairs": 0,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": null,
+        "p90": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      }
+    },
+    {
+      "u": 0.5,
+      "jac": 0,
+      "warm": 1,
+      "rtol": 1e-06,
+      "cache": 0,
+      "cases": 55,
+      "stops": {
+        "Converged": 54,
+        "TopologyUnresolved": 1
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 0.845213,
+        "p90": 1.7521706000000001,
+        "p95": 3.400839999999998,
+        "p99": 11.637252380000014,
+        "max": 19.786718
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.784033,
+        "p90": 1.5694676,
+        "p95": 1.733055699999999,
+        "p99": 7.3583771000000056,
+        "max": 11.444225
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.543634,
+        "setup_ms": 0.018143,
+        "setup_frame_ms": 1.9e-05,
+        "setup_cuts_ms": 0.000965,
+        "setup_event_ms": 0.015369,
+        "setup_panel_ms": 0.000627,
+        "physics_ms": 0.295557,
+        "estimator_ms": 0.004066,
+        "scheduler_ms": 0.00092
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 93,
+      "median_evaluations": 157,
+      "value_accuracy_qualified_pairs": 28,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": 0.9200535392358796,
+        "p90": 0.9729716428298624,
+        "p95": 1.0056317611556884,
+        "p99": 1.0283221988558875,
+        "max": 1.0305751446266136
+      }
+    },
+    {
+      "u": 0.5,
+      "jac": 0,
+      "warm": 1,
+      "rtol": 1e-06,
+      "cache": 1,
+      "cases": 55,
+      "stops": {
+        "Converged": 54,
+        "TopologyUnresolved": 1
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 0.743931,
+        "p90": 1.4099872,
+        "p95": 2.2518270999999976,
+        "p99": 9.32798698000001,
+        "max": 15.801649
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.782555,
+        "p90": 1.565147,
+        "p95": 1.733022699999999,
+        "p99": 7.390422780000006,
+        "max": 11.509269
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.537148,
+        "setup_ms": 0.018095,
+        "setup_frame_ms": 1.9e-05,
+        "setup_cuts_ms": 0.000963,
+        "setup_event_ms": 0.015153,
+        "setup_panel_ms": 0.000629,
+        "physics_ms": 0.193794,
+        "estimator_ms": 0.004082,
+        "scheduler_ms": 0.000936
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 93,
+      "median_evaluations": 93,
+      "value_accuracy_qualified_pairs": 28,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": 1.0189621520861123,
+        "p90": 1.1422213327441422,
+        "p95": 1.1997677387295849,
+        "p99": 1.2451382724189337,
+        "max": 1.258621203967645
+      }
+    },
+    {
+      "u": 0.5,
+      "jac": 0,
+      "warm": 1,
+      "rtol": 1e-05,
+      "cache": 0,
+      "cases": 55,
+      "stops": {
+        "Converged": 54,
+        "TopologyUnresolved": 1
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 0.792058,
+        "p90": 1.5505344,
+        "p95": 2.1770833999999955,
+        "p99": 8.69865908000001,
+        "max": 14.247266
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.783407,
+        "p90": 1.5582514,
+        "p95": 1.731603399999999,
+        "p99": 7.381131200000006,
+        "max": 11.51954
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.542454,
+        "setup_ms": 0.018355,
+        "setup_frame_ms": 1.9e-05,
+        "setup_cuts_ms": 0.001003,
+        "setup_event_ms": 0.014926,
+        "setup_panel_ms": 0.000661,
+        "physics_ms": 0.265632,
+        "estimator_ms": 0.00418,
+        "scheduler_ms": 0.000889
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 84,
+      "median_evaluations": 135,
+      "value_accuracy_qualified_pairs": 31,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": 0.9179091449132891,
+        "p90": 1.0089473135922078,
+        "p95": 1.0173425549577555,
+        "p99": 1.047784080224264,
+        "max": 1.0583667567051378
+      }
+    },
+    {
+      "u": 0.5,
+      "jac": 0,
+      "warm": 1,
+      "rtol": 1e-05,
+      "cache": 1,
+      "cases": 55,
+      "stops": {
+        "Converged": 54,
+        "TopologyUnresolved": 1
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 0.720537,
+        "p90": 1.2665544,
+        "p95": 1.5988033999999984,
+        "p99": 8.009305300000007,
+        "max": 12.909403
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.791655,
+        "p90": 1.570143,
+        "p95": 1.730315499999999,
+        "p99": 7.382949940000007,
+        "max": 11.491642
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.536296,
+        "setup_ms": 0.017729,
+        "setup_frame_ms": 1.9e-05,
+        "setup_cuts_ms": 0.000973,
+        "setup_event_ms": 0.014753,
+        "setup_panel_ms": 0.000608,
+        "physics_ms": 0.172338,
+        "estimator_ms": 0.004047,
+        "scheduler_ms": 0.000946
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 84,
+      "median_evaluations": 84,
+      "value_accuracy_qualified_pairs": 31,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": 1.0148315523011842,
+        "p90": 1.1143917537194585,
+        "p95": 1.2014671966972246,
+        "p99": 1.2438050204136206,
+        "max": 1.2565025309323017
+      }
+    },
+    {
+      "u": 0.5,
+      "jac": 0,
+      "warm": 1,
+      "rtol": 0.0001,
+      "cache": 0,
+      "cases": 55,
+      "stops": {
+        "Converged": 55
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 0.779447,
+        "p90": 1.3023108,
+        "p95": 1.6802101999999972,
+        "p99": 7.771505860000007,
+        "max": 12.255148
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.782348,
+        "p90": 1.5731834000000002,
+        "p95": 1.725700699999999,
+        "p99": 7.392051360000007,
+        "max": 11.51496
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.537544,
+        "setup_ms": 0.017358,
+        "setup_frame_ms": 1.9e-05,
+        "setup_cuts_ms": 0.000972,
+        "setup_event_ms": 0.014915,
+        "setup_panel_ms": 0.000592,
+        "physics_ms": 0.229046,
+        "estimator_ms": 0.003456,
+        "scheduler_ms": 0.000797
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 69,
+      "median_evaluations": 113,
+      "value_accuracy_qualified_pairs": 52,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": 0.9739670482224914,
+        "p90": 1.3098903306698488,
+        "p95": 1.5424620842173387,
+        "p99": 1.6925164304936218,
+        "max": 1.714733300225356
+      }
+    },
+    {
+      "u": 0.5,
+      "jac": 0,
+      "warm": 1,
+      "rtol": 0.0001,
+      "cache": 1,
+      "cases": 55,
+      "stops": {
+        "Converged": 55
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 0.699793,
+        "p90": 1.0779264,
+        "p95": 1.3525656999999993,
+        "p99": 7.502739600000006,
+        "max": 11.738532
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.788031,
+        "p90": 1.5595064,
+        "p95": 1.726825099999999,
+        "p99": 7.413404720000006,
+        "max": 11.556761
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.545081,
+        "setup_ms": 0.01798,
+        "setup_frame_ms": 1.9e-05,
+        "setup_cuts_ms": 0.000982,
+        "setup_event_ms": 0.015164,
+        "setup_panel_ms": 0.000631,
+        "physics_ms": 0.153188,
+        "estimator_ms": 0.003253,
+        "scheduler_ms": 0.000808
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 69,
+      "median_evaluations": 69,
+      "value_accuracy_qualified_pairs": 52,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": 1.0854599420898006,
+        "p90": 1.5133435656199237,
+        "p95": 1.6739910426527989,
+        "p99": 1.9823934009070694,
+        "max": 2.0299001847678735
+      }
+    },
+    {
+      "u": 0.5,
+      "jac": 0,
+      "warm": 1,
+      "rtol": 0.001,
+      "cache": 0,
+      "cases": 55,
+      "stops": {
+        "Converged": 55
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 0.74063,
+        "p90": 1.0367089999999999,
+        "p95": 1.5992556999999985,
+        "p99": 7.455095760000006,
+        "max": 11.592201
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.782323,
+        "p90": 1.5669856,
+        "p95": 1.734588799999999,
+        "p99": 7.396766660000006,
+        "max": 11.520083
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.541033,
+        "setup_ms": 0.017825,
+        "setup_frame_ms": 1.9e-05,
+        "setup_cuts_ms": 0.00097,
+        "setup_event_ms": 0.014602,
+        "setup_panel_ms": 0.000635,
+        "physics_ms": 0.19569,
+        "estimator_ms": 0.003292,
+        "scheduler_ms": 0.000737
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 69,
+      "median_evaluations": 113,
+      "value_accuracy_qualified_pairs": 54,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": 1.042058151072614,
+        "p90": 1.670209236627538,
+        "p95": 1.9119908273423147,
+        "p99": 2.0497232306211726,
+        "max": 2.144865857445688
+      }
+    },
+    {
+      "u": 0.5,
+      "jac": 0,
+      "warm": 1,
+      "rtol": 0.001,
+      "cache": 1,
+      "cases": 55,
+      "stops": {
+        "Converged": 55
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 0.682596,
+        "p90": 1.0116802,
+        "p95": 1.3077184999999998,
+        "p99": 6.104932420000009,
+        "max": 11.375806
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.796444,
+        "p90": 1.570929,
+        "p95": 1.6327019999999999,
+        "p99": 6.389339200000008,
+        "max": 11.571595
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.549326,
+        "setup_ms": 0.018198,
+        "setup_frame_ms": 2e-05,
+        "setup_cuts_ms": 0.000969,
+        "setup_event_ms": 0.015133,
+        "setup_panel_ms": 0.000665,
+        "physics_ms": 0.132826,
+        "estimator_ms": 0.003348,
+        "scheduler_ms": 0.000741
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 69,
+      "median_evaluations": 69,
+      "value_accuracy_qualified_pairs": 54,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": 1.1482512054417406,
+        "p90": 1.7913810981565934,
+        "p95": 2.0553446131578372,
+        "p99": 2.2906575908426494,
+        "max": 2.356050832996019
+      }
+    },
+    {
+      "u": 0.5,
+      "jac": 1,
+      "warm": 0,
+      "rtol": 1e-08,
+      "cache": 0,
+      "cases": 55,
+      "stops": {
+        "EventLocationLimited": 41,
+        "InnerAccuracyLimited": 6,
+        "BudgetExceeded": 1,
+        "TopologyUnresolved": 7
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 1.170972,
+        "p90": 15.4889914,
+        "p95": 16.888604299999997,
+        "p99": 47.02300236000005,
+        "max": 76.311531
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.889538,
+        "p90": 1.7521906,
+        "p95": 1.8886615999999998,
+        "p99": 8.903389780000012,
+        "max": 16.987132
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.670712,
+        "setup_ms": 0.018576,
+        "setup_frame_ms": 1.9e-05,
+        "setup_cuts_ms": 0.00114,
+        "setup_event_ms": 0.01556,
+        "setup_panel_ms": 0.000749,
+        "physics_ms": 0.416559,
+        "estimator_ms": 0.029106,
+        "scheduler_ms": 0.002546
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 109,
+      "median_evaluations": 188,
+      "value_accuracy_qualified_pairs": 0,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": null,
+        "p90": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      }
+    },
+    {
+      "u": 0.5,
+      "jac": 1,
+      "warm": 0,
+      "rtol": 1e-08,
+      "cache": 1,
+      "cases": 55,
+      "stops": {
+        "EventLocationLimited": 41,
+        "InnerAccuracyLimited": 6,
+        "BudgetExceeded": 1,
+        "TopologyUnresolved": 7
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 1.037979,
+        "p90": 8.5421116,
+        "p95": 10.403495299999998,
+        "p99": 29.17845936000002,
+        "max": 40.472433
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.866357,
+        "p90": 1.7192360000000002,
+        "p95": 1.8089262999999998,
+        "p99": 8.955815900000012,
+        "max": 17.139794
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.674233,
+        "setup_ms": 0.018438,
+        "setup_frame_ms": 1.9e-05,
+        "setup_cuts_ms": 0.001164,
+        "setup_event_ms": 0.015467,
+        "setup_panel_ms": 0.000749,
+        "physics_ms": 0.239913,
+        "estimator_ms": 0.034965,
+        "scheduler_ms": 0.002636
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 109,
+      "median_evaluations": 109,
+      "value_accuracy_qualified_pairs": 0,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": null,
+        "p90": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      }
+    },
+    {
+      "u": 0.5,
+      "jac": 1,
+      "warm": 0,
+      "rtol": 1e-06,
+      "cache": 0,
+      "cases": 55,
+      "stops": {
+        "TopologyUnresolved": 8,
+        "InnerAccuracyLimited": 6,
+        "EventLocationLimited": 39,
+        "BudgetExceeded": 2
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 1.275495,
+        "p90": 15.916218800000003,
+        "p95": 27.21860889999995,
+        "p99": 58.90117528000002,
+        "max": 71.084935
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.867835,
+        "p90": 1.7227120000000002,
+        "p95": 1.8480735999999998,
+        "p99": 8.969974300000013,
+        "max": 17.076106
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.675858,
+        "setup_ms": 0.018181,
+        "setup_frame_ms": 1.9e-05,
+        "setup_cuts_ms": 0.001145,
+        "setup_event_ms": 0.015229,
+        "setup_panel_ms": 0.000775,
+        "physics_ms": 0.485415,
+        "estimator_ms": 0.051881,
+        "scheduler_ms": 0.003005
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 126,
+      "median_evaluations": 232,
+      "value_accuracy_qualified_pairs": 0,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": null,
+        "p90": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      }
+    },
+    {
+      "u": 0.5,
+      "jac": 1,
+      "warm": 0,
+      "rtol": 1e-06,
+      "cache": 1,
+      "cases": 55,
+      "stops": {
+        "TopologyUnresolved": 8,
+        "InnerAccuracyLimited": 6,
+        "EventLocationLimited": 39,
+        "BudgetExceeded": 2
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 1.08071,
+        "p90": 9.8626926,
+        "p95": 20.254861499999993,
+        "p99": 33.22524336000001,
+        "max": 39.138036
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.867178,
+        "p90": 1.7349398000000003,
+        "p95": 1.8665088,
+        "p99": 8.911689640000013,
+        "max": 17.062846
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.677241,
+        "setup_ms": 0.018756,
+        "setup_frame_ms": 1.9e-05,
+        "setup_cuts_ms": 0.001425,
+        "setup_event_ms": 0.014752,
+        "setup_panel_ms": 0.000824,
+        "physics_ms": 0.280668,
+        "estimator_ms": 0.05698,
+        "scheduler_ms": 0.003162
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 126,
+      "median_evaluations": 126,
+      "value_accuracy_qualified_pairs": 0,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": null,
+        "p90": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      }
+    },
+    {
+      "u": 0.5,
+      "jac": 1,
+      "warm": 0,
+      "rtol": 1e-05,
+      "cache": 0,
+      "cases": 55,
+      "stops": {
+        "TopologyUnresolved": 17,
+        "InnerAccuracyLimited": 5,
+        "EventLocationLimited": 30,
+        "BudgetExceeded": 3
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 1.807132,
+        "p90": 19.2381512,
+        "p95": 27.77373649999995,
+        "p99": 73.43667492,
+        "max": 77.034696
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.891597,
+        "p90": 1.7632636000000002,
+        "p95": 1.8631119,
+        "p99": 8.950720100000012,
+        "max": 17.060783
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.679473,
+        "setup_ms": 0.019618,
+        "setup_frame_ms": 1.9e-05,
+        "setup_cuts_ms": 0.001212,
+        "setup_event_ms": 0.016102,
+        "setup_panel_ms": 0.000968,
+        "physics_ms": 0.96839,
+        "estimator_ms": 0.089979,
+        "scheduler_ms": 0.005444
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 204,
+      "median_evaluations": 371,
+      "value_accuracy_qualified_pairs": 0,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": null,
+        "p90": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      }
+    },
+    {
+      "u": 0.5,
+      "jac": 1,
+      "warm": 0,
+      "rtol": 1e-05,
+      "cache": 1,
+      "cases": 55,
+      "stops": {
+        "TopologyUnresolved": 17,
+        "InnerAccuracyLimited": 5,
+        "EventLocationLimited": 30,
+        "BudgetExceeded": 3
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 1.53553,
+        "p90": 10.808477000000002,
+        "p95": 22.056815199999978,
+        "p99": 41.05423072000001,
+        "max": 43.228369
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.89323,
+        "p90": 1.7319118000000002,
+        "p95": 1.8895891,
+        "p99": 8.923026780000011,
+        "max": 17.099811
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.68069,
+        "setup_ms": 0.019437,
+        "setup_frame_ms": 2e-05,
+        "setup_cuts_ms": 0.001374,
+        "setup_event_ms": 0.016003,
+        "setup_panel_ms": 0.001038,
+        "physics_ms": 0.532151,
+        "estimator_ms": 0.093912,
+        "scheduler_ms": 0.005844
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 204,
+      "median_evaluations": 204,
+      "value_accuracy_qualified_pairs": 0,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": null,
+        "p90": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      }
+    },
+    {
+      "u": 0.5,
+      "jac": 1,
+      "warm": 0,
+      "rtol": 0.0001,
+      "cache": 0,
+      "cases": 55,
+      "stops": {
+        "TopologyUnresolved": 21,
+        "InnerAccuracyLimited": 5,
+        "EventLocationLimited": 26,
+        "BudgetExceeded": 3
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 2.535925,
+        "p90": 19.732614400000003,
+        "p95": 28.710086599999933,
+        "p99": 72.48242378,
+        "max": 77.709944
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.906149,
+        "p90": 1.8337230000000002,
+        "p95": 1.9169721999999998,
+        "p99": 8.947460160000013,
+        "max": 17.101701
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.681451,
+        "setup_ms": 0.019604,
+        "setup_frame_ms": 1.9e-05,
+        "setup_cuts_ms": 0.001405,
+        "setup_event_ms": 0.01514,
+        "setup_panel_ms": 0.001078,
+        "physics_ms": 1.695772,
+        "estimator_ms": 0.155105,
+        "scheduler_ms": 0.009966
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 316,
+      "median_evaluations": 595,
+      "value_accuracy_qualified_pairs": 0,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": null,
+        "p90": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      }
+    },
+    {
+      "u": 0.5,
+      "jac": 1,
+      "warm": 0,
+      "rtol": 0.0001,
+      "cache": 1,
+      "cases": 55,
+      "stops": {
+        "TopologyUnresolved": 21,
+        "InnerAccuracyLimited": 5,
+        "EventLocationLimited": 26,
+        "BudgetExceeded": 3
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 1.869086,
+        "p90": 11.547567800000001,
+        "p95": 21.139188199999982,
+        "p99": 40.95054658,
+        "max": 42.933628
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.896517,
+        "p90": 1.7248558000000003,
+        "p95": 1.8715860999999998,
+        "p99": 9.013320360000014,
+        "max": 17.26056
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.68566,
+        "setup_ms": 0.020746,
+        "setup_frame_ms": 2.7e-05,
+        "setup_cuts_ms": 0.001912,
+        "setup_event_ms": 0.016205,
+        "setup_panel_ms": 0.001699,
+        "physics_ms": 0.995378,
+        "estimator_ms": 0.164157,
+        "scheduler_ms": 0.010251
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 316,
+      "median_evaluations": 316,
+      "value_accuracy_qualified_pairs": 0,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": null,
+        "p90": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      }
+    },
+    {
+      "u": 0.5,
+      "jac": 1,
+      "warm": 0,
+      "rtol": 0.001,
+      "cache": 0,
+      "cases": 55,
+      "stops": {
+        "TopologyUnresolved": 30,
+        "Converged": 2,
+        "InnerAccuracyLimited": 3,
+        "EventLocationLimited": 17,
+        "BudgetExceeded": 3
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 12.403983,
+        "p90": 26.642921000000005,
+        "p95": 89.40244489999992,
+        "p99": 221.79612232000022,
+        "max": 349.467616
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.929983,
+        "p90": 1.7738768,
+        "p95": 1.9181740999999999,
+        "p99": 8.980987820000013,
+        "max": 17.193317
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.693949,
+        "setup_ms": 0.020558,
+        "setup_frame_ms": 2.1e-05,
+        "setup_cuts_ms": 0.001596,
+        "setup_event_ms": 0.015896,
+        "setup_panel_ms": 0.001706,
+        "physics_ms": 5.461066,
+        "estimator_ms": 1.345089,
+        "scheduler_ms": 0.023163
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 1570,
+      "median_evaluations": 3000,
+      "value_accuracy_qualified_pairs": 0,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": null,
+        "p90": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      }
+    },
+    {
+      "u": 0.5,
+      "jac": 1,
+      "warm": 0,
+      "rtol": 0.001,
+      "cache": 1,
+      "cases": 55,
+      "stops": {
+        "TopologyUnresolved": 30,
+        "Converged": 2,
+        "InnerAccuracyLimited": 3,
+        "EventLocationLimited": 17,
+        "BudgetExceeded": 3
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 7.11237,
+        "p90": 18.284472400000006,
+        "p95": 51.668458299999955,
+        "p99": 125.99649420000011,
+        "max": 200.996889
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.926876,
+        "p90": 1.8176086,
+        "p95": 1.9539817,
+        "p99": 8.947231580000013,
+        "max": 17.121872
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.679496,
+        "setup_ms": 0.019595,
+        "setup_frame_ms": 1.9e-05,
+        "setup_cuts_ms": 0.001437,
+        "setup_event_ms": 0.015224,
+        "setup_panel_ms": 0.001358,
+        "physics_ms": 2.691319,
+        "estimator_ms": 1.226476,
+        "scheduler_ms": 0.022401
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 1363,
+      "median_evaluations": 1363,
+      "value_accuracy_qualified_pairs": 0,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": null,
+        "p90": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      }
+    },
+    {
+      "u": 0.5,
+      "jac": 1,
+      "warm": 1,
+      "rtol": 1e-08,
+      "cache": 0,
+      "cases": 55,
+      "stops": {
+        "EventLocationLimited": 41,
+        "InnerAccuracyLimited": 5,
+        "BudgetExceeded": 1,
+        "TopologyUnresolved": 8
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 1.099615,
+        "p90": 18.323248,
+        "p95": 19.899809499999996,
+        "p99": 43.886953980000044,
+        "max": 69.513309
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.872832,
+        "p90": 1.7386756,
+        "p95": 2.0646490999999987,
+        "p99": 7.5250387400000065,
+        "max": 11.730218
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.544621,
+        "setup_ms": 0.019475,
+        "setup_frame_ms": 2e-05,
+        "setup_cuts_ms": 0.001187,
+        "setup_event_ms": 0.015052,
+        "setup_panel_ms": 0.000789,
+        "physics_ms": 0.484589,
+        "estimator_ms": 0.034197,
+        "scheduler_ms": 0.00275
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 109,
+      "median_evaluations": 188,
+      "value_accuracy_qualified_pairs": 0,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": null,
+        "p90": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      }
+    },
+    {
+      "u": 0.5,
+      "jac": 1,
+      "warm": 1,
+      "rtol": 1e-08,
+      "cache": 1,
+      "cases": 55,
+      "stops": {
+        "EventLocationLimited": 41,
+        "InnerAccuracyLimited": 5,
+        "BudgetExceeded": 1,
+        "TopologyUnresolved": 8
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 0.957564,
+        "p90": 9.581587400000002,
+        "p95": 11.2234067,
+        "p99": 27.82782078000002,
+        "max": 39.847596
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.86777,
+        "p90": 1.781205,
+        "p95": 2.049577399999999,
+        "p99": 7.531343180000007,
+        "max": 11.69333
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.542111,
+        "setup_ms": 0.018264,
+        "setup_frame_ms": 1.9e-05,
+        "setup_cuts_ms": 0.00112,
+        "setup_event_ms": 0.014951,
+        "setup_panel_ms": 0.000749,
+        "physics_ms": 0.300231,
+        "estimator_ms": 0.029766,
+        "scheduler_ms": 0.002708
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 109,
+      "median_evaluations": 109,
+      "value_accuracy_qualified_pairs": 0,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": null,
+        "p90": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      }
+    },
+    {
+      "u": 0.5,
+      "jac": 1,
+      "warm": 1,
+      "rtol": 1e-06,
+      "cache": 0,
+      "cases": 55,
+      "stops": {
+        "InnerAccuracyLimited": 6,
+        "EventLocationLimited": 39,
+        "BudgetExceeded": 2,
+        "TopologyUnresolved": 8
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 1.156981,
+        "p90": 18.0592108,
+        "p95": 31.07709339999989,
+        "p99": 72.10674606,
+        "max": 75.851706
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.870061,
+        "p90": 1.7922546000000001,
+        "p95": 2.045511499999999,
+        "p99": 7.539349440000006,
+        "max": 11.74134
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.544039,
+        "setup_ms": 0.018221,
+        "setup_frame_ms": 1.9e-05,
+        "setup_cuts_ms": 0.001134,
+        "setup_event_ms": 0.015055,
+        "setup_panel_ms": 0.000843,
+        "physics_ms": 0.504407,
+        "estimator_ms": 0.049982,
+        "scheduler_ms": 0.003094
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 126,
+      "median_evaluations": 232,
+      "value_accuracy_qualified_pairs": 0,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": null,
+        "p90": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      }
+    },
+    {
+      "u": 0.5,
+      "jac": 1,
+      "warm": 1,
+      "rtol": 1e-06,
+      "cache": 1,
+      "cases": 55,
+      "stops": {
+        "InnerAccuracyLimited": 6,
+        "EventLocationLimited": 39,
+        "BudgetExceeded": 2,
+        "TopologyUnresolved": 8
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 0.989166,
+        "p90": 9.561065400000004,
+        "p95": 19.539769299999925,
+        "p99": 41.00040388000001,
+        "max": 42.670855
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.869553,
+        "p90": 1.7443266,
+        "p95": 2.037121799999999,
+        "p99": 7.549023320000007,
+        "max": 11.707532
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.547548,
+        "setup_ms": 0.017698,
+        "setup_frame_ms": 2e-05,
+        "setup_cuts_ms": 0.001126,
+        "setup_event_ms": 0.015056,
+        "setup_panel_ms": 0.000843,
+        "physics_ms": 0.316708,
+        "estimator_ms": 0.050886,
+        "scheduler_ms": 0.003105
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 126,
+      "median_evaluations": 126,
+      "value_accuracy_qualified_pairs": 0,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": null,
+        "p90": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      }
+    },
+    {
+      "u": 0.5,
+      "jac": 1,
+      "warm": 1,
+      "rtol": 1e-05,
+      "cache": 0,
+      "cases": 55,
+      "stops": {
+        "TopologyUnresolved": 18,
+        "InnerAccuracyLimited": 4,
+        "EventLocationLimited": 30,
+        "BudgetExceeded": 3
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 1.804926,
+        "p90": 18.876332,
+        "p95": 36.08254269999987,
+        "p99": 81.49316278,
+        "max": 86.327941
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.903816,
+        "p90": 1.8123996,
+        "p95": 2.167784099999999,
+        "p99": 7.512548020000007,
+        "max": 11.734828
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.548594,
+        "setup_ms": 0.019755,
+        "setup_frame_ms": 2e-05,
+        "setup_cuts_ms": 0.001267,
+        "setup_event_ms": 0.015877,
+        "setup_panel_ms": 0.000869,
+        "physics_ms": 0.971278,
+        "estimator_ms": 0.072062,
+        "scheduler_ms": 0.006115
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 202,
+      "median_evaluations": 350,
+      "value_accuracy_qualified_pairs": 0,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": null,
+        "p90": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      }
+    },
+    {
+      "u": 0.5,
+      "jac": 1,
+      "warm": 1,
+      "rtol": 1e-05,
+      "cache": 1,
+      "cases": 55,
+      "stops": {
+        "TopologyUnresolved": 18,
+        "InnerAccuracyLimited": 4,
+        "EventLocationLimited": 30,
+        "BudgetExceeded": 3
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 1.35391,
+        "p90": 10.9787322,
+        "p95": 19.77851219999992,
+        "p99": 47.72281968000001,
+        "max": 53.162352
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.881736,
+        "p90": 1.7969876,
+        "p95": 2.057645599999999,
+        "p99": 7.568452920000007,
+        "max": 11.737416
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.551514,
+        "setup_ms": 0.019637,
+        "setup_frame_ms": 2e-05,
+        "setup_cuts_ms": 0.00126,
+        "setup_event_ms": 0.014982,
+        "setup_panel_ms": 0.000997,
+        "physics_ms": 0.536658,
+        "estimator_ms": 0.090536,
+        "scheduler_ms": 0.00582
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 202,
+      "median_evaluations": 202,
+      "value_accuracy_qualified_pairs": 0,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": null,
+        "p90": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      }
+    },
+    {
+      "u": 0.5,
+      "jac": 1,
+      "warm": 1,
+      "rtol": 0.0001,
+      "cache": 0,
+      "cases": 55,
+      "stops": {
+        "TopologyUnresolved": 22,
+        "InnerAccuracyLimited": 4,
+        "EventLocationLimited": 26,
+        "BudgetExceeded": 3
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 3.924307,
+        "p90": 19.753473800000002,
+        "p95": 34.90883439999986,
+        "p99": 88.02940590000001,
+        "max": 101.438883
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.894248,
+        "p90": 1.819627,
+        "p95": 2.064127199999999,
+        "p99": 9.762916320000011,
+        "max": 16.626231
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.553724,
+        "setup_ms": 0.019615,
+        "setup_frame_ms": 1.9e-05,
+        "setup_cuts_ms": 0.001263,
+        "setup_event_ms": 0.015556,
+        "setup_panel_ms": 0.000995,
+        "physics_ms": 1.699963,
+        "estimator_ms": 0.127409,
+        "scheduler_ms": 0.008789
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 316,
+      "median_evaluations": 595,
+      "value_accuracy_qualified_pairs": 0,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": null,
+        "p90": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      }
+    },
+    {
+      "u": 0.5,
+      "jac": 1,
+      "warm": 1,
+      "rtol": 0.0001,
+      "cache": 1,
+      "cases": 55,
+      "stops": {
+        "TopologyUnresolved": 22,
+        "InnerAccuracyLimited": 4,
+        "EventLocationLimited": 26,
+        "BudgetExceeded": 3
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 3.091258,
+        "p90": 11.2578374,
+        "p95": 20.633837899999925,
+        "p99": 47.362036200000006,
+        "max": 53.394711
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.877955,
+        "p90": 1.81875,
+        "p95": 2.1256255999999984,
+        "p99": 7.551705740000006,
+        "max": 11.721623
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.553714,
+        "setup_ms": 0.019298,
+        "setup_frame_ms": 1.9e-05,
+        "setup_cuts_ms": 0.001271,
+        "setup_event_ms": 0.015215,
+        "setup_panel_ms": 0.001024,
+        "physics_ms": 0.894236,
+        "estimator_ms": 0.152778,
+        "scheduler_ms": 0.00971
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 316,
+      "median_evaluations": 316,
+      "value_accuracy_qualified_pairs": 0,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": null,
+        "p90": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      }
+    },
+    {
+      "u": 0.5,
+      "jac": 1,
+      "warm": 1,
+      "rtol": 0.001,
+      "cache": 0,
+      "cases": 55,
+      "stops": {
+        "TopologyUnresolved": 31,
+        "Converged": 2,
+        "InnerAccuracyLimited": 2,
+        "EventLocationLimited": 17,
+        "BudgetExceeded": 3
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 11.356286,
+        "p90": 25.039283800000007,
+        "p95": 85.22405239999999,
+        "p99": 172.7068899000001,
+        "max": 239.805543
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.937953,
+        "p90": 1.8349694000000003,
+        "p95": 2.081478099999999,
+        "p99": 7.544989020000006,
+        "max": 11.738298
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.55605,
+        "setup_ms": 0.021737,
+        "setup_frame_ms": 4.1e-05,
+        "setup_cuts_ms": 0.001909,
+        "setup_event_ms": 0.016236,
+        "setup_panel_ms": 0.001658,
+        "physics_ms": 7.517387,
+        "estimator_ms": 1.253718,
+        "scheduler_ms": 0.020324
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 1570,
+      "median_evaluations": 3000,
+      "value_accuracy_qualified_pairs": 0,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": null,
+        "p90": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      }
+    },
+    {
+      "u": 0.5,
+      "jac": 1,
+      "warm": 1,
+      "rtol": 0.001,
+      "cache": 1,
+      "cases": 55,
+      "stops": {
+        "TopologyUnresolved": 31,
+        "Converged": 2,
+        "InnerAccuracyLimited": 2,
+        "EventLocationLimited": 17,
+        "BudgetExceeded": 3
+      },
+      "repeat_status_consistent": true,
+      "whole_attempt_ms": {
+        "p50": 6.848194,
+        "p90": 12.3892398,
+        "p95": 43.67576089999996,
+        "p99": 609.3714287800009,
+        "max": 1244.371033
+      },
+      "fixed64_attempt_ms": {
+        "p50": 0.885192,
+        "p90": 1.8389094000000001,
+        "p95": 2.0290113999999995,
+        "p99": 6.641439140000009,
+        "max": 11.719658
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.562397,
+        "setup_ms": 0.020993,
+        "setup_frame_ms": 2.1e-05,
+        "setup_cuts_ms": 0.001527,
+        "setup_event_ms": 0.016165,
+        "setup_panel_ms": 0.00149,
+        "physics_ms": 3.895289,
+        "estimator_ms": 1.245852,
+        "scheduler_ms": 0.019662
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 0,
+        "event_radius_reuses": 0,
+        "event_direct_qf_failures": 0
+      },
+      "median_nodes": 1570,
+      "median_evaluations": 1570,
+      "value_accuracy_qualified_pairs": 0,
+      "qualified_speedup_fixed_over_adaptive": {
+        "p50": null,
+        "p90": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      }
+    }
+  ],
+  "contracts": [
+    {
+      "policy": "None",
+      "warm": 0,
+      "rtol": 0.0001,
+      "cases": 110,
+      "stops": {
+        "Converged": 110
+      },
+      "value_stops": {
+        "Converged": 110
+      },
+      "gradient_stops": {
+        "Converged": 110
+      },
+      "value_converged": 110,
+      "whole_attempt_ms": {
+        "p50": 0.8139315,
+        "p90": 1.1790222,
+        "p95": 1.3643692499999998,
+        "p99": 14.981261269999948,
+        "max": 16.497929
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.6727845,
+        "setup_ms": 0.018044499999999998,
+        "setup_frame_ms": 1.9e-05,
+        "setup_cuts_ms": 0.001036,
+        "setup_event_ms": 0.014884,
+        "setup_panel_ms": 0.0007134999999999999
+      },
+      "event_medians": {
+        "event_double_checks": 6.0,
+        "event_dd_checks": 0.0,
+        "event_dd_accepts": 0.0,
+        "qf_family_constructions": 0.0,
+        "event_qf_refinements": 0.0,
+        "event_topology_reuses": 0.0,
+        "event_radius_reuses": 0.0,
+        "event_direct_qf_failures": 0.0
+      },
+      "gradient_quality": {
+        "NotRequested": 550,
+        "ToleranceMet": 0,
+        "FiniteUncertified": 0,
+        "Invalid": 0
+      }
+    },
+    {
+      "policy": "None",
+      "warm": 0,
+      "rtol": 0.001,
+      "cases": 110,
+      "stops": {
+        "Converged": 110
+      },
+      "value_stops": {
+        "Converged": 110
+      },
+      "gradient_stops": {
+        "Converged": 110
+      },
+      "value_converged": 110,
+      "whole_attempt_ms": {
+        "p50": 0.8083665,
+        "p90": 1.1183508000000002,
+        "p95": 1.36231455,
+        "p99": 14.996490449999952,
+        "max": 16.430799
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.6816795,
+        "setup_ms": 0.019935,
+        "setup_frame_ms": 1.9e-05,
+        "setup_cuts_ms": 0.0014854999999999998,
+        "setup_event_ms": 0.015568,
+        "setup_panel_ms": 0.001742
+      },
+      "event_medians": {
+        "event_double_checks": 6.0,
+        "event_dd_checks": 0.0,
+        "event_dd_accepts": 0.0,
+        "qf_family_constructions": 0.0,
+        "event_qf_refinements": 0.0,
+        "event_topology_reuses": 0.0,
+        "event_radius_reuses": 0.0,
+        "event_direct_qf_failures": 0.0
+      },
+      "gradient_quality": {
+        "NotRequested": 550,
+        "ToleranceMet": 0,
+        "FiniteUncertified": 0,
+        "Invalid": 0
+      }
+    },
+    {
+      "policy": "None",
+      "warm": 1,
+      "rtol": 0.0001,
+      "cases": 110,
+      "stops": {
+        "Converged": 110
+      },
+      "value_stops": {
+        "Converged": 110
+      },
+      "gradient_stops": {
+        "Converged": 110
+      },
+      "value_converged": 110,
+      "whole_attempt_ms": {
+        "p50": 0.674714,
+        "p90": 1.0312601000000003,
+        "p95": 1.29332725,
+        "p99": 10.733104769999974,
+        "max": 11.760365
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.5360975,
+        "setup_ms": 0.017561,
+        "setup_frame_ms": 2e-05,
+        "setup_cuts_ms": 0.0009584999999999999,
+        "setup_event_ms": 0.014793500000000001,
+        "setup_panel_ms": 0.000593
+      },
+      "event_medians": {
+        "event_double_checks": 6.0,
+        "event_dd_checks": 0.0,
+        "event_dd_accepts": 0.0,
+        "qf_family_constructions": 0.0,
+        "event_qf_refinements": 0.0,
+        "event_topology_reuses": 0.0,
+        "event_radius_reuses": 0.0,
+        "event_direct_qf_failures": 0.0
+      },
+      "gradient_quality": {
+        "NotRequested": 550,
+        "ToleranceMet": 0,
+        "FiniteUncertified": 0,
+        "Invalid": 0
+      }
+    },
+    {
+      "policy": "None",
+      "warm": 1,
+      "rtol": 0.001,
+      "cases": 110,
+      "stops": {
+        "Converged": 110
+      },
+      "value_stops": {
+        "Converged": 110
+      },
+      "gradient_stops": {
+        "Converged": 110
+      },
+      "value_converged": 110,
+      "whole_attempt_ms": {
+        "p50": 0.6545125,
+        "p90": 0.949223,
+        "p95": 1.25571045,
+        "p99": 10.336872769999967,
+        "max": 11.306507
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.53757,
+        "setup_ms": 0.017993000000000002,
+        "setup_frame_ms": 2.1e-05,
+        "setup_cuts_ms": 0.001002,
+        "setup_event_ms": 0.0150845,
+        "setup_panel_ms": 0.000655
+      },
+      "event_medians": {
+        "event_double_checks": 6.0,
+        "event_dd_checks": 0.0,
+        "event_dd_accepts": 0.0,
+        "qf_family_constructions": 0.0,
+        "event_qf_refinements": 0.0,
+        "event_topology_reuses": 0.0,
+        "event_radius_reuses": 0.0,
+        "event_direct_qf_failures": 0.0
+      },
+      "gradient_quality": {
+        "NotRequested": 550,
+        "ToleranceMet": 0,
+        "FiniteUncertified": 0,
+        "Invalid": 0
+      }
+    },
+    {
+      "policy": "Strict",
+      "warm": 0,
+      "rtol": 0.0001,
+      "cases": 110,
+      "stops": {
+        "EventLocationLimited": 72,
+        "TopologyUnresolved": 21,
+        "InnerAccuracyLimited": 5,
+        "BudgetExceeded": 6,
+        "Converged": 6
+      },
+      "value_stops": {
+        "Converged": 110
+      },
+      "gradient_stops": {
+        "EventLocationLimited": 72,
+        "Converged": 12,
+        "InnerAccuracyLimited": 5,
+        "BudgetExceeded": 6,
+        "TopologyUnresolved": 15
+      },
+      "value_converged": 110,
+      "whole_attempt_ms": {
+        "p50": 3.1764004999999997,
+        "p90": 12.661396700000003,
+        "p95": 19.113235,
+        "p99": 38.215912839999994,
+        "max": 42.578919
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.7433235,
+        "setup_ms": 0.0217025,
+        "setup_frame_ms": 2.6e-05,
+        "setup_cuts_ms": 0.0020195,
+        "setup_event_ms": 0.016519,
+        "setup_panel_ms": 0.0016335
+      },
+      "event_medians": {
+        "event_double_checks": 6.0,
+        "event_dd_checks": 0.0,
+        "event_dd_accepts": 0.0,
+        "qf_family_constructions": 0.0,
+        "event_qf_refinements": 0.0,
+        "event_topology_reuses": 0.0,
+        "event_radius_reuses": 0.0,
+        "event_direct_qf_failures": 0.0
+      },
+      "gradient_quality": {
+        "NotRequested": 0,
+        "ToleranceMet": 176,
+        "FiniteUncertified": 269,
+        "Invalid": 105
+      }
+    },
+    {
+      "policy": "Strict",
+      "warm": 0,
+      "rtol": 0.001,
+      "cases": 110,
+      "stops": {
+        "EventLocationLimited": 72,
+        "TopologyUnresolved": 21,
+        "InnerAccuracyLimited": 5,
+        "BudgetExceeded": 6,
+        "Converged": 6
+      },
+      "value_stops": {
+        "Converged": 110
+      },
+      "gradient_stops": {
+        "EventLocationLimited": 72,
+        "Converged": 12,
+        "InnerAccuracyLimited": 5,
+        "BudgetExceeded": 6,
+        "TopologyUnresolved": 15
+      },
+      "value_converged": 110,
+      "whole_attempt_ms": {
+        "p50": 3.583497,
+        "p90": 19.2306515,
+        "p95": 26.050024149999995,
+        "p99": 64.97347865999998,
+        "max": 105.781983
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.671073,
+        "setup_ms": 0.018382,
+        "setup_frame_ms": 1.9e-05,
+        "setup_cuts_ms": 0.0012395,
+        "setup_event_ms": 0.014606500000000001,
+        "setup_panel_ms": 0.001165
+      },
+      "event_medians": {
+        "event_double_checks": 6.0,
+        "event_dd_checks": 0.0,
+        "event_dd_accepts": 0.0,
+        "qf_family_constructions": 0.0,
+        "event_qf_refinements": 0.0,
+        "event_topology_reuses": 0.0,
+        "event_radius_reuses": 0.0,
+        "event_direct_qf_failures": 0.0
+      },
+      "gradient_quality": {
+        "NotRequested": 0,
+        "ToleranceMet": 176,
+        "FiniteUncertified": 269,
+        "Invalid": 105
+      }
+    },
+    {
+      "policy": "Strict",
+      "warm": 1,
+      "rtol": 0.0001,
+      "cases": 110,
+      "stops": {
+        "Converged": 9,
+        "TopologyUnresolved": 23,
+        "InnerAccuracyLimited": 4,
+        "EventLocationLimited": 67,
+        "BudgetExceeded": 7
+      },
+      "value_stops": {
+        "Converged": 110
+      },
+      "gradient_stops": {
+        "Converged": 14,
+        "TopologyUnresolved": 18,
+        "InnerAccuracyLimited": 4,
+        "EventLocationLimited": 67,
+        "BudgetExceeded": 7
+      },
+      "value_converged": 110,
+      "whole_attempt_ms": {
+        "p50": 3.827541,
+        "p90": 14.179683700000004,
+        "p95": 29.19147709999997,
+        "p99": 42.17019021999999,
+        "max": 52.495195
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.5470934999999999,
+        "setup_ms": 0.019395,
+        "setup_frame_ms": 2.6e-05,
+        "setup_cuts_ms": 0.001384,
+        "setup_event_ms": 0.0157465,
+        "setup_panel_ms": 0.0008990000000000001
+      },
+      "event_medians": {
+        "event_double_checks": 6.0,
+        "event_dd_checks": 0.0,
+        "event_dd_accepts": 0.0,
+        "qf_family_constructions": 0.0,
+        "event_qf_refinements": 0.0,
+        "event_topology_reuses": 0.0,
+        "event_radius_reuses": 0.0,
+        "event_direct_qf_failures": 0.0
+      },
+      "gradient_quality": {
+        "NotRequested": 0,
+        "ToleranceMet": 193,
+        "FiniteUncertified": 242,
+        "Invalid": 115
+      }
+    },
+    {
+      "policy": "Strict",
+      "warm": 1,
+      "rtol": 0.001,
+      "cases": 110,
+      "stops": {
+        "Converged": 9,
+        "TopologyUnresolved": 23,
+        "InnerAccuracyLimited": 4,
+        "EventLocationLimited": 67,
+        "BudgetExceeded": 7
+      },
+      "value_stops": {
+        "Converged": 110
+      },
+      "gradient_stops": {
+        "Converged": 14,
+        "TopologyUnresolved": 18,
+        "InnerAccuracyLimited": 4,
+        "EventLocationLimited": 67,
+        "BudgetExceeded": 7
+      },
+      "value_converged": 110,
+      "whole_attempt_ms": {
+        "p50": 3.5471065,
+        "p90": 14.414833300000003,
+        "p95": 31.170596399999987,
+        "p99": 61.682909829999964,
+        "max": 67.627667
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.5543865,
+        "setup_ms": 0.022076,
+        "setup_frame_ms": 2.8e-05,
+        "setup_cuts_ms": 0.001719,
+        "setup_event_ms": 0.016277,
+        "setup_panel_ms": 0.001781
+      },
+      "event_medians": {
+        "event_double_checks": 6.0,
+        "event_dd_checks": 0.0,
+        "event_dd_accepts": 0.0,
+        "qf_family_constructions": 0.0,
+        "event_qf_refinements": 0.0,
+        "event_topology_reuses": 0.0,
+        "event_radius_reuses": 0.0,
+        "event_direct_qf_failures": 0.0
+      },
+      "gradient_quality": {
+        "NotRequested": 0,
+        "ToleranceMet": 193,
+        "FiniteUncertified": 242,
+        "Invalid": 115
+      }
+    },
+    {
+      "policy": "ValueFirst",
+      "warm": 0,
+      "rtol": 0.0001,
+      "cases": 110,
+      "stops": {
+        "Converged": 110
+      },
+      "value_stops": {
+        "Converged": 110
+      },
+      "gradient_stops": {
+        "BudgetExceeded": 49,
+        "InnerAccuracyLimited": 1,
+        "EventLocationLimited": 39,
+        "Converged": 21
+      },
+      "value_converged": 110,
+      "whole_attempt_ms": {
+        "p50": 1.014094,
+        "p90": 1.5700172000000003,
+        "p95": 2.0795787999999993,
+        "p99": 15.617760359999952,
+        "max": 17.639124
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.6709080000000001,
+        "setup_ms": 0.018607,
+        "setup_frame_ms": 2e-05,
+        "setup_cuts_ms": 0.0010530000000000001,
+        "setup_event_ms": 0.0148305,
+        "setup_panel_ms": 0.0007149999999999999
+      },
+      "event_medians": {
+        "event_double_checks": 6.0,
+        "event_dd_checks": 0.0,
+        "event_dd_accepts": 0.0,
+        "qf_family_constructions": 0.0,
+        "event_qf_refinements": 0.0,
+        "event_topology_reuses": 0.0,
+        "event_radius_reuses": 0.0,
+        "event_direct_qf_failures": 0.0
+      },
+      "gradient_quality": {
+        "NotRequested": 0,
+        "ToleranceMet": 267,
+        "FiniteUncertified": 283,
+        "Invalid": 0
+      }
+    },
+    {
+      "policy": "ValueFirst",
+      "warm": 0,
+      "rtol": 0.001,
+      "cases": 110,
+      "stops": {
+        "Converged": 110
+      },
+      "value_stops": {
+        "Converged": 110
+      },
+      "gradient_stops": {
+        "BudgetExceeded": 64,
+        "InnerAccuracyLimited": 1,
+        "EventLocationLimited": 33,
+        "Converged": 12
+      },
+      "value_converged": 110,
+      "whole_attempt_ms": {
+        "p50": 0.996307,
+        "p90": 1.6066136000000002,
+        "p95": 2.1434106499999994,
+        "p99": 15.761578959999952,
+        "max": 17.569182
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.698404,
+        "setup_ms": 0.020833,
+        "setup_frame_ms": 2.5e-05,
+        "setup_cuts_ms": 0.002351,
+        "setup_event_ms": 0.015416,
+        "setup_panel_ms": 0.002081
+      },
+      "event_medians": {
+        "event_double_checks": 6.0,
+        "event_dd_checks": 0.0,
+        "event_dd_accepts": 0.0,
+        "qf_family_constructions": 0.0,
+        "event_qf_refinements": 0.0,
+        "event_topology_reuses": 0.0,
+        "event_radius_reuses": 0.0,
+        "event_direct_qf_failures": 0.0
+      },
+      "gradient_quality": {
+        "NotRequested": 0,
+        "ToleranceMet": 223,
+        "FiniteUncertified": 327,
+        "Invalid": 0
+      }
+    },
+    {
+      "policy": "ValueFirst",
+      "warm": 1,
+      "rtol": 0.0001,
+      "cases": 110,
+      "stops": {
+        "Converged": 109,
+        "TopologyUnresolved": 1
+      },
+      "value_stops": {
+        "Converged": 110
+      },
+      "gradient_stops": {
+        "BudgetExceeded": 47,
+        "InnerAccuracyLimited": 1,
+        "EventLocationLimited": 40,
+        "Converged": 21,
+        "TopologyUnresolved": 1
+      },
+      "value_converged": 110,
+      "whole_attempt_ms": {
+        "p50": 0.8403845000000001,
+        "p90": 1.624526000000001,
+        "p95": 2.0999321999999996,
+        "p99": 11.278768519999971,
+        "max": 12.623936
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.5452585000000001,
+        "setup_ms": 0.017884,
+        "setup_frame_ms": 2.1e-05,
+        "setup_cuts_ms": 0.00099,
+        "setup_event_ms": 0.0150985,
+        "setup_panel_ms": 0.0006585
+      },
+      "event_medians": {
+        "event_double_checks": 6.0,
+        "event_dd_checks": 0.0,
+        "event_dd_accepts": 0.0,
+        "qf_family_constructions": 0.0,
+        "event_qf_refinements": 0.0,
+        "event_topology_reuses": 0.0,
+        "event_radius_reuses": 0.0,
+        "event_direct_qf_failures": 0.0
+      },
+      "gradient_quality": {
+        "NotRequested": 0,
+        "ToleranceMet": 273,
+        "FiniteUncertified": 272,
+        "Invalid": 5
+      }
+    },
+    {
+      "policy": "ValueFirst",
+      "warm": 1,
+      "rtol": 0.001,
+      "cases": 110,
+      "stops": {
+        "Converged": 109,
+        "TopologyUnresolved": 1
+      },
+      "value_stops": {
+        "Converged": 110
+      },
+      "gradient_stops": {
+        "BudgetExceeded": 59,
+        "InnerAccuracyLimited": 1,
+        "EventLocationLimited": 33,
+        "Converged": 16,
+        "TopologyUnresolved": 1
+      },
+      "value_converged": 110,
+      "whole_attempt_ms": {
+        "p50": 0.7721185,
+        "p90": 1.5011054000000001,
+        "p95": 1.9991983999999998,
+        "p99": 11.083054789999967,
+        "max": 12.469423
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.5467865000000001,
+        "setup_ms": 0.01769,
+        "setup_frame_ms": 2.1e-05,
+        "setup_cuts_ms": 0.00098,
+        "setup_event_ms": 0.01465,
+        "setup_panel_ms": 0.0006540000000000001
+      },
+      "event_medians": {
+        "event_double_checks": 6.0,
+        "event_dd_checks": 0.0,
+        "event_dd_accepts": 0.0,
+        "qf_family_constructions": 0.0,
+        "event_qf_refinements": 0.0,
+        "event_topology_reuses": 0.0,
+        "event_radius_reuses": 0.0,
+        "event_direct_qf_failures": 0.0
+      },
+      "gradient_quality": {
+        "NotRequested": 0,
+        "ToleranceMet": 250,
+        "FiniteUncertified": 295,
+        "Invalid": 5
+      }
+    }
+  ],
+  "controls": [
+    {
+      "u": 0.0,
+      "jac": 0,
+      "warm": 0,
+      "mode": "adaptive_affine",
+      "cases": 55,
+      "whole_attempt_ms": {
+        "p50": 1.007985,
+        "p90": 1.3090214,
+        "p95": 1.4425571,
+        "p99": 12.36914870000002,
+        "max": 24.386792
+      },
+      "stops": {
+        "Converged": 55
+      },
+      "median_evaluations": 254
+    },
+    {
+      "u": 0.0,
+      "jac": 0,
+      "warm": 0,
+      "mode": "adaptive_fold",
+      "cases": 55,
+      "whole_attempt_ms": {
+        "p50": 0.843434,
+        "p90": 1.1718492,
+        "p95": 1.2944874999999996,
+        "p99": 8.700903860000013,
+        "max": 16.624076
+      },
+      "stops": {
+        "Converged": 55
+      },
+      "median_evaluations": 69
+    },
+    {
+      "u": 0.0,
+      "jac": 0,
+      "warm": 0,
+      "mode": "mapped_fixed63",
+      "cases": 55,
+      "whole_attempt_ms": {
+        "p50": 0.955579,
+        "p90": 2.9192254,
+        "p95": 3.845368099999999,
+        "p99": 11.385713760000012,
+        "max": 18.866742
+      },
+      "stops": {
+        "fixed_resolution": 55
+      },
+      "median_evaluations": 189
+    },
+    {
+      "u": 0.0,
+      "jac": 0,
+      "warm": 1,
+      "mode": "adaptive_affine",
+      "cases": 55,
+      "whole_attempt_ms": {
+        "p50": 0.840992,
+        "p90": 1.3862016000000001,
+        "p95": 1.5752125999999997,
+        "p99": 12.465359580000001,
+        "max": 13.652859
+      },
+      "stops": {
+        "Converged": 55
+      },
+      "median_evaluations": 254
+    },
+    {
+      "u": 0.0,
+      "jac": 0,
+      "warm": 1,
+      "mode": "adaptive_fold",
+      "cases": 55,
+      "whole_attempt_ms": {
+        "p50": 0.672863,
+        "p90": 1.061841,
+        "p95": 1.3389003,
+        "p99": 6.211809680000007,
+        "max": 11.437394
+      },
+      "stops": {
+        "Converged": 55
+      },
+      "median_evaluations": 69
+    },
+    {
+      "u": 0.0,
+      "jac": 0,
+      "warm": 1,
+      "mode": "mapped_fixed63",
+      "cases": 55,
+      "whole_attempt_ms": {
+        "p50": 1.020481,
+        "p90": 3.0656122000000003,
+        "p95": 3.6674312999999996,
+        "p99": 7.641092760000006,
+        "max": 11.469102
+      },
+      "stops": {
+        "fixed_resolution": 55
+      },
+      "median_evaluations": 189
+    },
+    {
+      "u": 0.0,
+      "jac": 1,
+      "warm": 0,
+      "mode": "adaptive_affine",
+      "cases": 55,
+      "whole_attempt_ms": {
+        "p50": 112.739462,
+        "p90": 218.1115718,
+        "p95": 267.8426880999998,
+        "p99": 613.3413942400003,
+        "max": 843.648853
+      },
+      "stops": {
+        "BudgetExceeded": 55
+      },
+      "median_evaluations": 11945
+    },
+    {
+      "u": 0.0,
+      "jac": 1,
+      "warm": 0,
+      "mode": "adaptive_fold",
+      "cases": 55,
+      "whole_attempt_ms": {
+        "p50": 7.702152,
+        "p90": 18.628378,
+        "p95": 21.343561699999988,
+        "p99": 49.937765840000004,
+        "max": 53.845694
+      },
+      "stops": {
+        "EventLocationLimited": 46,
+        "BudgetExceeded": 3,
+        "Converged": 6
+      },
+      "median_evaluations": 1848
+    },
+    {
+      "u": 0.0,
+      "jac": 1,
+      "warm": 0,
+      "mode": "mapped_fixed63",
+      "cases": 55,
+      "whole_attempt_ms": {
+        "p50": 1.022248,
+        "p90": 3.0993072000000006,
+        "p95": 3.9712093999999993,
+        "p99": 10.861923000000013,
+        "max": 18.824439
+      },
+      "stops": {
+        "fixed_resolution": 55
+      },
+      "median_evaluations": 189
+    },
+    {
+      "u": 0.0,
+      "jac": 1,
+      "warm": 1,
+      "mode": "adaptive_affine",
+      "cases": 55,
+      "whole_attempt_ms": {
+        "p50": 119.794614,
+        "p90": 236.624513,
+        "p95": 269.68295309999996,
+        "p99": 626.7785701600003,
+        "max": 838.222075
+      },
+      "stops": {
+        "BudgetExceeded": 55
+      },
+      "median_evaluations": 11945
+    },
+    {
+      "u": 0.0,
+      "jac": 1,
+      "warm": 1,
+      "mode": "adaptive_fold",
+      "cases": 55,
+      "whole_attempt_ms": {
+        "p50": 7.113993,
+        "p90": 19.4751082,
+        "p95": 40.323355799999945,
+        "p99": 62.71825084000001,
+        "max": 69.368407
+      },
+      "stops": {
+        "Converged": 9,
+        "EventLocationLimited": 41,
+        "BudgetExceeded": 4,
+        "TopologyUnresolved": 1
+      },
+      "median_evaluations": 1944
+    },
+    {
+      "u": 0.0,
+      "jac": 1,
+      "warm": 1,
+      "mode": "mapped_fixed63",
+      "cases": 55,
+      "whole_attempt_ms": {
+        "p50": 1.071058,
+        "p90": 3.1723776000000004,
+        "p95": 3.7425884,
+        "p99": 7.717328840000006,
+        "max": 11.514503
+      },
+      "stops": {
+        "fixed_resolution": 55
+      },
+      "median_evaluations": 189
+    },
+    {
+      "u": 0.5,
+      "jac": 0,
+      "warm": 0,
+      "mode": "adaptive_affine",
+      "cases": 55,
+      "whole_attempt_ms": {
+        "p50": 0.982939,
+        "p90": 1.3989362,
+        "p95": 1.4788257999999999,
+        "p99": 12.229858120000019,
+        "max": 24.829096
+      },
+      "stops": {
+        "Converged": 55
+      },
+      "median_evaluations": 197
+    },
+    {
+      "u": 0.5,
+      "jac": 0,
+      "warm": 0,
+      "mode": "adaptive_fold",
+      "cases": 55,
+      "whole_attempt_ms": {
+        "p50": 0.846117,
+        "p90": 1.1968958,
+        "p95": 1.3653906,
+        "p99": 8.497928080000014,
+        "max": 16.716916
+      },
+      "stops": {
+        "Converged": 55
+      },
+      "median_evaluations": 69
+    },
+    {
+      "u": 0.5,
+      "jac": 0,
+      "warm": 0,
+      "mode": "mapped_fixed63",
+      "cases": 55,
+      "whole_attempt_ms": {
+        "p50": 1.041489,
+        "p90": 3.3859666000000006,
+        "p95": 3.9995152,
+        "p99": 11.114836340000013,
+        "max": 19.272902
+      },
+      "stops": {
+        "fixed_resolution": 55
+      },
+      "median_evaluations": 189
+    },
+    {
+      "u": 0.5,
+      "jac": 0,
+      "warm": 1,
+      "mode": "adaptive_affine",
+      "cases": 55,
+      "whole_attempt_ms": {
+        "p50": 0.869732,
+        "p90": 1.3795972,
+        "p95": 1.6633417,
+        "p99": 12.784347660000002,
+        "max": 14.075121
+      },
+      "stops": {
+        "Converged": 55
+      },
+      "median_evaluations": 197
+    },
+    {
+      "u": 0.5,
+      "jac": 0,
+      "warm": 1,
+      "mode": "adaptive_fold",
+      "cases": 55,
+      "whole_attempt_ms": {
+        "p50": 0.697435,
+        "p90": 1.0713104000000002,
+        "p95": 1.2828481999999997,
+        "p99": 6.288568460000008,
+        "max": 11.753369
+      },
+      "stops": {
+        "Converged": 55
+      },
+      "median_evaluations": 69
+    },
+    {
+      "u": 0.5,
+      "jac": 0,
+      "warm": 1,
+      "mode": "mapped_fixed63",
+      "cases": 55,
+      "whole_attempt_ms": {
+        "p50": 1.118751,
+        "p90": 3.0565086000000004,
+        "p95": 3.8781155999999997,
+        "p99": 8.167794780000005,
+        "max": 11.778582
+      },
+      "stops": {
+        "fixed_resolution": 55
+      },
+      "median_evaluations": 189
+    },
+    {
+      "u": 0.5,
+      "jac": 1,
+      "warm": 0,
+      "mode": "adaptive_affine",
+      "cases": 55,
+      "whole_attempt_ms": {
+        "p50": 123.346883,
+        "p90": 240.4248664,
+        "p95": 272.0815794999998,
+        "p99": 518.5294588600001,
+        "max": 577.24603
+      },
+      "stops": {
+        "BudgetExceeded": 54,
+        "InnerAccuracyLimited": 1
+      },
+      "median_evaluations": 11913
+    },
+    {
+      "u": 0.5,
+      "jac": 1,
+      "warm": 0,
+      "mode": "adaptive_fold",
+      "cases": 55,
+      "whole_attempt_ms": {
+        "p50": 2.280812,
+        "p90": 14.534011600000001,
+        "p95": 22.917722999999967,
+        "p99": 59.1528263,
+        "max": 59.334053
+      },
+      "stops": {
+        "TopologyUnresolved": 21,
+        "InnerAccuracyLimited": 5,
+        "EventLocationLimited": 26,
+        "BudgetExceeded": 3
+      },
+      "median_evaluations": 316
+    },
+    {
+      "u": 0.5,
+      "jac": 1,
+      "warm": 0,
+      "mode": "mapped_fixed63",
+      "cases": 55,
+      "whole_attempt_ms": {
+        "p50": 1.238496,
+        "p90": 3.759591000000001,
+        "p95": 4.1451731999999994,
+        "p99": 11.330515660000012,
+        "max": 19.283971
+      },
+      "stops": {
+        "fixed_resolution": 55
+      },
+      "median_evaluations": 189
+    },
+    {
+      "u": 0.5,
+      "jac": 1,
+      "warm": 1,
+      "mode": "adaptive_affine",
+      "cases": 55,
+      "whole_attempt_ms": {
+        "p50": 134.355385,
+        "p90": 242.6396492,
+        "p95": 313.8851288999999,
+        "p99": 591.0527249800003,
+        "max": 781.266328
+      },
+      "stops": {
+        "BudgetExceeded": 53,
+        "InnerAccuracyLimited": 2
+      },
+      "median_evaluations": 11913
+    },
+    {
+      "u": 0.5,
+      "jac": 1,
+      "warm": 1,
+      "mode": "adaptive_fold",
+      "cases": 55,
+      "whole_attempt_ms": {
+        "p50": 2.10291,
+        "p90": 13.9310326,
+        "p95": 29.363985299999865,
+        "p99": 73.89793202,
+        "max": 75.270929
+      },
+      "stops": {
+        "TopologyUnresolved": 22,
+        "InnerAccuracyLimited": 4,
+        "EventLocationLimited": 26,
+        "BudgetExceeded": 3
+      },
+      "median_evaluations": 316
+    },
+    {
+      "u": 0.5,
+      "jac": 1,
+      "warm": 1,
+      "mode": "mapped_fixed63",
+      "cases": 55,
+      "whole_attempt_ms": {
+        "p50": 1.264437,
+        "p90": 3.3617638000000007,
+        "p95": 4.167366299999999,
+        "p99": 8.579591560000004,
+        "max": 12.052945
+      },
+      "stops": {
+        "fixed_resolution": 55
+      },
+      "median_evaluations": 189
+    }
+  ],
+  "jacobian_reference": {
+    "paper_highA": {
+      "rows": 60,
+      "finite_reference_rows": 34,
+      "stops": {
+        "EventLocationLimited": 30,
+        "InnerAccuracyLimited": 30
+      }
+    },
+    "plan15": {
+      "rows": 60,
+      "finite_reference_rows": 60,
+      "stops": {
+        "EventLocationLimited": 30,
+        "TopologyUnresolved": 30
+      }
+    }
+  },
+  "timing_sanity": {
+    "file": "evidence/holonomic/adaptive_radial_phase92_20260911/reuse_off/paired.csv",
+    "rows": 4400,
+    "finite_rows": 4400,
+    "bad_rows": 0,
+    "passed": true,
+    "stages": [
+      "topology_ms",
+      "setup_ms",
+      "physics_ms",
+      "estimator_ms",
+      "scheduler_ms"
+    ],
+    "setup_parts": [
+      "setup_frame_ms",
+      "setup_cuts_ms",
+      "setup_event_ms",
+      "setup_panel_ms"
+    ],
+    "rule": "finite nonnegative stages; each <= 10*whole+0.1 ms; sum <= 2*whole+0.1 ms",
+    "bad": []
+  },
+  "phase91_diagnostics": {
+    "epoch_rows": 16,
+    "event_rows": 128,
+    "refinement_rows": 304,
+    "epochs": [
+      {
+        "policy": "None",
+        "warm": 0,
+        "rtol": 0.0001,
+        "cases": 2,
+        "value_converged": 2,
+        "stops": {
+          "Converged": 2
+        },
+        "value_stops": {
+          "Converged": 2
+        },
+        "gradient_stops": {
+          "Converged": 2
+        },
+        "median_nodes": 166.0,
+        "median_evaluations": 166.0,
+        "median_event_count": 8.0,
+        "median_refinement_count": 19.0,
+        "event_medians": {
+          "event_double_checks": 8.0,
+          "event_dd_checks": 0.0,
+          "event_dd_accepts": 0.0,
+          "event_qf_refinements": 0.0,
+          "qf_family_constructions": 0.0,
+          "event_topology_reuses": 0.0,
+          "event_radius_reuses": 0.0,
+          "event_direct_qf_failures": 0.0
+        }
+      },
+      {
+        "policy": "None",
+        "warm": 0,
+        "rtol": 0.001,
+        "cases": 2,
+        "value_converged": 2,
+        "stops": {
+          "Converged": 2
+        },
+        "value_stops": {
+          "Converged": 2
+        },
+        "gradient_stops": {
+          "Converged": 2
+        },
+        "median_nodes": 126.0,
+        "median_evaluations": 126.0,
+        "median_event_count": 8.0,
+        "median_refinement_count": 16.0,
+        "event_medians": {
+          "event_double_checks": 8.0,
+          "event_dd_checks": 0.0,
+          "event_dd_accepts": 0.0,
+          "event_qf_refinements": 0.0,
+          "qf_family_constructions": 0.0,
+          "event_topology_reuses": 0.0,
+          "event_radius_reuses": 0.0,
+          "event_direct_qf_failures": 0.0
+        }
+      },
+      {
+        "policy": "None",
+        "warm": 1,
+        "rtol": 0.0001,
+        "cases": 2,
+        "value_converged": 2,
+        "stops": {
+          "Converged": 2
+        },
+        "value_stops": {
+          "Converged": 2
+        },
+        "gradient_stops": {
+          "Converged": 2
+        },
+        "median_nodes": 166.0,
+        "median_evaluations": 166.0,
+        "median_event_count": 8.0,
+        "median_refinement_count": 19.0,
+        "event_medians": {
+          "event_double_checks": 8.0,
+          "event_dd_checks": 0.0,
+          "event_dd_accepts": 0.0,
+          "event_qf_refinements": 0.0,
+          "qf_family_constructions": 0.0,
+          "event_topology_reuses": 0.0,
+          "event_radius_reuses": 0.0,
+          "event_direct_qf_failures": 0.0
+        }
+      },
+      {
+        "policy": "None",
+        "warm": 1,
+        "rtol": 0.001,
+        "cases": 2,
+        "value_converged": 2,
+        "stops": {
+          "Converged": 2
+        },
+        "value_stops": {
+          "Converged": 2
+        },
+        "gradient_stops": {
+          "Converged": 2
+        },
+        "median_nodes": 126.0,
+        "median_evaluations": 126.0,
+        "median_event_count": 8.0,
+        "median_refinement_count": 16.0,
+        "event_medians": {
+          "event_double_checks": 8.0,
+          "event_dd_checks": 0.0,
+          "event_dd_accepts": 0.0,
+          "event_qf_refinements": 0.0,
+          "qf_family_constructions": 0.0,
+          "event_topology_reuses": 0.0,
+          "event_radius_reuses": 0.0,
+          "event_direct_qf_failures": 0.0
+        }
+      },
+      {
+        "policy": "ValueFirst",
+        "warm": 0,
+        "rtol": 0.0001,
+        "cases": 2,
+        "value_converged": 2,
+        "stops": {
+          "Converged": 2
+        },
+        "value_stops": {
+          "Converged": 2
+        },
+        "gradient_stops": {
+          "BudgetExceeded": 2
+        },
+        "median_nodes": 238.0,
+        "median_evaluations": 238.0,
+        "median_event_count": 8.0,
+        "median_refinement_count": 22.0,
+        "event_medians": {
+          "event_double_checks": 8.0,
+          "event_dd_checks": 0.0,
+          "event_dd_accepts": 0.0,
+          "event_qf_refinements": 0.0,
+          "qf_family_constructions": 0.0,
+          "event_topology_reuses": 0.0,
+          "event_radius_reuses": 0.0,
+          "event_direct_qf_failures": 0.0
+        }
+      },
+      {
+        "policy": "ValueFirst",
+        "warm": 0,
+        "rtol": 0.001,
+        "cases": 2,
+        "value_converged": 2,
+        "stops": {
+          "Converged": 2
+        },
+        "value_stops": {
+          "Converged": 2
+        },
+        "gradient_stops": {
+          "BudgetExceeded": 2
+        },
+        "median_nodes": 190.0,
+        "median_evaluations": 190.0,
+        "median_event_count": 8.0,
+        "median_refinement_count": 19.0,
+        "event_medians": {
+          "event_double_checks": 8.0,
+          "event_dd_checks": 0.0,
+          "event_dd_accepts": 0.0,
+          "event_qf_refinements": 0.0,
+          "qf_family_constructions": 0.0,
+          "event_topology_reuses": 0.0,
+          "event_radius_reuses": 0.0,
+          "event_direct_qf_failures": 0.0
+        }
+      },
+      {
+        "policy": "ValueFirst",
+        "warm": 1,
+        "rtol": 0.0001,
+        "cases": 2,
+        "value_converged": 2,
+        "stops": {
+          "Converged": 2
+        },
+        "value_stops": {
+          "Converged": 2
+        },
+        "gradient_stops": {
+          "BudgetExceeded": 2
+        },
+        "median_nodes": 238.0,
+        "median_evaluations": 238.0,
+        "median_event_count": 8.0,
+        "median_refinement_count": 22.0,
+        "event_medians": {
+          "event_double_checks": 8.0,
+          "event_dd_checks": 0.0,
+          "event_dd_accepts": 0.0,
+          "event_qf_refinements": 0.0,
+          "qf_family_constructions": 0.0,
+          "event_topology_reuses": 0.0,
+          "event_radius_reuses": 0.0,
+          "event_direct_qf_failures": 0.0
+        }
+      },
+      {
+        "policy": "ValueFirst",
+        "warm": 1,
+        "rtol": 0.001,
+        "cases": 2,
+        "value_converged": 2,
+        "stops": {
+          "Converged": 2
+        },
+        "value_stops": {
+          "Converged": 2
+        },
+        "gradient_stops": {
+          "BudgetExceeded": 2
+        },
+        "median_nodes": 190.0,
+        "median_evaluations": 190.0,
+        "median_event_count": 8.0,
+        "median_refinement_count": 19.0,
+        "event_medians": {
+          "event_double_checks": 8.0,
+          "event_dd_checks": 0.0,
+          "event_dd_accepts": 0.0,
+          "event_qf_refinements": 0.0,
+          "qf_family_constructions": 0.0,
+          "event_topology_reuses": 0.0,
+          "event_radius_reuses": 0.0,
+          "event_direct_qf_failures": 0.0
+        }
+      }
+    ],
+    "events": [
+      {
+        "policy": "None",
+        "warm": 0,
+        "rtol": 0.0001,
+        "records": 16,
+        "precision_tier": {
+          "0": 16
+        },
+        "double_reason": {
+          "DoubleBudgetAccepted": 16
+        },
+        "dd_reason": {
+          "NotAttempted": 16
+        },
+        "qf_reason": {
+          "NotAttempted": 16
+        },
+        "topology_reused": {
+          "0": 16
+        },
+        "d14_condition": {
+          "p50": 2.0122338279043035e-07,
+          "p90": 0.01921912907279763,
+          "p95": 0.01934417850898679,
+          "p99": 0.01934417850898679,
+          "max": 0.01934417850898679
+        },
+        "uncertainty": {
+          "p50": 1.6653345369377348e-16,
+          "p90": 2.220446049250313e-16,
+          "p95": 2.220446049250313e-16,
+          "p99": 2.220446049250313e-16,
+          "max": 2.220446049250313e-16
+        },
+        "radius": {
+          "p50": 0.9817592438075498,
+          "p90": 1.1369332824285747,
+          "p95": 1.1478916159583825,
+          "p99": 1.1478916159583825,
+          "max": 1.1478916159583825
+        }
+      },
+      {
+        "policy": "None",
+        "warm": 0,
+        "rtol": 0.001,
+        "records": 16,
+        "precision_tier": {
+          "0": 16
+        },
+        "double_reason": {
+          "DoubleBudgetAccepted": 16
+        },
+        "dd_reason": {
+          "NotAttempted": 16
+        },
+        "qf_reason": {
+          "NotAttempted": 16
+        },
+        "topology_reused": {
+          "0": 16
+        },
+        "d14_condition": {
+          "p50": 2.0122338279043035e-07,
+          "p90": 0.01921912907279763,
+          "p95": 0.01934417850898679,
+          "p99": 0.01934417850898679,
+          "max": 0.01934417850898679
+        },
+        "uncertainty": {
+          "p50": 1.6653345369377348e-16,
+          "p90": 2.220446049250313e-16,
+          "p95": 2.220446049250313e-16,
+          "p99": 2.220446049250313e-16,
+          "max": 2.220446049250313e-16
+        },
+        "radius": {
+          "p50": 0.9817592438075498,
+          "p90": 1.1369332824285747,
+          "p95": 1.1478916159583825,
+          "p99": 1.1478916159583825,
+          "max": 1.1478916159583825
+        }
+      },
+      {
+        "policy": "None",
+        "warm": 1,
+        "rtol": 0.0001,
+        "records": 16,
+        "precision_tier": {
+          "0": 16
+        },
+        "double_reason": {
+          "DoubleBudgetAccepted": 16
+        },
+        "dd_reason": {
+          "NotAttempted": 16
+        },
+        "qf_reason": {
+          "NotAttempted": 16
+        },
+        "topology_reused": {
+          "0": 16
+        },
+        "d14_condition": {
+          "p50": 2.0355897071867418e-07,
+          "p90": 0.019225153839388914,
+          "p95": 0.019350205034067376,
+          "p99": 0.019350205034067376,
+          "max": 0.019350205034067376
+        },
+        "uncertainty": {
+          "p50": 1.6653345369377348e-16,
+          "p90": 2.220446049250313e-16,
+          "p95": 2.220446049250313e-16,
+          "p99": 2.220446049250313e-16,
+          "max": 2.220446049250313e-16
+        },
+        "radius": {
+          "p50": 0.9818735233644968,
+          "p90": 1.1370435819965707,
+          "p95": 1.1480033848369402,
+          "p99": 1.1480033848369402,
+          "max": 1.1480033848369402
+        }
+      },
+      {
+        "policy": "None",
+        "warm": 1,
+        "rtol": 0.001,
+        "records": 16,
+        "precision_tier": {
+          "0": 16
+        },
+        "double_reason": {
+          "DoubleBudgetAccepted": 16
+        },
+        "dd_reason": {
+          "NotAttempted": 16
+        },
+        "qf_reason": {
+          "NotAttempted": 16
+        },
+        "topology_reused": {
+          "0": 16
+        },
+        "d14_condition": {
+          "p50": 2.0355897071867418e-07,
+          "p90": 0.019225153839388914,
+          "p95": 0.019350205034067376,
+          "p99": 0.019350205034067376,
+          "max": 0.019350205034067376
+        },
+        "uncertainty": {
+          "p50": 1.6653345369377348e-16,
+          "p90": 2.220446049250313e-16,
+          "p95": 2.220446049250313e-16,
+          "p99": 2.220446049250313e-16,
+          "max": 2.220446049250313e-16
+        },
+        "radius": {
+          "p50": 0.9818735233644968,
+          "p90": 1.1370435819965707,
+          "p95": 1.1480033848369402,
+          "p99": 1.1480033848369402,
+          "max": 1.1480033848369402
+        }
+      },
+      {
+        "policy": "ValueFirst",
+        "warm": 0,
+        "rtol": 0.0001,
+        "records": 16,
+        "precision_tier": {
+          "0": 16
+        },
+        "double_reason": {
+          "DoubleBudgetAccepted": 16
+        },
+        "dd_reason": {
+          "NotAttempted": 16
+        },
+        "qf_reason": {
+          "NotAttempted": 16
+        },
+        "topology_reused": {
+          "0": 16
+        },
+        "d14_condition": {
+          "p50": 2.0122338279043035e-07,
+          "p90": 0.01921912907279763,
+          "p95": 0.01934417850898679,
+          "p99": 0.01934417850898679,
+          "max": 0.01934417850898679
+        },
+        "uncertainty": {
+          "p50": 1.6653345369377348e-16,
+          "p90": 2.220446049250313e-16,
+          "p95": 2.220446049250313e-16,
+          "p99": 2.220446049250313e-16,
+          "max": 2.220446049250313e-16
+        },
+        "radius": {
+          "p50": 0.9817592438075498,
+          "p90": 1.1369332824285747,
+          "p95": 1.1478916159583825,
+          "p99": 1.1478916159583825,
+          "max": 1.1478916159583825
+        }
+      },
+      {
+        "policy": "ValueFirst",
+        "warm": 0,
+        "rtol": 0.001,
+        "records": 16,
+        "precision_tier": {
+          "0": 16
+        },
+        "double_reason": {
+          "DoubleBudgetAccepted": 16
+        },
+        "dd_reason": {
+          "NotAttempted": 16
+        },
+        "qf_reason": {
+          "NotAttempted": 16
+        },
+        "topology_reused": {
+          "0": 16
+        },
+        "d14_condition": {
+          "p50": 2.0122338279043035e-07,
+          "p90": 0.01921912907279763,
+          "p95": 0.01934417850898679,
+          "p99": 0.01934417850898679,
+          "max": 0.01934417850898679
+        },
+        "uncertainty": {
+          "p50": 1.6653345369377348e-16,
+          "p90": 2.220446049250313e-16,
+          "p95": 2.220446049250313e-16,
+          "p99": 2.220446049250313e-16,
+          "max": 2.220446049250313e-16
+        },
+        "radius": {
+          "p50": 0.9817592438075498,
+          "p90": 1.1369332824285747,
+          "p95": 1.1478916159583825,
+          "p99": 1.1478916159583825,
+          "max": 1.1478916159583825
+        }
+      },
+      {
+        "policy": "ValueFirst",
+        "warm": 1,
+        "rtol": 0.0001,
+        "records": 16,
+        "precision_tier": {
+          "0": 16
+        },
+        "double_reason": {
+          "DoubleBudgetAccepted": 16
+        },
+        "dd_reason": {
+          "NotAttempted": 16
+        },
+        "qf_reason": {
+          "NotAttempted": 16
+        },
+        "topology_reused": {
+          "0": 16
+        },
+        "d14_condition": {
+          "p50": 2.0355897071867418e-07,
+          "p90": 0.019225153839388914,
+          "p95": 0.019350205034067376,
+          "p99": 0.019350205034067376,
+          "max": 0.019350205034067376
+        },
+        "uncertainty": {
+          "p50": 1.6653345369377348e-16,
+          "p90": 2.220446049250313e-16,
+          "p95": 2.220446049250313e-16,
+          "p99": 2.220446049250313e-16,
+          "max": 2.220446049250313e-16
+        },
+        "radius": {
+          "p50": 0.9818735233644968,
+          "p90": 1.1370435819965707,
+          "p95": 1.1480033848369402,
+          "p99": 1.1480033848369402,
+          "max": 1.1480033848369402
+        }
+      },
+      {
+        "policy": "ValueFirst",
+        "warm": 1,
+        "rtol": 0.001,
+        "records": 16,
+        "precision_tier": {
+          "0": 16
+        },
+        "double_reason": {
+          "DoubleBudgetAccepted": 16
+        },
+        "dd_reason": {
+          "NotAttempted": 16
+        },
+        "qf_reason": {
+          "NotAttempted": 16
+        },
+        "topology_reused": {
+          "0": 16
+        },
+        "d14_condition": {
+          "p50": 2.0355897071867418e-07,
+          "p90": 0.019225153839388914,
+          "p95": 0.019350205034067376,
+          "p99": 0.019350205034067376,
+          "max": 0.019350205034067376
+        },
+        "uncertainty": {
+          "p50": 1.6653345369377348e-16,
+          "p90": 2.220446049250313e-16,
+          "p95": 2.220446049250313e-16,
+          "p99": 2.220446049250313e-16,
+          "max": 2.220446049250313e-16
+        },
+        "radius": {
+          "p50": 0.9818735233644968,
+          "p90": 1.1370435819965707,
+          "p95": 1.1480033848369402,
+          "p99": 1.1480033848369402,
+          "max": 1.1480033848369402
+        }
+      }
+    ],
+    "files": [
+      "diagnostics/epochs.csv",
+      "diagnostics/events.csv",
+      "diagnostics/refinements.csv"
+    ]
+  },
+  "phase91_diagnostics_before": null,
+  "precision": "binary64 nodes and observables, qf local event correction",
+  "error_budget": "Eabs <= max(Tol, RelTol * abs(Q)) independently for every requested output",
+  "limitations": [
+    "Estimated, not Bounded. require_bound returns BoundUnavailable.",
+    "Jacobian whole-case times include failures and do not establish same-accuracy speedup.",
+    "Fixed64 is not an accuracy reference.",
+    "initial/unmatched and one-repeat ladder files are diagnostics, not final timing evidence."
+  ]
+}

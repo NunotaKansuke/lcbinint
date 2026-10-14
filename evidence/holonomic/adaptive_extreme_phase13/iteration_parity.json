@@ -1,0 +1,8 @@
+{
+  "presearch_sweeps": 0,
+  "dd_sweeps": 0,
+  "qf_warm_sweeps": 0,
+  "presearch_active_fallbacks": 0,
+  "presearch_failure_sweep": 0,
+  "qf_cold_sweeps": 0
+}

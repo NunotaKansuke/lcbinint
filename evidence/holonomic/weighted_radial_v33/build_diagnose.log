@@ -1,0 +1,8 @@
+evidence/holonomic/weighted_radial_v33/diagnose.cpp: In function ‘void {anonymous}::write_result(std::ostream&, const {anonymous}::InputRow&, double, int, double, double, const lcbinint::holonomic::SeededFrontierResult&, std::size_t, bool)’:
+evidence/holonomic/weighted_radial_v33/diagnose.cpp:74:30: error: ‘const struct lcbinint::holonomic::SeededFrontierResult’ has no member named ‘adaptive’
+   74 |     const double mu = result.adaptive.mu;
+      |                              ^~~~~~~~
+evidence/holonomic/weighted_radial_v33/diagnose.cpp: In function ‘int main(int, char**)’:
+evidence/holonomic/weighted_radial_v33/diagnose.cpp:185:95: error: ‘const struct lcbinint::holonomic::SeededFrontierResult’ has no member named ‘adaptive’
+  185 |                     std::cerr<<"CASE "<<row.case_id<<" tol "<<cfg.tol.mu_rtol<<" mu "<<result.adaptive.mu<<"\n";
+      |                                                                                               ^~~~~~~~

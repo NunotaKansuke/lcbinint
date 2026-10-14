@@ -1,0 +1,482 @@
+[
+  {
+    "case": 0,
+    "profile": "linear",
+    "epoch": 7,
+    "target": 0.001,
+    "mode": 0,
+    "outcome": "stop=Converged",
+    "rejects": [],
+    "same_R_same_cell_cold": []
+  },
+  {
+    "case": 0,
+    "profile": "linear",
+    "epoch": 7,
+    "target": 0.001,
+    "mode": 1,
+    "outcome": "stop=TopologyUnresolved",
+    "rejects": [
+      "ArcWidthUnresolved"
+    ],
+    "same_R_same_cell_cold": [
+      [
+        "None",
+        "reliable=1"
+      ]
+    ]
+  },
+  {
+    "case": 0,
+    "profile": "linear",
+    "epoch": 7,
+    "target": 0.001,
+    "mode": 2,
+    "outcome": "stop=TopologyUnresolved",
+    "rejects": [
+      "ArcWidthUnresolved"
+    ],
+    "same_R_same_cell_cold": [
+      [
+        "None",
+        "reliable=1"
+      ]
+    ]
+  },
+  {
+    "case": 0,
+    "profile": "linear",
+    "epoch": 7,
+    "target": 0.0001,
+    "mode": 0,
+    "outcome": "stop=Converged",
+    "rejects": [],
+    "same_R_same_cell_cold": []
+  },
+  {
+    "case": 0,
+    "profile": "linear",
+    "epoch": 7,
+    "target": 0.0001,
+    "mode": 1,
+    "outcome": "stop=TopologyUnresolved",
+    "rejects": [
+      "ArcWidthUnresolved"
+    ],
+    "same_R_same_cell_cold": [
+      [
+        "None",
+        "reliable=1"
+      ]
+    ]
+  },
+  {
+    "case": 0,
+    "profile": "linear",
+    "epoch": 7,
+    "target": 0.0001,
+    "mode": 2,
+    "outcome": "stop=TopologyUnresolved",
+    "rejects": [
+      "ArcWidthUnresolved"
+    ],
+    "same_R_same_cell_cold": [
+      [
+        "None",
+        "reliable=1"
+      ]
+    ]
+  },
+  {
+    "case": 0,
+    "profile": "linear",
+    "epoch": 15,
+    "target": 0.001,
+    "mode": 0,
+    "outcome": "stop=Converged",
+    "rejects": [],
+    "same_R_same_cell_cold": []
+  },
+  {
+    "case": 0,
+    "profile": "linear",
+    "epoch": 15,
+    "target": 0.001,
+    "mode": 1,
+    "outcome": "stop=TopologyUnresolved",
+    "rejects": [
+      "ArcKindMismatch",
+      "ArcKindMismatch"
+    ],
+    "same_R_same_cell_cold": [
+      [
+        "ArcKindMismatch",
+        "reliable=0"
+      ],
+      [
+        "ArcKindMismatch",
+        "reliable=0"
+      ]
+    ]
+  },
+  {
+    "case": 0,
+    "profile": "linear",
+    "epoch": 15,
+    "target": 0.001,
+    "mode": 2,
+    "outcome": "stop=TopologyUnresolved",
+    "rejects": [
+      "ArcKindMismatch",
+      "ArcKindMismatch"
+    ],
+    "same_R_same_cell_cold": [
+      [
+        "ArcKindMismatch",
+        "reliable=0"
+      ],
+      [
+        "ArcKindMismatch",
+        "reliable=0"
+      ]
+    ]
+  },
+  {
+    "case": 0,
+    "profile": "linear",
+    "epoch": 15,
+    "target": 0.0001,
+    "mode": 0,
+    "outcome": "stop=Converged",
+    "rejects": [],
+    "same_R_same_cell_cold": []
+  },
+  {
+    "case": 0,
+    "profile": "linear",
+    "epoch": 15,
+    "target": 0.0001,
+    "mode": 1,
+    "outcome": "stop=TopologyUnresolved",
+    "rejects": [
+      "ArcKindMismatch",
+      "ArcKindMismatch"
+    ],
+    "same_R_same_cell_cold": [
+      [
+        "ArcKindMismatch",
+        "reliable=0"
+      ],
+      [
+        "ArcKindMismatch",
+        "reliable=0"
+      ]
+    ]
+  },
+  {
+    "case": 0,
+    "profile": "linear",
+    "epoch": 15,
+    "target": 0.0001,
+    "mode": 2,
+    "outcome": "stop=TopologyUnresolved",
+    "rejects": [
+      "ArcKindMismatch",
+      "ArcKindMismatch"
+    ],
+    "same_R_same_cell_cold": [
+      [
+        "ArcKindMismatch",
+        "reliable=0"
+      ],
+      [
+        "ArcKindMismatch",
+        "reliable=0"
+      ]
+    ]
+  },
+  {
+    "case": 0,
+    "profile": "linear",
+    "epoch": 23,
+    "target": 0.001,
+    "mode": 0,
+    "outcome": "stop=Converged",
+    "rejects": [],
+    "same_R_same_cell_cold": []
+  },
+  {
+    "case": 0,
+    "profile": "linear",
+    "epoch": 23,
+    "target": 0.001,
+    "mode": 1,
+    "outcome": "stop=TopologyUnresolved",
+    "rejects": [
+      "InnerPhiNonpositive"
+    ],
+    "same_R_same_cell_cold": [
+      [
+        "None",
+        "reliable=1"
+      ]
+    ]
+  },
+  {
+    "case": 0,
+    "profile": "linear",
+    "epoch": 23,
+    "target": 0.001,
+    "mode": 2,
+    "outcome": "stop=TopologyUnresolved",
+    "rejects": [
+      "InnerPhiNonpositive"
+    ],
+    "same_R_same_cell_cold": [
+      [
+        "None",
+        "reliable=1"
+      ]
+    ]
+  },
+  {
+    "case": 0,
+    "profile": "linear",
+    "epoch": 23,
+    "target": 0.0001,
+    "mode": 0,
+    "outcome": "stop=Converged",
+    "rejects": [],
+    "same_R_same_cell_cold": []
+  },
+  {
+    "case": 0,
+    "profile": "linear",
+    "epoch": 23,
+    "target": 0.0001,
+    "mode": 1,
+    "outcome": "stop=TopologyUnresolved",
+    "rejects": [
+      "InnerPhiNonpositive"
+    ],
+    "same_R_same_cell_cold": [
+      [
+        "None",
+        "reliable=1"
+      ]
+    ]
+  },
+  {
+    "case": 0,
+    "profile": "linear",
+    "epoch": 23,
+    "target": 0.0001,
+    "mode": 2,
+    "outcome": "stop=TopologyUnresolved",
+    "rejects": [
+      "InnerPhiNonpositive"
+    ],
+    "same_R_same_cell_cold": [
+      [
+        "None",
+        "reliable=1"
+      ]
+    ]
+  },
+  {
+    "case": 0,
+    "profile": "uniform",
+    "epoch": 7,
+    "target": 0.001,
+    "mode": 0,
+    "outcome": "stop=Converged",
+    "rejects": [],
+    "same_R_same_cell_cold": []
+  },
+  {
+    "case": 0,
+    "profile": "uniform",
+    "epoch": 7,
+    "target": 0.001,
+    "mode": 1,
+    "outcome": "stop=TopologyUnresolved",
+    "rejects": [
+      "ArcWidthUnresolved"
+    ],
+    "same_R_same_cell_cold": [
+      [
+        "None",
+        "reliable=1"
+      ]
+    ]
+  },
+  {
+    "case": 0,
+    "profile": "uniform",
+    "epoch": 7,
+    "target": 0.001,
+    "mode": 2,
+    "outcome": "stop=TopologyUnresolved",
+    "rejects": [
+      "ArcWidthUnresolved"
+    ],
+    "same_R_same_cell_cold": [
+      [
+        "None",
+        "reliable=1"
+      ]
+    ]
+  },
+  {
+    "case": 0,
+    "profile": "uniform",
+    "epoch": 7,
+    "target": 0.0001,
+    "mode": 0,
+    "outcome": "stop=Converged",
+    "rejects": [],
+    "same_R_same_cell_cold": []
+  },
+  {
+    "case": 0,
+    "profile": "uniform",
+    "epoch": 7,
+    "target": 0.0001,
+    "mode": 1,
+    "outcome": "stop=TopologyUnresolved",
+    "rejects": [
+      "ArcWidthUnresolved"
+    ],
+    "same_R_same_cell_cold": [
+      [
+        "None",
+        "reliable=1"
+      ]
+    ]
+  },
+  {
+    "case": 0,
+    "profile": "uniform",
+    "epoch": 7,
+    "target": 0.0001,
+    "mode": 2,
+    "outcome": "stop=TopologyUnresolved",
+    "rejects": [
+      "ArcWidthUnresolved"
+    ],
+    "same_R_same_cell_cold": [
+      [
+        "None",
+        "reliable=1"
+      ]
+    ]
+  },
+  {
+    "case": 0,
+    "profile": "uniform",
+    "epoch": 15,
+    "target": 0.001,
+    "mode": 0,
+    "outcome": "stop=Converged",
+    "rejects": [],
+    "same_R_same_cell_cold": []
+  },
+  {
+    "case": 0,
+    "profile": "uniform",
+    "epoch": 15,
+    "target": 0.001,
+    "mode": 1,
+    "outcome": "stop=TopologyUnresolved",
+    "rejects": [
+      "ArcKindMismatch",
+      "ArcKindMismatch"
+    ],
+    "same_R_same_cell_cold": [
+      [
+        "ArcKindMismatch",
+        "reliable=0"
+      ],
+      [
+        "ArcKindMismatch",
+        "reliable=0"
+      ]
+    ]
+  },
+  {
+    "case": 0,
+    "profile": "uniform",
+    "epoch": 15,
+    "target": 0.001,
+    "mode": 2,
+    "outcome": "stop=TopologyUnresolved",
+    "rejects": [
+      "ArcKindMismatch",
+      "ArcKindMismatch"
+    ],
+    "same_R_same_cell_cold": [
+      [
+        "ArcKindMismatch",
+        "reliable=0"
+      ],
+      [
+        "ArcKindMismatch",
+        "reliable=0"
+      ]
+    ]
+  },
+  {
+    "case": 0,
+    "profile": "uniform",
+    "epoch": 15,
+    "target": 0.0001,
+    "mode": 0,
+    "outcome": "stop=Converged",
+    "rejects": [],
+    "same_R_same_cell_cold": []
+  },
+  {
+    "case": 0,
+    "profile": "uniform",
+    "epoch": 15,
+    "target": 0.0001,
+    "mode": 1,
+    "outcome": "stop=TopologyUnresolved",
+    "rejects": [
+      "ArcKindMismatch",
+      "ArcKindMismatch"
+    ],
+    "same_R_same_cell_cold": [
+      [
+        "ArcKindMismatch",
+        "reliable=0"
+      ],
+      [
+        "ArcKindMismatch",
+        "reliable=0"
+      ]
+    ]
+  },
+  {
+    "case": 0,
+    "profile": "uniform",
+    "epoch": 15,
+    "target": 0.0001,
+    "mode": 2,
+    "outcome": "stop=TopologyUnresolved",
+    "rejects": [
+      "ArcKindMismatch",
+      "ArcKindMismatch"
+    ],
+    "same_R_same_cell_cold": [
+      [
+        "ArcKindMismatch",
+        "reliable=0"
+      ],
+      [
+        "ArcKindMismatch",
+        "reliable=0"
+      ]
+    ]
+  }
+]

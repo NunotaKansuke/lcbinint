@@ -1,0 +1,24 @@
+loaded 115 cases (108 bench + 7 ref), reps=5  block-form=0
+
+  NOTE: HOLO_D14_STRUCT_LEGACY=1 -> solve A/B is a no-op (use_struct gate off).  Aggregates below are the
+  expanded-Horner baseline; unset the var for the block-form aggregate.
+
+== solve_d14  A/B (base = expansion+Horner, strt = blocks+block-eval; best-of-5) ==
+  cases with a D14 : 115
+  base : median   0.4942  p90   0.5473  p99   2.5671  max   2.9102  ms
+  strt : median   0.4931  p90   0.5566  p99   2.5849  max   2.8869  ms
+  speedup  median 1.00x  p90 0.98x  p99 0.99x
+
+  base tier hist : dd 113  qf-escal 2  cold 0
+  strt tier hist : dd 113  qf-escal 2  cold 0
+
+  PARITY:
+    coeff vector (blocks vs expansion) worst rel : 1.657e-29  (deg-mismatch 0)
+    root-set rel diff (strt vs base) worst       : 2.286e-09
+    worst __float128 residual  base 5.625e-14  strt 6.050e-14
+    parity failures : 0 / 115
+
+  whole radial_events (compiled path, block-form=0) : median   0.5752  p90   0.6422  p99   2.7052  max   3.0370  ms
+  full value+5-Jac epoch  (block-form=0)             : median   1.0690  p90   2.0311  p99   3.7677  max   3.9418  ms
+
+checksum 22383.112251

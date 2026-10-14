@@ -1,0 +1,16 @@
+{
+  "benchmark": "v2_vbm_adaptive_phase92_20260911",
+  "raw_nonconverged_rows": 636,
+  "topology_status_for_failed_rows": "OK",
+  "topology_uncertain_cells_for_failed_rows": 0,
+  "full_cell_geometry_rows": 624,
+  "full_cell_fraction_of_failed_rows": 0.9811320754716981,
+  "remaining_rows_without_full_cell": 12,
+  "remaining_geometries": [
+    {"case_id": 9, "d_bin_index": 2, "epoch_index": 7},
+    {"case_id": 92, "d_bin_index": 0, "epoch_index": "0,7,15,23"}
+  ],
+  "adaptive_stop": "TopologyUnresolved",
+  "interpretation": "The aggregate stop is produced after mapped_radius returns an AdaptiveSample with reliable=false. For the 624 full-cell rows this is the explicit adaptive kFull/kDegenerate guard; it is not a nested value-estimator tolerance failure. The remaining 12 rows are tiny-source/near-axis arc reliability cases whose internal guard is not currently exposed by the API.",
+  "diagnostic_limits": "topology_diagnostic.tsv counts cell kinds in the topology plan; arc_reliability_diagnostic.tsv probes the remaining geometries at 128 interior radii per arc cell and is diagnostic evidence, not a replacement for instrumenting mapped_radius itself."
+}

@@ -1,0 +1,26 @@
+Internal ctest changing into directory: /rogue1_8/nunota/lcbinint/build-holonomic-global
+Test project /rogue1_8/nunota/lcbinint/build-holonomic-global
+      Start  1: holonomic_point_images
+ 1/10 Test  #1: holonomic_point_images ...........   Passed    0.37 sec
+      Start  2: holonomic_m7_reference
+ 2/10 Test  #2: holonomic_m7_reference ...........   Passed    0.03 sec
+      Start  3: holonomic_transport
+ 3/10 Test  #3: holonomic_transport ..............   Passed    0.04 sec
+      Start  4: holonomic_finite_source_binary
+ 4/10 Test  #4: holonomic_finite_source_binary ...   Passed    5.11 sec
+      Start  5: holonomic_root_pair
+ 5/10 Test  #5: holonomic_root_pair ..............   Passed    0.25 sec
+      Start  6: holonomic_ode
+ 6/10 Test  #6: holonomic_ode ....................   Passed    0.67 sec
+      Start  7: holonomic_gm_taylor
+ 7/10 Test  #7: holonomic_gm_taylor ..............   Passed    0.04 sec
+      Start  8: holonomic_gm_physical
+ 8/10 Test  #8: holonomic_gm_physical ............   Passed    0.03 sec
+      Start  9: holonomic_chart_p4
+ 9/10 Test  #9: holonomic_chart_p4 ...............   Passed    0.03 sec
+      Start 10: holonomic_gm_coverage
+10/10 Test #10: holonomic_gm_coverage ............   Passed    8.51 sec
+
+100% tests passed, 0 tests failed out of 10
+
+Total Test time (real) =  15.07 sec

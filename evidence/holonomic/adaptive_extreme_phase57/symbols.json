@@ -1,0 +1,114 @@
+[
+  {
+    "percent": 18.97,
+    "symbol": "[.] lcbinint::holonomic::re_detail::d14_active_presearch(double const*, int, int, lcbinint::holonomic::Cplx<double> const*, double, int, bool)"
+  },
+  {
+    "percent": 9.8,
+    "symbol": "[.] std::vector<lcbinint::holonomic::Cplx<double>, std::allocator<lcbinint::holonomic::Cplx<double> > > lcbinint::holonomic::aberth<double>(double const*, int, int, lcbinint::holonomic::Cplx<double> const*, double, double*, int*)"
+  },
+  {
+    "percent": 6.88,
+    "symbol": "[.] sincosf32x"
+  },
+  {
+    "percent": 5.78,
+    "symbol": "[.] lcbinint::holonomic::polish_endpoint(double, double, lcbinint::holonomic::PrimaryFrame const&, int, lcbinint::holonomic::PhiValDtheta*)"
+  },
+  {
+    "percent": 5.62,
+    "symbol": "[.] lcbinint::holonomic::adaptive_detail::mapped_radius(double, double, lcbinint::holonomic::LensParams const&, double, lcbinint::holonomic::PrimaryFrame const&, lcbinint::holonomic::CellPlan const&, bool, bool, lcbinint::holonomic::AdaptiveSample const*, lcbinint::holonomic::AdaptiveConfig const*, double)"
+  },
+  {
+    "percent": 4.82,
+    "symbol": "[.] std::vector<lcbinint::holonomic::Cplx<double>, std::allocator<lcbinint::holonomic::Cplx<double> > > lcbinint::holonomic::aberth<double>(double const*, int, int, lcbinint::holonomic::Cplx<double> const*, double, double*, int*) [clone .constprop.2]"
+  },
+  {
+    "percent": 3.24,
+    "symbol": "[.] __multf3"
+  },
+  {
+    "percent": 2.99,
+    "symbol": "[.] __addtf3"
+  },
+  {
+    "percent": 2.67,
+    "symbol": "[.] lcbinint::holonomic::real_root_thetas_transport(std::array<double, 5ul> const&, double, lcbinint::holonomic::PrimaryFrame const&, lcbinint::holonomic::RootPairWarm&, lcbinint::holonomic::QuarticWarm*)"
+  },
+  {
+    "percent": 2.37,
+    "symbol": "[.] void lcbinint::holonomic::re_detail::d14_struct_eval<lcbinint::holonomic::D14Real>(lcbinint::holonomic::re_detail::D14StructC<lcbinint::holonomic::D14Real> const&, lcbinint::holonomic::Cplx<lcbinint::holonomic::D14Real> const&, lcbinint::holonomic::Cplx<lcbinint::holonomic::D14Real>&, lcbinint::holonomic::Cplx<lcbinint::holonomic::D14Real>&, bool) [clone .isra.0]"
+  },
+  {
+    "percent": 2.33,
+    "symbol": "[.] lcbinint::holonomic::k_rule_converged(double, double, double, lcbinint::holonomic::DeflatedQuad const&, double, double, double, double&, lcbinint::holonomic::KRejectReason*, double*)"
+  },
+  {
+    "percent": 2.21,
+    "symbol": "[.] lcbinint::holonomic::phi_detail::core(double, double, lcbinint::holonomic::PrimaryFrame const&)"
+  },
+  {
+    "percent": 2.13,
+    "symbol": "[.] lcbinint::holonomic::Cplx<double> lcbinint::holonomic::operator/<double>(lcbinint::holonomic::Cplx<double>, lcbinint::holonomic::Cplx<double>)"
+  },
+  {
+    "percent": 2.11,
+    "symbol": "[.] lcbinint::holonomic::adaptive_detail::integrate<lcbinint::holonomic::flux_adaptive_integrate(lcbinint::holonomic::LensParams const&, double, lcbinint::holonomic::TopologyResult const&, lcbinint::holonomic::AdaptiveConfig const&, lcbinint::holonomic::AdaptiveWorkspace&)::{lambda(double, double, int, lcbinint::holonomic::AdaptiveSample const*, bool, double)#4}>(lcbinint::holonomic::AdaptiveWorkspace&, lcbinint::holonomic::AdaptiveConfig const&, lcbinint::holonomic::flux_adaptive_integrate(lcbinint::holonomic::LensParams const&, double, lcbinint::holonomic::TopologyResult const&, lcbinint::holonomic::AdaptiveConfig const&, lcbinint::holonomic::AdaptiveWorkspace&)::{lambda(double, double, int, lcbinint::holonomic::AdaptiveSample const*, bool, double)#4})::{lambda(unsigned long, int)#4}::operator()(unsigned long, int) const"
+  },
+  {
+    "percent": 1.99,
+    "symbol": "[.] lcbinint::holonomic::Cplx<lcbinint::holonomic::D14Real> lcbinint::holonomic::operator*<lcbinint::holonomic::D14Real>(lcbinint::holonomic::Cplx<lcbinint::holonomic::D14Real>, lcbinint::holonomic::Cplx<lcbinint::holonomic::D14Real>)"
+  },
+  {
+    "percent": 1.54,
+    "symbol": "[.] lcbinint::holonomic::LocalFoldQuantities<lcbinint::holonomic::DD> lcbinint::holonomic::local_fold_quantities<lcbinint::holonomic::DD>(lcbinint::holonomic::DD, lcbinint::holonomic::DD, lcbinint::holonomic::PrimaryFrame const&, bool)"
+  },
+  {
+    "percent": 1.41,
+    "symbol": "[.] lcbinint::holonomic::adaptive_detail::estimate(lcbinint::holonomic::AdaptivePanel&, lcbinint::holonomic::AdaptiveWorkspace const&, int, lcbinint::holonomic::AdaptiveConfig const&)"
+  },
+  {
+    "percent": 1.33,
+    "symbol": "[.] lcbinint::holonomic::arc_set_from_root_thetas(double, lcbinint::holonomic::PrimaryFrame const&, std::vector<double, std::allocator<double> > const&)"
+  },
+  {
+    "percent": 1.04,
+    "symbol": "[.] lcbinint::holonomic::adaptive_detail::full_circle_periodic_level(int, double, lcbinint::holonomic::PrimaryFrame const&, bool, std::array<lcbinint::holonomic::adaptive_detail::FullCircleNode, 256ul>&, lcbinint::holonomic::adaptive_detail::FullCircleLevel&)"
+  },
+  {
+    "percent": 0.91,
+    "symbol": "[.] lcbinint::holonomic::operator*(lcbinint::holonomic::DD, lcbinint::holonomic::DD)"
+  },
+  {
+    "percent": 0.84,
+    "symbol": "[.] 0x0000000000000b18"
+  },
+  {
+    "percent": 0.74,
+    "symbol": "[.] lcbinint::holonomic::local_bracket_detail::certify(std::array<double, 5ul> const&, std::array<double, 4ul> const&, int)"
+  },
+  {
+    "percent": 0.72,
+    "symbol": "[.] __subtf3"
+  },
+  {
+    "percent": 0.71,
+    "symbol": "[.] lcbinint::holonomic::re_detail::d14_screened_residual(__float128 const*, int, std::vector<lcbinint::holonomic::Cplx<__float128>, std::allocator<lcbinint::holonomic::Cplx<__float128> > > const&, __float128, bool&)"
+  },
+  {
+    "percent": 0.66,
+    "symbol": "[.] bool lcbinint::holonomic::transport_pairs_valid<lcbinint::holonomic::RootPairSet>(lcbinint::holonomic::RootPairSet const&, unsigned long, std::array<double, 5ul> const&, double, lcbinint::holonomic::PrimaryFrame const&)"
+  },
+  {
+    "percent": 0.62,
+    "symbol": "[.] nextafterf32x"
+  },
+  {
+    "percent": 0.52,
+    "symbol": "[.] lcbinint::holonomic::re_detail::aberth_d14_real_mixed(lcbinint::holonomic::re_detail::D14StructC<lcbinint::holonomic::D14Real> const&, std::array<lcbinint::holonomic::Cplx<lcbinint::holonomic::D14Real>, 14ul> const&, int, lcbinint::holonomic::D14Real, bool, lcbinint::holonomic::re_detail::D14RealScheduleConfig const*, std::array<int, 14ul> const*)"
+  },
+  {
+    "percent": 0.52,
+    "symbol": "[.] __hypot_finite"
+  }
+]

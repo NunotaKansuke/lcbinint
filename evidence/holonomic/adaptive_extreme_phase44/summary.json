@@ -1,0 +1,84 @@
+{
+  "rows": 7216,
+  "ok_mismatches": 0,
+  "node_mismatches": 0,
+  "max_scaled_mu_difference": 2.0971948845499258e-13,
+  "profiles": {
+    "uniform": {
+      "counts": {
+        "predictor_nonpositive": {
+          "baseline": 1719,
+          "candidate": 1723
+        },
+        "corrected_nonpositive": {
+          "baseline": 298,
+          "candidate": 164
+        },
+        "corrected_tiny_positive": {
+          "baseline": 6161,
+          "candidate": 6164
+        },
+        "rootpair_success": {
+          "baseline": 128842,
+          "candidate": 128992
+        },
+        "rootpair_cold": {
+          "baseline": 43840,
+          "candidate": 43800
+        },
+        "newton_iterations": {
+          "baseline": 542028,
+          "candidate": 542846
+        }
+      },
+      "times": {
+        "whole": {
+          "baseline_median_ms": 0.24761149999999998,
+          "candidate_median_ms": 0.24675750000000002
+        },
+        "arc": {
+          "baseline_median_ms": 0.06912799999999998,
+          "candidate_median_ms": 0.06871649999999999
+        }
+      }
+    },
+    "linear": {
+      "counts": {
+        "predictor_nonpositive": {
+          "baseline": 1713,
+          "candidate": 1717
+        },
+        "corrected_nonpositive": {
+          "baseline": 289,
+          "candidate": 160
+        },
+        "corrected_tiny_positive": {
+          "baseline": 7942,
+          "candidate": 7945
+        },
+        "rootpair_success": {
+          "baseline": 148540,
+          "candidate": 148690
+        },
+        "rootpair_cold": {
+          "baseline": 47400,
+          "candidate": 47360
+        },
+        "newton_iterations": {
+          "baseline": 600209,
+          "candidate": 601027
+        }
+      },
+      "times": {
+        "whole": {
+          "baseline_median_ms": 0.30747599999999997,
+          "candidate_median_ms": 0.30517649999999996
+        },
+        "arc": {
+          "baseline_median_ms": 0.0793295,
+          "candidate_median_ms": 0.07896349999999999
+        }
+      }
+    }
+  }
+}

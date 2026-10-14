@@ -1,0 +1,3 @@
+PATH=/rogue1_8/nunota/local/gsl/bin:$PATH /usr/bin/c++ -std=c++17 -O3 -march=native -funroll-loops -ffp-contract=fast -fno-math-errno -fext-numeric-literals -Isrc -Iinclude benchmarks/holonomic/bench_certified_algebraic_topology.cpp -Wl,--start-group build/liblcbinint_magnification.a build/liblcbinint_lightcurve.a -Wl,--end-group $(/rogue1_8/nunota/local/gsl/bin/gsl-config --libs) -lquadmath -fopenmp -o /tmp/bench_certified_vmax
+LD_LIBRARY_PATH=/rogue1_8/nunota/local/gsl/lib taskset -c 0 /tmp/bench_certified_vmax evidence/holonomic/d14_precision_warm_20260912/trajectory/input_snapshot.tsv /tmp/vmax_seed200_b4.tsv 1 200
+ctest --test-dir build-holonomic-m7 -R 'holonomic_(adaptive_radial|finite_source_binary|quartic_sturm)' --output-on-failure

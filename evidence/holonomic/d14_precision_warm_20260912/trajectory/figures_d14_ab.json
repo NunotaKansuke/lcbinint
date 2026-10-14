@@ -1,0 +1,90 @@
+[
+  {
+    "profile": "uniform",
+    "target": 0.001,
+    "lane": "cold",
+    "png": "/rogue1_8/nunota/lcbinint/evidence/holonomic/d14_precision_warm_20260912/trajectory/figures_d14_ab/q_rho_uniform_1e-3_d14_ab_full-cold.png",
+    "pdf": "/rogue1_8/nunota/lcbinint/evidence/holonomic/d14_precision_warm_20260912/trajectory/figures_d14_ab/q_rho_uniform_1e-3_d14_ab_full-cold.pdf",
+    "rows": 3608,
+    "value_converged": 3608,
+    "speed_rows": 3608,
+    "error_rows": 3608
+  },
+  {
+    "profile": "uniform",
+    "target": 0.001,
+    "lane": "warm",
+    "png": "/rogue1_8/nunota/lcbinint/evidence/holonomic/d14_precision_warm_20260912/trajectory/figures_d14_ab/q_rho_uniform_1e-3_d14_ab_full-warm.png",
+    "pdf": "/rogue1_8/nunota/lcbinint/evidence/holonomic/d14_precision_warm_20260912/trajectory/figures_d14_ab/q_rho_uniform_1e-3_d14_ab_full-warm.pdf",
+    "rows": 3608,
+    "value_converged": 3608,
+    "speed_rows": 3608,
+    "error_rows": 3608
+  },
+  {
+    "profile": "uniform",
+    "target": 0.0001,
+    "lane": "cold",
+    "png": "/rogue1_8/nunota/lcbinint/evidence/holonomic/d14_precision_warm_20260912/trajectory/figures_d14_ab/q_rho_uniform_1e-4_d14_ab_full-cold.png",
+    "pdf": "/rogue1_8/nunota/lcbinint/evidence/holonomic/d14_precision_warm_20260912/trajectory/figures_d14_ab/q_rho_uniform_1e-4_d14_ab_full-cold.pdf",
+    "rows": 3608,
+    "value_converged": 3608,
+    "speed_rows": 3608,
+    "error_rows": 3608
+  },
+  {
+    "profile": "uniform",
+    "target": 0.0001,
+    "lane": "warm",
+    "png": "/rogue1_8/nunota/lcbinint/evidence/holonomic/d14_precision_warm_20260912/trajectory/figures_d14_ab/q_rho_uniform_1e-4_d14_ab_full-warm.png",
+    "pdf": "/rogue1_8/nunota/lcbinint/evidence/holonomic/d14_precision_warm_20260912/trajectory/figures_d14_ab/q_rho_uniform_1e-4_d14_ab_full-warm.pdf",
+    "rows": 3608,
+    "value_converged": 3608,
+    "speed_rows": 3608,
+    "error_rows": 3608
+  },
+  {
+    "profile": "linear",
+    "target": 0.001,
+    "lane": "cold",
+    "png": "/rogue1_8/nunota/lcbinint/evidence/holonomic/d14_precision_warm_20260912/trajectory/figures_d14_ab/q_rho_linear_1e-3_d14_ab_full-cold.png",
+    "pdf": "/rogue1_8/nunota/lcbinint/evidence/holonomic/d14_precision_warm_20260912/trajectory/figures_d14_ab/q_rho_linear_1e-3_d14_ab_full-cold.pdf",
+    "rows": 3608,
+    "value_converged": 3608,
+    "speed_rows": 3608,
+    "error_rows": 3608
+  },
+  {
+    "profile": "linear",
+    "target": 0.001,
+    "lane": "warm",
+    "png": "/rogue1_8/nunota/lcbinint/evidence/holonomic/d14_precision_warm_20260912/trajectory/figures_d14_ab/q_rho_linear_1e-3_d14_ab_full-warm.png",
+    "pdf": "/rogue1_8/nunota/lcbinint/evidence/holonomic/d14_precision_warm_20260912/trajectory/figures_d14_ab/q_rho_linear_1e-3_d14_ab_full-warm.pdf",
+    "rows": 3608,
+    "value_converged": 3608,
+    "speed_rows": 3608,
+    "error_rows": 3608
+  },
+  {
+    "profile": "linear",
+    "target": 0.0001,
+    "lane": "cold",
+    "png": "/rogue1_8/nunota/lcbinint/evidence/holonomic/d14_precision_warm_20260912/trajectory/figures_d14_ab/q_rho_linear_1e-4_d14_ab_full-cold.png",
+    "pdf": "/rogue1_8/nunota/lcbinint/evidence/holonomic/d14_precision_warm_20260912/trajectory/figures_d14_ab/q_rho_linear_1e-4_d14_ab_full-cold.pdf",
+    "rows": 3608,
+    "value_converged": 3608,
+    "speed_rows": 3608,
+    "error_rows": 3608
+  },
+  {
+    "profile": "linear",
+    "target": 0.0001,
+    "lane": "warm",
+    "png": "/rogue1_8/nunota/lcbinint/evidence/holonomic/d14_precision_warm_20260912/trajectory/figures_d14_ab/q_rho_linear_1e-4_d14_ab_full-warm.png",
+    "pdf": "/rogue1_8/nunota/lcbinint/evidence/holonomic/d14_precision_warm_20260912/trajectory/figures_d14_ab/q_rho_linear_1e-4_d14_ab_full-warm.pdf",
+    "rows": 3608,
+    "value_converged": 3608,
+    "speed_rows": 3608,
+    "error_rows": 3608
+  }
+]

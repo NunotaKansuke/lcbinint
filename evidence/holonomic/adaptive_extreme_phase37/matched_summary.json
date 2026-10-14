@@ -1,0 +1,20 @@
+[
+  {
+    "stage": 0,
+    "native_lost": 110,
+    "native_added": 0,
+    "point_certification_mismatches": 0
+  },
+  {
+    "stage": 1,
+    "native_lost": 160,
+    "native_added": 0,
+    "point_certification_mismatches": 0
+  },
+  {
+    "stage": 2,
+    "native_lost": 186,
+    "native_added": 0,
+    "point_certification_mismatches": 0
+  }
+]

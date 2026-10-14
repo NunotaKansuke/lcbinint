@@ -1,0 +1,51 @@
+{
+  "benchmark": "V2/VBM pure finite-source kernel four-way comparison",
+  "generated": "2026-09-11",
+  "v2_commit": "8a9f701217003e49ec95ec13ab97b15b7fd95886",
+  "scope": {
+    "profiles": {
+      "uniform": "LD off",
+      "linear": "LD on, c=0.5"
+    },
+    "speed_targets": [0.001, 0.0001],
+    "error_reference": "VBM RelTol=1e-6",
+    "gradient_requested": false,
+    "radial_nodes": 64,
+    "v2_timing": "flux_value_integrate(64,u,pf,topo) body only",
+    "excluded_from_v2_timer": [
+      "LensParams construction",
+      "PrimaryFrame construction",
+      "classify_cells (D14/topology)",
+      "epoch_value_blend",
+      "input parsing",
+      "output formatting"
+    ]
+  },
+  "corpus": {
+    "input_rows": 7216,
+    "speed_rows": 3608,
+    "reference_epoch_indices": [0, 7, 15, 23],
+    "v2_calls": 7216,
+    "v2_repetitions": 3,
+    "timing_reducer": "median"
+  },
+  "artifacts": {
+    "runner": "v2_pure_kernel_runner.cpp",
+    "runner_sha256": "328e67820ea220ac43b5cbb74385bcd5f02c0abda8c6f093945c2734c0b17ff7",
+    "input_snapshot": "input_snapshot.tsv",
+    "input_snapshot_sha256": "6646492658ed416e75cb8c6c821ee853f79cdf7761fc41441186aa67b81fa05b",
+    "v2_results": "v2_results.tsv",
+    "v2_results_sha256": "027da38126418bffe6a95bd309ea50da6713f979dd8aa66f170fc78a783a0423",
+    "joined_results": "joined_v2_vbm.tsv",
+    "figure_script": "make_figures.py",
+    "vbm_speed_source": "/tmp/lcbinint_pure_kernel_confirm_full_20260909/merged_final/results.json",
+    "vbm_speed_source_sha256": "7233f909e2539dd5331acc5d412efc94a04238f5c9f3dbc7c031c88a5ade6027",
+    "vbm_reference_root": "/tmp/lcbinint_pure_kernel_reference_all_1e-6_20260909/plot_parts_vbm_reltol_1e-6_reference",
+    "vbm_reference_content_sha256": "de8c39bcd0ed62cedd2cbb50a840605a6d270a393640c0ac7b39694ee6804956"
+  },
+  "notes": [
+    "Only V2 was rerun at the current HEAD; VBM speed and RelTol=1e-6 reference data are the existing matched corpus.",
+    "V2 status remains visible in raw/joined data; no gradient tolerance or Jacobian computation is requested by this benchmark.",
+    "The runtime figure is a pure-kernel comparison and is not a whole-epoch D14/topology comparison."
+  ]
+}

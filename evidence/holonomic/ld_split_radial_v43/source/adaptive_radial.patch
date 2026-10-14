@@ -1,0 +1,181 @@
+--- evidence/holonomic/ld_split_radial_v43/source/adaptive_radial_before.hpp	2026-10-14 03:00:17.531469743 +0900
++++ src/lcbinint/magnification/holonomic/adaptive_radial.hpp	2026-10-14 03:04:54.387778880 +0900
+@@ -154,6 +154,7 @@
+     double warm_root_seed_tolerance=0.0; // initialization only, endpoint gates remain
+     bool reuse_frontier_count_kernel=false; // same guarded count contract at quadrature nodes
+     bool prepared_fold_pair_seed=false; // research: initialize cold nodes from refined fold state
++    bool split_ld_radial=false;
+     bool weighted_radial=false; // research value-only isolated double-fold spans
+     const std::vector<std::pair<double,double>>* weighted_radial_spans=nullptr;
+     double angular_value_budget_fraction=0.0; // scoped value-only K-rule budget
+@@ -326,6 +327,7 @@
+     double R=0,R_lo=0,jac=0;
+     bool precise_R=false;
+     AdaptiveVector value{},inner{},geometry{},roundoff{};
++    double ld_radial_value=0,uniform_radial_value=0;
+     QuarticWarm quartic{};
+     RootPairWarm roots{};
+     std::array<bool,6> component_finite{{true,true,true,true,true,true}};
+@@ -370,7 +372,7 @@
+     // one integration span covers more than one unchanged topology cell.
+     int cell=0,cell_end=0,evaluator_cell=-1,level=0,depth=0,parent=-1;
+     bool active=true,resolved=false,value_resolved=false;
+-    bool weighted=false;
++    bool weighted=false,split_ld=false;
+     std::array<bool,5> gradient_resolved{};
+     std::array<bool,5> gradient_invalid{};
+     double left_uncertainty=0,right_uncertainty=0;
+@@ -532,13 +534,47 @@
+     }
+     return r;
+ }
+-template<int Components=0>
++template<int Components=0,int Channel=0>
+ inline void estimate(AdaptivePanel& p,AdaptiveWorkspace& w,int input_components,
+                      const AdaptiveConfig& cfg,
+                      size_t panel_index=std::numeric_limits<size_t>::max()) {
++    constexpr int channel=Channel;
++    if(p.split_ld && channel==0) {
++        estimate<Components,1>(p,w,input_components,cfg,panel_index);
++        const auto uniform=p;
++        estimate<Components,2>(p,w,input_components,cfg,panel_index);
++        const double linear_q=p.q[0];
++        p.q[0]+=uniform.q[0];p.radial[0]+=uniform.radial[0];
++        p.event=uniform.event;
++        const auto& linear_rule=linear_radial_rule(p.level);
++        const auto& uniform_rule=radial_rule(p.level,true);
++        Sum inner,geometry,roundoff;
++        for(int k=1;k<(1<<p.level);++k) {
++            const auto& sample=w.samples[p.samples[k*(256/(1<<p.level))]];
++            const double x=uniform_rule.x[k-1];
++            // Each stored error bounds the combined physical sample after
++            // division by sqrt(weight). Envelope both product-rule weights.
++            const double wt=std::max(uniform_rule.w[k-1],
++                linear_rule.w[k-1]/std::sqrt(std::max(0.0,1-x*x)));
++            inner.add(wt*sample.inner[0]);geometry.add(wt*sample.geometry[0]);
++            roundoff.add(wt*sample.roundoff[0]+eps*(
++                std::fabs(uniform_rule.w[k-1]*sample.uniform_radial_value)+
++                std::fabs(linear_rule.w[k-1]*sample.ld_radial_value)));
++        }
++        p.inner[0]=inner.get();p.geometry[0]=geometry.get();
++        p.roundoff[0]=roundoff.get()+eps*(std::fabs(linear_q)+std::fabs(p.q[0]));
++        p.error[0]=p.radial[0]+p.inner[0]+p.geometry[0]+p.roundoff[0]+p.event[0];
++        p.value_resolved=p.value_resolved&&uniform.value_resolved;p.resolved=p.value_resolved;
++        return;
++    }
++    auto channel_value=[&](const AdaptiveSample& s,int j) {
++        if(channel==1 && j==0)return s.uniform_radial_value;
++        if(channel==2 && j==0)return s.ld_radial_value;
++        return s.value[j];
++    };
+     const int nc=Components?Components:input_components;
+     const int m=1<<p.level,step=256/m;
+-    const auto& rule=radial_rule(p.level,p.weighted);
++    const auto& rule=(channel==2?linear_radial_rule(p.level):radial_rule(p.level,p.weighted));
+     std::array<Sum,6> q,inn,geo,rnd;
+ #if defined(__AVX2__) && !defined(HOLO_ADAPTIVE_SCALAR_ESTIMATOR)
+     if constexpr(Components==1) {
+@@ -546,7 +582,7 @@
+         for(int k=1;k<m;++k) {
+             const auto& sample=w.samples[p.samples[k*step]];
+             if(!sample.component_finite[0])continue;
+-            const double wt=rule.w[k-1],value=wt*sample.value[0];
++            const double wt=rule.w[k-1],value=wt*channel_value(sample,0);
+             sums.add(value,wt*sample.inner[0],wt*sample.geometry[0],
+                      wt*sample.roundoff[0]+eps*std::fabs(value));
+         }
+@@ -561,8 +597,8 @@
+                 continue;
+             }
+             double wt=rule.w[k-1];
+-            q[j].add(wt*s.value[j]); inn[j].add(wt*s.inner[j]);
+-            geo[j].add(wt*s.geometry[j]);rnd[j].add(wt*s.roundoff[j]+eps*std::fabs(wt*s.value[j]));
++            q[j].add(wt*channel_value(s,j)); inn[j].add(wt*s.inner[j]);
++            geo[j].add(wt*s.geometry[j]);rnd[j].add(wt*s.roundoff[j]+eps*std::fabs(wt*channel_value(s,j)));
+         }
+     }
+     AdaptiveVector detail{},previous{},nested_difference{};
+@@ -573,7 +609,7 @@
+ #endif
+     for(int lev=p.level-1;lev<=p.level;++lev) {
+         const int mm=1<<lev,st=256/mm,coarse=mm/2-1;
+-        const auto& r=radial_rule(lev,p.weighted);
++        const auto& r=(channel==2?linear_radial_rule(lev):radial_rule(lev,p.weighted));
+         AdaptiveVector norm{};
+ #ifdef HOLO_ADAPTIVE_LEGACY_INTERPOLATION
+         for(int k=1;k<mm;k+=2) {
+@@ -589,16 +625,16 @@
+                     const auto& coarse_sample=w.samples[p.samples[2*h*st]];
+                     if(!coarse_sample.component_finite[j]) {valid=false;break;}
+                     pred.add(r.interp[(k/2)*coarse+h-1]*(p.weighted
+-                        ? .5*(coarse_sample.value[j]+w.samples[p.samples[(mm-2*h)*st]].value[j])
+-                        : coarse_sample.value[j]));
++                        ? .5*(channel_value(coarse_sample,j)+channel_value(w.samples[p.samples[(mm-2*h)*st]],j))
++                        : channel_value(coarse_sample,j)));
+                 }
+                 if(!valid) {
+                     if(j>0)p.gradient_invalid[j-1]=true;
+                     continue;
+                 }
+                 double d=(p.weighted
+-                    ? .5*(fine.value[j]+w.samples[p.samples[(mm-k)*st]].value[j])
+-                    : fine.value[j])-pred.get();
++                    ? .5*(channel_value(fine,j)+channel_value(w.samples[p.samples[(mm-k)*st]],j))
++                    : channel_value(fine,j))-pred.get();
+                 norm[j]+=r.norm_w[k-1]*d*d;
+             }
+         }
+@@ -612,8 +648,8 @@
+                 const auto& sample=w.samples[p.samples[2*h*st]];
+                 if(!sample.component_finite[j]){valid=false;break;}
+                 values[h]=p.weighted
+-                    ? .5*(sample.value[j]+w.samples[p.samples[(mm-2*h)*st]].value[j])
+-                    : sample.value[j];
++                    ? .5*(channel_value(sample,j)+channel_value(w.samples[p.samples[(mm-2*h)*st]],j))
++                    : channel_value(sample,j);
+             }
+             if(!valid){if(j>0)p.gradient_invalid[j-1]=true;continue;}
+             std::array<double,256> predictions;
+@@ -645,8 +681,8 @@
+                 // Symmetric GC2 integrates the odd part exactly to zero.
+                 // Estimate only the even remainder, without changing q.
+                 double d=(p.weighted
+-                    ? .5*(fine.value[j]+w.samples[p.samples[(mm-k)*st]].value[j])
+-                    : fine.value[j])-prediction;
++                    ? .5*(channel_value(fine,j)+channel_value(w.samples[p.samples[(mm-k)*st]],j))
++                    : channel_value(fine,j))-prediction;
+                 norm[j]+=r.norm_w[k-1]*d*d;
+             }
+         }
+@@ -656,12 +692,12 @@
+     } // interpolation prediction profile scope
+     if(cfg.radial_error_estimator==RadialErrorEstimator::HybridEmbedded || cfg.gradient_local_refinement) {
+         const int coarse_m=m/2,coarse_step=256/coarse_m;
+-        const auto& coarse_rule=radial_rule(p.level-1,p.weighted);
++        const auto& coarse_rule=(channel==2?linear_radial_rule(p.level-1):radial_rule(p.level-1,p.weighted));
+         std::array<Sum,6> coarse_q;
+         for(int k=1;k<coarse_m;++k) {
+             const auto& s=w.samples[p.samples[k*coarse_step]];
+             for(int j=0;j<nc;++j) if(s.component_finite[j])
+-                coarse_q[j].add(coarse_rule.w[k-1]*s.value[j]);
++                coarse_q[j].add(coarse_rule.w[k-1]*channel_value(s,j));
+         }
+         for(int j=0;j<nc;++j)
+             nested_difference[j]=std::fabs(q[j].get()-coarse_q[j].get());
+@@ -1189,6 +1225,7 @@
+                     stats.hermite_jet_ms+=sample_jet.elapsed_ms+mapped_jet_ms;
+                 }
+             }
++            if(p.split_ld)s.ld_radial_value/=std::sqrt(std::max(0.0,1-x*x));
+             s.R=mapped[0];s.R_lo=radius_lo;s.precise_R=cfg.preserve_radial_offset;
+             if(s.angular_state) {
+                 if(allocated_bytes()+angular_allocation_bytes>cfg.max_bytes)
+@@ -1208,6 +1245,8 @@
+                 if(j==0)value_finite=value_finite&&ok;
+                 else if(!ok) gradient_invalid_seen[j-1]=true;
+             }
++            if(p.split_ld)value_finite=value_finite&&std::isfinite(stored.ld_radial_value)&&
++                std::isfinite(stored.uniform_radial_value);
+             if(!value_finite){
+                 if(stored.reject_reason==AdaptiveSampleRejectReason::None)
+                     stored.reject_reason=AdaptiveSampleRejectReason::Nonfinite;

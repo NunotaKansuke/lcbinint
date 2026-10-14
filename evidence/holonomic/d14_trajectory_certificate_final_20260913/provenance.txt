@@ -1,0 +1,9 @@
+date=2026-09-13
+base=8852a28
+branch=dev/holonomic
+host=runtime-host
+compiler=g++ -std=gnu++17 -fext-numeric-literals -O3 -march=native
+cpu_affinity=taskset -c 0
+input=evidence/holonomic/v2_vbm_adaptive_trajectory_20260911/input_snapshot.tsv
+warm_epochs=5412
+production_router_changed=false

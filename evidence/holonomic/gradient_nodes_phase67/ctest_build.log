@@ -1,0 +1,9 @@
+[100%] Building CXX object CMakeFiles/test_adaptive_radial.dir/test_adaptive_radial.cpp.o
+[100%] Linking CXX executable test_adaptive_radial
+[100%] Built target test_adaptive_radial
+[ 50%] Building CXX object CMakeFiles/test_quartic_sturm.dir/test_quartic_sturm.cpp.o
+[100%] Linking CXX executable test_quartic_sturm
+[100%] Built target test_quartic_sturm
+[ 50%] Building CXX object CMakeFiles/check_adaptive_reference.dir/check_adaptive_reference.cpp.o
+[100%] Linking CXX executable check_adaptive_reference
+[100%] Built target check_adaptive_reference

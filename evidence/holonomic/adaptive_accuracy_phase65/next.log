@@ -1,0 +1,464 @@
+progress trajectories 32/1804 rows=256
+progress trajectories 64/1804 rows=512
+progress trajectories 96/1804 rows=768
+progress trajectories 128/1804 rows=1024
+progress trajectories 160/1804 rows=1280
+progress trajectories 192/1804 rows=1536
+progress trajectories 224/1804 rows=1792
+progress trajectories 256/1804 rows=2048
+progress trajectories 288/1804 rows=2304
+progress trajectories 320/1804 rows=2560
+progress trajectories 352/1804 rows=2816
+progress trajectories 384/1804 rows=3072
+progress trajectories 416/1804 rows=3328
+progress trajectories 448/1804 rows=3584
+progress trajectories 480/1804 rows=3840
+progress trajectories 512/1804 rows=4096
+progress trajectories 544/1804 rows=4352
+progress trajectories 576/1804 rows=4608
+progress trajectories 608/1804 rows=4864
+progress trajectories 640/1804 rows=5120
+progress trajectories 672/1804 rows=5376
+progress trajectories 704/1804 rows=5632
+progress trajectories 736/1804 rows=5888
+progress trajectories 768/1804 rows=6144
+progress trajectories 800/1804 rows=6400
+progress trajectories 832/1804 rows=6656
+progress trajectories 864/1804 rows=6912
+progress trajectories 896/1804 rows=7168
+progress trajectories 928/1804 rows=7424
+progress trajectories 960/1804 rows=7680
+progress trajectories 992/1804 rows=7936
+progress trajectories 1024/1804 rows=8192
+progress trajectories 1056/1804 rows=8448
+progress trajectories 1088/1804 rows=8704
+progress trajectories 1120/1804 rows=8960
+progress trajectories 1152/1804 rows=9216
+progress trajectories 1184/1804 rows=9472
+progress trajectories 1216/1804 rows=9728
+progress trajectories 1248/1804 rows=9984
+progress trajectories 1280/1804 rows=10240
+progress trajectories 1312/1804 rows=10496
+progress trajectories 1344/1804 rows=10752
+progress trajectories 1376/1804 rows=11008
+progress trajectories 1408/1804 rows=11264
+progress trajectories 1440/1804 rows=11520
+progress trajectories 1472/1804 rows=11776
+progress trajectories 1504/1804 rows=12032
+progress trajectories 1536/1804 rows=12288
+progress trajectories 1568/1804 rows=12544
+progress trajectories 1600/1804 rows=12800
+progress trajectories 1632/1804 rows=13056
+progress trajectories 1664/1804 rows=13312
+progress trajectories 1696/1804 rows=13568
+progress trajectories 1728/1804 rows=13824
+progress trajectories 1760/1804 rows=14080
+progress trajectories 1792/1804 rows=14336
+wrote 14432 rows from 1804 trajectories, reps=3, sink=2.93918e+07
+In file included from src/lcbinint/magnification/holonomic/atlas_near_fold.hpp:3,
+                 from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:3,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+src/lcbinint/magnification/holonomic/adaptive_radial.hpp:13:12: error: multiple definition of ‘enum class lcbinint::holonomic::AccuracyAssurance’
+   13 | enum class AccuracyAssurance { None, Estimated, Bounded };
+      |            ^~~~~~~~~~~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:2,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+evidence/holonomic/adaptive_accuracy_phase65/overlay_initial3/lcbinint/magnification/holonomic/adaptive_radial.hpp:13:12: note: previous definition here
+   13 | enum class AccuracyAssurance { None, Estimated, Bounded };
+      |            ^~~~~~~~~~~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/atlas_near_fold.hpp:3,
+                 from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:3,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+src/lcbinint/magnification/holonomic/adaptive_radial.hpp:14:12: error: multiple definition of ‘enum class lcbinint::holonomic::AdaptiveStop’
+   14 | enum class AdaptiveStop { Converged, BudgetExceeded, RoundoffLimited,
+      |            ^~~~~~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:2,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+evidence/holonomic/adaptive_accuracy_phase65/overlay_initial3/lcbinint/magnification/holonomic/adaptive_radial.hpp:14:12: note: previous definition here
+   14 | enum class AdaptiveStop { Converged, BudgetExceeded, RoundoffLimited,
+      |            ^~~~~~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/atlas_near_fold.hpp:3,
+                 from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:3,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+src/lcbinint/magnification/holonomic/adaptive_radial.hpp:17:20: error: redefinition of ‘const char* lcbinint::holonomic::adaptive_stop_name(lcbinint::holonomic::AdaptiveStop)’
+   17 | inline const char* adaptive_stop_name(AdaptiveStop s) {
+      |                    ^~~~~~~~~~~~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:2,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+evidence/holonomic/adaptive_accuracy_phase65/overlay_initial3/lcbinint/magnification/holonomic/adaptive_radial.hpp:17:20: note: ‘const char* lcbinint::holonomic::adaptive_stop_name(lcbinint::holonomic::AdaptiveStop)’ previously defined here
+   17 | inline const char* adaptive_stop_name(AdaptiveStop s) {
+      |                    ^~~~~~~~~~~~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/atlas_near_fold.hpp:3,
+                 from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:3,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+src/lcbinint/magnification/holonomic/adaptive_radial.hpp:25:12: error: multiple definition of ‘enum class lcbinint::holonomic::GradientPolicy’
+   25 | enum class GradientPolicy { None, Strict, ValueFirst };
+      |            ^~~~~~~~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:2,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+evidence/holonomic/adaptive_accuracy_phase65/overlay_initial3/lcbinint/magnification/holonomic/adaptive_radial.hpp:25:12: note: previous definition here
+   25 | enum class GradientPolicy { None, Strict, ValueFirst };
+      |            ^~~~~~~~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/atlas_near_fold.hpp:3,
+                 from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:3,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+src/lcbinint/magnification/holonomic/adaptive_radial.hpp:26:12: error: multiple definition of ‘enum class lcbinint::holonomic::RadialErrorEstimator’
+   26 | enum class RadialErrorEstimator { WeightedDetail, HybridEmbedded };
+      |            ^~~~~~~~~~~~~~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:2,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+evidence/holonomic/adaptive_accuracy_phase65/overlay_initial3/lcbinint/magnification/holonomic/adaptive_radial.hpp:26:12: note: previous definition here
+   26 | enum class RadialErrorEstimator { WeightedDetail, HybridEmbedded };
+      |            ^~~~~~~~~~~~~~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/atlas_near_fold.hpp:3,
+                 from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:3,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+src/lcbinint/magnification/holonomic/adaptive_radial.hpp:27:20: error: redefinition of ‘const char* lcbinint::holonomic::gradient_policy_name(lcbinint::holonomic::GradientPolicy)’
+   27 | inline const char* gradient_policy_name(GradientPolicy p) {
+      |                    ^~~~~~~~~~~~~~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:2,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+evidence/holonomic/adaptive_accuracy_phase65/overlay_initial3/lcbinint/magnification/holonomic/adaptive_radial.hpp:27:20: note: ‘const char* lcbinint::holonomic::gradient_policy_name(lcbinint::holonomic::GradientPolicy)’ previously defined here
+   27 | inline const char* gradient_policy_name(GradientPolicy p) {
+      |                    ^~~~~~~~~~~~~~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/atlas_near_fold.hpp:3,
+                 from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:3,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+src/lcbinint/magnification/holonomic/adaptive_radial.hpp:35:12: error: multiple definition of ‘enum class lcbinint::holonomic::GradientQuality’
+   35 | enum class GradientQuality { NotRequested, ToleranceMet,
+      |            ^~~~~~~~~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:2,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+evidence/holonomic/adaptive_accuracy_phase65/overlay_initial3/lcbinint/magnification/holonomic/adaptive_radial.hpp:35:12: note: previous definition here
+   35 | enum class GradientQuality { NotRequested, ToleranceMet,
+      |            ^~~~~~~~~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/atlas_near_fold.hpp:3,
+                 from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:3,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+src/lcbinint/magnification/holonomic/adaptive_radial.hpp:37:20: error: redefinition of ‘const char* lcbinint::holonomic::gradient_quality_name(lcbinint::holonomic::GradientQuality)’
+   37 | inline const char* gradient_quality_name(GradientQuality q) {
+      |                    ^~~~~~~~~~~~~~~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:2,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+evidence/holonomic/adaptive_accuracy_phase65/overlay_initial3/lcbinint/magnification/holonomic/adaptive_radial.hpp:37:20: note: ‘const char* lcbinint::holonomic::gradient_quality_name(lcbinint::holonomic::GradientQuality)’ previously defined here
+   37 | inline const char* gradient_quality_name(GradientQuality q) {
+      |                    ^~~~~~~~~~~~~~~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/atlas_near_fold.hpp:3,
+                 from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:3,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+src/lcbinint/magnification/holonomic/adaptive_radial.hpp:46:12: error: multiple definition of ‘enum class lcbinint::holonomic::GradientReason’
+   46 | enum class GradientReason { NotRequested, ToleranceMet, BudgetExceeded,
+      |            ^~~~~~~~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:2,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+evidence/holonomic/adaptive_accuracy_phase65/overlay_initial3/lcbinint/magnification/holonomic/adaptive_radial.hpp:46:12: note: previous definition here
+   46 | enum class GradientReason { NotRequested, ToleranceMet, BudgetExceeded,
+      |            ^~~~~~~~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/atlas_near_fold.hpp:3,
+                 from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:3,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+src/lcbinint/magnification/holonomic/adaptive_radial.hpp:49:20: error: redefinition of ‘const char* lcbinint::holonomic::gradient_reason_name(lcbinint::holonomic::GradientReason)’
+   49 | inline const char* gradient_reason_name(GradientReason r) {
+      |                    ^~~~~~~~~~~~~~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:2,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+evidence/holonomic/adaptive_accuracy_phase65/overlay_initial3/lcbinint/magnification/holonomic/adaptive_radial.hpp:49:20: note: ‘const char* lcbinint::holonomic::gradient_reason_name(lcbinint::holonomic::GradientReason)’ previously defined here
+   49 | inline const char* gradient_reason_name(GradientReason r) {
+      |                    ^~~~~~~~~~~~~~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/atlas_near_fold.hpp:3,
+                 from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:3,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+src/lcbinint/magnification/holonomic/adaptive_radial.hpp:64:12: error: multiple definition of ‘enum class lcbinint::holonomic::EventDecisionReason’
+   64 | enum class EventDecisionReason { NotAttempted, NoRealCandidate, CleanDouble,
+      |            ^~~~~~~~~~~~~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:2,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+evidence/holonomic/adaptive_accuracy_phase65/overlay_initial3/lcbinint/magnification/holonomic/adaptive_radial.hpp:64:12: note: previous definition here
+   64 | enum class EventDecisionReason { NotAttempted, NoRealCandidate, CleanDouble,
+      |            ^~~~~~~~~~~~~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/atlas_near_fold.hpp:3,
+                 from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:3,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+src/lcbinint/magnification/holonomic/adaptive_radial.hpp:68:20: error: redefinition of ‘const char* lcbinint::holonomic::event_decision_reason_name(lcbinint::holonomic::EventDecisionReason)’
+   68 | inline const char* event_decision_reason_name(EventDecisionReason r) {
+      |                    ^~~~~~~~~~~~~~~~~~~~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:2,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+evidence/holonomic/adaptive_accuracy_phase65/overlay_initial3/lcbinint/magnification/holonomic/adaptive_radial.hpp:68:20: note: ‘const char* lcbinint::holonomic::event_decision_reason_name(lcbinint::holonomic::EventDecisionReason)’ previously defined here
+   68 | inline const char* event_decision_reason_name(EventDecisionReason r) {
+      |                    ^~~~~~~~~~~~~~~~~~~~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/atlas_near_fold.hpp:3,
+                 from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:3,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+src/lcbinint/magnification/holonomic/adaptive_radial.hpp:90:12: error: multiple definition of ‘enum class lcbinint::holonomic::AdaptiveSampleRejectReason’
+   90 | enum class AdaptiveSampleRejectReason {
+      |            ^~~~~~~~~~~~~~~~~~~~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:2,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+evidence/holonomic/adaptive_accuracy_phase65/overlay_initial3/lcbinint/magnification/holonomic/adaptive_radial.hpp:90:12: note: previous definition here
+   90 | enum class AdaptiveSampleRejectReason {
+      |            ^~~~~~~~~~~~~~~~~~~~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/atlas_near_fold.hpp:3,
+                 from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:3,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+src/lcbinint/magnification/holonomic/adaptive_radial.hpp:100:20: error: redefinition of ‘const char* lcbinint::holonomic::adaptive_sample_reject_reason_name(lcbinint::holonomic::AdaptiveSampleRejectReason)’
+  100 | inline const char* adaptive_sample_reject_reason_name(
+      |                    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:2,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+evidence/holonomic/adaptive_accuracy_phase65/overlay_initial3/lcbinint/magnification/holonomic/adaptive_radial.hpp:100:20: note: ‘const char* lcbinint::holonomic::adaptive_sample_reject_reason_name(lcbinint::holonomic::AdaptiveSampleRejectReason)’ previously defined here
+  100 | inline const char* adaptive_sample_reject_reason_name(
+      |                    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/atlas_near_fold.hpp:3,
+                 from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:3,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+src/lcbinint/magnification/holonomic/adaptive_radial.hpp:114:30: error: redefinition of ‘constexpr const size_t lcbinint::holonomic::adaptive_sample_reject_reason_count’
+  114 | inline constexpr std::size_t adaptive_sample_reject_reason_count = 8;
+      |                              ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:2,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+evidence/holonomic/adaptive_accuracy_phase65/overlay_initial3/lcbinint/magnification/holonomic/adaptive_radial.hpp:114:30: note: ‘constexpr const size_t lcbinint::holonomic::adaptive_sample_reject_reason_count’ previously defined here
+  114 | inline constexpr std::size_t adaptive_sample_reject_reason_count = 8;
+      |                              ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/atlas_near_fold.hpp:3,
+                 from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:3,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+src/lcbinint/magnification/holonomic/adaptive_radial.hpp:115:30: error: redefinition of ‘constexpr std::size_t lcbinint::holonomic::adaptive_sample_reject_reason_index(lcbinint::holonomic::AdaptiveSampleRejectReason)’
+  115 | inline constexpr std::size_t adaptive_sample_reject_reason_index(
+      |                              ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:2,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+evidence/holonomic/adaptive_accuracy_phase65/overlay_initial3/lcbinint/magnification/holonomic/adaptive_radial.hpp:115:30: note: ‘constexpr std::size_t lcbinint::holonomic::adaptive_sample_reject_reason_index(lcbinint::holonomic::AdaptiveSampleRejectReason)’ previously defined here
+  115 | inline constexpr std::size_t adaptive_sample_reject_reason_index(
+      |                              ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/atlas_near_fold.hpp:3,
+                 from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:3,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+src/lcbinint/magnification/holonomic/adaptive_radial.hpp:119:13: error: redefinition of ‘bool lcbinint::holonomic::adaptive_sample_reject_retryable(lcbinint::holonomic::AdaptiveSampleRejectReason)’
+  119 | inline bool adaptive_sample_reject_retryable(AdaptiveSampleRejectReason r) {
+      |             ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:2,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+evidence/holonomic/adaptive_accuracy_phase65/overlay_initial3/lcbinint/magnification/holonomic/adaptive_radial.hpp:119:13: note: ‘bool lcbinint::holonomic::adaptive_sample_reject_retryable(lcbinint::holonomic::AdaptiveSampleRejectReason)’ previously defined here
+  119 | inline bool adaptive_sample_reject_retryable(AdaptiveSampleRejectReason r) {
+      |             ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/atlas_near_fold.hpp:3,
+                 from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:3,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+src/lcbinint/magnification/holonomic/adaptive_radial.hpp:124:8: error: redefinition of ‘struct lcbinint::holonomic::AdaptiveTolerance’
+  124 | struct AdaptiveTolerance {
+      |        ^~~~~~~~~~~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:2,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+evidence/holonomic/adaptive_accuracy_phase65/overlay_initial3/lcbinint/magnification/holonomic/adaptive_radial.hpp:124:8: note: previous definition of ‘struct lcbinint::holonomic::AdaptiveTolerance’
+  124 | struct AdaptiveTolerance {
+      |        ^~~~~~~~~~~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/atlas_near_fold.hpp:3,
+                 from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:3,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+src/lcbinint/magnification/holonomic/adaptive_radial.hpp:136:8: error: redefinition of ‘struct lcbinint::holonomic::AdaptiveConfig’
+  136 | struct AdaptiveConfig {
+      |        ^~~~~~~~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:2,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+evidence/holonomic/adaptive_accuracy_phase65/overlay_initial3/lcbinint/magnification/holonomic/adaptive_radial.hpp:136:8: note: previous definition of ‘struct lcbinint::holonomic::AdaptiveConfig’
+  136 | struct AdaptiveConfig {
+      |        ^~~~~~~~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/atlas_near_fold.hpp:3,
+                 from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:3,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+src/lcbinint/magnification/holonomic/adaptive_radial.hpp:162:8: error: redefinition of ‘struct lcbinint::holonomic::AdaptiveEventDiagnostic’
+  162 | struct AdaptiveEventDiagnostic {
+      |        ^~~~~~~~~~~~~~~~~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:2,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+evidence/holonomic/adaptive_accuracy_phase65/overlay_initial3/lcbinint/magnification/holonomic/adaptive_radial.hpp:162:8: note: previous definition of ‘struct lcbinint::holonomic::AdaptiveEventDiagnostic’
+  162 | struct AdaptiveEventDiagnostic {
+      |        ^~~~~~~~~~~~~~~~~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/atlas_near_fold.hpp:3,
+                 from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:3,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+src/lcbinint/magnification/holonomic/adaptive_radial.hpp:174:8: error: redefinition of ‘struct lcbinint::holonomic::AdaptiveRefinementRecord’
+  174 | struct AdaptiveRefinementRecord {
+      |        ^~~~~~~~~~~~~~~~~~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:2,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+evidence/holonomic/adaptive_accuracy_phase65/overlay_initial3/lcbinint/magnification/holonomic/adaptive_radial.hpp:174:8: note: previous definition of ‘struct lcbinint::holonomic::AdaptiveRefinementRecord’
+  174 | struct AdaptiveRefinementRecord {
+      |        ^~~~~~~~~~~~~~~~~~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/atlas_near_fold.hpp:3,
+                 from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:3,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+src/lcbinint/magnification/holonomic/adaptive_radial.hpp:182:8: error: redefinition of ‘struct lcbinint::holonomic::AdaptiveSampleDiagnostic’
+  182 | struct AdaptiveSampleDiagnostic {
+      |        ^~~~~~~~~~~~~~~~~~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:2,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+evidence/holonomic/adaptive_accuracy_phase65/overlay_initial3/lcbinint/magnification/holonomic/adaptive_radial.hpp:182:8: note: previous definition of ‘struct lcbinint::holonomic::AdaptiveSampleDiagnostic’
+  182 | struct AdaptiveSampleDiagnostic {
+      |        ^~~~~~~~~~~~~~~~~~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/atlas_near_fold.hpp:3,
+                 from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:3,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+src/lcbinint/magnification/holonomic/adaptive_radial.hpp:189:8: error: redefinition of ‘struct lcbinint::holonomic::AdaptiveStats’
+  189 | struct AdaptiveStats {
+      |        ^~~~~~~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:2,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+evidence/holonomic/adaptive_accuracy_phase65/overlay_initial3/lcbinint/magnification/holonomic/adaptive_radial.hpp:189:8: note: previous definition of ‘struct lcbinint::holonomic::AdaptiveStats’
+  189 | struct AdaptiveStats {
+      |        ^~~~~~~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/atlas_near_fold.hpp:3,
+                 from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:3,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+src/lcbinint/magnification/holonomic/adaptive_radial.hpp:206:8: error: redefinition of ‘struct lcbinint::holonomic::AdaptiveResult’
+  206 | struct AdaptiveResult {
+      |        ^~~~~~~~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:2,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+evidence/holonomic/adaptive_accuracy_phase65/overlay_initial3/lcbinint/magnification/holonomic/adaptive_radial.hpp:206:8: note: previous definition of ‘struct lcbinint::holonomic::AdaptiveResult’
+  206 | struct AdaptiveResult {
+      |        ^~~~~~~~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/atlas_near_fold.hpp:3,
+                 from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:3,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+src/lcbinint/magnification/holonomic/adaptive_radial.hpp:229:8: error: redefinition of ‘struct lcbinint::holonomic::AdaptiveSample’
+  229 | struct AdaptiveSample {
+      |        ^~~~~~~~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:2,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+evidence/holonomic/adaptive_accuracy_phase65/overlay_initial3/lcbinint/magnification/holonomic/adaptive_radial.hpp:229:8: note: previous definition of ‘struct lcbinint::holonomic::AdaptiveSample’
+  229 | struct AdaptiveSample {
+      |        ^~~~~~~~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/atlas_near_fold.hpp:3,
+                 from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:3,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+src/lcbinint/magnification/holonomic/adaptive_radial.hpp:239:8: error: redefinition of ‘struct lcbinint::holonomic::AdaptivePanel’
+  239 | struct AdaptivePanel {
+      |        ^~~~~~~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:2,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+evidence/holonomic/adaptive_accuracy_phase65/overlay_initial3/lcbinint/magnification/holonomic/adaptive_radial.hpp:239:8: note: previous definition of ‘struct lcbinint::holonomic::AdaptivePanel’
+  239 | struct AdaptivePanel {
+      |        ^~~~~~~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/atlas_near_fold.hpp:3,
+                 from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:3,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+src/lcbinint/magnification/holonomic/adaptive_radial.hpp:256:8: error: redefinition of ‘struct lcbinint::holonomic::AdaptiveWorkspace’
+  256 | struct AdaptiveWorkspace {
+      |        ^~~~~~~~~~~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:2,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+evidence/holonomic/adaptive_accuracy_phase65/overlay_initial3/lcbinint/magnification/holonomic/adaptive_radial.hpp:256:8: note: previous definition of ‘struct lcbinint::holonomic::AdaptiveWorkspace’
+  256 | struct AdaptiveWorkspace {
+      |        ^~~~~~~~~~~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/atlas_near_fold.hpp:3,
+                 from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:3,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+src/lcbinint/magnification/holonomic/adaptive_radial.hpp:265:15: error: redefinition of ‘double lcbinint::holonomic::adaptive_detail::ms(std::chrono::_V2::steady_clock::time_point)’
+  265 | inline double ms(Clock::time_point a) { return std::chrono::duration<double,std::milli>(Clock::now()-a).count(); }
+      |               ^~
+In file included from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:2,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+evidence/holonomic/adaptive_accuracy_phase65/overlay_initial3/lcbinint/magnification/holonomic/adaptive_radial.hpp:265:15: note: ‘double lcbinint::holonomic::adaptive_detail::ms(std::chrono::_V2::steady_clock::time_point)’ previously defined here
+  265 | inline double ms(Clock::time_point a) { return std::chrono::duration<double,std::milli>(Clock::now()-a).count(); }
+      |               ^~
+In file included from src/lcbinint/magnification/holonomic/atlas_near_fold.hpp:3,
+                 from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:3,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+src/lcbinint/magnification/holonomic/adaptive_radial.hpp:266:25: error: redefinition of ‘constexpr const double lcbinint::holonomic::adaptive_detail::eps’
+  266 | inline constexpr double eps=std::numeric_limits<double>::epsilon();
+      |                         ^~~
+In file included from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:2,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+evidence/holonomic/adaptive_accuracy_phase65/overlay_initial3/lcbinint/magnification/holonomic/adaptive_radial.hpp:266:25: note: ‘constexpr const double lcbinint::holonomic::adaptive_detail::eps’ previously defined here
+  266 | inline constexpr double eps=std::numeric_limits<double>::epsilon();
+      |                         ^~~
+In file included from src/lcbinint/magnification/holonomic/atlas_near_fold.hpp:3,
+                 from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:3,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+src/lcbinint/magnification/holonomic/adaptive_radial.hpp:269:8: error: redefinition of ‘struct lcbinint::holonomic::adaptive_detail::Sum’
+  269 | struct Sum {
+      |        ^~~
+In file included from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:2,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+evidence/holonomic/adaptive_accuracy_phase65/overlay_initial3/lcbinint/magnification/holonomic/adaptive_radial.hpp:269:8: note: previous definition of ‘struct lcbinint::holonomic::adaptive_detail::Sum’
+  269 | struct Sum {
+      |        ^~~
+In file included from src/lcbinint/magnification/holonomic/atlas_near_fold.hpp:3,
+                 from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:3,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+src/lcbinint/magnification/holonomic/adaptive_radial.hpp:274:13: error: redefinition of ‘bool lcbinint::holonomic::adaptive_detail::valid_config(const lcbinint::holonomic::AdaptiveConfig&)’
+  274 | inline bool valid_config(const AdaptiveConfig& c) {
+      |             ^~~~~~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:2,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+evidence/holonomic/adaptive_accuracy_phase65/overlay_initial3/lcbinint/magnification/holonomic/adaptive_radial.hpp:274:13: note: ‘bool lcbinint::holonomic::adaptive_detail::valid_config(const lcbinint::holonomic::AdaptiveConfig&)’ previously defined here
+  274 | inline bool valid_config(const AdaptiveConfig& c) {
+      |             ^~~~~~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/atlas_near_fold.hpp:3,
+                 from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:3,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+src/lcbinint/magnification/holonomic/adaptive_radial.hpp:290:23: error: redefinition of ‘lcbinint::holonomic::GradientReason lcbinint::holonomic::adaptive_detail::gradient_reason(lcbinint::holonomic::AdaptiveStop)’
+  290 | inline GradientReason gradient_reason(AdaptiveStop s) {
+      |                       ^~~~~~~~~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:2,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+evidence/holonomic/adaptive_accuracy_phase65/overlay_initial3/lcbinint/magnification/holonomic/adaptive_radial.hpp:290:23: note: ‘lcbinint::holonomic::GradientReason lcbinint::holonomic::adaptive_detail::gradient_reason(lcbinint::holonomic::AdaptiveStop)’ previously defined here
+  290 | inline GradientReason gradient_reason(AdaptiveStop s) {
+      |                       ^~~~~~~~~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/atlas_near_fold.hpp:3,
+                 from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:3,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+src/lcbinint/magnification/holonomic/adaptive_radial.hpp:304:13: error: redefinition of ‘bool lcbinint::holonomic::adaptive_detail::invalid_gradient_stop(lcbinint::holonomic::AdaptiveStop)’
+  304 | inline bool invalid_gradient_stop(AdaptiveStop s) {
+      |             ^~~~~~~~~~~~~~~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:2,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+evidence/holonomic/adaptive_accuracy_phase65/overlay_initial3/lcbinint/magnification/holonomic/adaptive_radial.hpp:304:13: note: ‘bool lcbinint::holonomic::adaptive_detail::invalid_gradient_stop(lcbinint::holonomic::AdaptiveStop)’ previously defined here
+  304 | inline bool invalid_gradient_stop(AdaptiveStop s) {
+      |             ^~~~~~~~~~~~~~~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/atlas_near_fold.hpp:3,
+                 from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:3,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+src/lcbinint/magnification/holonomic/adaptive_radial.hpp:308:23: error: redefinition of ‘lcbinint::holonomic::AdaptiveResult lcbinint::holonomic::adaptive_detail::failure_result(lcbinint::holonomic::AdaptiveStop, lcbinint::holonomic::GradientPolicy)’
+  308 | inline AdaptiveResult failure_result(AdaptiveStop stop,GradientPolicy policy) {
+      |                       ^~~~~~~~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:2,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+evidence/holonomic/adaptive_accuracy_phase65/overlay_initial3/lcbinint/magnification/holonomic/adaptive_radial.hpp:308:23: note: ‘lcbinint::holonomic::AdaptiveResult lcbinint::holonomic::adaptive_detail::failure_result(lcbinint::holonomic::AdaptiveStop, lcbinint::holonomic::GradientPolicy)’ previously defined here
+  308 | inline AdaptiveResult failure_result(AdaptiveStop stop,GradientPolicy policy) {
+      |                       ^~~~~~~~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/atlas_near_fold.hpp:3,
+                 from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:3,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+src/lcbinint/magnification/holonomic/adaptive_radial.hpp:325:13: error: redefinition of ‘void lcbinint::holonomic::adaptive_detail::estimate(lcbinint::holonomic::AdaptivePanel&, const lcbinint::holonomic::AdaptiveWorkspace&, int, const lcbinint::holonomic::AdaptiveConfig&)’
+  325 | inline void estimate(AdaptivePanel& p,const AdaptiveWorkspace& w,int nc,
+      |             ^~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:2,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+evidence/holonomic/adaptive_accuracy_phase65/overlay_initial3/lcbinint/magnification/holonomic/adaptive_radial.hpp:325:13: note: ‘void lcbinint::holonomic::adaptive_detail::estimate(lcbinint::holonomic::AdaptivePanel&, const lcbinint::holonomic::AdaptiveWorkspace&, int, const lcbinint::holonomic::AdaptiveConfig&)’ previously defined here
+  325 | inline void estimate(AdaptivePanel& p,const AdaptiveWorkspace& w,int nc,
+      |             ^~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/atlas_near_fold.hpp:3,
+                 from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:3,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+src/lcbinint/magnification/holonomic/adaptive_radial.hpp:440:13: error: redefinition of ‘void lcbinint::holonomic::adaptive_detail::estimate(lcbinint::holonomic::AdaptivePanel&, const lcbinint::holonomic::AdaptiveWorkspace&, int)’
+  440 | inline void estimate(AdaptivePanel& p,const AdaptiveWorkspace& w,int nc) {
+      |             ^~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:2,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+evidence/holonomic/adaptive_accuracy_phase65/overlay_initial3/lcbinint/magnification/holonomic/adaptive_radial.hpp:440:13: note: ‘void lcbinint::holonomic::adaptive_detail::estimate(lcbinint::holonomic::AdaptivePanel&, const lcbinint::holonomic::AdaptiveWorkspace&, int)’ previously defined here
+  440 | inline void estimate(AdaptivePanel& p,const AdaptiveWorkspace& w,int nc) {
+      |             ^~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/atlas_near_fold.hpp:3,
+                 from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:3,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+src/lcbinint/magnification/holonomic/adaptive_radial.hpp:446:16: error: redefinition of ‘template<class Evaluate> lcbinint::holonomic::AdaptiveResult lcbinint::holonomic::adaptive_detail::integrate(lcbinint::holonomic::AdaptiveWorkspace&, const lcbinint::holonomic::AdaptiveConfig&, Evaluate)’
+  446 | AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate eval) {
+      |                ^~~~~~~~~
+In file included from src/lcbinint/magnification/holonomic/adaptive_epoch.hpp:2,
+                 from evidence/holonomic/adaptive_accuracy_phase65/ab.cpp:16:
+evidence/holonomic/adaptive_accuracy_phase65/overlay_initial3/lcbinint/magnification/holonomic/adaptive_radial.hpp:446:16: note: ‘template<class Evaluate> lcbinint::holonomic::AdaptiveResult lcbinint::holonomic::adaptive_detail::integrate(lcbinint::holonomic::AdaptiveWorkspace&, const lcbinint::holonomic::AdaptiveConfig&, Evaluate)’ previously declared here
+  446 | AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate eval) {
+      |                ^~~~~~~~~

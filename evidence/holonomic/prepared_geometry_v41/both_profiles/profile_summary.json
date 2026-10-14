@@ -1,0 +1,22 @@
+{
+  "before": {
+    "uniform": {
+      "cold_median": 6.0,
+      "warm_median": 18.0
+    },
+    "linear": {
+      "cold_median": 9.0,
+      "warm_median": 41.0
+    }
+  },
+  "after": {
+    "uniform": {
+      "cold_median": 1.0,
+      "warm_median": 21.0
+    },
+    "linear": {
+      "cold_median": 7.0,
+      "warm_median": 45.0
+    }
+  }
+}

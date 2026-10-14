@@ -1,0 +1,74 @@
+# Lauricella6 Phase 6 evidence summary
+# base=dev/holonomic@8960fb31001ddcacad1efcea5402048f80d7873b
+# input=evidence/holonomic/gm_coverage_cases.tsv cases=108 (uniform=54, limb=54) nr=64
+# timing=Release, one process, packet profile disabled for wall measurements
+# default fold route=certified physical-fold cell, one full-cell candidate
+
+RESULT order=20 clean_value_cold=104/108 clean_value_warm=104/108 \
+clean_jac_cold=52/54 clean_jac_warm=52/54 \
+transported_value=13888/13888 transported_jac=13888/13888 \
+value_ld_ms_cold=2.818 value_ld_ms_warm=2.653 value_ld_ms_v2=1.200 \
+jac_ld_ms_cold=3.773 jac_ld_ms_warm=3.637 jac_ld_ms_v2=1.319 \
+fold_constructions=159 fold_accepted_value=115 fold_rejected_value=44 \
+fold_accepted_jac=111 fold_rejected_jac=48 \
+pf6_constructions_value=2831 pf6_constructions_jac=3002 \
+physical_seed_value=102 physical_seed_jac=106 fallback=0 reseed=0
+
+COST value_cold topology_d14_ms=0.851 arc_ms=0.014 f0_arc_ms=0.868 \
+f0_endpoint_ms=0.041 arc_prepare_ms=0.001 seed_ms=0.056 \
+pf6_connection_ms=0.027 transport_ms=0.029 fold_build_ms=0.643 \
+fold_eval_ms=0.005 unclassified_ms=0.053
+COST value_warm topology_d14_ms=0.702 arc_ms=0.013 f0_arc_ms=0.864 \
+f0_endpoint_ms=0.041 arc_prepare_ms=0.001 seed_ms=0.057 \
+pf6_connection_ms=0.028 transport_ms=0.029 fold_build_ms=0.632 \
+fold_eval_ms=0.005 unclassified_ms=0.049
+COST jac_cold topology_d14_ms=0.883 arc_ms=0.013 f0_arc_ms=0.879 \
+f0_endpoint_ms=0.051 arc_prepare_ms=0.001 seed_ms=0.056 \
+pf6_connection_ms=0.473 transport_ms=0.029 fold_build_ms=1.224 \
+fold_eval_ms=0.005 analytic_jac_ms=0.067 unclassified_ms=0.119
+COST jac_warm topology_d14_ms=0.701 arc_ms=0.013 f0_arc_ms=0.870 \
+f0_endpoint_ms=0.051 arc_prepare_ms=0.001 seed_ms=0.057 \
+pf6_connection_ms=0.437 transport_ms=0.029 fold_build_ms=1.187 \
+fold_eval_ms=0.005 analytic_jac_ms=0.068 unclassified_ms=0.126
+
+FOLD value_cold constructions=159 accepted=115 rejected=44 blocks=115 nodes=7360
+FOLD jac_cold constructions=159 accepted=111 rejected=48 blocks=111 nodes=7104
+FOLD rejected_reason value=6:44 jac=6:48
+PF6 value_cold candidates=2831 accepted=1354 rejected=1477 quality_rejected=1477 build_failed=0 max_depth=13
+PF6 accepted_nodes value_cold=1:580,2:132,3:134,4:4,5:138,6:142,7:4,11:154,15:10,21:12,32:38,64:6
+
+ORDER order=8 clean=85/108 transport_rate=0.884590 \
+value_ld_ms_cold=3.844 value_ld_ms_warm=3.672 value_ld_ms_v2=1.202 pf6_constructions=16147 fold_accepted=63
+ORDER order=10 clean=93/108 transport_rate=0.929435 \
+value_ld_ms_cold=3.600 value_ld_ms_warm=3.435 value_ld_ms_v2=1.199 pf6_constructions=10716 fold_accepted=81
+ORDER order=12 clean=95/108 transport_rate=0.977175 \
+value_ld_ms_cold=3.531 value_ld_ms_warm=3.372 value_ld_ms_v2=1.193 pf6_constructions=7077 fold_accepted=94
+ORDER order=14 clean=100/108 transport_rate=0.992944 \
+value_ld_ms_cold=3.579 value_ld_ms_warm=3.416 value_ld_ms_v2=1.188 pf6_constructions=5673 fold_accepted=100
+ORDER order=16 clean=103/108 transport_rate=0.998488 \
+value_ld_ms_cold=3.562 value_ld_ms_warm=3.437 value_ld_ms_v2=1.200 pf6_constructions=4433 fold_accepted=106
+ORDER order=20 clean=104/108 transport_rate=1.000000 \
+value_ld_ms_cold=2.818 value_ld_ms_warm=2.653 value_ld_ms_v2=1.200 pf6_constructions=2831 fold_accepted=115
+
+LIMIT order=20 node_limit=1 value_ld_ms=4.949/4.805/1.192 jac_ld_ms=5.632/5.450/1.296 pf6=6721 fold=158/1
+LIMIT order=20 node_limit=2 value_ld_ms=4.697/4.591/1.196 jac_ld_ms=5.622/5.490/1.382 pf6=6205 fold=158/1
+LIMIT order=20 node_limit=4 value_ld_ms=4.560/4.358/1.200 jac_ld_ms=5.232/4.959/1.378 pf6=5751 fold=158/1
+LIMIT order=20 node_limit=full value_ld_ms=2.818/2.653/1.200 jac_ld_ms=3.773/3.637/1.319 pf6=2831 fold=115/44
+
+PROFILE_CLASS phase5_fold_arcs=149 phase5_fold_constructions=5794 \
+phase5_chart_p4_arcs=31 phase5_chart_p4_constructions=615 \
+phase5_d14_soft_arcs=26 phase5_d14_soft_constructions=543 \
+phase5_other_arcs=11 phase5_other_constructions=254
+PROFILE_PHASE6 value_cold_fold_candidate_arcs=159 fold_constructions=159 \
+fold_accepted=115 fold_rejected=44
+PROFILE_PHASE6_REJECT tail_taylor=30 tail_moment=39 pair=12 (counts_overlap)
+PROFILE_WORST pf6_case=resonant pf6_arc_index=6 nearest_event=physical_fold \
+pf6_constructions=45
+
+REFERENCE angular_ntheta=512 first12_valid=12/12 max_relative_error=1.285e-9
+TEST test_gm_lauricella6=PASS ctest=11/11
+ROUTER v2_v3_production=unchanged
+K_RULE_IN_FOLD_PACKET=0 SAMPLE_FIT_IN_FOLD_PACKET=0
+FOLD_STATE=symmetric_root_pair_m_v_integer_powers
+FOLD_MOMENTS=n=0..4_fixed_Catalan_constants
+STOP=whole_value+5Jac_remains_3.637--3.773_ms_and_value_2.653--2.818_ms

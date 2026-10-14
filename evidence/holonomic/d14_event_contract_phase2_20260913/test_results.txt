@@ -1,0 +1,11 @@
+cmake --build build-holonomic-m7 -j2
+  PASS (all targets)
+
+ctest --test-dir build-holonomic-m7 --output-on-failure
+  19/19 passed
+  0 failed
+  total test time 16.22 s
+
+holonomic_d14_event_contract includes:
+  accepted corpus case 0: qf-cold 1 -> 0, event/value parity
+  historical case 49 counterexample: event contract reject, qf-cold retained

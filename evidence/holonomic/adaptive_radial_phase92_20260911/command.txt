@@ -1,0 +1,12 @@
+base commit: 7b296fe
+build: cmake -S tests/holonomic_cpp -B build-holonomic-m7 -DCMAKE_BUILD_TYPE=Release && cmake --build build-holonomic-m7 --target test_adaptive_radial bench_adaptive_radial bench_adaptive_contracts bench_adaptive_diagnostics bench_adaptive_controls check_adaptive_reference check_adaptive_jacobian check_adaptive_limits -j2
+unit: ./build-holonomic-m7/test_adaptive_radial
+reuse-on: HOLO_ADAPTIVE_EVENT_REUSE=1 bash checks/holonomic/run_adaptive_radial.sh evidence/holonomic/adaptive_radial_phase92_20260911/reuse_on 1
+reuse-off: HOLO_ADAPTIVE_EVENT_REUSE=0 bash checks/holonomic/run_adaptive_radial.sh evidence/holonomic/adaptive_radial_phase92_20260911/reuse_off 1
+paper-diagnostic-on: HOLO_ADAPTIVE_EVENT_REUSE=1 ./build-holonomic-m7/bench_adaptive_diagnostics evidence/holonomic/adaptive_radial_phase92_20260911/reuse_on/reference_cases.tsv evidence/holonomic/adaptive_radial_phase92_20260911/reuse_on/paper_highA_diagnostics paper_highA
+paper-diagnostic-off: HOLO_ADAPTIVE_EVENT_REUSE=0 ./build-holonomic-m7/bench_adaptive_diagnostics evidence/holonomic/adaptive_radial_phase92_20260911/reuse_off/reference_cases.tsv evidence/holonomic/adaptive_radial_phase92_20260911/reuse_off/paper_highA_diagnostics paper_highA
+timing-on: python3 checks/holonomic/check_adaptive_timing.py evidence/holonomic/adaptive_radial_phase92_20260911/reuse_on/paired.csv
+timing-off: python3 checks/holonomic/check_adaptive_timing.py evidence/holonomic/adaptive_radial_phase92_20260911/reuse_off/paired.csv
+summary-on: python3 checks/holonomic/summarize_adaptive_radial.py evidence/holonomic/adaptive_radial_phase92_20260911/reuse_on
+summary-off: python3 checks/holonomic/summarize_adaptive_radial.py evidence/holonomic/adaptive_radial_phase92_20260911/reuse_off
+ctest: ctest --test-dir build-holonomic-m7 --output-on-failure

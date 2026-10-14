@@ -1,0 +1,38 @@
+{
+  "cold": {
+    "rows": 550,
+    "stops": {
+      "Converged": 546,
+      "InnerAccuracyLimited": 4
+    },
+    "reference_unusable": 4,
+    "observed_violations": 0,
+    "note": "128/256 radial + 256/512 angular self-difference estimates reference uncertainty; not a verified enclosure."
+  },
+  "warm": {
+    "rows": 550,
+    "stops": {
+      "Converged": 545,
+      "InnerAccuracyLimited": 5
+    },
+    "reference_unusable": 4,
+    "observed_violations": 0,
+    "note": "128/256 radial + 256/512 angular self-difference estimates reference uncertainty; not a verified enclosure."
+  }
+}
+0.0 0 0 1e-06 {'Converged': 55} {'p50': 0.829278, 'p90': 1.4003910000000004, 'p95': 2.1933374999999966, 'p99': 10.02056262000001, 'max': 16.728279} qualified 28
+0.0 0 0 0.001 {'Converged': 55} {'p50': 0.823943, 'p90': 1.1247690000000001, 'p95': 1.3069080999999998, 'p99': 8.289549600000013, 'max': 16.386099} qualified 54
+0.0 0 1 1e-06 {'Converged': 55} {'p50': 0.713302, 'p90': 1.3696002, 'p95': 2.6768540999999995, 'p99': 8.672761060000008, 'max': 14.357806} qualified 28
+0.0 0 1 0.001 {'Converged': 55} {'p50': 0.648427, 'p90': 0.9801346, 'p95': 1.242313, 'p99': 5.968881780000009, 'max': 11.429844} qualified 54
+0.0 1 0 1e-06 {'EventLocationLimited': 49, 'BudgetExceeded': 3, 'Converged': 3} {'p50': 0.915871, 'p90': 11.798273, 'p95': 17.821636299999994, 'p99': 32.06901108, 'max': 34.87269} qualified 0
+0.0 1 0 0.001 {'EventLocationLimited': 44, 'BudgetExceeded': 4, 'Converged': 7} {'p50': 12.891039, 'p90': 19.741843600000003, 'p95': 28.69650099999995, 'p99': 55.56143124000001, 'max': 64.995093} qualified 0
+0.0 1 1 1e-06 {'EventLocationLimited': 50, 'BudgetExceeded': 4, 'Converged': 1} {'p50': 0.822804, 'p90': 13.317357200000002, 'p95': 27.103022599999967, 'p99': 37.75011148, 'max': 39.753937} qualified 0
+0.0 1 1 0.001 {'Converged': 10, 'EventLocationLimited': 39, 'BudgetExceeded': 5, 'TopologyUnresolved': 1} {'p50': 10.988394, 'p90': 14.848203, 'p95': 29.32863669999998, 'p99': 50.25499628000001, 'max': 55.188311} qualified 0
+0.5 0 0 1e-06 {'Converged': 55} {'p50': 0.862483, 'p90': 1.463682, 'p95': 2.019721099999996, 'p99': 11.273177860000008, 'max': 17.22346} qualified 29
+0.5 0 0 0.001 {'Converged': 55} {'p50': 0.8431, 'p90': 1.1623134, 'p95': 1.2900544999999997, 'p99': 8.418786040000015, 'max': 16.657606} qualified 54
+0.5 0 1 1e-06 {'Converged': 54, 'TopologyUnresolved': 1} {'p50': 0.743931, 'p90': 1.4099872, 'p95': 2.2518270999999976, 'p99': 9.32798698000001, 'max': 15.801649} qualified 28
+0.5 0 1 0.001 {'Converged': 55} {'p50': 0.682596, 'p90': 1.0116802, 'p95': 1.3077184999999998, 'p99': 6.104932420000009, 'max': 11.375806} qualified 54
+0.5 1 0 1e-06 {'TopologyUnresolved': 8, 'InnerAccuracyLimited': 6, 'EventLocationLimited': 39, 'BudgetExceeded': 2} {'p50': 1.08071, 'p90': 9.8626926, 'p95': 20.254861499999993, 'p99': 33.22524336000001, 'max': 39.138036} qualified 0
+0.5 1 0 0.001 {'TopologyUnresolved': 30, 'Converged': 2, 'InnerAccuracyLimited': 3, 'EventLocationLimited': 17, 'BudgetExceeded': 3} {'p50': 7.11237, 'p90': 18.284472400000006, 'p95': 51.668458299999955, 'p99': 125.99649420000011, 'max': 200.996889} qualified 0
+0.5 1 1 1e-06 {'InnerAccuracyLimited': 6, 'EventLocationLimited': 39, 'BudgetExceeded': 2, 'TopologyUnresolved': 8} {'p50': 0.989166, 'p90': 9.561065400000004, 'p95': 19.539769299999925, 'p99': 41.00040388000001, 'max': 42.670855} qualified 0
+0.5 1 1 0.001 {'TopologyUnresolved': 31, 'Converged': 2, 'InnerAccuracyLimited': 2, 'EventLocationLimited': 17, 'BudgetExceeded': 3} {'p50': 6.848194, 'p90': 12.3892398, 'p95': 43.67576089999996, 'p99': 609.3714287800009, 'max': 1244.371033} qualified 0

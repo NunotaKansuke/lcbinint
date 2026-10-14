@@ -1,0 +1,29 @@
+{
+  "checkout": "/rogue1_8/nunota/lcbinint/experiments/seeded-boundary-events",
+  "head": "f3547723b79828d9c501182746028e99f7bad116",
+  "timing": "one thread; no concurrent compilation; 87 normal pairs tol1e-4, 5 repetitions, mean of per-condition medians; reverse order repeated; fresh geometry/source objects, caustic construction excluded",
+  "hashes": {
+    "src/lcbinint/magnification/holonomic/quartic_sturm.hpp": "ad500013fbe3c3d22ea0aa9f596436b68305a2509779003a432875478b5e0a3b",
+    "benchmarks/holonomic/build_seeded_radial_master.sh": "5de7a58d5f1fe05ae62ceaca3a1bf8b8f47c514c9d2c707bc46974a378ff2cf7",
+    "benchmarks/holonomic/bench_seed_provider_split.cpp": "bf4625c463c58df33cb10a49f336c395ee66785ebb3992b31312d4c6583afa98",
+    "evidence/holonomic/seed_count_v26/seed_before.cpp": "5ca5d1678117760170455fe2a8d72b02fe36a0371e985ed8bf53f58fbd8d30ea",
+    "evidence/holonomic/seed_count_v26/seed_after.cpp": "f83bd32872bab6ed54e8f26a653077bf7d9f5a389f7250353f99152c3abfadbf",
+    "build-standard-current/liblcbinint_magnification.a": "6ee06bb68a4c42596795d5f2dfdae3d0d8a48338b1251e8e3f80966a1040f5a1",
+    "build-standard-current/liblcbinint_lightcurve.a": "639ad947912062ee039a377c437baaaaf3b96f6faeb05eafd2f8e0237ddc14da"
+  },
+  "evidence_hashes": {
+    "seed_before.cpp": "5ca5d1678117760170455fe2a8d72b02fe36a0371e985ed8bf53f58fbd8d30ea",
+    "seed_after.cpp": "f83bd32872bab6ed54e8f26a653077bf7d9f5a389f7250353f99152c3abfadbf",
+    "quartic_before.hpp": "33c00bc6def71d5534086652ac3708e4375ea9679e86b29dbc2f1acca3f28b51",
+    "quartic_after.hpp": "ad500013fbe3c3d22ea0aa9f596436b68305a2509779003a432875478b5e0a3b",
+    "prepare.py": "031cd14b2e2e569ca6796dd0d82119eff09de675e32f202e16df99d3814d428a",
+    "build.sh": "580e3fb188bbea64f0d47967146c9c98661b8a7cac61567286c7a67782a3cda7",
+    "build_audit.sh": "fa30b6e81a82e8f24a46b4f7bc1c73518eb09e971a5d75c7e67d9624799b5626",
+    "build_profile.sh": "f570f3cdd2235c5411db382d9f8e874e17653296a7917a87524d3509cacdda0b",
+    "build_count.sh": "cc60652cb269494980341dd31fcbe1c9fb16f008c713120d67a44865639f40bc",
+    "build_tests.sh": "394613eb640d416a9e742a599f36a2c105d699901c9b1e9b6b8859a6ab70c0af",
+    "run.sh": "bd1adaf7779eb5a63e2970f7d75f34f3fb94b7c0518733b839e5396bf26b1297",
+    "audit_count.cpp": "d71f2cf1e18e91a0fc31e66b96b636c0bf409539d46e1516e597711ecc217ec5",
+    "audit_seed.cpp": "5970001f891670cd2657473048aaeece11dc45a64d1bf8afbc982ab63612e961"
+  }
+}

@@ -1,0 +1,8 @@
+g++ -O3 -DNDEBUG -std=gnu++17 -DHOLO_D14_EVENT_CONTRACT_RESEARCH=1 -Isrc -march=native -funroll-loops -ffp-contract=fast -fno-math-errno benchmarks/holonomic/bench_d14_root_work_detail.cpp -o ROOTWORK -lquadmath
+taskset -c 0 env HOLO_D14_LOCAL_PAIRS=1 HOLO_D14_ACTIVE_PRESEARCH=1 HOLO_D14_ACTIVE_TOL=1e-12 HOLO_D14_ACTIVE_PATIENCE=2 HOLO_D14_PAIR_SHARED_PRESEARCH=1 ROOTWORK INPUT ROOTS pair_shared_rootwork.tsv 1 both
+taskset -c 0 env HOLO_D14_LOCAL_PAIRS=1 HOLO_D14_ACTIVE_PRESEARCH=1 HOLO_D14_ACTIVE_TOL=1e-12 HOLO_D14_ACTIVE_PATIENCE=2 ROOTWORK INPUT ROOTS structured_residual_rootwork.tsv 1 both
+g++ -O3 -DNDEBUG -std=gnu++17 -DHOLO_D14_EVENT_CONTRACT_RESEARCH=1 -Isrc -march=native -funroll-loops -ffp-contract=fast -fno-math-errno evidence/holonomic/d14_overflow_whole_epoch_tail_20260912/whole_epoch_runner.cpp -o WHOLE -lquadmath
+taskset -c 0 env HOLO_D14_LOCAL_PAIRS=1 HOLO_D14_ACTIVE_PRESEARCH=1 HOLO_D14_ACTIVE_TOL=3e-12 HOLO_D14_ACTIVE_PATIENCE=1 HOLO_D14_EVENT_CONTRACT_ACCEPT=1 WHOLE INPUT mid_schedule_whole.tsv 3
+g++ -O3 -DNDEBUG -std=gnu++17 -Isrc -march=native -funroll-loops -ffp-contract=fast -fno-math-errno benchmarks/holonomic/bench_d14_positive_trajectory.cpp -o NO_SOFT -lquadmath
+taskset -c 0 env D14_EVENT_POLICY=no-soft HOLO_D14_LOCAL_PAIRS=1 HOLO_D14_ACTIVE_PRESEARCH=1 HOLO_D14_ACTIVE_TOL=1e-12 HOLO_D14_ACTIVE_PATIENCE=2 NO_SOFT INPUT no_soft_current.tsv 1
+python3 evidence/holonomic/d14_median_topology_phase5_20260913/summarize.py

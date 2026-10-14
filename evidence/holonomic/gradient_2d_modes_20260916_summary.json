@@ -1,0 +1,2572 @@
+{
+  "experiment": "radial plus angular adaptive gradient coverage diagnosis",
+  "failure_input": "evidence/holonomic/gradient_2d_failure_cases_20260916.tsv",
+  "generous_config": {
+    "max_bytes": 268435456,
+    "max_depth": 32,
+    "max_level": 8,
+    "max_node_evals": 262144,
+    "max_panels": 8192,
+    "value_first_gradient_node_budget": 262144,
+    "value_first_gradient_round_budget": 256
+  },
+  "generous_dual_nested15": {
+    "cold": {
+      "Strict": {
+        "all_gradient_tolerance_met": 8,
+        "angular_point_evaluations_mean": 32793.44827586207,
+        "angular_upgrades_mean": 383.05172413793105,
+        "evaluations": {
+          "max": 21548,
+          "mean": 1805.6724137931035,
+          "median": 93
+        },
+        "gradient_stop": {
+          "BudgetExceeded": 2,
+          "Converged": 8,
+          "EventLocationLimited": 46,
+          "InnerAccuracyLimited": 1,
+          "TopologyUnresolved": 1
+        },
+        "quality_components": {
+          "FiniteUncertified": 111,
+          "Invalid": 5,
+          "ToleranceMet": 174
+        },
+        "rows": 58,
+        "value_converged": 58,
+        "whole_ms": {
+          "max": 794.964518,
+          "p50": 0.67399,
+          "p90": 35.394177,
+          "p95": 541.612136
+        }
+      },
+      "ValueFirst": {
+        "all_gradient_tolerance_met": 8,
+        "angular_point_evaluations_mean": 29956.03448275862,
+        "angular_upgrades_mean": 369.7241379310345,
+        "evaluations": {
+          "max": 15509,
+          "mean": 1356.051724137931,
+          "median": 93
+        },
+        "gradient_stop": {
+          "BudgetExceeded": 4,
+          "Converged": 8,
+          "EventLocationLimited": 46
+        },
+        "quality_components": {
+          "FiniteUncertified": 115,
+          "ToleranceMet": 175
+        },
+        "rows": 58,
+        "value_converged": 58,
+        "whole_ms": {
+          "max": 243.221769,
+          "p50": 0.626181,
+          "p90": 35.661483,
+          "p95": 201.151118
+        }
+      },
+      "remaining_not_converged": [
+        {
+          "angular_upgrades": 0,
+          "evaluations": 77,
+          "gradient_stop": "EventLocationLimited",
+          "name": "wide-planet",
+          "policy": "Strict",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 77,
+          "gradient_stop": "EventLocationLimited",
+          "name": "wide-planet",
+          "policy": "ValueFirst",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 93,
+          "gradient_stop": "EventLocationLimited",
+          "name": "wide-planet",
+          "policy": "Strict",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 93,
+          "gradient_stop": "EventLocationLimited",
+          "name": "wide-planet",
+          "policy": "ValueFirst",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 124,
+          "gradient_stop": "EventLocationLimited",
+          "name": "cusp-approach",
+          "policy": "Strict",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 124,
+          "gradient_stop": "EventLocationLimited",
+          "name": "cusp-approach",
+          "policy": "ValueFirst",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 156,
+          "gradient_stop": "EventLocationLimited",
+          "name": "cusp-approach",
+          "policy": "Strict",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 156,
+          "gradient_stop": "EventLocationLimited",
+          "name": "cusp-approach",
+          "policy": "ValueFirst",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 17173,
+          "gradient_stop": "BudgetExceeded",
+          "name": "on-axis-off",
+          "policy": "Strict",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 9694,
+          "gradient_stop": "BudgetExceeded",
+          "name": "on-axis-off",
+          "policy": "ValueFirst",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 15466,
+          "gradient_stop": "TopologyUnresolved",
+          "name": "on-axis-off",
+          "policy": "Strict",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 9694,
+          "gradient_stop": "BudgetExceeded",
+          "name": "on-axis-off",
+          "policy": "ValueFirst",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 204,
+          "gradient_stop": "EventLocationLimited",
+          "name": "R=sqrt(m0)",
+          "policy": "Strict",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 204,
+          "gradient_stop": "EventLocationLimited",
+          "name": "R=sqrt(m0)",
+          "policy": "ValueFirst",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 204,
+          "gradient_stop": "EventLocationLimited",
+          "name": "R=sqrt(m0)",
+          "policy": "Strict",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 204,
+          "gradient_stop": "EventLocationLimited",
+          "name": "R=sqrt(m0)",
+          "policy": "ValueFirst",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 202,
+          "gradient_stop": "EventLocationLimited",
+          "name": "tiny-rho",
+          "policy": "Strict",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 202,
+          "gradient_stop": "EventLocationLimited",
+          "name": "tiny-rho",
+          "policy": "ValueFirst",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 202,
+          "gradient_stop": "EventLocationLimited",
+          "name": "tiny-rho",
+          "policy": "Strict",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 202,
+          "gradient_stop": "EventLocationLimited",
+          "name": "tiny-rho",
+          "policy": "ValueFirst",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 16577,
+          "gradient_stop": "BudgetExceeded",
+          "name": "caustic-cross",
+          "policy": "Strict",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 9789,
+          "gradient_stop": "BudgetExceeded",
+          "name": "caustic-cross",
+          "policy": "ValueFirst",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 5789,
+          "evaluations": 21548,
+          "gradient_stop": "InnerAccuracyLimited",
+          "name": "caustic-cross",
+          "policy": "Strict",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 5016,
+          "evaluations": 15509,
+          "gradient_stop": "BudgetExceeded",
+          "name": "caustic-cross",
+          "policy": "ValueFirst",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 77,
+          "gradient_stop": "EventLocationLimited",
+          "name": "extreme-q-lo",
+          "policy": "Strict",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 77,
+          "gradient_stop": "EventLocationLimited",
+          "name": "extreme-q-lo",
+          "policy": "ValueFirst",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 77,
+          "gradient_stop": "EventLocationLimited",
+          "name": "extreme-q-lo",
+          "policy": "Strict",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 77,
+          "gradient_stop": "EventLocationLimited",
+          "name": "extreme-q-lo",
+          "policy": "ValueFirst",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 93,
+          "gradient_stop": "EventLocationLimited",
+          "name": "very-wide",
+          "policy": "Strict",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 93,
+          "gradient_stop": "EventLocationLimited",
+          "name": "very-wide",
+          "policy": "ValueFirst",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 93,
+          "gradient_stop": "EventLocationLimited",
+          "name": "very-wide",
+          "policy": "Strict",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 93,
+          "gradient_stop": "EventLocationLimited",
+          "name": "very-wide",
+          "policy": "ValueFirst",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 115,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand000",
+          "policy": "Strict",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 115,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand000",
+          "policy": "ValueFirst",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 115,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand000",
+          "policy": "Strict",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 115,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand000",
+          "policy": "ValueFirst",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 77,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand008",
+          "policy": "Strict",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 77,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand008",
+          "policy": "ValueFirst",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 93,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand008",
+          "policy": "Strict",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 93,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand008",
+          "policy": "ValueFirst",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 77,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand009",
+          "policy": "Strict",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 77,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand009",
+          "policy": "ValueFirst",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 93,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand009",
+          "policy": "Strict",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 93,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand009",
+          "policy": "ValueFirst",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 77,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand012",
+          "policy": "Strict",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 77,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand012",
+          "policy": "ValueFirst",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 77,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand012",
+          "policy": "Strict",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 77,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand012",
+          "policy": "ValueFirst",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 77,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand014",
+          "policy": "Strict",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 77,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand014",
+          "policy": "ValueFirst",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 93,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand014",
+          "policy": "Strict",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 93,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand014",
+          "policy": "ValueFirst",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 69,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand015",
+          "policy": "Strict",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 69,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand015",
+          "policy": "ValueFirst",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 77,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand015",
+          "policy": "Strict",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 77,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand015",
+          "policy": "ValueFirst",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 323,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand016",
+          "policy": "Strict",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 323,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand016",
+          "policy": "ValueFirst",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 323,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand016",
+          "policy": "Strict",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 323,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand016",
+          "policy": "ValueFirst",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 69,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand018",
+          "policy": "Strict",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 69,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand018",
+          "policy": "ValueFirst",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 69,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand018",
+          "policy": "Strict",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 69,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand018",
+          "policy": "ValueFirst",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 77,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand019",
+          "policy": "Strict",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 77,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand019",
+          "policy": "ValueFirst",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 77,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand019",
+          "policy": "Strict",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 77,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand019",
+          "policy": "ValueFirst",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 69,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand021",
+          "policy": "Strict",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 69,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand021",
+          "policy": "ValueFirst",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 69,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand021",
+          "policy": "Strict",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 69,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand021",
+          "policy": "ValueFirst",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 69,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand022",
+          "policy": "Strict",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 69,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand022",
+          "policy": "ValueFirst",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 69,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand022",
+          "policy": "Strict",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 69,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand022",
+          "policy": "ValueFirst",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 69,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand026",
+          "policy": "Strict",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 69,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand026",
+          "policy": "ValueFirst",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 69,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand026",
+          "policy": "Strict",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 69,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand026",
+          "policy": "ValueFirst",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 77,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand027",
+          "policy": "Strict",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 77,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand027",
+          "policy": "ValueFirst",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 125,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand027",
+          "policy": "Strict",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 125,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand027",
+          "policy": "ValueFirst",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 203,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand030",
+          "policy": "Strict",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 203,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand030",
+          "policy": "ValueFirst",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 219,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand030",
+          "policy": "Strict",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 219,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand030",
+          "policy": "ValueFirst",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 107,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand037",
+          "policy": "Strict",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 107,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand037",
+          "policy": "ValueFirst",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 123,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand037",
+          "policy": "Strict",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 123,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand037",
+          "policy": "ValueFirst",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 77,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand038",
+          "policy": "Strict",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 77,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand038",
+          "policy": "ValueFirst",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 93,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand038",
+          "policy": "Strict",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 93,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand038",
+          "policy": "ValueFirst",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 69,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand039",
+          "policy": "Strict",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 69,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand039",
+          "policy": "ValueFirst",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 69,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand039",
+          "policy": "Strict",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 69,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand039",
+          "policy": "ValueFirst",
+          "u": 0.5
+        }
+      ]
+    },
+    "warm": {
+      "Strict": {
+        "all_gradient_tolerance_met": 7,
+        "angular_point_evaluations_mean": 40560.58620689655,
+        "angular_upgrades_mean": 550.2931034482758,
+        "evaluations": {
+          "max": 23488,
+          "mean": 2186.5172413793102,
+          "median": 93
+        },
+        "gradient_stop": {
+          "BudgetExceeded": 2,
+          "Converged": 7,
+          "EventLocationLimited": 46,
+          "InnerAccuracyLimited": 2,
+          "TopologyUnresolved": 1
+        },
+        "quality_components": {
+          "FiniteUncertified": 112,
+          "Invalid": 5,
+          "ToleranceMet": 173
+        },
+        "rows": 58,
+        "value_converged": 58,
+        "whole_ms": {
+          "max": 487.918902,
+          "p50": 0.626338,
+          "p90": 39.192306,
+          "p95": 216.704021
+        }
+      },
+      "ValueFirst": {
+        "all_gradient_tolerance_met": 7,
+        "angular_point_evaluations_mean": 35641.293103448275,
+        "angular_upgrades_mean": 504.6551724137931,
+        "evaluations": {
+          "max": 20612,
+          "mean": 1721.948275862069,
+          "median": 93
+        },
+        "gradient_stop": {
+          "BudgetExceeded": 5,
+          "Converged": 7,
+          "EventLocationLimited": 46
+        },
+        "quality_components": {
+          "FiniteUncertified": 119,
+          "ToleranceMet": 171
+        },
+        "rows": 58,
+        "value_converged": 58,
+        "whole_ms": {
+          "max": 192.6896,
+          "p50": 0.620987,
+          "p90": 33.793428,
+          "p95": 124.554809
+        }
+      },
+      "remaining_not_converged": [
+        {
+          "angular_upgrades": 0,
+          "evaluations": 77,
+          "gradient_stop": "EventLocationLimited",
+          "name": "wide-planet",
+          "policy": "Strict",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 77,
+          "gradient_stop": "EventLocationLimited",
+          "name": "wide-planet",
+          "policy": "ValueFirst",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 93,
+          "gradient_stop": "EventLocationLimited",
+          "name": "wide-planet",
+          "policy": "Strict",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 93,
+          "gradient_stop": "EventLocationLimited",
+          "name": "wide-planet",
+          "policy": "ValueFirst",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 124,
+          "gradient_stop": "EventLocationLimited",
+          "name": "cusp-approach",
+          "policy": "Strict",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 124,
+          "gradient_stop": "EventLocationLimited",
+          "name": "cusp-approach",
+          "policy": "ValueFirst",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 156,
+          "gradient_stop": "EventLocationLimited",
+          "name": "cusp-approach",
+          "policy": "Strict",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 156,
+          "gradient_stop": "EventLocationLimited",
+          "name": "cusp-approach",
+          "policy": "ValueFirst",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 17173,
+          "gradient_stop": "BudgetExceeded",
+          "name": "on-axis-off",
+          "policy": "Strict",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 9694,
+          "gradient_stop": "BudgetExceeded",
+          "name": "on-axis-off",
+          "policy": "ValueFirst",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 12792,
+          "gradient_stop": "TopologyUnresolved",
+          "name": "on-axis-off",
+          "policy": "Strict",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 9694,
+          "gradient_stop": "BudgetExceeded",
+          "name": "on-axis-off",
+          "policy": "ValueFirst",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 204,
+          "gradient_stop": "EventLocationLimited",
+          "name": "R=sqrt(m0)",
+          "policy": "Strict",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 204,
+          "gradient_stop": "EventLocationLimited",
+          "name": "R=sqrt(m0)",
+          "policy": "ValueFirst",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 204,
+          "gradient_stop": "EventLocationLimited",
+          "name": "R=sqrt(m0)",
+          "policy": "Strict",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 204,
+          "gradient_stop": "EventLocationLimited",
+          "name": "R=sqrt(m0)",
+          "policy": "ValueFirst",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 202,
+          "gradient_stop": "EventLocationLimited",
+          "name": "tiny-rho",
+          "policy": "Strict",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 202,
+          "gradient_stop": "EventLocationLimited",
+          "name": "tiny-rho",
+          "policy": "ValueFirst",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 202,
+          "gradient_stop": "EventLocationLimited",
+          "name": "tiny-rho",
+          "policy": "Strict",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 202,
+          "gradient_stop": "EventLocationLimited",
+          "name": "tiny-rho",
+          "policy": "ValueFirst",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 16577,
+          "gradient_stop": "BudgetExceeded",
+          "name": "caustic-cross",
+          "policy": "Strict",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 9797,
+          "gradient_stop": "BudgetExceeded",
+          "name": "caustic-cross",
+          "policy": "ValueFirst",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 6105,
+          "evaluations": 22249,
+          "gradient_stop": "InnerAccuracyLimited",
+          "name": "caustic-cross",
+          "policy": "Strict",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 4985,
+          "evaluations": 15537,
+          "gradient_stop": "BudgetExceeded",
+          "name": "caustic-cross",
+          "policy": "ValueFirst",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 77,
+          "gradient_stop": "EventLocationLimited",
+          "name": "extreme-q-lo",
+          "policy": "Strict",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 77,
+          "gradient_stop": "EventLocationLimited",
+          "name": "extreme-q-lo",
+          "policy": "ValueFirst",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 77,
+          "gradient_stop": "EventLocationLimited",
+          "name": "extreme-q-lo",
+          "policy": "Strict",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 77,
+          "gradient_stop": "EventLocationLimited",
+          "name": "extreme-q-lo",
+          "policy": "ValueFirst",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 93,
+          "gradient_stop": "EventLocationLimited",
+          "name": "very-wide",
+          "policy": "Strict",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 93,
+          "gradient_stop": "EventLocationLimited",
+          "name": "very-wide",
+          "policy": "ValueFirst",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 93,
+          "gradient_stop": "EventLocationLimited",
+          "name": "very-wide",
+          "policy": "Strict",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 93,
+          "gradient_stop": "EventLocationLimited",
+          "name": "very-wide",
+          "policy": "ValueFirst",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 11402,
+          "evaluations": 23488,
+          "gradient_stop": "InnerAccuracyLimited",
+          "name": "very-close",
+          "policy": "Strict",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 9875,
+          "evaluations": 20612,
+          "gradient_stop": "BudgetExceeded",
+          "name": "very-close",
+          "policy": "ValueFirst",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 115,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand000",
+          "policy": "Strict",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 115,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand000",
+          "policy": "ValueFirst",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 115,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand000",
+          "policy": "Strict",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 115,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand000",
+          "policy": "ValueFirst",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 77,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand008",
+          "policy": "Strict",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 77,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand008",
+          "policy": "ValueFirst",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 93,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand008",
+          "policy": "Strict",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 93,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand008",
+          "policy": "ValueFirst",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 77,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand009",
+          "policy": "Strict",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 77,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand009",
+          "policy": "ValueFirst",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 93,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand009",
+          "policy": "Strict",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 93,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand009",
+          "policy": "ValueFirst",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 77,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand012",
+          "policy": "Strict",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 77,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand012",
+          "policy": "ValueFirst",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 77,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand012",
+          "policy": "Strict",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 77,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand012",
+          "policy": "ValueFirst",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 77,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand014",
+          "policy": "Strict",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 77,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand014",
+          "policy": "ValueFirst",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 93,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand014",
+          "policy": "Strict",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 93,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand014",
+          "policy": "ValueFirst",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 69,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand015",
+          "policy": "Strict",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 69,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand015",
+          "policy": "ValueFirst",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 77,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand015",
+          "policy": "Strict",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 77,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand015",
+          "policy": "ValueFirst",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 323,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand016",
+          "policy": "Strict",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 323,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand016",
+          "policy": "ValueFirst",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 323,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand016",
+          "policy": "Strict",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 323,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand016",
+          "policy": "ValueFirst",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 69,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand018",
+          "policy": "Strict",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 69,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand018",
+          "policy": "ValueFirst",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 69,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand018",
+          "policy": "Strict",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 69,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand018",
+          "policy": "ValueFirst",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 77,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand019",
+          "policy": "Strict",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 77,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand019",
+          "policy": "ValueFirst",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 77,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand019",
+          "policy": "Strict",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 77,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand019",
+          "policy": "ValueFirst",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 69,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand021",
+          "policy": "Strict",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 69,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand021",
+          "policy": "ValueFirst",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 69,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand021",
+          "policy": "Strict",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 69,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand021",
+          "policy": "ValueFirst",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 69,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand022",
+          "policy": "Strict",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 69,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand022",
+          "policy": "ValueFirst",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 69,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand022",
+          "policy": "Strict",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 69,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand022",
+          "policy": "ValueFirst",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 69,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand026",
+          "policy": "Strict",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 69,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand026",
+          "policy": "ValueFirst",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 69,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand026",
+          "policy": "Strict",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 69,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand026",
+          "policy": "ValueFirst",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 77,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand027",
+          "policy": "Strict",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 77,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand027",
+          "policy": "ValueFirst",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 125,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand027",
+          "policy": "Strict",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 125,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand027",
+          "policy": "ValueFirst",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 203,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand030",
+          "policy": "Strict",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 203,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand030",
+          "policy": "ValueFirst",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 219,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand030",
+          "policy": "Strict",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 219,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand030",
+          "policy": "ValueFirst",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 107,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand037",
+          "policy": "Strict",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 107,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand037",
+          "policy": "ValueFirst",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 123,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand037",
+          "policy": "Strict",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 123,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand037",
+          "policy": "ValueFirst",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 77,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand038",
+          "policy": "Strict",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 77,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand038",
+          "policy": "ValueFirst",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 93,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand038",
+          "policy": "Strict",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 93,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand038",
+          "policy": "ValueFirst",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 69,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand039",
+          "policy": "Strict",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 69,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand039",
+          "policy": "ValueFirst",
+          "u": 0.0
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 69,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand039",
+          "policy": "Strict",
+          "u": 0.5
+        },
+        {
+          "angular_upgrades": 0,
+          "evaluations": 69,
+          "gradient_stop": "EventLocationLimited",
+          "name": "rand039",
+          "policy": "ValueFirst",
+          "u": 0.5
+        }
+      ]
+    }
+  },
+  "head": "cd1343cc2bd7fc8bfde17c5556772ed6420f14b4",
+  "normal": {
+    "cold": {
+      "Strict": {
+        "dual_gc2": {
+          "all_gradient_tolerance_met": 47,
+          "angular_point_evaluations_mean": 18603.48148148148,
+          "angular_upgrades_mean": 179.03703703703704,
+          "evaluations": {
+            "max": 8515,
+            "mean": 636.7407407407408,
+            "median": 93
+          },
+          "gradient_stop": {
+            "BudgetExceeded": 4,
+            "Converged": 47,
+            "EventLocationLimited": 46,
+            "InnerAccuracyLimited": 1,
+            "TopologyUnresolved": 10
+          },
+          "quality_components": {
+            "FiniteUncertified": 117,
+            "ToleranceMet": 373
+          },
+          "rows": 108,
+          "value_converged": 98,
+          "whole_ms": {
+            "max": 113.80149,
+            "p50": 0.694047,
+            "p90": 1.872926,
+            "p95": 21.494548
+          }
+        },
+        "dual_nested15": {
+          "all_gradient_tolerance_met": 48,
+          "angular_point_evaluations_mean": 13889.824074074075,
+          "angular_upgrades_mean": 165.88888888888889,
+          "evaluations": {
+            "max": 9485,
+            "mean": 638.4814814814815,
+            "median": 93
+          },
+          "gradient_stop": {
+            "BudgetExceeded": 4,
+            "Converged": 48,
+            "EventLocationLimited": 46,
+            "TopologyUnresolved": 10
+          },
+          "quality_components": {
+            "FiniteUncertified": 115,
+            "ToleranceMet": 375
+          },
+          "rows": 108,
+          "value_converged": 98,
+          "whole_ms": {
+            "max": 112.440932,
+            "p50": 0.687589,
+            "p90": 1.930475,
+            "p95": 34.334322
+          }
+        },
+        "radial_only": {
+          "all_gradient_tolerance_met": 44,
+          "angular_point_evaluations_mean": 0,
+          "angular_upgrades_mean": 0,
+          "evaluations": {
+            "max": 6677,
+            "mean": 376.8703703703704,
+            "median": 93
+          },
+          "gradient_stop": {
+            "BudgetExceeded": 4,
+            "Converged": 44,
+            "EventLocationLimited": 46,
+            "InnerAccuracyLimited": 4,
+            "TopologyUnresolved": 10
+          },
+          "quality_components": {
+            "FiniteUncertified": 135,
+            "ToleranceMet": 355
+          },
+          "rows": 108,
+          "value_converged": 98,
+          "whole_ms": {
+            "max": 105.543423,
+            "p50": 0.709989,
+            "p90": 1.67439,
+            "p95": 2.220276
+          }
+        }
+      },
+      "ValueFirst": {
+        "dual_gc2": {
+          "all_gradient_tolerance_met": 46,
+          "angular_point_evaluations_mean": 15384.666666666666,
+          "angular_upgrades_mean": 154.16666666666666,
+          "evaluations": {
+            "max": 8515,
+            "mean": 467.462962962963,
+            "median": 93
+          },
+          "gradient_stop": {
+            "BudgetExceeded": 6,
+            "Converged": 46,
+            "EventLocationLimited": 46,
+            "TopologyUnresolved": 10
+          },
+          "quality_components": {
+            "FiniteUncertified": 124,
+            "ToleranceMet": 366
+          },
+          "rows": 108,
+          "value_converged": 98,
+          "whole_ms": {
+            "max": 30.667527,
+            "p50": 0.671322,
+            "p90": 1.798053,
+            "p95": 18.341752
+          }
+        },
+        "dual_nested15": {
+          "all_gradient_tolerance_met": 48,
+          "angular_point_evaluations_mean": 12430.101851851852,
+          "angular_upgrades_mean": 155.28703703703704,
+          "evaluations": {
+            "max": 9485,
+            "mean": 489.8333333333333,
+            "median": 93
+          },
+          "gradient_stop": {
+            "BudgetExceeded": 4,
+            "Converged": 48,
+            "EventLocationLimited": 46,
+            "TopologyUnresolved": 10
+          },
+          "quality_components": {
+            "FiniteUncertified": 114,
+            "ToleranceMet": 376
+          },
+          "rows": 108,
+          "value_converged": 98,
+          "whole_ms": {
+            "max": 49.281575,
+            "p50": 0.66745,
+            "p90": 1.736244,
+            "p95": 18.437417
+          }
+        },
+        "radial_only": {
+          "all_gradient_tolerance_met": 44,
+          "angular_point_evaluations_mean": 0,
+          "angular_upgrades_mean": 0,
+          "evaluations": {
+            "max": 2817,
+            "mean": 242.57407407407408,
+            "median": 93
+          },
+          "gradient_stop": {
+            "BudgetExceeded": 4,
+            "Converged": 44,
+            "EventLocationLimited": 46,
+            "InnerAccuracyLimited": 4,
+            "TopologyUnresolved": 10
+          },
+          "quality_components": {
+            "FiniteUncertified": 135,
+            "ToleranceMet": 355
+          },
+          "rows": 108,
+          "value_converged": 98,
+          "whole_ms": {
+            "max": 22.143563,
+            "p50": 0.691323,
+            "p90": 1.595691,
+            "p95": 2.411914
+          }
+        }
+      },
+      "paired_radial_vs_dual_nested15": {
+        "all_component_improvements": [
+          [
+            "close-binary",
+            "0.5",
+            "Strict"
+          ],
+          [
+            "close-binary",
+            "0.5",
+            "ValueFirst"
+          ],
+          [
+            "rand033",
+            "0.5",
+            "Strict"
+          ],
+          [
+            "rand033",
+            "0.5",
+            "ValueFirst"
+          ],
+          [
+            "resonant",
+            "0.5",
+            "Strict"
+          ],
+          [
+            "resonant",
+            "0.5",
+            "ValueFirst"
+          ],
+          [
+            "very-close",
+            "0.5",
+            "Strict"
+          ],
+          [
+            "very-close",
+            "0.5",
+            "ValueFirst"
+          ]
+        ],
+        "quality_changes": [
+          {
+            "case": [
+              "caustic-cross",
+              "0.5",
+              "ValueFirst"
+            ],
+            "dual_nested15": [
+              "FiniteUncertified:BudgetExceeded",
+              "ToleranceMet:ToleranceMet",
+              "FiniteUncertified:BudgetExceeded",
+              "FiniteUncertified:BudgetExceeded",
+              "FiniteUncertified:BudgetExceeded"
+            ],
+            "radial_only": [
+              "FiniteUncertified:BudgetExceeded",
+              "FiniteUncertified:BudgetExceeded",
+              "FiniteUncertified:BudgetExceeded",
+              "FiniteUncertified:BudgetExceeded",
+              "FiniteUncertified:BudgetExceeded"
+            ]
+          },
+          {
+            "case": [
+              "close-binary",
+              "0.5",
+              "Strict"
+            ],
+            "dual_nested15": [
+              "ToleranceMet:ToleranceMet",
+              "ToleranceMet:ToleranceMet",
+              "ToleranceMet:ToleranceMet",
+              "ToleranceMet:ToleranceMet",
+              "ToleranceMet:ToleranceMet"
+            ],
+            "radial_only": [
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited"
+            ]
+          },
+          {
+            "case": [
+              "close-binary",
+              "0.5",
+              "ValueFirst"
+            ],
+            "dual_nested15": [
+              "ToleranceMet:ToleranceMet",
+              "ToleranceMet:ToleranceMet",
+              "ToleranceMet:ToleranceMet",
+              "ToleranceMet:ToleranceMet",
+              "ToleranceMet:ToleranceMet"
+            ],
+            "radial_only": [
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited"
+            ]
+          },
+          {
+            "case": [
+              "rand033",
+              "0.5",
+              "Strict"
+            ],
+            "dual_nested15": [
+              "ToleranceMet:ToleranceMet",
+              "ToleranceMet:ToleranceMet",
+              "ToleranceMet:ToleranceMet",
+              "ToleranceMet:ToleranceMet",
+              "ToleranceMet:ToleranceMet"
+            ],
+            "radial_only": [
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited"
+            ]
+          },
+          {
+            "case": [
+              "rand033",
+              "0.5",
+              "ValueFirst"
+            ],
+            "dual_nested15": [
+              "ToleranceMet:ToleranceMet",
+              "ToleranceMet:ToleranceMet",
+              "ToleranceMet:ToleranceMet",
+              "ToleranceMet:ToleranceMet",
+              "ToleranceMet:ToleranceMet"
+            ],
+            "radial_only": [
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited"
+            ]
+          },
+          {
+            "case": [
+              "resonant",
+              "0.5",
+              "Strict"
+            ],
+            "dual_nested15": [
+              "ToleranceMet:ToleranceMet",
+              "ToleranceMet:ToleranceMet",
+              "ToleranceMet:ToleranceMet",
+              "ToleranceMet:ToleranceMet",
+              "ToleranceMet:ToleranceMet"
+            ],
+            "radial_only": [
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited"
+            ]
+          },
+          {
+            "case": [
+              "resonant",
+              "0.5",
+              "ValueFirst"
+            ],
+            "dual_nested15": [
+              "ToleranceMet:ToleranceMet",
+              "ToleranceMet:ToleranceMet",
+              "ToleranceMet:ToleranceMet",
+              "ToleranceMet:ToleranceMet",
+              "ToleranceMet:ToleranceMet"
+            ],
+            "radial_only": [
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited"
+            ]
+          },
+          {
+            "case": [
+              "very-close",
+              "0.5",
+              "Strict"
+            ],
+            "dual_nested15": [
+              "ToleranceMet:ToleranceMet",
+              "ToleranceMet:ToleranceMet",
+              "ToleranceMet:ToleranceMet",
+              "ToleranceMet:ToleranceMet",
+              "ToleranceMet:ToleranceMet"
+            ],
+            "radial_only": [
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited"
+            ]
+          },
+          {
+            "case": [
+              "very-close",
+              "0.5",
+              "ValueFirst"
+            ],
+            "dual_nested15": [
+              "ToleranceMet:ToleranceMet",
+              "ToleranceMet:ToleranceMet",
+              "ToleranceMet:ToleranceMet",
+              "ToleranceMet:ToleranceMet",
+              "ToleranceMet:ToleranceMet"
+            ],
+            "radial_only": [
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited"
+            ]
+          }
+        ],
+        "regressions": []
+      }
+    },
+    "warm": {
+      "Strict": {
+        "dual_gc2": {
+          "all_gradient_tolerance_met": 46,
+          "angular_point_evaluations_mean": 20405.037037037036,
+          "angular_upgrades_mean": 184.78703703703704,
+          "evaluations": {
+            "max": 19202,
+            "mean": 709.9907407407408,
+            "median": 93
+          },
+          "gradient_stop": {
+            "BudgetExceeded": 6,
+            "Converged": 46,
+            "EventLocationLimited": 46,
+            "TopologyUnresolved": 10
+          },
+          "quality_components": {
+            "FiniteUncertified": 124,
+            "ToleranceMet": 366
+          },
+          "rows": 108,
+          "value_converged": 98,
+          "whole_ms": {
+            "max": 104.548576,
+            "p50": 0.595201,
+            "p90": 2.015632,
+            "p95": 11.686422
+          }
+        },
+        "dual_nested15": {
+          "all_gradient_tolerance_met": 46,
+          "angular_point_evaluations_mean": 16968.23148148148,
+          "angular_upgrades_mean": 238.37962962962962,
+          "evaluations": {
+            "max": 19288,
+            "mean": 810.7222222222222,
+            "median": 93
+          },
+          "gradient_stop": {
+            "BudgetExceeded": 6,
+            "Converged": 46,
+            "EventLocationLimited": 46,
+            "TopologyUnresolved": 10
+          },
+          "quality_components": {
+            "FiniteUncertified": 124,
+            "ToleranceMet": 366
+          },
+          "rows": 108,
+          "value_converged": 98,
+          "whole_ms": {
+            "max": 135.532601,
+            "p50": 0.616971,
+            "p90": 1.818911,
+            "p95": 37.520972
+          }
+        },
+        "radial_only": {
+          "all_gradient_tolerance_met": 43,
+          "angular_point_evaluations_mean": 0,
+          "angular_upgrades_mean": 0,
+          "evaluations": {
+            "max": 6677,
+            "mean": 416.7962962962963,
+            "median": 93
+          },
+          "gradient_stop": {
+            "BudgetExceeded": 5,
+            "Converged": 43,
+            "EventLocationLimited": 46,
+            "InnerAccuracyLimited": 4,
+            "TopologyUnresolved": 10
+          },
+          "quality_components": {
+            "FiniteUncertified": 139,
+            "ToleranceMet": 351
+          },
+          "rows": 108,
+          "value_converged": 98,
+          "whole_ms": {
+            "max": 66.420778,
+            "p50": 0.595761,
+            "p90": 1.527654,
+            "p95": 4.87528
+          }
+        }
+      },
+      "ValueFirst": {
+        "dual_gc2": {
+          "all_gradient_tolerance_met": 46,
+          "angular_point_evaluations_mean": 12971.555555555555,
+          "angular_upgrades_mean": 124.38888888888889,
+          "evaluations": {
+            "max": 9121,
+            "mean": 446.1111111111111,
+            "median": 93
+          },
+          "gradient_stop": {
+            "BudgetExceeded": 6,
+            "Converged": 46,
+            "EventLocationLimited": 46,
+            "TopologyUnresolved": 10
+          },
+          "quality_components": {
+            "FiniteUncertified": 123,
+            "ToleranceMet": 367
+          },
+          "rows": 108,
+          "value_converged": 98,
+          "whole_ms": {
+            "max": 27.8222,
+            "p50": 0.592866,
+            "p90": 1.776148,
+            "p95": 12.03291
+          }
+        },
+        "dual_nested15": {
+          "all_gradient_tolerance_met": 46,
+          "angular_point_evaluations_mean": 12775.768518518518,
+          "angular_upgrades_mean": 180.25,
+          "evaluations": {
+            "max": 9497,
+            "mean": 538.5370370370371,
+            "median": 93
+          },
+          "gradient_stop": {
+            "BudgetExceeded": 6,
+            "Converged": 46,
+            "EventLocationLimited": 46,
+            "TopologyUnresolved": 10
+          },
+          "quality_components": {
+            "FiniteUncertified": 123,
+            "ToleranceMet": 367
+          },
+          "rows": 108,
+          "value_converged": 98,
+          "whole_ms": {
+            "max": 37.234009,
+            "p50": 0.607001,
+            "p90": 1.710418,
+            "p95": 15.037551
+          }
+        },
+        "radial_only": {
+          "all_gradient_tolerance_met": 43,
+          "angular_point_evaluations_mean": 0,
+          "angular_upgrades_mean": 0,
+          "evaluations": {
+            "max": 2905,
+            "mean": 266.48148148148147,
+            "median": 93
+          },
+          "gradient_stop": {
+            "BudgetExceeded": 5,
+            "Converged": 43,
+            "EventLocationLimited": 46,
+            "InnerAccuracyLimited": 4,
+            "TopologyUnresolved": 10
+          },
+          "quality_components": {
+            "FiniteUncertified": 139,
+            "ToleranceMet": 351
+          },
+          "rows": 108,
+          "value_converged": 98,
+          "whole_ms": {
+            "max": 27.220667,
+            "p50": 0.581803,
+            "p90": 1.54629,
+            "p95": 4.657787
+          }
+        }
+      },
+      "paired_radial_vs_dual_nested15": {
+        "all_component_improvements": [
+          [
+            "close-binary",
+            "0.5",
+            "Strict"
+          ],
+          [
+            "close-binary",
+            "0.5",
+            "ValueFirst"
+          ],
+          [
+            "rand033",
+            "0.5",
+            "Strict"
+          ],
+          [
+            "rand033",
+            "0.5",
+            "ValueFirst"
+          ],
+          [
+            "resonant",
+            "0.5",
+            "Strict"
+          ],
+          [
+            "resonant",
+            "0.5",
+            "ValueFirst"
+          ]
+        ],
+        "quality_changes": [
+          {
+            "case": [
+              "caustic-cross",
+              "0.5",
+              "ValueFirst"
+            ],
+            "dual_nested15": [
+              "FiniteUncertified:BudgetExceeded",
+              "ToleranceMet:ToleranceMet",
+              "FiniteUncertified:BudgetExceeded",
+              "FiniteUncertified:BudgetExceeded",
+              "FiniteUncertified:BudgetExceeded"
+            ],
+            "radial_only": [
+              "FiniteUncertified:BudgetExceeded",
+              "FiniteUncertified:BudgetExceeded",
+              "FiniteUncertified:BudgetExceeded",
+              "FiniteUncertified:BudgetExceeded",
+              "FiniteUncertified:BudgetExceeded"
+            ]
+          },
+          {
+            "case": [
+              "close-binary",
+              "0.5",
+              "Strict"
+            ],
+            "dual_nested15": [
+              "ToleranceMet:ToleranceMet",
+              "ToleranceMet:ToleranceMet",
+              "ToleranceMet:ToleranceMet",
+              "ToleranceMet:ToleranceMet",
+              "ToleranceMet:ToleranceMet"
+            ],
+            "radial_only": [
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited"
+            ]
+          },
+          {
+            "case": [
+              "close-binary",
+              "0.5",
+              "ValueFirst"
+            ],
+            "dual_nested15": [
+              "ToleranceMet:ToleranceMet",
+              "ToleranceMet:ToleranceMet",
+              "ToleranceMet:ToleranceMet",
+              "ToleranceMet:ToleranceMet",
+              "ToleranceMet:ToleranceMet"
+            ],
+            "radial_only": [
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited"
+            ]
+          },
+          {
+            "case": [
+              "rand033",
+              "0.5",
+              "Strict"
+            ],
+            "dual_nested15": [
+              "ToleranceMet:ToleranceMet",
+              "ToleranceMet:ToleranceMet",
+              "ToleranceMet:ToleranceMet",
+              "ToleranceMet:ToleranceMet",
+              "ToleranceMet:ToleranceMet"
+            ],
+            "radial_only": [
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited"
+            ]
+          },
+          {
+            "case": [
+              "rand033",
+              "0.5",
+              "ValueFirst"
+            ],
+            "dual_nested15": [
+              "ToleranceMet:ToleranceMet",
+              "ToleranceMet:ToleranceMet",
+              "ToleranceMet:ToleranceMet",
+              "ToleranceMet:ToleranceMet",
+              "ToleranceMet:ToleranceMet"
+            ],
+            "radial_only": [
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited"
+            ]
+          },
+          {
+            "case": [
+              "resonant",
+              "0.5",
+              "Strict"
+            ],
+            "dual_nested15": [
+              "ToleranceMet:ToleranceMet",
+              "ToleranceMet:ToleranceMet",
+              "ToleranceMet:ToleranceMet",
+              "ToleranceMet:ToleranceMet",
+              "ToleranceMet:ToleranceMet"
+            ],
+            "radial_only": [
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited"
+            ]
+          },
+          {
+            "case": [
+              "resonant",
+              "0.5",
+              "ValueFirst"
+            ],
+            "dual_nested15": [
+              "ToleranceMet:ToleranceMet",
+              "ToleranceMet:ToleranceMet",
+              "ToleranceMet:ToleranceMet",
+              "ToleranceMet:ToleranceMet",
+              "ToleranceMet:ToleranceMet"
+            ],
+            "radial_only": [
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited"
+            ]
+          },
+          {
+            "case": [
+              "very-close",
+              "0.5",
+              "Strict"
+            ],
+            "dual_nested15": [
+              "FiniteUncertified:BudgetExceeded",
+              "FiniteUncertified:BudgetExceeded",
+              "FiniteUncertified:BudgetExceeded",
+              "FiniteUncertified:BudgetExceeded",
+              "FiniteUncertified:BudgetExceeded"
+            ],
+            "radial_only": [
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited"
+            ]
+          },
+          {
+            "case": [
+              "very-close",
+              "0.5",
+              "ValueFirst"
+            ],
+            "dual_nested15": [
+              "FiniteUncertified:BudgetExceeded",
+              "FiniteUncertified:BudgetExceeded",
+              "FiniteUncertified:BudgetExceeded",
+              "FiniteUncertified:BudgetExceeded",
+              "FiniteUncertified:BudgetExceeded"
+            ],
+            "radial_only": [
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited",
+              "FiniteUncertified:InnerAccuracyLimited"
+            ]
+          }
+        ],
+        "regressions": []
+      }
+    }
+  },
+  "normal_input": "evidence/holonomic/gm_coverage_cases.tsv"
+}

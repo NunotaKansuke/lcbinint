@@ -1,0 +1,2 @@
+polynomial enclosure checks: 999 accepted / 1000
+local bracket PASS; interval comparisons 40000

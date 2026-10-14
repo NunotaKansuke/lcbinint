@@ -1,0 +1,15 @@
+{
+  "binary_sha256": "8c10e108ee84977273d330df34ba25cfc7569b452dd65cf9df319f067c6d7319",
+  "input_sha256": "6646492658ed416e75cb8c6c821ee853f79cdf7761fc41441186aa67b81fa05b",
+  "cpus": [
+    4,
+    5,
+    6,
+    7
+  ],
+  "reps": 1,
+  "rows": 14432,
+  "atlas_config": "double first, 2048 boxes, contract, tubes, warm range probe; no old solver fallback",
+  "timing": "outer call incl topology and temporary destruction; LensParams outside; first trajectory epoch cold, later three warm; unmeasured trajectory per lane",
+  "status": "generation complete"
+}

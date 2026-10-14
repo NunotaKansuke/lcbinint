@@ -1,0 +1,65 @@
+{
+  "normal": {
+    "before_matched": {
+      "seed_ms": 0.10089088505747125,
+      "planning_ms": 0.09893163218390803,
+      "candidate_integration_ms": 0.22233806896551725,
+      "candidate_no_caustic_ms": 0.4247663563218392
+    },
+    "after_matched": {
+      "seed_ms": 0.08452814942528734,
+      "planning_ms": 0.09061467816091952,
+      "candidate_integration_ms": 0.2161798735632185,
+      "candidate_no_caustic_ms": 0.39372450574712653
+    },
+    "before_reverse": {
+      "seed_ms": 0.10056354022988505,
+      "planning_ms": 0.09829771264367818,
+      "candidate_integration_ms": 0.2212011724137931,
+      "candidate_no_caustic_ms": 0.4224643908045977
+    },
+    "after_reverse": {
+      "seed_ms": 0.08434688505747127,
+      "planning_ms": 0.0900779195402299,
+      "candidate_integration_ms": 0.21812148275862075,
+      "candidate_no_caustic_ms": 0.39531822988505744
+    },
+    "reduction_matched": {
+      "seed_ms": 0.16218249669296758,
+      "planning_ms": 0.08406769239920953,
+      "candidate_integration_ms": 0.02769744034816568,
+      "candidate_no_caustic_ms": 0.0730798240319972
+    },
+    "reduction_reverse": {
+      "seed_ms": 0.1612577991520885,
+      "planning_ms": 0.0836214076846774,
+      "candidate_integration_ms": 0.013922573834334373,
+      "candidate_no_caustic_ms": 0.06425668413813401
+    }
+  },
+  "validation": {
+    "conditions": 896,
+    "resolved_reference": 754,
+    "unresolved_reference": 142,
+    "candidate_failures_on_resolved_reference": 0,
+    "magnification_changes": 0,
+    "node_count_changes": 0,
+    "seed_coordinate_and_order_exact": true,
+    "seed_geometries": 224,
+    "maximum_discrepancy_over_tolerance": 0.24896766490094166
+  },
+  "profile": {
+    "before": {
+      "frontier_count_ms": 0.04362734099616858,
+      "frontier_event_ms": 0.029761084291187758,
+      "integration_count_ms": 0.02835016858237548,
+      "integration_ms": 0.2883323869731801
+    },
+    "after": {
+      "frontier_count_ms": 0.035490823754789264,
+      "frontier_event_ms": 0.02898911111111112,
+      "integration_count_ms": 0.02128484674329501,
+      "integration_ms": 0.2769516053639846
+    }
+  }
+}

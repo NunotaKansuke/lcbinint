@@ -1,0 +1,40 @@
+{
+  "uniform": {
+    "base_ms": {
+      "whole": 0.39200149999999995,
+      "topology": 0.19528299999999996,
+      "physics": 0.132601,
+      "k": 0.0,
+      "rescue": 0.0
+    },
+    "candidate_ms": {
+      "whole": 0.39207749999999997,
+      "topology": 0.195482,
+      "physics": 0.13302349999999996,
+      "k": 0.0,
+      "rescue": 0.0
+    },
+    "max_mu_relative_difference": 0.0,
+    "node_mismatch": 0,
+    "ok_mismatch": 0
+  },
+  "linear": {
+    "base_ms": {
+      "whole": 0.463827,
+      "topology": 0.19562449999999992,
+      "physics": 0.1981325,
+      "k": 0.01237649999999995,
+      "rescue": 0.0
+    },
+    "candidate_ms": {
+      "whole": 0.46347649999999996,
+      "topology": 0.19633849999999997,
+      "physics": 0.19638249999999996,
+      "k": 0.00929949999999995,
+      "rescue": 0.0
+    },
+    "max_mu_relative_difference": 5.872612894330449e-16,
+    "node_mismatch": 0,
+    "ok_mismatch": 0
+  }
+}

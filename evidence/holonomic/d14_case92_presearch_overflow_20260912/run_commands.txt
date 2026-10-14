@@ -1,0 +1,49 @@
+Repository: NunotaKansuke/lcbinint
+Branch at measurement: dev/holonomic
+Source base: f643fd8029334cc56531d6f59bce96d22efab327
+Input: evidence/holonomic/d14_root_scheduling_phase2_20260912/input_snapshot.tsv
+Input SHA256: 6646492658ed416e75cb8c6c821ee853f79cdf7761fc41441186aa67b81fa05b
+Machine: Intel Xeon Gold 6530, pinned CPU 0, GCC 11.5.0
+
+The matched legacy build uses HOLO_D14_FORCE_LEGACY_DOUBLE_DIV=1. This
+compile-time-only A/B switch restores the original unscaled binary64 complex
+quotient while leaving DD, D14Real, and __float128 arithmetic on the same
+implementation as the candidate. It adds no runtime branch to normal builds.
+
+Build and verification:
+  cmake -S tests/holonomic_cpp -B build-holonomic-global -DCMAKE_BUILD_TYPE=Release
+  cmake --build build-holonomic-global -j2
+  ctest --test-dir build-holonomic-global --output-on-failure -j2
+
+Compile matched legacy-double benchmark:
+  g++ -O3 -march=native -funroll-loops -ffp-contract=fast -fno-math-errno -DNDEBUG -std=gnu++17 -DHOLO_D14_FORCE_LEGACY_DOUBLE_DIV=1 -I src benchmarks/holonomic/bench_d14_root_work_detail.cpp -o /tmp/bench_d14_force_legacy_double_final -lquadmath
+
+Full 7,216-row/lane D14 + topology A/B, candidate:
+  taskset -c 0 env HOLO_D14_LOCAL_PAIRS=1 HOLO_D14_ACTIVE_PRESEARCH=1 HOLO_D14_ACTIVE_TOL=1e-12 HOLO_D14_ACTIVE_PATIENCE=2 build-holonomic-global/bench_d14_root_work_detail evidence/holonomic/d14_root_scheduling_phase2_20260912/input_snapshot.tsv /tmp/d14_final_safe_roots.tsv /tmp/d14_final_safe_timing.tsv 1 both
+
+Full 7,216-row/lane D14 + topology A/B, original binary64 quotient:
+  taskset -c 0 env HOLO_D14_LOCAL_PAIRS=1 HOLO_D14_ACTIVE_PRESEARCH=1 HOLO_D14_ACTIVE_TOL=1e-12 HOLO_D14_ACTIVE_PATIENCE=2 /tmp/bench_d14_force_legacy_double_final evidence/holonomic/d14_root_scheduling_phase2_20260912/input_snapshot.tsv /tmp/d14_final_legacy_roots.tsv /tmp/d14_final_legacy_timing.tsv 1 both
+
+Case 92, d_bin=0, linear profile, 10 repeats, both lanes, candidate:
+  taskset -c 0 env HOLO_D14_LOCAL_PAIRS=1 HOLO_D14_ACTIVE_PRESEARCH=1 HOLO_D14_ACTIVE_TOL=1e-12 HOLO_D14_ACTIVE_PATIENCE=2 build-holonomic-global/bench_d14_root_work_detail evidence/holonomic/d14_root_scheduling_phase2_20260912/input_snapshot.tsv /tmp/d14_case92_final_safe_roots.tsv /tmp/d14_case92_final_safe_timing.tsv 10 both 92 0 linear
+
+Case 92, same filter/repeats, original binary64 quotient:
+  taskset -c 0 env HOLO_D14_LOCAL_PAIRS=1 HOLO_D14_ACTIVE_PRESEARCH=1 HOLO_D14_ACTIVE_TOL=1e-12 HOLO_D14_ACTIVE_PATIENCE=2 /tmp/bench_d14_force_legacy_double_final evidence/holonomic/d14_root_scheduling_phase2_20260912/input_snapshot.tsv /tmp/d14_case92_final_legacy_roots.tsv /tmp/d14_case92_final_legacy_timing.tsv 10 both 92 0 linear
+
+The trace reproductions use only one filtered case and enable trace output:
+  HOLO_D14_PRESEARCH_TRACE=1
+  HOLO_D14_LAST_FINITE_HANDOFF=1 (handoff A/B only)
+The corresponding captured raw trace and timing files are in this directory.
+
+Rejected A/Bs, recorded as compile-time-only overrides:
+  -DHOLO_D14_QF_WARM_MAX_ITER_OVERRIDE=64 (9-case hard subset)
+  -DHOLO_D14_QF_WARM_MAX_ITER_OVERRIDE=400 (case 149 subset)
+  -DHOLO_D14_REAL_MAX_ITER_OVERRIDE=100 (9-case hard subset)
+Their raw stage timing tables are included. The production defaults remain
+24 qf warm sweeps and 25 D14Real sweeps.
+
+Checkpoint-only last-finite handoff replay (legacy double quotient, 3 repeats, 4 epochs):
+  g++ -O3 -march=native -funroll-loops -ffp-contract=fast -fno-math-errno -DNDEBUG -std=gnu++17 -DHOLO_D14_FORCE_LEGACY_DOUBLE_DIV=1 -I src benchmarks/holonomic/bench_d14_root_work_detail.cpp -o /tmp/bench_d14_force_legacy_handoff -lquadmath
+  taskset -c 0 env HOLO_D14_LOCAL_PAIRS=1 HOLO_D14_ACTIVE_PRESEARCH=1 HOLO_D14_ACTIVE_TOL=1e-12 HOLO_D14_ACTIVE_PATIENCE=2 HOLO_D14_LAST_FINITE_HANDOFF=1 /tmp/bench_d14_force_legacy_handoff evidence/holonomic/d14_root_scheduling_phase2_20260912/input_snapshot.tsv /tmp/d14_case92_precise_handoff_roots.tsv /tmp/d14_case92_precise_handoff_timing.tsv 3 both 92 0 linear
+
+The safe-path trace in `case92_safe_active_presearch_trace.log` was captured with `HOLO_D14_PRESEARCH_TRACE=1`; it is retained as a contrast and is not the legacy-division failure trace. The legacy failure quantities are in the three `case92_first_bad_*.log` files.

@@ -1,0 +1,15 @@
+{
+  "real_atlas_contacts_matching_legacy_soft_events": 20,
+  "same_binary64_radius": 20,
+  "reciprocal_candidate_valid": 17,
+  "reciprocal_candidate_invalid": 3,
+  "direct_residual_range": [
+    1.4914962436825655e-06,
+    0.006581466081107914
+  ],
+  "valid_reciprocal_candidate_residual_range": [
+    1.353060686983615e-21,
+    1.1402458779242646e-17
+  ],
+  "scope": "22 unique geometries with event-count differences; reciprocal candidate is diagnostic, not adopted as a topology certificate"
+}

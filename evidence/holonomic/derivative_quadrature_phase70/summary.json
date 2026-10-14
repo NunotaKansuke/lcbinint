@@ -1,0 +1,19 @@
+{
+  "invisible_bump_integral": 0.0002468018093017923,
+  "panels": 247,
+  "usable": 238,
+  "hermite_better_than_7": 231,
+  "hermite_better_than_15": 18,
+  "median_error7": 1.3285198244832042e-05,
+  "median_errorH": 2.8107901249574407e-09,
+  "median_error15": 4.447942014706996e-12,
+  "derivative_to_base_ratio_median": 0.04958026145753308,
+  "fd_scaled_max": 4.200685054895234e-06,
+  "underestimate_1": 83,
+  "underestimate_2": 1,
+  "underestimate_4": 1,
+  "polynomial_envelope_underestimates": 0,
+  "sampled_l1_underestimates": 1,
+  "sampled_l1_median": 8.085902884858394e-05,
+  "polynomial_envelope_median": 0.010563634254615047
+}

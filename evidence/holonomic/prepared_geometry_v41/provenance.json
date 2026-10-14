@@ -1,0 +1,11 @@
+{
+  "client_date": "2026-10-13",
+  "host": "rogue1",
+  "branch": "experiment/seeded-boundary-events",
+  "head": "f3547723b79828d9c501182746028e99f7bad116",
+  "compiler": "g++ (GCC) 11.5.0 20240719 (Red Hat 11.5.0-5)",
+  "baseline": "accepted dirty v35/source and saved release binaries",
+  "timing": "one thread, fresh seed included, caustic excluded, five reps/input, forward/reverse; clocks disabled in release timing; all compiles/tests/profile finished first",
+  "scope": "experimental frontier value-only; uniform prepared fold pair, uniform/LD shared count kernel; standard/gradient default flags false; no master promotion",
+  "status": "new errors/failures0 across14432; old errors3/failures6 retained; coverage_certified=false;190676 tests passed; no commit/push"
+}

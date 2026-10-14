@@ -1,0 +1,113 @@
+M8 step 3 -- boundary-quartic warm-start + denormal-flush FP guard
+==================================================================
+
+Machine: Linux 5.14, 64 cores, taskset -c 0-7, load average ~9.8 (uptime
+3 days), 2026-09-08 ~07:00. best-of-200 unless noted.
+
+Target of the step (checkpoint_fullsolve_and_d14_algebraic.md "M8 priority
+decision"): cut classify_cells / arcs_at(3072) and the per-radial-node
+boundary-quartic solve, 32-75% of the holonomic epoch.
+
+--------------------------------------------------------------------------
+What changed
+--------------------------------------------------------------------------
+
+1. src/lcbinint/magnification/holonomic/fp_env.hpp  (NEW)
+
+   ScopedFlushDenormals -- RAII guard that sets MXCSR FTZ (bit 15) + DAZ
+   (bit 6) on x86 and restores the caller's MXCSR on scope exit.
+   Installed as the first statement of holonomic::flux_jacobian and
+   holonomic::epoch_jacobian (epoch_jacobian.hpp).
+
+   Rationale: a near-converged Aberth iteration on the boundary quartic
+   drives the intermediate |p|, |p'| and the root-gap |z_i - z_j| (near a
+   tangency) into gradual underflow. On x86 each denormal SSE operand
+   costs a ~50-100x microcode assist. This dominated the warm-started root
+   solve and inflated the cold solve too. Every quantity the solver
+   reports is >= ~1e-3 in magnitude and every retained polynomial
+   coefficient is >> 2.2e-308, so flushing sub-normal INTERMEDIATE values
+   to zero is numerically inert here. The __float128 D14 path is software
+   (libquadmath) and is unaffected by MXCSR.
+
+2. src/lcbinint/magnification/holonomic/radius_terms.hpp
+
+   real_root_thetas_warm(pc, QuarticWarm&) -- warm-starts the degree-4
+   Aberth solve at radial node k from node k-1's converged roots (the
+   Gauss-Chebyshev nodes are monotone in R within a cell; the quartic
+   roots move smoothly with R away from a tangency).
+
+   Adopt-warm certificate (all three required):
+     * final Aberth max-correction step <= 1e-7 (free: returned via the
+       new final_step out-param of aberth()); the quartic roots are only
+       seeds for the downstream 6-iteration polish_endpoint Newton, so
+       ~1e-9 root accuracy is already past what is used;
+     * real-root count unchanged from the seed;
+     * same polynomial degree.
+   Any miss -> exact cold 40-iteration solve, bit-identical to
+   real_root_thetas(). After 3 consecutive misses the warm path is
+   disabled for the rest of the cell (moving tangency). QuarticWarm is
+   reset at each cell boundary and at a chart (p4~0) radius.
+
+3. Dead-code cleanup (user is code-quality focused):
+     * removed aberth_roots_plausible<R>() from poly_roots.hpp -- the
+       Vieta/Newton completeness certificate used by warm-start v1-v3,
+       replaced by the free final_step proxy;
+     * removed the unused iters_used out-param of aberth().
+
+--------------------------------------------------------------------------
+Correctness / parity
+--------------------------------------------------------------------------
+
+test_holonomic_m7 :  10397 checks, 0 failures   (before and after)
+
+108-case holonomic parity, epoch_jacobian value + 5-Jac + dmu/du,
+this build vs HEAD (git show HEAD: poly_roots/radius_terms/epoch_jacobian,
+via /tmp/holobase), evidence/holonomic/three_way_cases_ext.tsv:
+
+  status mismatches ......... 0   (same 104 OK / 4 fail-closed)
+  worst |dmu|/mu ............ 1.5e-14
+  worst gradient-vector L2 rel change ... 2.8e-08
+  worst |d(dmu/du)| rel .......... 9.9e-08
+
+All within decision-20 accuracy tolerance; arc topology never changed.
+Warm-hit rate across the integration nodes ~98%.
+
+--------------------------------------------------------------------------
+Latency -- bench_holonomic_m7, epoch_jacobian value+5-Jac, best-of-200,
+108 (config,u) points
+--------------------------------------------------------------------------
+
+                     median    p90     p95     p99     max
+  BASE (pre-step-3)   2.994    5.841   6.070   6.297   6.313   ms
+  NEW  (warm + FTZ)   2.143    3.820   3.958   4.102   4.109   ms
+  change             -28%     -35%    -35%    -35%    -35%
+
+  speedup vs incumbent M0 (binary_ray_shooting value + central-FD x11
+  Jacobian, median 14.89 ms):   7.5x  ->  11.7x
+
+  DECISION-20 GATE
+    median >= 2x incumbent (<= 7.44 ms) ........ PASS (2.143 ms, 3.5x margin)
+    p90/p95/p99 non-regressing ................. PASS (every percentile
+                                                 improved 28-35%)
+    same accuracy / coverage .................. PASS (parity above)
+    analytic Jacobian quality ................. unchanged (fused pass)
+
+Note: a direct radius_terms-level microbench (holoprof2/holoprof4) shows
+the warm path WITHOUT FTZ regressing well-conditioned cells (plan15,
+caustic-cross) by 10-25% -- that harness calls radius_terms() directly and
+never enters the ScopedFlushDenormals scope. In the production path the
+guard is always active and the combined effect is the table above.
+
+--------------------------------------------------------------------------
+Reproduce
+--------------------------------------------------------------------------
+
+  cmake --build build-holonomic-m7 -j4
+  taskset -c 0-7 ./build-holonomic-m7/test_holonomic_m7
+  taskset -c 0-7 ./build-holonomic-m7/bench_holonomic_m7 /tmp/bench_cases.tsv 200
+
+  # BASE:
+  g++ -std=c++17 -O3 -march=native -funroll-loops -I /tmp/holobase \
+    -isystem $CONDA/include tests/holonomic_cpp/bench_holonomic_m7.cpp \
+    -L$CONDA/lib -lquadmath -Wl,-rpath,$CONDA/lib -o /tmp/bench_holo_base
+  taskset -c 0-7 /tmp/bench_holo_base /tmp/bench_cases.tsv 200

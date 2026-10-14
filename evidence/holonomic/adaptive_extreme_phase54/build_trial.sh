@@ -1,0 +1,4 @@
+set -eu
+flags=(-O3 -DNDEBUG -std=gnu++17 -fext-numeric-literals -Isrc -march=native -funroll-loops -ffp-contract=fast -fno-math-errno -DHOLO_D14_NATIVE_RESIDUAL_SCREEN -DHOLO_D14_DIRECT_CONVOLUTION -DHOLO_ADAPTIVE_STATIONARY_ENDPOINT -DHOLO_D14_WARM_NOISE_HANDOFF -DHOLO_D14_SCALAR_CONSTANTS -DHOLO_ARC_COMPACT_STORAGE -DHOLO_ADAPTIVE_SPARSE_ANCHOR -DHOLO_ADAPTIVE_SAMPLE_GROWTH)
+c++ "${flags[@]}" benchmarks/holonomic/bench_adaptive_stage_profile.cpp -o /tmp/p54_base -lquadmath
+c++ "${flags[@]}" -DHOLO_MV_RATIONAL_MIDPOINT benchmarks/holonomic/bench_adaptive_stage_profile.cpp -o /tmp/p54_cache -lquadmath

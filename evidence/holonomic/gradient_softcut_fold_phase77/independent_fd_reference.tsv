@@ -1,0 +1,5 @@
+u	parameter	gradient_reference	observed_stability_spread	method
+0	X	17.04260957790129	8.73523831046441e-09	5-point FD of direct physical integral; radial order 160, 32 subdivisions, angular 1024
+0	Y	36.010206446936074	4.718003765447065e-11	5-point FD of direct physical integral; radial order 128, 16 subdivisions, angular 1024
+0.5	X	16.918289951078755	5.2442850062561774e-09	5-point FD of direct physical integral; radial order 160, 32 subdivisions, angular 1024
+0.5	Y	35.747525136525304	5.896794164073071e-11	5-point FD of direct physical integral; radial order 128, 16 subdivisions, angular 1024

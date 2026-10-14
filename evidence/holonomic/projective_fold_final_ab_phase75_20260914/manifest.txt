@@ -1,0 +1,18 @@
+date_utc=2026-09-14T01:49:58Z
+git_head=65330381491f175d54da1af431c7e6b1a2d337da
+input_sha256=6646492658ed416e75cb8c6c821ee853f79cdf7761fc41441186aa67b81fa05b  /rogue1_8/nunota/lcbinint/evidence/holonomic/projective_fold_final_ab_phase75_20260914/input_snapshot.tsv
+compiler=c++ (GCC) 11.5.0 20240719 (Red Hat 11.5.0-5)
+cpu=INTEL(R) XEON(R) GOLD 6530
+affinity=taskset -c 0-7; runner is serial
+baseline_compile=c++ -O3 -DNDEBUG -std=gnu++17 -fext-numeric-literals -I/rogue1_8/nunota/lcbinint/src -march=native -funroll-loops -ffp-contract=fast -fno-math-errno /rogue1_8/nunota/lcbinint/evidence/holonomic/projective_fold_final_ab_phase75_20260914/trajectory_ab.cpp -o /tmp/phase75_projective_baseline -lquadmath
+candidate_compile=c++ -O3 -DNDEBUG -std=gnu++17 -fext-numeric-literals -I/rogue1_8/nunota/lcbinint/src -march=native -funroll-loops -ffp-contract=fast -fno-math-errno -DHOLO_ADAPTIVE_PROJECTIVE_P4_FOLD_RESEARCH /rogue1_8/nunota/lcbinint/evidence/holonomic/projective_fold_final_ab_phase75_20260914/trajectory_ab.cpp -o /tmp/phase75_projective_candidate -lquadmath
+policy=adaptive value-only (None) or ValueFirst + 5 analytic Jacobians; mu_atol=1e-16; mu_rtol=1e-3,1e-4; grad_rtol=1e-3; grad_atol=AdaptiveConfig default
+cold=epoch_adaptive, topology/D14 inside whole timer; warm=prepared_topology L2 D14 roots, topology reuse disabled; first trajectory epoch cold; radial=prebuilt topology outside timer
+repetitions=3 separate processes per arm/policy, within-repeat arm order alternates; each process has one unmeasured trajectory warm-up per lane
+HOLO environment variables inherited: (none)
+compile_flags=-O3 -DNDEBUG -std=gnu++17 -fext-numeric-literals -I/rogue1_8/nunota/lcbinint/src -march=native -funroll-loops -ffp-contract=fast -fno-math-errno
+d7e155e4bd5550918087cf0e2ba46517dde9d3cada667204bfc730461dfee487  /tmp/phase75_projective_baseline
+d7b5d2d77d8a42c8eaa0f84d10d2505586c9b2d141d179434d917bbae17b17d0  /tmp/phase75_projective_candidate
+projective_scan_compile=c++ -O3 -DNDEBUG -std=gnu++17 -fext-numeric-literals -Isrc -march=native -funroll-loops -ffp-contract=fast -fno-math-errno evidence/holonomic/projective_fold_final_ab_phase75_20260914/projective_scan.cpp -o /tmp/phase75_projective_scan -lquadmath
+projective_scan_command=env -u HOLO_D14_EVENT_CONTRACT_ACCEPT -u HOLO_MV_TRANSPORT_LEGACY -u HOLO_HOLONOMIC_TRANSPORT -u HOLO_HOLONOMIC_TRANSPORT_LEGACY taskset -c 0-7 /tmp/phase75_projective_scan evidence/holonomic/projective_fold_final_ab_phase75_20260914/input_snapshot.tsv evidence/holonomic/projective_fold_final_ab_phase75_20260914/projective_scan.tsv
+projective_scan_binary_sha256=5aac0278e739168e9775ae5954aaf1279147928bccddc832d0541a0f987f39f4

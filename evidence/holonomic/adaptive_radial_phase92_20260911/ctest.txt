@@ -1,0 +1,36 @@
+Internal ctest changing into directory: /rogue1_8/nunota/lcbinint/build-holonomic-m7
+Test project /rogue1_8/nunota/lcbinint/build-holonomic-m7
+      Start  1: holonomic_point_images
+ 1/15 Test  #1: holonomic_point_images ...........   Passed    0.37 sec
+      Start  2: holonomic_quartic_sturm
+ 2/15 Test  #2: holonomic_quartic_sturm ..........   Passed    0.00 sec
+      Start  3: holonomic_m7_reference
+ 3/15 Test  #3: holonomic_m7_reference ...........   Passed    0.03 sec
+      Start  4: holonomic_transport
+ 4/15 Test  #4: holonomic_transport ..............   Passed    0.04 sec
+      Start  5: holonomic_finite_source_binary
+ 5/15 Test  #5: holonomic_finite_source_binary ...   Passed    4.35 sec
+      Start  6: holonomic_root_pair
+ 6/15 Test  #6: holonomic_root_pair ..............   Passed    0.22 sec
+      Start  7: holonomic_ode
+ 7/15 Test  #7: holonomic_ode ....................   Passed    0.61 sec
+      Start  8: holonomic_gm_taylor
+ 8/15 Test  #8: holonomic_gm_taylor ..............   Passed    0.04 sec
+      Start  9: holonomic_gm_physical
+ 9/15 Test  #9: holonomic_gm_physical ............   Passed    0.03 sec
+      Start 10: holonomic_chart_p4
+10/15 Test #10: holonomic_chart_p4 ...............   Passed    0.03 sec
+      Start 11: holonomic_reciprocal_chart
+11/15 Test #11: holonomic_reciprocal_chart .......   Passed    0.01 sec
+      Start 12: holonomic_gm_coverage
+12/15 Test #12: holonomic_gm_coverage ............   Passed    8.56 sec
+      Start 13: holonomic_gm_lauricella6
+13/15 Test #13: holonomic_gm_lauricella6 .........   Passed    0.04 sec
+      Start 14: holonomic_gm_phase7_shared
+14/15 Test #14: holonomic_gm_phase7_shared .......   Passed    0.02 sec
+      Start 15: holonomic_adaptive_radial
+15/15 Test #15: holonomic_adaptive_radial ........   Passed    1.79 sec
+
+100% tests passed, 0 tests failed out of 15
+
+Total Test time (real) =  16.14 sec

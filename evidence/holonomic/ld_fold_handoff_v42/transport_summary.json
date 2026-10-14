@@ -1,0 +1,15 @@
+{
+  "attempts": 50543,
+  "counts": {
+    "warm": 39812,
+    "cold": 5948,
+    "predictor": 3735,
+    "newton": 2042,
+    "floor": 1054,
+    "chart": 113,
+    "branch": 5781,
+    "disc": 7
+  },
+  "cold_with_predictor": 3735,
+  "cold_without_predictor": 2213
+}

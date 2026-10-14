@@ -1,0 +1,20 @@
+{
+  "phase": "9.1",
+  "base_commit": "765229e0a6952e13a67cab91974f4b2d13b1665d",
+  "branch": "dev/holonomic",
+  "generated_date": "2026-09-11",
+  "host": "Linux 5.14.0-570.23.1.el9_6.x86_64",
+  "compiler": "g++ (GCC) 11.5.0 20240719 (Red Hat 11.5.0-5)",
+  "cmake": "cmake version 3.26.5",
+  "precision": "binary64 nodes and observables, local DD/__float128 event correction",
+  "reference_tolerance": "Eabs <= max(Tol, RelTol * abs(Q))",
+  "inputs": [
+    "reference_cases.tsv",
+    "reference_warm_cases.tsv",
+    "../gm_coverage_cases.tsv"
+  ],
+  "timing_repeats": 1,
+  "production_router_changed": false,
+  "fixed_nr_production_changed": false,
+  "pf6_gm_path_changed": false
+}

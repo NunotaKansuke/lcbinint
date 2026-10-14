@@ -1,0 +1,27 @@
+--- evidence/holonomic/ld_split_radial_v43/source/nested_fejer2_before.hpp	2026-10-14 03:00:17.532469733 +0900
++++ src/lcbinint/magnification/holonomic/nested_fejer2.hpp	2026-10-14 03:00:17.553469529 +0900
+@@ -50,6 +50,24 @@
+     }();
+     return rules[level-1];
+ }
++// Interpolatory product rule for (1-x*x)*g(x) on the same nested nodes.
++// U_(k-1) moment = 4/[k*(4-k*k)] for odd k, zero for even k.
++inline const Fejer2Rule& linear_radial_rule(int level) {
++    static const auto rules=[] {
++        std::array<Fejer2Rule,8> out={Fejer2Rule(1),Fejer2Rule(2),Fejer2Rule(3),Fejer2Rule(4),Fejer2Rule(5),Fejer2Rule(6),Fejer2Rule(7),Fejer2Rule(8)};
++        for(int lev=1;lev<=8;++lev) {
++            auto& r=out[lev-1];const int m=1<<lev;
++            for(int i=1;i<m;++i) {
++                const long double theta=3.1415926535897932384626433832795029L*i/m;
++                long double sum=0;
++                for(int k=1;k<m;k+=2)sum+=4*sinl(k*theta)/(k*(4.L-k*k));
++                r.w[i-1]=double(2*sinl(theta)*sum/m);
++            }
++        }
++        return out;
++    }();
++    return rules.at(level-1);
++}
+ // Fold-map trigonometry depends only on canonical dyadic abscissae.
+ // Keep double and extended evaluations separate to preserve the incumbent
+ // arithmetic paths; cache sine values, not geometry-dependent products.

@@ -1,0 +1,159 @@
+{
+  "max_polynomial_exactness_error": 4.553086694562142e-15,
+  "bitwise_nested_nodes": true,
+  "cache_unique_counts": [
+    7,
+    15,
+    31,
+    63
+  ],
+  "cache_added_counts": [
+    7,
+    8,
+    16,
+    32
+  ],
+  "weighted_L2_norm_identity_error": 1.1102230246251565e-15,
+  "cauchy_schwarz_bound_violation": 0.0,
+  "aliasing_counterexample": {
+    "function": "U_15(x)^2",
+    "Q15": 5.470344182752152e-29,
+    "detail_indicator": 1.0074683559484941e-28,
+    "exact_integral": 4.736261397644046,
+    "conclusion": "finite-sample indicator is not a rigorous bound"
+  },
+  "fold_model_rows": [
+    {
+      "mapping": "affine",
+      "nodes": 7,
+      "total_unique_evals": 7,
+      "value_error": 0.0005535022965491576,
+      "derivative_model_error": 0.1488372251369352,
+      "detail_indicator": [
+        0.01589334556472093,
+        0.42465848489387475
+      ]
+    },
+    {
+      "mapping": "affine",
+      "nodes": 15,
+      "total_unique_evals": 15,
+      "value_error": 6.930322484088869e-05,
+      "derivative_model_error": 0.07456657815161716,
+      "detail_indicator": [
+        0.002305429169196668,
+        0.2928836832500565
+      ]
+    },
+    {
+      "mapping": "affine",
+      "nodes": 31,
+      "total_unique_evals": 31,
+      "value_error": 8.667092242009566e-06,
+      "derivative_model_error": 0.03730198508881255,
+      "detail_indicator": [
+        0.00039421235074142534,
+        0.20573288326583375
+      ]
+    },
+    {
+      "mapping": "affine",
+      "nodes": 63,
+      "total_unique_evals": 63,
+      "value_error": 1.0835215003002219e-06,
+      "derivative_model_error": 0.018653336203274584,
+      "detail_indicator": [
+        6.91116248059075e-05,
+        0.14523131844244777
+      ]
+    },
+    {
+      "mapping": "affine",
+      "nodes": 127,
+      "total_unique_evals": 127,
+      "value_error": 1.354444362222651e-07,
+      "derivative_model_error": 0.00932696127038346,
+      "detail_indicator": [
+        1.219199190978104e-05,
+        0.10265086370930122
+      ]
+    },
+    {
+      "mapping": "affine",
+      "nodes": 255,
+      "total_unique_evals": 255,
+      "value_error": 1.6930688184757514e-08,
+      "derivative_model_error": 0.004663517287920804,
+      "detail_indicator": [
+        2.154141755629075e-06,
+        0.07257748361579924
+      ]
+    },
+    {
+      "mapping": "left_fold_squared",
+      "nodes": 7,
+      "total_unique_evals": 7,
+      "value_error": 0.0,
+      "derivative_model_error": 4.440892098500626e-16,
+      "detail_indicator": [
+        0.045522285254015755,
+        9.438104144725228e-17
+      ]
+    },
+    {
+      "mapping": "left_fold_squared",
+      "nodes": 15,
+      "total_unique_evals": 15,
+      "value_error": 1.1102230246251565e-16,
+      "derivative_model_error": 0.0,
+      "detail_indicator": [
+        2.0033607117294962e-16,
+        1.7439342490043156e-16
+      ]
+    },
+    {
+      "mapping": "left_fold_squared",
+      "nodes": 31,
+      "total_unique_evals": 31,
+      "value_error": 1.1102230246251565e-16,
+      "derivative_model_error": 8.881784197001252e-16,
+      "detail_indicator": [
+        2.6190580792353524e-16,
+        3.2135937713421237e-16
+      ]
+    },
+    {
+      "mapping": "left_fold_squared",
+      "nodes": 63,
+      "total_unique_evals": 63,
+      "value_error": 1.1102230246251565e-16,
+      "derivative_model_error": 0.0,
+      "detail_indicator": [
+        3.4089752017636803e-16,
+        3.5410717088663875e-16
+      ]
+    },
+    {
+      "mapping": "left_fold_squared",
+      "nodes": 127,
+      "total_unique_evals": 127,
+      "value_error": 1.1102230246251565e-16,
+      "derivative_model_error": 8.881784197001252e-16,
+      "detail_indicator": [
+        2.624382257604684e-16,
+        5.133621327708034e-16
+      ]
+    },
+    {
+      "mapping": "left_fold_squared",
+      "nodes": 255,
+      "total_unique_evals": 255,
+      "value_error": 4.440892098500626e-16,
+      "derivative_model_error": 4.440892098500626e-16,
+      "detail_indicator": [
+        3.320407953047093e-16,
+        5.879501362667017e-16
+      ]
+    }
+  ]
+}

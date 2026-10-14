@@ -1,0 +1,26 @@
+diff --git a/src/lcbinint/magnification/holonomic/quartic_local_bracket.hpp b/src/lcbinint/magnification/holonomic/quartic_local_bracket.hpp
+index b004f4d..9c7f009 100644
+--- a/src/lcbinint/magnification/holonomic/quartic_local_bracket.hpp
++++ b/src/lcbinint/magnification/holonomic/quartic_local_bracket.hpp
+@@ -35,6 +35,21 @@ inline Interval add(Interval a,Interval b){
+     return {down(l),up(h),ok};
+ }
+ inline Interval mul(Interval a,Interval b){
++#ifdef HOLO_BRACKET_POINT_MUL
++    // Equal finite endpoints repeat exactly the same two products.
++    if(a.lo==a.hi && regular(a.lo)) {
++        const double l=a.lo*b.lo,h=a.lo*b.hi;
++        const bool ok=a.ok&&b.ok&&regular(l)&&regular(h)&&
++            (l!=0||a.lo==0||b.lo==0)&&(h!=0||a.lo==0||b.hi==0);
++        return {down(std::min(l,h)),up(std::max(l,h)),ok};
++    }
++    if(b.lo==b.hi && regular(b.lo)) {
++        const double l=a.lo*b.lo,h=a.hi*b.lo;
++        const bool ok=a.ok&&b.ok&&regular(l)&&regular(h)&&
++            (l!=0||a.lo==0||b.lo==0)&&(h!=0||a.hi==0||b.lo==0);
++        return {down(std::min(l,h)),up(std::max(l,h)),ok};
++    }
++#endif
+     double lo=std::numeric_limits<double>::infinity(),hi=-lo;
+     bool ok=a.ok&&b.ok;
+     for(double x:{a.lo,a.hi})for(double y:{b.lo,b.hi}){

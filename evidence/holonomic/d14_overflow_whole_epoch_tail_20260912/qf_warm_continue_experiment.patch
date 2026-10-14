@@ -1,0 +1,454 @@
+diff --git a/benchmarks/holonomic/bench_d14_root_work_detail.cpp b/benchmarks/holonomic/bench_d14_root_work_detail.cpp
+index 21f4a98..a931d60 100644
+--- a/benchmarks/holonomic/bench_d14_root_work_detail.cpp
++++ b/benchmarks/holonomic/bench_d14_root_work_detail.cpp
+@@ -6,6 +6,7 @@
+ #include <algorithm>
+ #include <chrono>
+ #include <cmath>
++#include <cstdio>
+ #include <cstdlib>
+ #include <fstream>
+ #include <iomanip>
+@@ -189,6 +190,16 @@ int main(int argc, char** argv) {
+                     TopologyResult topology;
+                     std::vector<Cplx<__float128>> current_roots;
+                     double wall_ms = 0.0;
++#if defined(HOLO_D14_TRACE_QF_ITERATIONS)
++                    if (std::getenv("HOLO_D14_QF_TRACE") &&
++                        std::getenv("HOLO_D14_QF_TRACE")[0] == '1')
++                        std::fprintf(stderr,
++                            "D14TRACE_ROW\tcase=%d\tconfig=%d\tprofile=%s"
++                            "\td_bin=%d\tepoch=%d\trep=%d\tlane=%s\n",
++                            row.case_id, row.configuration_id, row.profile.c_str(),
++                            row.d_bin_index, row.epoch_index, rep,
++                            lane_name(warm_lane));
++#endif
+                     {
+                         V2ProfileScope scope(profile);
+                         const auto start = Clock::now();
+diff --git a/src/lcbinint/magnification/holonomic/d14_structure.hpp b/src/lcbinint/magnification/holonomic/d14_structure.hpp
+index fe9ba94..61ececa 100644
+--- a/src/lcbinint/magnification/holonomic/d14_structure.hpp
++++ b/src/lcbinint/magnification/holonomic/d14_structure.hpp
+@@ -37,7 +37,10 @@
+
+ #include <array>
+ #include <cmath>
++#include <cstdio>
++#include <cstdlib>
+ #include <limits>
++#include <type_traits>
+ #include <vector>
+
+ #include <quadmath.h>
+@@ -49,6 +52,22 @@
+ namespace lcbinint::holonomic {
+ namespace re_detail {
+
++#if defined(HOLO_D14_TRACE_QF_ITERATIONS)
++inline bool d14_qf_trace_enabled() {
++    static const bool enabled = [] {
++        const char* e = std::getenv("HOLO_D14_QF_TRACE");
++        return e && e[0] == '1';
++    }();
++    return enabled;
++}
++
++inline void d14_qf_trace_value(const char* label, __float128 value) {
++    char text[96];
++    quadmath_snprintf(text, sizeof(text), "%+.36Qe", value);
++    std::fprintf(stderr, "\t%s=%s", label, text);
++}
++#endif
++
+ // Low-degree block coefficients (ascending in v), scalar type T.
+ template <class T>
+ struct D14StructC {
+@@ -290,35 +309,186 @@ inline std::vector<Cplx<T>> aberth_d14_struct(const D14StructC<T>& s,
+                       ? tol_override
+                       : ((sizeof(T) > 8) ? T(1e-24) : T(1e-15));
+     const bool legacy = holo_legacy_complex_ops();
++#if defined(HOLO_D14_TRACE_QF_ITERATIONS)
++    bool trace_qf = false;
++    if constexpr (std::is_same<T, __float128>::value) {
++        trace_qf = d14_qf_trace_enabled();
++        if (trace_qf) {
++            std::fprintf(stderr, "D14QF_BEGIN\tseed=%s\tmax_iter=%d",
++                         seed ? "warm" : "cold", max_iter);
++            d14_qf_trace_value("tol", tol);
++            std::fputc('\n', stderr);
++        }
++    }
++    bool trace_bad_seen = false;
++#endif
+     for (int it = 0; it < max_iter; ++it) {
+         if (iterations) *iterations = it + 1;
+         T maxstep2 = T(0);
++#if defined(HOLO_D14_TRACE_QF_ITERATIONS)
++        int trace_max_root = -1;
++        T trace_max_step = T(0);
++        Cplx<T> trace_max_p{}, trace_max_dp{}, trace_max_sum{};
++        Cplx<T> trace_max_b{}, trace_max_w{}, trace_max_z{};
++        T trace_max_nearest = T(0);
++        int trace_max_partner = -1;
++#endif
+         for (int i = 0; i < deg; ++i) {
+             Cplx<T> p, dp;
+             d14_struct_eval(s, z[i], p, dp);
+             Cplx<T> sum(T(0), T(0));
++#if defined(HOLO_D14_TRACE_QF_ITERATIONS)
++            T trace_nearest = T(0);
++            int trace_nearest_partner = -1;
++            if (trace_qf) {
++                if constexpr (std::is_same<T, __float128>::value) {
++                    trace_nearest = __builtin_huge_valq();
++                    for (int j = 0; j < deg; ++j) {
++                        if (j == i) continue;
++                        const __float128 sep = hypotq(z[i].re - z[j].re,
++                                                      z[i].im - z[j].im);
++                        if (sep < trace_nearest) {
++                            trace_nearest = sep;
++                            trace_nearest_partner = j;
++                        }
++                    }
++                }
++            }
++#endif
+             for (int j = 0; j < deg; ++j) {
+                 if (j == i) continue;
+                 Cplx<T> d = z[i] - z[j];
+                 sum = sum + Cplx<T>(T(1), T(0)) / d;
+             }
++#if defined(HOLO_D14_TRACE_QF_ITERATIONS)
++            Cplx<T> denominator;
++            const Cplx<T> old_z = z[i];
++#endif
+             Cplx<T> w;
+             if (legacy) {
+                 Cplx<T> ratio = p / dp;
+                 Cplx<T> denom = Cplx<T>(T(1), T(0)) - ratio * sum;
+                 w = ratio / denom;
++#if defined(HOLO_D14_TRACE_QF_ITERATIONS)
++                denominator = dp - p * sum;
++#endif
+             } else {
++#if defined(HOLO_D14_TRACE_QF_ITERATIONS)
++                denominator = dp - p * sum;
++                w = p / denominator;
++#else
+                 w = p / (dp - p * sum);
++#endif
+             }
+             z[i] = z[i] - w;
+             T sabs2 = cabs2(w);
+             if (sabs2 > maxstep2) maxstep2 = sabs2;
++#if defined(HOLO_D14_TRACE_QF_ITERATIONS)
++            if (trace_qf) {
++                if constexpr (std::is_same<T, __float128>::value) {
++                    const __float128 step = hypotq(w.re, w.im);
++                    const bool finite = qfinite_(p.re) && qfinite_(p.im) &&
++                        qfinite_(dp.re) && qfinite_(dp.im) &&
++                        qfinite_(sum.re) && qfinite_(sum.im) &&
++                        qfinite_(denominator.re) && qfinite_(denominator.im) &&
++                        qfinite_(w.re) && qfinite_(w.im) &&
++                        qfinite_(z[i].re) && qfinite_(z[i].im);
++                    if (!finite && !trace_bad_seen) {
++                        trace_bad_seen = true;
++                        std::fprintf(stderr,
++                            "D14QF_FIRST_BAD\tsweep=%d\troot=%d\tpartner=%d",
++                            it + 1, i, trace_nearest_partner);
++                        d14_qf_trace_value("z_re", old_z.re);
++                        d14_qf_trace_value("z_im", old_z.im);
++                        d14_qf_trace_value("absP", hypotq(p.re, p.im));
++                        d14_qf_trace_value("absDP", hypotq(dp.re, dp.im));
++                        d14_qf_trace_value("absS", hypotq(sum.re, sum.im));
++                        d14_qf_trace_value("absB", hypotq(denominator.re,
++                                                           denominator.im));
++                        d14_qf_trace_value("absStep", step);
++                        d14_qf_trace_value("nearestSep", trace_nearest);
++                        std::fputc('\n', stderr);
++                    }
++                    if (step >= trace_max_step || trace_max_root < 0) {
++                        trace_max_root = i;
++                        trace_max_step = step;
++                        trace_max_p = p;
++                        trace_max_dp = dp;
++                        trace_max_sum = sum;
++                        trace_max_b = denominator;
++                        trace_max_w = w;
++                        trace_max_z = old_z;
++                        trace_max_nearest = trace_nearest;
++                        trace_max_partner = trace_nearest_partner;
++                    }
++                }
++            }
++#endif
+         }
++#if defined(HOLO_D14_TRACE_QF_ITERATIONS)
++        if (trace_qf) {
++            if constexpr (std::is_same<T, __float128>::value) {
++                __float128 min_sep = __builtin_huge_valq();
++                int min_i = -1, min_j = -1, finite_roots = 0;
++                for (int i = 0; i < deg; ++i) {
++                    if (qfinite_(z[i].re) && qfinite_(z[i].im)) ++finite_roots;
++                    for (int j = i + 1; j < deg; ++j) {
++                        const __float128 sep = hypotq(z[i].re - z[j].re,
++                                                      z[i].im - z[j].im);
++                        if (sep < min_sep) {
++                            min_sep = sep;
++                            min_i = i;
++                            min_j = j;
++                        }
++                    }
++                }
++                std::fprintf(stderr,
++                    "D14QF_SWEEP\tit=%d\tfinite_roots=%d\tmax_root=%d"
++                    "\tnearest_partner=%d\tmin_pair=%d,%d",
++                    it + 1, finite_roots, trace_max_root, trace_max_partner,
++                    min_i, min_j);
++                d14_qf_trace_value("maxStep", trace_max_step);
++                d14_qf_trace_value("maxRoot_nearest", trace_max_nearest);
++                d14_qf_trace_value("maxRoot_absP",
++                                   hypotq(trace_max_p.re, trace_max_p.im));
++                d14_qf_trace_value("maxRoot_absDP",
++                                   hypotq(trace_max_dp.re, trace_max_dp.im));
++                d14_qf_trace_value("maxRoot_absS",
++                                   hypotq(trace_max_sum.re, trace_max_sum.im));
++                d14_qf_trace_value("maxRoot_absB",
++                                   hypotq(trace_max_b.re, trace_max_b.im));
++                d14_qf_trace_value("maxRoot_absStep",
++                                   hypotq(trace_max_w.re, trace_max_w.im));
++                d14_qf_trace_value("maxRoot_zRe", trace_max_z.re);
++                d14_qf_trace_value("maxRoot_zIm", trace_max_z.im);
++                d14_qf_trace_value("min_pair_sep", min_sep);
++                std::fputc('\n', stderr);
++            }
++        }
++#endif
+         if (maxstep2 < tol * tol) {
+             if (converged) *converged = true;
++#if defined(HOLO_D14_TRACE_QF_ITERATIONS)
++            if (trace_qf) std::fprintf(stderr, "D14QF_STOP\tit=%d\treason=step_tol\n", it + 1);
++#endif
+             break;
+         }
+     }
++#if defined(HOLO_D14_TRACE_QF_ITERATIONS)
++    if (trace_qf) {
++        std::fprintf(stderr, "D14QF_END\tsweeps=%d\n",
++                     iterations ? *iterations : max_iter);
++        if constexpr (std::is_same<T, __float128>::value) {
++            for (int i = 0; i < deg; ++i) {
++                std::fprintf(stderr, "D14QF_ROOT\tseed=%s\tindex=%d",
++                             seed ? "warm" : "cold", i);
++                d14_qf_trace_value("re", z[i].re);
++                d14_qf_trace_value("im", z[i].im);
++                std::fputc('\n', stderr);
++            }
++        }
++    }
++#endif
+     return z;
+ }
+
+diff --git a/src/lcbinint/magnification/holonomic/radial_events.hpp b/src/lcbinint/magnification/holonomic/radial_events.hpp
+index c42693f..d850aea 100644
+--- a/src/lcbinint/magnification/holonomic/radial_events.hpp
++++ b/src/lcbinint/magnification/holonomic/radial_events.hpp
+@@ -1282,6 +1282,9 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
+             seed_ok = false;
+             break;
+         }
++#if defined(HOLO_D14_TRACE_QF_ITERATIONS)
++    const char* seed_reject_reason = seed_ok ? "" : "presearch_nonfinite_seed";
++#endif
+     // Block-form D/D' polish (memo section 3): exact C3/G4/Z3 evaluation
+     // in place of Horner on the cancellation-carrying expanded vector.
+     const bool use_struct = sc && holo_d14_struct_enabled() && deg == 14 &&
+@@ -1361,6 +1364,7 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
+     }
+
+     bool used_real = false;
++    bool qf_warm_continue_candidate = false;
+     if (!used_hybrid && !used_lifted && seed_ok && compensated &&
+         use_struct && holo_d14_real_enabled()) {
+         ScopedNoFlushDenormals _eft;
+@@ -1524,11 +1528,55 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
+                 }
+                 out.worst_res = d14_worst_res(desc, deg, out.roots, dscale);
+                 out.tier = 1;
+-                if (!qf_converged || !(out.worst_res <= (qf)1e-12))
++#if defined(HOLO_D14_QF_CONTINUE_WARM_CANDIDATE)
++                if (!qf_converged && out.worst_res <= (qf)1e-12 &&
++                    static_cast<int>(out.roots.size()) == deg) {
++                    qf_warm_continue_candidate = true;
++                    for (const auto& root : out.roots)
++                        if (!qfinite_(root.re) || !qfinite_(root.im)) {
++                            qf_warm_continue_candidate = false;
++                            break;
++                        }
++                }
++#endif
++                if (!qf_converged || !(out.worst_res <= (qf)1e-12)) {
+                     seed_ok = false;
++#if defined(HOLO_D14_TRACE_QF_ITERATIONS)
++                    seed_reject_reason = !qf_converged
++                        ? "qf_warm_step_tolerance_not_met"
++                        : "qf_warm_residual_gate_failed";
++#endif
++                }
++#if defined(HOLO_D14_TRACE_QF_ITERATIONS)
++                if (re_detail::d14_qf_trace_enabled()) {
++                    int finite_roots = 0;
++                    for (const auto& root : out.roots)
++                        if (qfinite_(root.re) && qfinite_(root.im)) ++finite_roots;
++                    qf certificate_residual = 0;
++                    int certificate_reason = 0;
++                    const bool scalar_certificate = d14_scalar_certificate(
++                        use_struct ? &scqf : nullptr, desc_v, out.roots,
++                        &certificate_residual, &certificate_reason);
++                    std::fprintf(stderr,
++                        "D14QF_STAGE\tkind=warm\tconverged=%d\tfinite_roots=%d"
++                        "\titers=%d\tresidual=",
++                        int(qf_converged), finite_roots, qf_iters);
++                    re_detail::d14_qf_trace_value("worst", out.worst_res);
++                    std::fprintf(stderr, "\tgate=1e-12\trejected=%d"
++                        "\tscalar_certificate=%d\tcertificate_reason=%d",
++                        int(!qf_converged || !(out.worst_res <= (qf)1e-12)),
++                        int(scalar_certificate), certificate_reason);
++                    re_detail::d14_qf_trace_value("certificate_residual",
++                                                  certificate_residual);
++                    std::fputc('\n', stderr);
++                }
++#endif
+             }
+         } else {
+             seed_ok = false;
++#if defined(HOLO_D14_TRACE_QF_ITERATIONS)
++            seed_reject_reason = "d14real_nonfinite";
++#endif
+         }
+     }
+     if (!used_hybrid && !used_lifted && !used_real && seed_ok && compensated) {
+@@ -1590,7 +1638,12 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
+             }
+             out.worst_res = d14_worst_res(desc, deg, out.roots, dscale);
+             out.tier = 1;
+-            if (!(out.worst_res <= (qf)1e-12)) seed_ok = false;
++            if (!(out.worst_res <= (qf)1e-12)) {
++                seed_ok = false;
++#if defined(HOLO_D14_TRACE_QF_ITERATIONS)
++                seed_reject_reason = "dd_qf_warm_residual_gate_failed";
++#endif
++            }
+         }
+     } else if (!used_hybrid && !used_lifted && !used_real && seed_ok) {
+         std::vector<Cplx<qf>> seed(deg);
+@@ -1614,7 +1667,12 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
+         }
+         out.worst_res = d14_worst_res(desc, deg, out.roots, dscale);
+         out.tier = 3;
+-        if (!(out.worst_res <= (qf)1e-12)) seed_ok = false;
++        if (!(out.worst_res <= (qf)1e-12)) {
++            seed_ok = false;
++#if defined(HOLO_D14_TRACE_QF_ITERATIONS)
++            seed_reject_reason = "qf_warm_residual_gate_failed";
++#endif
++        }
+     }
+
+     // A direct warm corrector is a performance shortcut, not a reason to
+@@ -1629,12 +1687,23 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
+
+     if (!seed_ok) {
+         int qf_iters = 0;
++#if defined(HOLO_D14_TRACE_QF_ITERATIONS)
++        bool qf_converged = false;
++#endif
++        const Cplx<qf>* cold_seed = nullptr;
++#if defined(HOLO_D14_QF_CONTINUE_WARM_CANDIDATE)
++        if (qf_warm_continue_candidate) cold_seed = out.roots.data();
++#endif
+         auto qf_begin = V2Clock::now();
+         out.roots =
+             use_struct
+-                ? aberth_d14_struct<qf>(scqf, desc, 400, nullptr, (qf)1e-22,
+-                                        &qf_iters)
+-                : aberth<qf>(desc, deg, 400, nullptr, (qf)1e-22, nullptr,
++                ? aberth_d14_struct<qf>(scqf, desc, 400, cold_seed, (qf)1e-22,
++                                        &qf_iters
++#if defined(HOLO_D14_TRACE_QF_ITERATIONS)
++                                        , &qf_converged
++#endif
++                                        )
++                : aberth<qf>(desc, deg, 400, cold_seed, (qf)1e-22, nullptr,
+                              &qf_iters);
+         if (prof) {
+             ++prof->d14_qf_cold_calls;
+@@ -1645,6 +1714,28 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
+         }
+         out.worst_res = d14_worst_res(desc, deg, out.roots, dscale);
+         out.tier = (out.tier == 0 && !compensated) ? -1 : 2;
++#if defined(HOLO_D14_TRACE_QF_ITERATIONS)
++        if (re_detail::d14_qf_trace_enabled()) {
++            int finite_roots = 0;
++            for (const auto& root : out.roots)
++                if (qfinite_(root.re) && qfinite_(root.im)) ++finite_roots;
++            qf certificate_residual = 0;
++            int certificate_reason = 0;
++            const bool scalar_certificate = d14_scalar_certificate(
++                use_struct ? &scqf : nullptr, desc_v, out.roots,
++                &certificate_residual, &certificate_reason);
++            std::fprintf(stderr,
++                "D14QF_STAGE\tkind=cold\tseed_source=cauchy\treason=%s\tconverged=%d"
++                "\tfinite_roots=%d\titers=%d\tresidual=",
++                seed_reject_reason, int(qf_converged), finite_roots, qf_iters);
++            re_detail::d14_qf_trace_value("worst", out.worst_res);
++            std::fprintf(stderr, "\tscalar_certificate=%d\tcertificate_reason=%d",
++                         int(scalar_certificate), certificate_reason);
++            re_detail::d14_qf_trace_value("certificate_residual",
++                                          certificate_residual);
++            std::fputc('\n', stderr);
++        }
++#endif
+     }
+
+     // Completeness sanity check (separate from the per-root residual gate,
+@@ -1672,11 +1763,18 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
+     if (completeness_failure) {
+         if (prof) ++prof->d14_completeness_fails;
+         int qf_iters = 0;
++#if defined(HOLO_D14_TRACE_QF_ITERATIONS)
++        bool qf_converged = false;
++#endif
+         auto qf_begin = V2Clock::now();
+         out.roots =
+             use_struct
+                 ? aberth_d14_struct<qf>(scqf, desc, 400, nullptr, (qf)1e-22,
+-                                        &qf_iters)
++                                        &qf_iters
++#if defined(HOLO_D14_TRACE_QF_ITERATIONS)
++                                        , &qf_converged
++#endif
++                                        )
+                 : aberth<qf>(desc, deg, 400, nullptr, (qf)1e-22, nullptr,
+                              &qf_iters);
+         if (prof) {
+@@ -1688,6 +1786,16 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
+         }
+         out.worst_res = d14_worst_res(desc, deg, out.roots, dscale);
+         out.tier = 2;
++#if defined(HOLO_D14_TRACE_QF_ITERATIONS)
++        if (re_detail::d14_qf_trace_enabled()) {
++            std::fprintf(stderr,
++                "D14QF_STAGE\tkind=cold\treason=completeness_gate\tconverged=%d"
++                "\titers=%d\tresidual=",
++                int(qf_converged), qf_iters);
++            re_detail::d14_qf_trace_value("worst", out.worst_res);
++            std::fprintf(stderr, "\n");
++        }
++#endif
+     }
+     if (prof) v2_profile_add_ms(&V2Profile::d14_validate_ms, validation_begin,
+                                 V2Clock::now());

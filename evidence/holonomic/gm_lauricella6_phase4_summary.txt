@@ -1,0 +1,46 @@
+Phase 4 physical Lauricella FD6 -> FD5 six-state summary
+Base: dev/holonomic @ d44be03ececbb4f8e5777759431f8571ac62ffff
+Build: Release -O3 -march=native -funroll-loops -ffp-contract=fast
+Scope: isolated holonomic; V2/V3 production router unchanged
+
+Independent Phase 3 reference recheck
+  command: ./build-holonomic-global/bench_gm_coverage evidence/holonomic/gm_coverage_cases.tsv 64 jac
+  nodes=13952 transported=13952 accurate=13952
+  analytic_Jac_nodes=13952 accurate=13691
+  max_physical_reseed_error=5.741e-05
+  case_all_true_accurate=46/54
+
+PF6 whole-epoch command
+  ./build-holonomic-global/bench_gm_lauricella6 evidence/holonomic/gm_coverage_cases.tsv 64 0 512
+  cases=108 (uniform=54, limb=54)
+  value true transport cold/warm=104/104 cases
+  analytic_Jac OK cold/warm=52/52 cases (limb side)
+  attempted nodes c/w/jac-c/jac-w=13888/13888/13888/13888
+  transported nodes c/w/jac-c/jac-w=13888/13888/13888/13888
+  rates c/w/jac-c/jac-w=1/1/1/1
+  arcs c/w=217/217; seeds c/w=217/217; connections c/w=8030/8030
+  physical fallback c/w=0/0; re-seed c/w=0/0
+  precision promotions c/w=0/0; precision failures c/w=0/0
+  median value-only LD ms PF6 cold/warm/V2=9.196/9.059/1.212
+  median value+5Jac LD ms PF6 cold/warm/V2=9.350/9.246/1.304
+  Jacobian marginal whole-wall ms cold/warm=0.231/0.187
+  analytic Jacobian node cost ms cold/warm=0.174/0.174
+  median value stages cold: topology/D14=0.861 arc=0.013 geometry=0.001 seed=0.170 connection=7.034 transport=0.070 fallback=0
+  median value stages warm: topology/D14=0.729 arc=0.013 geometry=0.001 seed=0.168 connection=7.031 transport=0.069 fallback=0
+  median Jac stages cold: topology/D14=0.889 arc=0.013 geometry=0.001 seed=0.168 connection=7.000 transport=0.069 analytic_jac=0.174 fallback=0
+  median Jac stages warm: topology/D14=0.722 arc=0.013 geometry=0.001 seed=0.168 connection=7.014 transport=0.069 analytic_jac=0.174 fallback=0
+  accepted limb value max V2 relative error=2.041e-08
+  first-12 independent angular value max relative error=1.716e-09
+
+Independent angular Jacobian probe
+  commands: bench_gm_angular_jac ... 512 and ... 2048
+  output matches gm_angular_jac512_phase3.csv and gm_angular_jac2048_phase3.csv
+  resonant valid reference mismatch=9.407e-05
+  caustic-cross valid maximum mismatch=1.912e-03
+
+Interpretation
+  PF6 achieves no-reseed transport on every attempted node in clean cells, but
+  it does not beat V2 whole-epoch time. rand008 and rand031 remain
+  TOPOLOGY_UNCERTAIN, matching the incumbent status. The full sqrt(v) fold
+  packet, dynamic chart reuse, and complete 108-case independent PF6 analytic
+  Jacobian acceptance remain open.

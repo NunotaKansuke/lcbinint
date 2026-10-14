@@ -1,0 +1,340 @@
+{
+  "timing_contract": "fresh seed included; caustic construction excluded; one thread; 5 reps; both orders",
+  "timing": {
+    "forward": {
+      "uniform_0.001": {
+        "inputs": 248,
+        "us": {
+          "seed_ms": {
+            "before": 4.1434999999999995,
+            "after": 3.906,
+            "paired_reduction_percent": 0.9365085911442361
+          },
+          "planning_ms": {
+            "before": 15.600999999999999,
+            "after": 16.095499999999998,
+            "paired_reduction_percent": -1.4443092092139231
+          },
+          "integration_ms": {
+            "before": 24.224000000000004,
+            "after": 20.593500000000002,
+            "paired_reduction_percent": 13.219380684314652
+          },
+          "full_ms": {
+            "before": 61.5475,
+            "after": 56.027,
+            "paired_reduction_percent": 4.254269337497741
+          }
+        },
+        "nodes": {
+          "before": 22.0,
+          "after": 22.0
+        }
+      },
+      "uniform_0.0001": {
+        "inputs": 248,
+        "us": {
+          "seed_ms": {
+            "before": 4.1434999999999995,
+            "after": 3.906,
+            "paired_reduction_percent": 0.9365085911442361
+          },
+          "planning_ms": {
+            "before": 15.3895,
+            "after": 15.533,
+            "paired_reduction_percent": -1.2958528628021604
+          },
+          "integration_ms": {
+            "before": 31.0245,
+            "after": 27.8885,
+            "paired_reduction_percent": 12.467725130403428
+          },
+          "full_ms": {
+            "before": 67.4345,
+            "after": 62.735,
+            "paired_reduction_percent": 5.9648855536993945
+          }
+        },
+        "nodes": {
+          "before": 38.0,
+          "after": 38.0
+        }
+      },
+      "linear_0.001": {
+        "inputs": 251,
+        "us": {
+          "seed_ms": {
+            "before": 4.211,
+            "after": 3.9890000000000003,
+            "paired_reduction_percent": 0.5132793519688983
+          },
+          "planning_ms": {
+            "before": 15.970999999999998,
+            "after": 16.189,
+            "paired_reduction_percent": -1.539839065021975
+          },
+          "integration_ms": {
+            "before": 49.039,
+            "after": 43.856,
+            "paired_reduction_percent": 10.572351766860821
+          },
+          "full_ms": {
+            "before": 77.426,
+            "after": 72.28699999999999,
+            "paired_reduction_percent": 5.308942049379562
+          }
+        },
+        "nodes": {
+          "before": 53.0,
+          "after": 53.0
+        }
+      },
+      "linear_0.0001": {
+        "inputs": 251,
+        "us": {
+          "seed_ms": {
+            "before": 4.211,
+            "after": 3.9890000000000003,
+            "paired_reduction_percent": 0.5132793519688983
+          },
+          "planning_ms": {
+            "before": 15.661999999999999,
+            "after": 15.872999999999998,
+            "paired_reduction_percent": -1.9371364533859792
+          },
+          "integration_ms": {
+            "before": 56.407,
+            "after": 50.282000000000004,
+            "paired_reduction_percent": 10.24728182430481
+          },
+          "full_ms": {
+            "before": 82.31300000000002,
+            "after": 77.27199999999999,
+            "paired_reduction_percent": 5.245307062686855
+          }
+        },
+        "nodes": {
+          "before": 61.0,
+          "after": 61.0
+        }
+      }
+    },
+    "reverse": {
+      "uniform_0.001": {
+        "inputs": 248,
+        "us": {
+          "seed_ms": {
+            "before": 4.0665000000000004,
+            "after": 3.932,
+            "paired_reduction_percent": -0.628102666283592
+          },
+          "planning_ms": {
+            "before": 15.738999999999999,
+            "after": 15.855500000000001,
+            "paired_reduction_percent": -0.6588935770834414
+          },
+          "integration_ms": {
+            "before": 24.619500000000002,
+            "after": 20.5755,
+            "paired_reduction_percent": 13.034448522060105
+          },
+          "full_ms": {
+            "before": 61.0595,
+            "after": 56.062999999999995,
+            "paired_reduction_percent": 4.223900165137695
+          }
+        },
+        "nodes": {
+          "before": 22.0,
+          "after": 22.0
+        }
+      },
+      "uniform_0.0001": {
+        "inputs": 248,
+        "us": {
+          "seed_ms": {
+            "before": 4.0665000000000004,
+            "after": 3.932,
+            "paired_reduction_percent": -0.628102666283592
+          },
+          "planning_ms": {
+            "before": 15.6135,
+            "after": 15.604,
+            "paired_reduction_percent": -1.9780409553772138
+          },
+          "integration_ms": {
+            "before": 31.0265,
+            "after": 27.747,
+            "paired_reduction_percent": 11.836420650669698
+          },
+          "full_ms": {
+            "before": 67.95750000000001,
+            "after": 62.283500000000004,
+            "paired_reduction_percent": 4.865223668688534
+          }
+        },
+        "nodes": {
+          "before": 38.0,
+          "after": 38.0
+        }
+      },
+      "linear_0.001": {
+        "inputs": 251,
+        "us": {
+          "seed_ms": {
+            "before": 4.031,
+            "after": 4.008,
+            "paired_reduction_percent": -0.4542013626041008
+          },
+          "planning_ms": {
+            "before": 16.224,
+            "after": 16.053,
+            "paired_reduction_percent": -0.8763388510224068
+          },
+          "integration_ms": {
+            "before": 48.711999999999996,
+            "after": 43.714000000000006,
+            "paired_reduction_percent": 8.92865838811786
+          },
+          "full_ms": {
+            "before": 76.918,
+            "after": 71.477,
+            "paired_reduction_percent": 3.6015964042157345
+          }
+        },
+        "nodes": {
+          "before": 53.0,
+          "after": 53.0
+        }
+      },
+      "linear_0.0001": {
+        "inputs": 251,
+        "us": {
+          "seed_ms": {
+            "before": 4.031,
+            "after": 4.008,
+            "paired_reduction_percent": -0.4542013626041008
+          },
+          "planning_ms": {
+            "before": 15.899,
+            "after": 15.945999999999998,
+            "paired_reduction_percent": -1.67881418393252
+          },
+          "integration_ms": {
+            "before": 55.246,
+            "after": 50.396,
+            "paired_reduction_percent": 8.556756896240291
+          },
+          "full_ms": {
+            "before": 81.56300000000002,
+            "after": 77.12400000000001,
+            "paired_reduction_percent": 4.590312234436233
+          }
+        },
+        "nodes": {
+          "before": 61.0,
+          "after": 61.0
+        }
+      }
+    }
+  },
+  "full_audit": {
+    "rows": 14432,
+    "changed_values": 4625,
+    "changed_nodes": 53,
+    "new_failures": 0,
+    "failed_before": 6,
+    "failed_after": 6,
+    "new_tolerance_violations": 0,
+    "by_tolerance": {
+      "0.001": {
+        "converged": 7213,
+        "violations": 0,
+        "maximum_relative_error": 0.000530260821114635,
+        "median_relative_error": 5.43003232418123e-07
+      },
+      "0.0001": {
+        "converged": 7213,
+        "violations": 3,
+        "maximum_relative_error": 0.0002705965501750303,
+        "median_relative_error": 2.663014494416756e-07
+      }
+    }
+  },
+  "normal": {
+    "forward": {
+      "before": {
+        "pairs": 87,
+        "mean_pair_median_ms": {
+          "seed_ms": 0.06619213793103448,
+          "planning_ms": 0.04773808045977011,
+          "candidate_integration_ms": 0.13930583908045976,
+          "candidate_no_caustic_ms": 0.2562673908045977
+        }
+      },
+      "after": {
+        "pairs": 87,
+        "mean_pair_median_ms": {
+          "seed_ms": 0.06526091954022989,
+          "planning_ms": 0.04734736781609195,
+          "candidate_integration_ms": 0.1255877011494253,
+          "candidate_no_caustic_ms": 0.24128422988505746
+        }
+      }
+    },
+    "reverse": {
+      "before": {
+        "pairs": 87,
+        "mean_pair_median_ms": {
+          "seed_ms": 0.06630459770114942,
+          "planning_ms": 0.04753627586206897,
+          "candidate_integration_ms": 0.139209,
+          "candidate_no_caustic_ms": 0.2559483448275862
+        }
+      },
+      "after": {
+        "pairs": 87,
+        "mean_pair_median_ms": {
+          "seed_ms": 0.06538297701149426,
+          "planning_ms": 0.0472703908045977,
+          "candidate_integration_ms": 0.12614318390804596,
+          "candidate_no_caustic_ms": 0.24170875862068966
+        }
+      }
+    }
+  },
+  "saved_vbm_comparison": {
+    "uniform_0.001": {
+      "inputs": 248,
+      "vbm_median_us": 46.850007493048906,
+      "before_faster_count": 93,
+      "after_faster_count": 101,
+      "median_vbm_over_after_ratio": 0.8054707909291845,
+      "provenance": "saved matched inputs/tolerance VBM timings; VBM was not rerun this turn"
+    },
+    "uniform_0.0001": {
+      "inputs": 248,
+      "vbm_median_us": 80.8174954727292,
+      "before_faster_count": 143,
+      "after_faster_count": 149,
+      "median_vbm_over_after_ratio": 1.2625732012795452,
+      "provenance": "saved matched inputs/tolerance VBM timings; VBM was not rerun this turn"
+    },
+    "linear_0.001": {
+      "inputs": 251,
+      "vbm_median_us": 50.20899698138237,
+      "before_faster_count": 58,
+      "after_faster_count": 62,
+      "median_vbm_over_after_ratio": 0.7769230939943028,
+      "provenance": "saved matched inputs/tolerance VBM timings; VBM was not rerun this turn"
+    },
+    "linear_0.0001": {
+      "inputs": 251,
+      "vbm_median_us": 347.74496452882886,
+      "before_faster_count": 222,
+      "after_faster_count": 223,
+      "median_vbm_over_after_ratio": 3.6636209677960005,
+      "provenance": "saved matched inputs/tolerance VBM timings; VBM was not rerun this turn"
+    }
+  }
+}

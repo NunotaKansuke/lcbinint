@@ -1,0 +1,16 @@
+{
+  "file": "evidence/holonomic/adaptive_radial_phase91_20260911/paired.csv",
+  "rows": 4400,
+  "finite_rows": 4400,
+  "bad_rows": 0,
+  "passed": true,
+  "stages": [
+    "topology_ms",
+    "setup_ms",
+    "physics_ms",
+    "estimator_ms",
+    "scheduler_ms"
+  ],
+  "rule": "finite nonnegative stages; each <= 10*whole+0.1 ms; sum <= 2*whole+0.1 ms",
+  "bad": []
+}

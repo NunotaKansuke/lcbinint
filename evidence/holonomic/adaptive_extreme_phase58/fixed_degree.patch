@@ -1,0 +1,41 @@
+diff --git a/src/lcbinint/magnification/holonomic/poly_roots.hpp b/src/lcbinint/magnification/holonomic/poly_roots.hpp
+index 458107a..48f2b80 100644
+--- a/src/lcbinint/magnification/holonomic/poly_roots.hpp
++++ b/src/lcbinint/magnification/holonomic/poly_roots.hpp
+@@ -157,12 +157,17 @@ inline Cplx<R> polyder_eval_c(const R* c, int n, Cplx<R> x) {
+ // Aberth-Ehrlich.  coeffs: descending, length deg+1, coeffs[0] != 0.
+ // Returns deg complex roots.  `max_iter` fixed; converges in ~10-40 for a
+ // cold start, ~3 warm.  If `seed` is non-null it is the warm-start guess.
+-template <class R>
+-inline std::vector<Cplx<R>> aberth(const R* coeffs, int deg, int max_iter = 200,
++template <class R, int FixedDegree = 0>
++inline std::vector<Cplx<R>> aberth(const R* coeffs, int degree, int max_iter = 200,
+                                    const Cplx<R>* seed = nullptr,
+                                    R tol_override = R(0),
+                                    double* final_step = nullptr,
+                                    int* iterations = nullptr) {
++    if constexpr (FixedDegree != 0) {
++        if(degree != FixedDegree)
++            return aberth<R>(coeffs,degree,max_iter,seed,tol_override,final_step,iterations);
++    }
++    const int deg = FixedDegree != 0 ? FixedDegree : degree;
+     std::vector<Cplx<R>> z(deg);
+     if (iterations) *iterations = 0;
+ 
+diff --git a/src/lcbinint/magnification/holonomic/radius_terms.hpp b/src/lcbinint/magnification/holonomic/radius_terms.hpp
+index 667b9ac..01261ee 100644
+--- a/src/lcbinint/magnification/holonomic/radius_terms.hpp
++++ b/src/lcbinint/magnification/holonomic/radius_terms.hpp
+@@ -225,7 +225,12 @@ inline std::vector<double> real_root_thetas_warm(const std::array<double, 5>& pc
+     if (w.valid && w.deg == deg && w.cold_streak < kColdStreak) {
+         if (prof) ++prof->quartic_warm_calls;
+         double step = 1.0;
++#ifdef HOLO_QUARTIC_FIXED_DEGREE
++        auto z = deg==4 ? aberth<double,4>(c,deg,kWarmIters,w.z,0.0,&step)
++                        : aberth<double>(c,deg,kWarmIters,w.z,0.0,&step);
++#else
+         auto z = aberth<double>(c, deg, kWarmIters, w.z, 0.0, &step);
++#endif
+         if (step <= kWarmStepTol) {
+             auto th = thetas_from_complex(z);
+             if (w.n_real < 0 || (int)th.size() == w.n_real) {

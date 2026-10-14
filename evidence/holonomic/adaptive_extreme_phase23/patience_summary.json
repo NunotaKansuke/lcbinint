@@ -1,0 +1,10 @@
+{
+  "rows": 7216,
+  "mu_max_rel": 2.5464224731751586e-12,
+  "status_diff": 0,
+  "nodes_diff": 0,
+  "presearch_base": 0.0337975,
+  "presearch_candidate": 0.02598549999999995,
+  "whole_base": 0.3390265,
+  "whole_candidate": 0.33315300000000003
+}

@@ -1,0 +1,102 @@
+diff --git a/benchmarks/holonomic/bench_adaptive_stage_profile.cpp b/benchmarks/holonomic/bench_adaptive_stage_profile.cpp
+index 1c78e96..4f99b39 100644
+--- a/benchmarks/holonomic/bench_adaptive_stage_profile.cpp
++++ b/benchmarks/holonomic/bench_adaptive_stage_profile.cpp
+@@ -10,7 +10,7 @@ int main(int argc,char**argv){
+  PreparedEpochGeometry state; AdaptiveWorkspace warm_workspace;
+  std::string previous_key; int position=0;
+  std::ifstream in(argv[1]);std::string line;
+- std::cout<<std::setprecision(17)<<"case profile db epoch whole mu ok nodes topology setup physics estimator scheduler struct expand presearch real qf residual completeness classification soft probes arc endpoint k rescue trajectory_pos bracket_attempts bracket_successes native_ms native_calls native_pass native_violations native_root_pass native_root_violations solve_total radial_total prepare conjugate metadata chart diagnostic\n";
++ std::cout<<std::setprecision(17)<<"case profile db epoch whole mu ok nodes topology setup physics estimator scheduler struct expand presearch real qf residual completeness classification soft probes arc endpoint k rescue trajectory_pos bracket_attempts bracket_successes native_ms native_calls native_pass native_violations native_root_pass native_root_violations solve_total radial_total prepare conjugate metadata chart diagnostic cycle_skipped\n";
+  holo_mv_transport_override()=1;holo_holonomic_transport_override()=1;holo_ode_transport_override()=0;
+  while(std::getline(in,line)){
+  int id,config,db,ep;std::string profile;double s,q,rho,x,y,t,u,X,ref;
+@@ -21,6 +21,6 @@ int main(int argc,char**argv){
+  V2Profile v;V2ProfileScope scope(v);auto start=adaptive_detail::Clock::now();auto a=warm?epoch_adaptive_prepared(p,u,cfg,warm_workspace,state):epoch_adaptive(p,u,cfg,w);double whole=adaptive_detail::ms(start);
+  std::cout<<id<<' '<<profile<<' '<<db<<' '<<ep<<' '<<whole<<' '<<a.mu<<' '<<a.value_converged<<' '<<a.stats.unique_nodes;
+  for(double val:{a.stats.topology_ms,a.stats.setup_ms,a.stats.physical_ms,a.stats.estimator_ms,a.stats.scheduler_ms,v.d14_struct_build_ms,v.d14_expand_ms,v.d14_presearch_ms,v.d14_real_ms,v.d14_qf_ms,v.d14_residual_eval_ms,v.d14_completeness_check_ms,v.d14_event_classify_ms,v.d14_soft_event_ms,v.topology_probe_ms,v.arc_ms,v.endpoint_ms,v.k_ms,v.angular_rescue_ms})std::cout<<' '<<val;
+- std::cout<<' '<<position<<' '<<v.local_bracket_attempts<<' '<<v.local_bracket_successes<<' '<<v.native_residual_ms<<' '<<v.native_residual_calls<<' '<<v.native_residual_pass<<' '<<v.native_residual_violations<<' '<<v.native_residual_root_pass<<' '<<v.native_residual_root_violations<<' '<<v.d14_solve_ms<<' '<<v.radial_events_ms<<' '<<v.d14_prepare_ms<<' '<<v.d14_conjugate_ms<<' '<<v.d14_metadata_ms<<' '<<v.chart_event_ms<<' '<<v.d14_diagnostic_ms<<'\n';
++ std::cout<<' '<<position<<' '<<v.local_bracket_attempts<<' '<<v.local_bracket_successes<<' '<<v.native_residual_ms<<' '<<v.native_residual_calls<<' '<<v.native_residual_pass<<' '<<v.native_residual_violations<<' '<<v.native_residual_root_pass<<' '<<v.native_residual_root_violations<<' '<<v.d14_solve_ms<<' '<<v.radial_events_ms<<' '<<v.d14_prepare_ms<<' '<<v.d14_conjugate_ms<<' '<<v.d14_metadata_ms<<' '<<v.chart_event_ms<<' '<<v.d14_diagnostic_ms<<' '<<v.d14_cycle_skipped_sweeps<<'\n';
+  }
+ }
+diff --git a/src/lcbinint/magnification/holonomic/radial_events.hpp b/src/lcbinint/magnification/holonomic/radial_events.hpp
+index e1a7c1f..784858f 100644
+--- a/src/lcbinint/magnification/holonomic/radial_events.hpp
++++ b/src/lcbinint/magnification/holonomic/radial_events.hpp
+@@ -969,6 +969,7 @@ inline qf d14_screened_residual(const qf* desc,int deg,
+ }
+ 
+ struct D14ActivePresearchResult {
++    int cycle_skipped_sweeps = 0;
+     std::vector<Cplx<double>> roots;
+     std::vector<Cplx<double>> last_finite_roots;
+     int iterations = 0;
+@@ -1044,6 +1045,15 @@ inline D14ActivePresearchResult d14_active_presearch(
+     }
+ 
+     std::vector<unsigned char> active(deg, 1), stable(deg, 0);
++#ifdef HOLO_D14_EXACT_CYCLE
++    struct CycleState {
++        std::array<Cplx<double>,14> roots{};
++        std::array<unsigned char,14> active{},stable{};
++        bool valid=false;
++    };
++    std::array<CycleState,2> history{};
++    int history_count=0;
++#endif
+     const double tol2 = tol * tol;
+     const bool legacy = holo_legacy_complex_ops();
+     auto abs_complex = [](const Cplx<double>& z) {
+@@ -1223,6 +1233,32 @@ inline D14ActivePresearchResult d14_active_presearch(
+         }
+         if (preserve_last_finite) out.last_finite_roots = out.roots;
+         if (active_count == 0 || max_step2 < tol2) break;
++#ifdef HOLO_D14_EXACT_CYCLE
++        if(!trace && deg<=14) {
++            for(int period=1;period<=2;++period) {
++                if(history_count<period)continue;
++                const auto& old=history[(history_count-period)%2];
++                if(old.valid &&
++                   std::memcmp(old.roots.data(),out.roots.data(),deg*sizeof(Cplx<double>))==0 &&
++                   std::memcmp(old.active.data(),active.data(),deg)==0 &&
++                   std::memcmp(old.stable.data(),stable.data(),deg)==0) {
++                    // The complete deterministic sweep state repeats. Jump
++                    // only whole periods, retaining the incumbent final phase.
++                    const int skip=((max_iter-1-it)/period)*period;
++                    int frozen=0;for(int k=0;k<deg;++k)frozen+=!active[k];
++                    out.skipped_updates+=frozen*skip;
++                    out.cycle_skipped_sweeps+=skip;
++                    it+=skip;out.iterations=it+1;
++                    break;
++                }
++            }
++            auto& dst=history[history_count%2];
++            std::copy(out.roots.begin(),out.roots.end(),dst.roots.begin());
++            std::copy(active.begin(),active.end(),dst.active.begin());
++            std::copy(stable.begin(),stable.end(),dst.stable.begin());
++            dst.valid=true;++history_count;
++        }
++#endif
+     }
+     if (trace)
+         std::fprintf(stderr,
+@@ -1372,6 +1408,7 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
+         pre_iters = active.iterations;
+         if (prof) {
+             ++prof->d14_presearch_active_calls;
++            prof->d14_cycle_skipped_sweeps += active.cycle_skipped_sweeps;
+             prof->d14_presearch_active_sweeps +=
+                 static_cast<V2Profile::u64>(active.iterations);
+             prof->d14_presearch_active_skips +=
+diff --git a/src/lcbinint/magnification/holonomic/v2_profile.hpp b/src/lcbinint/magnification/holonomic/v2_profile.hpp
+index f38c180..9993c46 100644
+--- a/src/lcbinint/magnification/holonomic/v2_profile.hpp
++++ b/src/lcbinint/magnification/holonomic/v2_profile.hpp
+@@ -119,6 +119,7 @@ struct V2Profile {
+ 
+     u64 d14_presearch_sweeps = 0;
+     u64 d14_presearch_active_calls = 0;
++    u64 d14_cycle_skipped_sweeps = 0;
+     u64 d14_presearch_active_sweeps = 0;
+     u64 d14_presearch_active_skips = 0;
+     u64 d14_presearch_active_fallbacks = 0;

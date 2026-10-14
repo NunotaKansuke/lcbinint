@@ -1,0 +1,10 @@
+{
+  "source_hashes": {
+    "src/lcbinint/magnification/holonomic/adaptive_radial.hpp": "607d4c43a8b3330e5f285eb5721abe12889b0f84cb8f17910f85e0ebee22d9fa",
+    "src/lcbinint/magnification/holonomic/seeded_radial_frontier.hpp": "96282b0a85672ab88fe90d0c4dd9f4e61bdcef6bbec94f005e7eb550c4e72e86"
+  },
+  "normal_reps": 5,
+  "holdout_reps": 3,
+  "threads": 1,
+  "baseline_binary": "build-seeded-events/bench_seeded_before_v15"
+}

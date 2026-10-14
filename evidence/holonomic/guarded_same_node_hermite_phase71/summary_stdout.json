@@ -1,0 +1,456 @@
+{
+  "cold_definition": "D14/topology built each epoch; no cross-epoch seed",
+  "cold_warm": {
+    "0.0001": {
+      "cold": {
+        "baseline_max_ms": 51.745932,
+        "baseline_ms": {
+          "p50": 0.370728,
+          "p90": 0.649447,
+          "p95": 0.766558,
+          "p99": 2.933371
+        },
+        "baseline_sum_ms": 4749.509177999991,
+        "baseline_value_converged": 7216,
+        "mu_mismatches": 0,
+        "node_count_mismatches": 0,
+        "paired_sum_change_percent": 1.5361857671095658,
+        "shadow_max_ms": 51.696021,
+        "shadow_ms": {
+          "p50": 0.380695,
+          "p90": 0.665404,
+          "p95": 0.783724,
+          "p99": 2.949438
+        },
+        "shadow_sum_ms": 4822.470461999989,
+        "shadow_value_converged": 7216,
+        "status_mismatches": 0
+      },
+      "radial_only": {
+        "baseline_max_ms": 0.76981,
+        "baseline_ms": {
+          "p50": 0.105106,
+          "p90": 0.191705,
+          "p95": 0.236147,
+          "p99": 0.353554
+        },
+        "baseline_sum_ms": 881.7458760000007,
+        "baseline_value_converged": 7216,
+        "mu_mismatches": 0,
+        "node_count_mismatches": 0,
+        "paired_sum_change_percent": 8.561285065766612,
+        "shadow_max_ms": 0.853603,
+        "shadow_ms": {
+          "p50": 0.114096,
+          "p90": 0.206429,
+          "p95": 0.256665,
+          "p99": 0.36845
+        },
+        "shadow_sum_ms": 957.2346540000018,
+        "shadow_value_converged": 7216,
+        "status_mismatches": 0,
+        "timing_boundary": "classify_cells / D14 topology excluded; flux_adaptive_integrate included"
+      },
+      "rows": 7216,
+      "warm": {
+        "baseline_max_ms": 51.561431,
+        "baseline_ms": {
+          "p50": 0.277418,
+          "p90": 0.552531,
+          "p95": 0.662177,
+          "p99": 1.015848
+        },
+        "baseline_sum_ms": 3729.8843020000045,
+        "baseline_value_converged": 7216,
+        "mu_mismatches": 0,
+        "node_count_mismatches": 0,
+        "paired_sum_change_percent": 1.5508490697407673,
+        "shadow_max_ms": 51.679295,
+        "shadow_ms": {
+          "p50": 0.286591,
+          "p90": 0.562804,
+          "p95": 0.672603,
+          "p99": 1.040348
+        },
+        "shadow_sum_ms": 3787.729177999978,
+        "shadow_value_converged": 7216,
+        "status_mismatches": 0
+      }
+    },
+    "0.001": {
+      "cold": {
+        "baseline_max_ms": 54.795178,
+        "baseline_ms": {
+          "p50": 0.343854,
+          "p90": 0.611753,
+          "p95": 0.713718,
+          "p99": 2.923142
+        },
+        "baseline_sum_ms": 4552.584475000011,
+        "baseline_value_converged": 7216,
+        "mu_mismatches": 0,
+        "node_count_mismatches": 0,
+        "paired_sum_change_percent": 1.0110303774206963,
+        "shadow_max_ms": 51.632167,
+        "shadow_ms": {
+          "p50": 0.351572,
+          "p90": 0.624071,
+          "p95": 0.727452,
+          "p99": 2.933853
+        },
+        "shadow_sum_ms": 4598.612486999999,
+        "shadow_value_converged": 7216,
+        "status_mismatches": 0
+      },
+      "radial_only": {
+        "baseline_max_ms": 0.456566,
+        "baseline_ms": {
+          "p50": 0.081091,
+          "p90": 0.144544,
+          "p95": 0.170993,
+          "p99": 0.254006
+        },
+        "baseline_sum_ms": 651.6531189999989,
+        "baseline_value_converged": 7216,
+        "mu_mismatches": 0,
+        "node_count_mismatches": 0,
+        "paired_sum_change_percent": 10.659375206642906,
+        "shadow_max_ms": 2.628977,
+        "shadow_ms": {
+          "p50": 0.088974,
+          "p90": 0.161159,
+          "p95": 0.191017,
+          "p99": 0.275462
+        },
+        "shadow_sum_ms": 721.11527,
+        "shadow_value_converged": 7216,
+        "status_mismatches": 0,
+        "timing_boundary": "classify_cells / D14 topology excluded; flux_adaptive_integrate included"
+      },
+      "rows": 7216,
+      "warm": {
+        "baseline_max_ms": 51.517588,
+        "baseline_ms": {
+          "p50": 0.236231,
+          "p90": 0.507923,
+          "p95": 0.600908,
+          "p99": 0.895328
+        },
+        "baseline_sum_ms": 3463.81950300001,
+        "baseline_value_converged": 7216,
+        "mu_mismatches": 0,
+        "node_count_mismatches": 0,
+        "paired_sum_change_percent": 1.5843532826251838,
+        "shadow_max_ms": 51.577074,
+        "shadow_ms": {
+          "p50": 0.245638,
+          "p90": 0.518873,
+          "p95": 0.608033,
+          "p99": 0.912027
+        },
+        "shadow_sum_ms": 3518.698641000002,
+        "shadow_value_converged": 7216,
+        "status_mismatches": 0
+      }
+    }
+  },
+  "input": "evidence/holonomic/v2_adaptive_best_trajectory_20260913/input_snapshot.tsv",
+  "jacobian_reference_control": {
+    "raw_rows": 120,
+    "scope": "existing LD/Jacobian route; Hermite request predicate excludes gradients and u != 0",
+    "stop_counts": {
+      "Converged": 60,
+      "EventLocationLimited": 30,
+      "InnerAccuracyLimited": 30
+    }
+  },
+  "machine": "Intel Xeon Gold 6530, benchmark pinned to CPU 0",
+  "microtiming_source": "trajectory_microtimed.tsv, separate diagnostic run; do not use its whole-epoch wall values",
+  "mode": "uniform u=0, value-only, two paired primary passes: full cold, full warm, radial-only",
+  "panel_audit": {
+    "base_unresolved_rows_also_failing_derivative_decay": 14,
+    "base_value_detail_resolved_rows": 2776,
+    "base_value_detail_unresolved_rows": 14,
+    "derivative_detail_decay_pass_rows": 2557,
+    "false_local_pass_examples": [],
+    "false_local_passes": 0,
+    "hermite7_more_accurate_than_fejer7": 2746,
+    "jet_vs_independent_endpoint_IFT_scaled_error": {
+      "max": 7.706618659189026e-07,
+      "n": 2790,
+      "p50": 7.40693140327382e-14,
+      "p95": 4.076476612113042e-11,
+      "p99": 7.393115232106663e-09,
+      "reference": "separate reference_arcs + polished endpoints + endpoint_dR"
+    },
+    "local_model_budget_passes_not_global": 852,
+    "local_model_passes_that_could_save_nodes_under_existing_detail_guard": 0,
+    "max_false_local_pass_underestimate_ratio": null,
+    "median_abs_error_fejer7": 7.07071595718034e-10,
+    "median_abs_error_hermite7": 7.716050021144838e-15,
+    "model_budget_passes_ignoring_required_value_detail": 852,
+    "model_underestimates_observed_H7_error": 2,
+    "paper_highA_false_local_passes": [],
+    "paper_highA_parent_rows": [
+      {
+        "cell": "11",
+        "depth": "0",
+        "model": "91.147273962109466",
+        "panel": "7",
+        "panel_local_budget_pass": "0",
+        "q7": "10892.263171133356",
+        "q7_error": "55.186869988592662",
+        "qh3": "10934.499909774495",
+        "qh7": "10888.92627279344",
+        "qh_error": "51.849971648676728",
+        "ref128": "10837.076301144763",
+        "ref_unc": "3.4591052099131048e-05",
+        "tol": "0.001"
+      },
+      {
+        "cell": "11",
+        "depth": "0",
+        "model": "91.147273962109466",
+        "panel": "7",
+        "panel_local_budget_pass": "0",
+        "q7": "10892.263171133356",
+        "q7_error": "55.186869988592662",
+        "qh3": "10934.499909774495",
+        "qh7": "10888.92627279344",
+        "qh_error": "51.849971648676728",
+        "ref128": "10837.076301144763",
+        "ref_unc": "3.4591052099131048e-05",
+        "tol": "0.0001"
+      }
+    ],
+    "raw_panel_rows": 2898,
+    "unresolved_panels_that_would_pass_model_budget_if_detail_guard_were_removed": 0,
+    "usable_independent_GL64_GL128_reference_rows": 2790
+  },
+  "primary_replicates": {
+    "rep1": {
+      "0.0001": {
+        "cold": {
+          "baseline_sum_ms": 2375.668737,
+          "paired_sum_change_percent": 1.5284814938405722,
+          "rows": 3608,
+          "shadow_sum_ms": 2411.980394000001
+        },
+        "radial_only": {
+          "baseline_sum_ms": 441.02332099999944,
+          "paired_sum_change_percent": 8.563698154184562,
+          "rows": 3608,
+          "shadow_sum_ms": 478.7912269999999
+        },
+        "warm": {
+          "baseline_sum_ms": 1864.197604000001,
+          "paired_sum_change_percent": 1.565075340585853,
+          "rows": 3608,
+          "shadow_sum_ms": 1893.3737009999973
+        }
+      },
+      "0.001": {
+        "cold": {
+          "baseline_sum_ms": 2273.4788709999984,
+          "paired_sum_change_percent": 1.0991869033297075,
+          "rows": 3608,
+          "shadow_sum_ms": 2298.4686529999985
+        },
+        "radial_only": {
+          "baseline_sum_ms": 325.86300000000057,
+          "paired_sum_change_percent": 10.375466990729043,
+          "rows": 3608,
+          "shadow_sum_ms": 359.672808
+        },
+        "warm": {
+          "baseline_sum_ms": 1730.5563680000096,
+          "paired_sum_change_percent": 1.6394472624304601,
+          "rows": 3608,
+          "shadow_sum_ms": 1758.9279270000018
+        }
+      }
+    },
+    "rep2": {
+      "0.0001": {
+        "cold": {
+          "baseline_sum_ms": 2373.8404410000044,
+          "paired_sum_change_percent": 1.5438959740930347,
+          "rows": 3608,
+          "shadow_sum_ms": 2410.490067999996
+        },
+        "radial_only": {
+          "baseline_sum_ms": 440.7225550000006,
+          "paired_sum_change_percent": 8.558870330564128,
+          "rows": 3608,
+          "shadow_sum_ms": 478.4434269999999
+        },
+        "warm": {
+          "baseline_sum_ms": 1865.6866980000077,
+          "paired_sum_change_percent": 1.5366341535656858,
+          "rows": 3608,
+          "shadow_sum_ms": 1894.3554770000076
+        }
+      },
+      "0.001": {
+        "cold": {
+          "baseline_sum_ms": 2279.1056039999903,
+          "paired_sum_change_percent": 0.923091495324968,
+          "rows": 3608,
+          "shadow_sum_ms": 2300.143833999989
+        },
+        "radial_only": {
+          "baseline_sum_ms": 325.79011900000063,
+          "paired_sum_change_percent": 10.943346934349307,
+          "rows": 3608,
+          "shadow_sum_ms": 361.44246200000015
+        },
+        "warm": {
+          "baseline_sum_ms": 1733.263135000002,
+          "paired_sum_change_percent": 1.529345340861754,
+          "rows": 3608,
+          "shadow_sum_ms": 1759.7707139999989
+        }
+      }
+    }
+  },
+  "primary_wall_timing": "trajectory.tsv and trajectory_rep2.tsv, built without per-jet/model microtimers",
+  "raw_rows": 14432,
+  "separate_microtiming": {
+    "0.0001": {
+      "cold": {
+        "instrumented_baseline_whole_sum_ms": 2377.045487,
+        "instrumented_paired_sum_change_percent": 2.207599235563018,
+        "instrumented_shadow_whole_sum_ms": 2429.521124999997,
+        "jet_ms_sum": 32.83021200000002,
+        "panel_model_ms_sum": 0.8123130000000065,
+        "rows": 3608
+      },
+      "radial_only": {
+        "instrumented_baseline_whole_sum_ms": 441.99823200000026,
+        "instrumented_paired_sum_change_percent": 13.058583908543842,
+        "instrumented_shadow_whole_sum_ms": 499.71694200000053,
+        "jet_ms_sum": 32.24038499999999,
+        "panel_model_ms_sum": 0.7946350000000033,
+        "rows": 3608
+      },
+      "warm": {
+        "instrumented_baseline_whole_sum_ms": 1865.776956999999,
+        "instrumented_paired_sum_change_percent": 2.6289967198902975,
+        "instrumented_shadow_whole_sum_ms": 1914.828171999998,
+        "jet_ms_sum": 32.78152599999997,
+        "panel_model_ms_sum": 0.8070440000000019,
+        "rows": 3608
+      }
+    },
+    "0.001": {
+      "cold": {
+        "instrumented_baseline_whole_sum_ms": 2274.5145110000035,
+        "instrumented_paired_sum_change_percent": 1.955242966572368,
+        "instrumented_shadow_whole_sum_ms": 2318.986795999999,
+        "jet_ms_sum": 33.50701199999992,
+        "panel_model_ms_sum": 0.8450190000000022,
+        "rows": 3608
+      },
+      "radial_only": {
+        "instrumented_baseline_whole_sum_ms": 326.68347200000005,
+        "instrumented_paired_sum_change_percent": 16.330290808223257,
+        "instrumented_shadow_whole_sum_ms": 380.0318330000007,
+        "jet_ms_sum": 32.29575800000002,
+        "panel_model_ms_sum": 0.7887270000000064,
+        "rows": 3608
+      },
+      "warm": {
+        "instrumented_baseline_whole_sum_ms": 1733.6659420000015,
+        "instrumented_paired_sum_change_percent": 2.844784038561876,
+        "instrumented_shadow_whole_sum_ms": 1782.984994000001,
+        "jet_ms_sum": 32.87611,
+        "panel_model_ms_sum": 0.8116600000000027,
+        "rows": 3608
+      }
+    }
+  },
+  "shadow_work": {
+    "0.0001": {
+      "cold_jet_attempts": 280980,
+      "cold_jet_successes": 268778,
+      "cold_panel_local_budget_passes_not_global": 3118,
+      "cold_panels_shadowed": 41018,
+      "radial_jet_attempts": 280980,
+      "radial_jet_successes": 268778,
+      "radial_panel_local_budget_passes_not_global": 3118,
+      "radial_panels_shadowed": 41018,
+      "warm_jet_attempts": 280980,
+      "warm_jet_successes": 268778,
+      "warm_panel_local_budget_passes_not_global": 3118,
+      "warm_panels_shadowed": 41018
+    },
+    "0.001": {
+      "cold_jet_attempts": 280980,
+      "cold_jet_successes": 268778,
+      "cold_panel_local_budget_passes_not_global": 6528,
+      "cold_panels_shadowed": 41018,
+      "radial_jet_attempts": 280980,
+      "radial_jet_successes": 268778,
+      "radial_panel_local_budget_passes_not_global": 6528,
+      "radial_panels_shadowed": 41018,
+      "warm_jet_attempts": 280980,
+      "warm_jet_successes": 268778,
+      "warm_panel_local_budget_passes_not_global": 6528,
+      "warm_panels_shadowed": 41018
+    }
+  },
+  "source_commit": "9e409a3c096bab7ca2cec7c9a8d87e47c0cc1d6d",
+  "timing_quantile_method": "nearest rank",
+  "trajectory_epoch_count_per_tolerance": 7216,
+  "trajectory_repetitions": 2,
+  "validation_checks": {
+    "all_primary_value_converged": true,
+    "all_primary_wall_times_finite_nonnegative": true,
+    "no_false_panel_model_passes": true,
+    "no_unresolved_panel_model_passes": true,
+    "primary_replicates_present": true,
+    "primary_rows_per_tolerance_per_replicate": true,
+    "reference_observed_violations_zero": true,
+    "zero_primary_mu_status_node_mismatches": true,
+    "zero_radial_only_mu_status_node_mismatches": true
+  },
+  "value_reference": {
+    "by_rtol": {
+      "0.0001": {
+        "reference_usable": 94,
+        "rows": 110,
+        "violations": 0
+      },
+      "0.001": {
+        "reference_usable": 94,
+        "rows": 110,
+        "violations": 0
+      },
+      "1e-05": {
+        "reference_usable": 94,
+        "rows": 110,
+        "violations": 0
+      },
+      "1e-06": {
+        "reference_usable": 94,
+        "rows": 110,
+        "violations": 0
+      },
+      "1e-08": {
+        "reference_usable": 90,
+        "rows": 110,
+        "violations": 0
+      }
+    },
+    "interpretation": "existing value-only adaptive path; Hermite shadow is opt-in",
+    "observed_violations": 0,
+    "raw_rows": 550,
+    "reference_usable_rows": 466,
+    "stop_counts": {
+      "Converged": 496,
+      "InnerAccuracyLimited": 4,
+      "TopologyUnresolved": 50
+    }
+  },
+  "warm_definition": "prepared L2 D14 warm roots; topology reuse disabled; first row naturally cold-seeded"
+}

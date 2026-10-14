@@ -1,0 +1,1816 @@
+{
+  "schema": 1,
+  "warm_qf_calls": [
+    {
+      "case": "149",
+      "config": "149",
+      "profile": "uniform",
+      "d_bin": "1",
+      "epoch": "0",
+      "rep": "0",
+      "lane": "cold",
+      "qf_warm_sweeps": 24,
+      "qf_warm_converged": "0",
+      "qf_warm_worst_residual": "+3.777793491263870341365322920082342881e-27",
+      "qf_warm_scalar_certificate": "1",
+      "max_step_last": 2.956544591760701e-15,
+      "max_step_first": 1.6885155083332875e-13,
+      "max_step_ratio_last_first": 0.017509727196281834,
+      "dominant_root_counts": {
+        "5": 18,
+        "6": 5,
+        "11": 1
+      },
+      "dominant_root_role_hints": {
+        "2": 24
+      },
+      "dominant_partner_pair_counts": {
+        "5-6": 23,
+        "5-11": 1
+      },
+      "max_step_monotone_nonincrease_fraction": 0.5652173913043478,
+      "driver_pair": [
+        5,
+        6
+      ],
+      "driver_pair_fraction": 0.9583333333333334,
+      "driver_pair_role_hints": [
+        2,
+        2
+      ],
+      "driver_pair_final_roles": [
+        2,
+        2
+      ],
+      "driver_pair_physical_real": [
+        -1,
+        -1
+      ],
+      "driver_pair_role_match_valid": [
+        true,
+        true
+      ],
+      "driver_pair_sep_first": 1.2674272760179539e-05,
+      "driver_pair_sep_last": 1.2674272762471329e-05,
+      "driver_pair_m_abs_drift": 1.6369945260675656e-15,
+      "driver_pair_d2_abs_drift": 6.640663101872292e-20,
+      "driver_pair_d2_relative_drift": 4.133951236258487e-10,
+      "driver_pair_m_first": [
+        0.31129559151448355,
+        -3.793144725937736e-16
+      ],
+      "driver_pair_m_last": [
+        0.31129559151448344,
+        -2.1560382119758512e-16
+      ],
+      "driver_pair_d2_first": [
+        -1.6063718999942906e-10,
+        1.5795173272327706e-21
+      ],
+      "driver_pair_d2_last": [
+        -1.6063719005752262e-10,
+        9.036572396272352e-22
+      ]
+    },
+    {
+      "case": "149",
+      "config": "149",
+      "profile": "uniform",
+      "d_bin": "1",
+      "epoch": "7",
+      "rep": "0",
+      "lane": "cold",
+      "qf_warm_sweeps": 24,
+      "qf_warm_converged": "0",
+      "qf_warm_worst_residual": "+7.408829842850055868720698974884212202e-27",
+      "qf_warm_scalar_certificate": "1",
+      "max_step_last": 3.4622189990195034e-16,
+      "max_step_first": 2.4062421622818537e-14,
+      "max_step_ratio_last_first": 0.014388489459997912,
+      "dominant_root_counts": {
+        "4": 4,
+        "5": 6,
+        "11": 14
+      },
+      "dominant_root_role_hints": {
+        "2": 24
+      },
+      "dominant_partner_pair_counts": {
+        "5-11": 20,
+        "4-11": 2,
+        "4-5": 2
+      },
+      "max_step_monotone_nonincrease_fraction": 0.5217391304347826,
+      "driver_pair": [
+        5,
+        11
+      ],
+      "driver_pair_fraction": 0.8333333333333334,
+      "driver_pair_role_hints": [
+        2,
+        2
+      ],
+      "driver_pair_final_roles": [
+        2,
+        2
+      ],
+      "driver_pair_physical_real": [
+        -1,
+        -1
+      ],
+      "driver_pair_role_match_valid": [
+        true,
+        true
+      ],
+      "driver_pair_sep_first": 1.9041575091954912e-05,
+      "driver_pair_sep_last": 1.9041575092124546e-05,
+      "driver_pair_m_abs_drift": 7.655766367118244e-16,
+      "driver_pair_d2_abs_drift": 3.954817269175e-20,
+      "driver_pair_d2_relative_drift": 1.0907385994485648e-10,
+      "driver_pair_m_first": [
+        0.31129746016833293,
+        1.9930408100402236e-16
+      ],
+      "driver_pair_m_last": [
+        0.3112974601683329,
+        2.8417127083654613e-16
+      ],
+      "driver_pair_d2_first": [
+        -3.625815819825577e-10,
+        -3.0673045227844005e-21
+      ],
+      "driver_pair_d2_last": [
+        -3.625815819890179e-10,
+        -4.3631135108016544e-21
+      ]
+    },
+    {
+      "case": "149",
+      "config": "149",
+      "profile": "uniform",
+      "d_bin": "1",
+      "epoch": "15",
+      "rep": "0",
+      "lane": "cold",
+      "qf_warm_sweeps": 24,
+      "qf_warm_converged": "0",
+      "qf_warm_worst_residual": "+6.239196233376691979562053902007478794e-27",
+      "qf_warm_scalar_certificate": "1",
+      "max_step_last": 2.909768288908084e-16,
+      "max_step_first": 2.5799974559164735e-14,
+      "max_step_ratio_last_first": 0.011278182783612352,
+      "dominant_root_counts": {
+        "5": 18,
+        "10": 1,
+        "11": 5
+      },
+      "dominant_root_role_hints": {
+        "2": 24
+      },
+      "dominant_partner_pair_counts": {
+        "4-5": 18,
+        "4-11": 5,
+        "10-11": 1
+      },
+      "max_step_monotone_nonincrease_fraction": 0.391304347826087,
+      "driver_pair": [
+        4,
+        5
+      ],
+      "driver_pair_fraction": 0.75,
+      "driver_pair_role_hints": [
+        2,
+        2
+      ],
+      "driver_pair_final_roles": [
+        1,
+        2
+      ],
+      "driver_pair_physical_real": [
+        1,
+        -1
+      ],
+      "driver_pair_role_match_valid": [
+        true,
+        true
+      ],
+      "driver_pair_sep_first": 2.0465881907221883e-05,
+      "driver_pair_sep_last": 2.0465881907813038e-05,
+      "driver_pair_m_abs_drift": 3.989281337473369e-16,
+      "driver_pair_d2_abs_drift": 3.176054347421879e-20,
+      "driver_pair_d2_relative_drift": 7.582754538482296e-11,
+      "driver_pair_m_first": [
+        0.31130701555365786,
+        6.5290934958148945e-06
+      ],
+      "driver_pair_m_last": [
+        0.3113070155536577,
+        6.5290934961320465e-06
+      ],
+      "driver_pair_d2_first": [
+        7.781982722361318e-11,
+        -4.115596461474603e-10
+      ],
+      "driver_pair_d2_last": [
+        7.781982721467876e-11,
+        -4.1155964617377544e-10
+      ]
+    },
+    {
+      "case": "149",
+      "config": "149",
+      "profile": "uniform",
+      "d_bin": "1",
+      "epoch": "0",
+      "rep": "0",
+      "lane": "warm",
+      "qf_warm_sweeps": 24,
+      "qf_warm_converged": "0",
+      "qf_warm_worst_residual": "+3.777793491263870341365322920082342881e-27",
+      "qf_warm_scalar_certificate": "1",
+      "max_step_last": 2.956544591760701e-15,
+      "max_step_first": 1.6885155083332875e-13,
+      "max_step_ratio_last_first": 0.017509727196281834,
+      "dominant_root_counts": {
+        "5": 18,
+        "6": 5,
+        "11": 1
+      },
+      "dominant_root_role_hints": {
+        "2": 24
+      },
+      "dominant_partner_pair_counts": {
+        "5-6": 23,
+        "5-11": 1
+      },
+      "max_step_monotone_nonincrease_fraction": 0.5652173913043478,
+      "driver_pair": [
+        5,
+        6
+      ],
+      "driver_pair_fraction": 0.9583333333333334,
+      "driver_pair_role_hints": [
+        2,
+        2
+      ],
+      "driver_pair_final_roles": [
+        2,
+        2
+      ],
+      "driver_pair_physical_real": [
+        -1,
+        -1
+      ],
+      "driver_pair_role_match_valid": [
+        true,
+        true
+      ],
+      "driver_pair_sep_first": 1.2674272760179539e-05,
+      "driver_pair_sep_last": 1.2674272762471329e-05,
+      "driver_pair_m_abs_drift": 1.6369945260675656e-15,
+      "driver_pair_d2_abs_drift": 6.640663101872292e-20,
+      "driver_pair_d2_relative_drift": 4.133951236258487e-10,
+      "driver_pair_m_first": [
+        0.31129559151448355,
+        -3.793144725937736e-16
+      ],
+      "driver_pair_m_last": [
+        0.31129559151448344,
+        -2.1560382119758512e-16
+      ],
+      "driver_pair_d2_first": [
+        -1.6063718999942906e-10,
+        1.5795173272327706e-21
+      ],
+      "driver_pair_d2_last": [
+        -1.6063719005752262e-10,
+        9.036572396272352e-22
+      ]
+    },
+    {
+      "case": "149",
+      "config": "149",
+      "profile": "uniform",
+      "d_bin": "1",
+      "epoch": "7",
+      "rep": "0",
+      "lane": "warm",
+      "qf_warm_sweeps": 24,
+      "qf_warm_converged": "0",
+      "qf_warm_worst_residual": "+9.280803034433264420385320753343692220e-27",
+      "qf_warm_scalar_certificate": "1",
+      "max_step_last": 6.924437792003459e-16,
+      "max_step_first": 1.0230858324174293e-13,
+      "max_step_ratio_last_first": 0.006768188525924399,
+      "dominant_root_counts": {
+        "5": 9,
+        "6": 15
+      },
+      "dominant_root_role_hints": {
+        "2": 24
+      },
+      "dominant_partner_pair_counts": {
+        "5-6": 24
+      },
+      "max_step_monotone_nonincrease_fraction": 0.6086956521739131,
+      "driver_pair": [
+        5,
+        6
+      ],
+      "driver_pair_fraction": 1.0,
+      "driver_pair_role_hints": [
+        2,
+        2
+      ],
+      "driver_pair_final_roles": [
+        2,
+        2
+      ],
+      "driver_pair_physical_real": [
+        -1,
+        -1
+      ],
+      "driver_pair_role_match_valid": [
+        true,
+        true
+      ],
+      "driver_pair_sep_first": 1.9041575092561896e-05,
+      "driver_pair_sep_last": 1.9041575092222493e-05,
+      "driver_pair_m_abs_drift": 5.120699022876477e-16,
+      "driver_pair_d2_abs_drift": 5.1760307603941195e-20,
+      "driver_pair_d2_relative_drift": 1.4275492791890148e-10,
+      "driver_pair_m_first": [
+        0.3112974601683329,
+        -5.587883618371401e-17
+      ],
+      "driver_pair_m_last": [
+        0.3112974601683329,
+        1.138387675249883e-16
+      ],
+      "driver_pair_d2_first": [
+        -3.625815820056736e-10,
+        8.585005280526467e-22
+      ],
+      "driver_pair_d2_last": [
+        -3.6258158199274805e-10,
+        -1.7394274717736187e-21
+      ]
+    },
+    {
+      "case": "149",
+      "config": "149",
+      "profile": "uniform",
+      "d_bin": "1",
+      "epoch": "15",
+      "rep": "0",
+      "lane": "warm",
+      "qf_warm_sweeps": 24,
+      "qf_warm_converged": "0",
+      "qf_warm_worst_residual": "+7.068085897168154605973495753992999102e-27",
+      "qf_warm_scalar_certificate": "1",
+      "max_step_last": 7.090543627759426e-19,
+      "max_step_first": 1.1490921067644769e-14,
+      "max_step_ratio_last_first": 6.170561599038758e-05,
+      "dominant_root_counts": {
+        "4": 1,
+        "5": 1,
+        "8": 10,
+        "10": 12
+      },
+      "dominant_root_role_hints": {
+        "2": 24
+      },
+      "dominant_partner_pair_counts": {
+        "10-11": 12,
+        "5-8": 11,
+        "4-5": 1
+      },
+      "max_step_monotone_nonincrease_fraction": 0.43478260869565216,
+      "driver_pair": [
+        10,
+        11
+      ],
+      "driver_pair_fraction": 0.5,
+      "driver_pair_role_hints": [
+        2,
+        2
+      ],
+      "driver_pair_final_roles": [
+        1,
+        1
+      ],
+      "driver_pair_physical_real": [
+        1,
+        1
+      ],
+      "driver_pair_role_match_valid": [
+        true,
+        true
+      ],
+      "driver_pair_sep_first": 0.00033739895384443593,
+      "driver_pair_sep_last": 0.00033739895384443625,
+      "driver_pair_m_abs_drift": 2.099649359902758e-47,
+      "driver_pair_d2_abs_drift": 2.3822801641527197e-22,
+      "driver_pair_d2_relative_drift": 2.092692275814067e-15,
+      "driver_pair_m_first": [
+        0.31108230205473997,
+        6.998363922778473e-48
+      ],
+      "driver_pair_m_last": [
+        0.31108230205473997,
+        2.7994857521806053e-47
+      ],
+      "driver_pair_d2_first": [
+        1.138380540553198e-07,
+        -9.444962664672398e-51
+      ],
+      "driver_pair_d2_last": [
+        1.1383805405532004e-07,
+        -3.778174256352564e-50
+      ]
+    },
+    {
+      "case": "149",
+      "config": "149",
+      "profile": "uniform",
+      "d_bin": "1",
+      "epoch": "23",
+      "rep": "0",
+      "lane": "warm",
+      "qf_warm_sweeps": 24,
+      "qf_warm_converged": "0",
+      "qf_warm_worst_residual": "+1.685584479365840406963789063575577882e-27",
+      "qf_warm_scalar_certificate": "1",
+      "max_step_last": 1.1718543300473635e-16,
+      "max_step_first": 1.1650706352143659e-14,
+      "max_step_ratio_last_first": 0.010058225609915485,
+      "dominant_root_counts": {
+        "4": 10,
+        "7": 13,
+        "8": 1
+      },
+      "dominant_root_role_hints": {
+        "2": 24
+      },
+      "dominant_partner_pair_counts": {
+        "4-7": 23,
+        "4-8": 1
+      },
+      "max_step_monotone_nonincrease_fraction": 0.4782608695652174,
+      "driver_pair": [
+        4,
+        7
+      ],
+      "driver_pair_fraction": 0.9583333333333334,
+      "driver_pair_role_hints": [
+        2,
+        2
+      ],
+      "driver_pair_final_roles": [
+        1,
+        2
+      ],
+      "driver_pair_physical_real": [
+        1,
+        -1
+      ],
+      "driver_pair_role_match_valid": [
+        true,
+        true
+      ],
+      "driver_pair_sep_first": 2.0802977089400497e-05,
+      "driver_pair_sep_last": 2.0802977089575067e-05,
+      "driver_pair_m_abs_drift": 3.158418483438194e-16,
+      "driver_pair_d2_abs_drift": 1.4829358417905513e-20,
+      "driver_pair_d2_relative_drift": 3.4266628831802116e-11,
+      "driver_pair_m_first": [
+        0.3113068639402989,
+        -8.231514058610911e-06
+      ],
+      "driver_pair_m_last": [
+        0.3113068639402989,
+        -8.231514058686275e-06
+      ],
+      "driver_pair_d2_first": [
+        -1.0929873379475076e-10,
+        4.18734213627539e-10
+      ],
+      "driver_pair_d2_last": [
+        -1.0929873379741334e-10,
+        4.187342136343505e-10
+      ]
+    },
+    {
+      "case": "0",
+      "config": "0",
+      "profile": "linear",
+      "d_bin": "0",
+      "epoch": "0",
+      "rep": "0",
+      "lane": "cold",
+      "qf_warm_sweeps": 24,
+      "qf_warm_converged": "0",
+      "qf_warm_worst_residual": "+2.757470772773570806296003018528083516e-19",
+      "qf_warm_scalar_certificate": "1",
+      "max_step_last": 8.801929941128282e-13,
+      "max_step_first": 1.8404022436551216e-10,
+      "max_step_ratio_last_first": 0.004782612046618273,
+      "dominant_root_counts": {
+        "6": 6,
+        "8": 3,
+        "11": 5,
+        "12": 10
+      },
+      "dominant_root_role_hints": {
+        "2": 24
+      },
+      "dominant_partner_pair_counts": {
+        "5-12": 10,
+        "8-11": 8,
+        "6-8": 3,
+        "6-11": 3
+      },
+      "max_step_monotone_nonincrease_fraction": 0.6086956521739131,
+      "driver_pair": [
+        5,
+        12
+      ],
+      "driver_pair_fraction": 0.4166666666666667,
+      "driver_pair_role_hints": [
+        2,
+        2
+      ],
+      "driver_pair_final_roles": [
+        2,
+        2
+      ],
+      "driver_pair_physical_real": [
+        -1,
+        -1
+      ],
+      "driver_pair_role_match_valid": [
+        true,
+        true
+      ],
+      "driver_pair_sep_first": 3.970480634109809e-05,
+      "driver_pair_sep_last": 3.970480640446095e-05,
+      "driver_pair_m_abs_drift": 3.520791368558034e-13,
+      "driver_pair_d2_abs_drift": 5.591703284244121e-17,
+      "driver_pair_d2_relative_drift": 3.546973582658601e-08,
+      "driver_pair_m_first": [
+        0.018553962500213954,
+        1.9731000416986004e-14
+      ],
+      "driver_pair_m_last": [
+        0.018553962500296076,
+        -1.19504310434015e-14
+      ],
+      "driver_pair_d2_first": [
+        -1.5764716465841032e-09,
+        8.269712672587997e-18
+      ],
+      "driver_pair_d2_last": [
+        -1.5764716516157236e-09,
+        -4.7729640119293886e-18
+      ]
+    },
+    {
+      "case": "0",
+      "config": "0",
+      "profile": "linear",
+      "d_bin": "0",
+      "epoch": "7",
+      "rep": "0",
+      "lane": "cold",
+      "qf_warm_sweeps": 24,
+      "qf_warm_converged": "0",
+      "qf_warm_worst_residual": "+3.168285647261329926924988595945203124e-19",
+      "qf_warm_scalar_certificate": "1",
+      "max_step_last": 7.50938984917356e-15,
+      "max_step_first": 7.440456109106705e-10,
+      "max_step_ratio_last_first": 1.0092647196698713e-05,
+      "dominant_root_counts": {
+        "6": 13,
+        "8": 10,
+        "11": 1
+      },
+      "dominant_root_role_hints": {
+        "2": 24
+      },
+      "dominant_partner_pair_counts": {
+        "6-8": 23,
+        "5-11": 1
+      },
+      "max_step_monotone_nonincrease_fraction": 0.6521739130434783,
+      "driver_pair": [
+        6,
+        8
+      ],
+      "driver_pair_fraction": 0.9583333333333334,
+      "driver_pair_role_hints": [
+        2,
+        2
+      ],
+      "driver_pair_final_roles": [
+        2,
+        2
+      ],
+      "driver_pair_physical_real": [
+        -1,
+        -1
+      ],
+      "driver_pair_role_match_valid": [
+        true,
+        true
+      ],
+      "driver_pair_sep_first": 8.0093801693587e-06,
+      "driver_pair_sep_last": 8.009382062470691e-06,
+      "driver_pair_m_abs_drift": 8.532883616907967e-12,
+      "driver_pair_d2_abs_drift": 2.1558245016185e-16,
+      "driver_pair_d2_relative_drift": 3.3605904367588603e-06,
+      "driver_pair_m_first": [
+        0.018479374245918032,
+        1.6733898079536587e-12
+      ],
+      "driver_pair_m_last": [
+        0.018479374245750874,
+        2.6209252368807114e-12
+      ],
+      "driver_pair_d2_first": [
+        -6.415017069731569e-11,
+        -9.597976744679843e-18
+      ],
+      "driver_pair_d2_last": [
+        -6.415020102262557e-11,
+        -1.4775575061140993e-17
+      ]
+    },
+    {
+      "case": "0",
+      "config": "0",
+      "profile": "linear",
+      "d_bin": "0",
+      "epoch": "15",
+      "rep": "0",
+      "lane": "cold",
+      "qf_warm_sweeps": 24,
+      "qf_warm_converged": "0",
+      "qf_warm_worst_residual": "+1.462969696481929849774309173898414562e-19",
+      "qf_warm_scalar_certificate": "1",
+      "max_step_last": 8.774108276350582e-12,
+      "max_step_first": 7.164524864177048e-10,
+      "max_step_ratio_last_first": 0.012246601753343791,
+      "dominant_root_counts": {
+        "6": 21,
+        "7": 1,
+        "8": 2
+      },
+      "dominant_root_role_hints": {
+        "2": 24
+      },
+      "dominant_partner_pair_counts": {
+        "5-6": 21,
+        "7-8": 2,
+        "8-9": 1
+      },
+      "max_step_monotone_nonincrease_fraction": 0.43478260869565216,
+      "driver_pair": [
+        5,
+        6
+      ],
+      "driver_pair_fraction": 0.875,
+      "driver_pair_role_hints": [
+        2,
+        2
+      ],
+      "driver_pair_final_roles": [
+        2,
+        2
+      ],
+      "driver_pair_physical_real": [
+        -1,
+        -1
+      ],
+      "driver_pair_role_match_valid": [
+        true,
+        true
+      ],
+      "driver_pair_sep_first": 5.338874000879874e-06,
+      "driver_pair_sep_last": 5.338874000542926e-06,
+      "driver_pair_m_abs_drift": 7.35869313362806e-12,
+      "driver_pair_d2_abs_drift": 2.1788573622268826e-16,
+      "driver_pair_d2_relative_drift": 7.644154519461364e-06,
+      "driver_pair_m_first": [
+        0.018480358646371427,
+        -7.213561675658025e-13
+      ],
+      "driver_pair_m_last": [
+        0.01848035864637001,
+        -3.626396249253729e-12
+      ],
+      "driver_pair_d2_first": [
+        -2.850357559727101e-11,
+        1.8526963629016145e-18
+      ],
+      "driver_pair_d2_last": [
+        -2.850357559367178e-11,
+        9.082888691492225e-18
+      ]
+    },
+    {
+      "case": "0",
+      "config": "0",
+      "profile": "linear",
+      "d_bin": "0",
+      "epoch": "23",
+      "rep": "0",
+      "lane": "cold",
+      "qf_warm_sweeps": 24,
+      "qf_warm_converged": "0",
+      "qf_warm_worst_residual": "+5.179101747567789136424662369075247439e-20",
+      "qf_warm_scalar_certificate": "1",
+      "max_step_last": 6.099183978494788e-13,
+      "max_step_first": 9.270575936681197e-10,
+      "max_step_ratio_last_first": 0.0006579077740318099,
+      "dominant_root_counts": {
+        "7": 1,
+        "8": 11,
+        "10": 6,
+        "11": 6
+      },
+      "dominant_root_role_hints": {
+        "2": 24
+      },
+      "dominant_partner_pair_counts": {
+        "8-11": 17,
+        "6-10": 6,
+        "7-11": 1
+      },
+      "max_step_monotone_nonincrease_fraction": 0.5652173913043478,
+      "driver_pair": [
+        8,
+        11
+      ],
+      "driver_pair_fraction": 0.7083333333333334,
+      "driver_pair_role_hints": [
+        2,
+        2
+      ],
+      "driver_pair_final_roles": [
+        2,
+        2
+      ],
+      "driver_pair_physical_real": [
+        -1,
+        -1
+      ],
+      "driver_pair_role_match_valid": [
+        true,
+        true
+      ],
+      "driver_pair_sep_first": 3.0502242685049566e-06,
+      "driver_pair_sep_last": 3.050240211258227e-06,
+      "driver_pair_m_abs_drift": 1.5947186930492412e-11,
+      "driver_pair_d2_abs_drift": 2.917840293517562e-16,
+      "driver_pair_d2_relative_drift": 3.136158279399477e-05,
+      "driver_pair_m_first": [
+        0.018481422170430625,
+        5.423358507592195e-12
+      ],
+      "driver_pair_m_last": [
+        0.018481422169894894,
+        -7.8624550959491e-12
+      ],
+      "driver_pair_d2_first": [
+        -9.303868088175555e-12,
+        -4.4033983839810326e-18
+      ],
+      "driver_pair_d2_last": [
+        -9.303965346374394e-12,
+        6.458954933758003e-18
+      ]
+    },
+    {
+      "case": "0",
+      "config": "0",
+      "profile": "linear",
+      "d_bin": "0",
+      "epoch": "0",
+      "rep": "0",
+      "lane": "warm",
+      "qf_warm_sweeps": 24,
+      "qf_warm_converged": "0",
+      "qf_warm_worst_residual": "+2.757470772773570806296003018528083516e-19",
+      "qf_warm_scalar_certificate": "1",
+      "max_step_last": 8.801929941128282e-13,
+      "max_step_first": 1.8404022436551216e-10,
+      "max_step_ratio_last_first": 0.004782612046618273,
+      "dominant_root_counts": {
+        "6": 6,
+        "8": 3,
+        "11": 5,
+        "12": 10
+      },
+      "dominant_root_role_hints": {
+        "2": 24
+      },
+      "dominant_partner_pair_counts": {
+        "5-12": 10,
+        "8-11": 8,
+        "6-8": 3,
+        "6-11": 3
+      },
+      "max_step_monotone_nonincrease_fraction": 0.6086956521739131,
+      "driver_pair": [
+        5,
+        12
+      ],
+      "driver_pair_fraction": 0.4166666666666667,
+      "driver_pair_role_hints": [
+        2,
+        2
+      ],
+      "driver_pair_final_roles": [
+        2,
+        2
+      ],
+      "driver_pair_physical_real": [
+        -1,
+        -1
+      ],
+      "driver_pair_role_match_valid": [
+        true,
+        true
+      ],
+      "driver_pair_sep_first": 3.970480634109809e-05,
+      "driver_pair_sep_last": 3.970480640446095e-05,
+      "driver_pair_m_abs_drift": 3.520791368558034e-13,
+      "driver_pair_d2_abs_drift": 5.591703284244121e-17,
+      "driver_pair_d2_relative_drift": 3.546973582658601e-08,
+      "driver_pair_m_first": [
+        0.018553962500213954,
+        1.9731000416986004e-14
+      ],
+      "driver_pair_m_last": [
+        0.018553962500296076,
+        -1.19504310434015e-14
+      ],
+      "driver_pair_d2_first": [
+        -1.5764716465841032e-09,
+        8.269712672587997e-18
+      ],
+      "driver_pair_d2_last": [
+        -1.5764716516157236e-09,
+        -4.7729640119293886e-18
+      ]
+    },
+    {
+      "case": "0",
+      "config": "0",
+      "profile": "linear",
+      "d_bin": "0",
+      "epoch": "7",
+      "rep": "0",
+      "lane": "warm",
+      "qf_warm_sweeps": 24,
+      "qf_warm_converged": "0",
+      "qf_warm_worst_residual": "+3.268645475276857198971625547017684612e-19",
+      "qf_warm_scalar_certificate": "1",
+      "max_step_last": 1.0213267144287311e-12,
+      "max_step_first": 4.88322707422016e-10,
+      "max_step_ratio_last_first": 0.0020914995327999046,
+      "dominant_root_counts": {
+        "4": 1,
+        "5": 7,
+        "9": 16
+      },
+      "dominant_root_role_hints": {
+        "2": 24
+      },
+      "dominant_partner_pair_counts": {
+        "9-11": 16,
+        "4-5": 7,
+        "4-7": 1
+      },
+      "max_step_monotone_nonincrease_fraction": 0.5217391304347826,
+      "driver_pair": [
+        9,
+        11
+      ],
+      "driver_pair_fraction": 0.6666666666666666,
+      "driver_pair_role_hints": [
+        2,
+        2
+      ],
+      "driver_pair_final_roles": [
+        2,
+        2
+      ],
+      "driver_pair_physical_real": [
+        -1,
+        -1
+      ],
+      "driver_pair_role_match_valid": [
+        true,
+        true
+      ],
+      "driver_pair_sep_first": 8.009379791295625e-06,
+      "driver_pair_sep_last": 8.009381683754241e-06,
+      "driver_pair_m_abs_drift": 3.8448129155829705e-12,
+      "driver_pair_d2_abs_drift": 1.2317821534773673e-16,
+      "driver_pair_d2_relative_drift": 1.920154313502697e-06,
+      "driver_pair_m_first": [
+        0.01847937424595191,
+        2.7224401814330825e-12
+      ],
+      "driver_pair_m_last": [
+        0.018479374245782904,
+        3.668669464891913e-12
+      ],
+      "driver_pair_d2_first": [
+        -6.41501646412129e-11,
+        -1.548538523093924e-17
+      ],
+      "driver_pair_d2_last": [
+        -6.415019495605451e-11,
+        -2.089990172058012e-17
+      ]
+    },
+    {
+      "case": "0",
+      "config": "0",
+      "profile": "linear",
+      "d_bin": "0",
+      "epoch": "15",
+      "rep": "0",
+      "lane": "warm",
+      "qf_warm_sweeps": 24,
+      "qf_warm_converged": "0",
+      "qf_warm_worst_residual": "+1.719620800283855553381293494350408449e-19",
+      "qf_warm_scalar_certificate": "1",
+      "max_step_last": 1.4623532175466127e-11,
+      "max_step_first": 1.6763973993616888e-09,
+      "max_step_ratio_last_first": 0.008723189490173535,
+      "dominant_root_counts": {
+        "7": 10,
+        "11": 14
+      },
+      "dominant_root_role_hints": {
+        "2": 24
+      },
+      "dominant_partner_pair_counts": {
+        "7-11": 24
+      },
+      "max_step_monotone_nonincrease_fraction": 0.5217391304347826,
+      "driver_pair": [
+        7,
+        11
+      ],
+      "driver_pair_fraction": 1.0,
+      "driver_pair_role_hints": [
+        2,
+        2
+      ],
+      "driver_pair_final_roles": [
+        2,
+        2
+      ],
+      "driver_pair_physical_real": [
+        -1,
+        -1
+      ],
+      "driver_pair_role_match_valid": [
+        true,
+        true
+      ],
+      "driver_pair_sep_first": 5.338868484774896e-06,
+      "driver_pair_sep_last": 5.338851056647486e-06,
+      "driver_pair_m_abs_drift": 1.1663952446250572e-11,
+      "driver_pair_d2_abs_drift": 2.178760006480289e-16,
+      "driver_pair_d2_relative_drift": 7.643828758345353e-06,
+      "driver_pair_m_first": [
+        0.018480358646691633,
+        -3.2327392171277417e-12
+      ],
+      "driver_pair_m_last": [
+        0.018480358647716542,
+        -3.276141042484186e-13
+      ],
+      "driver_pair_d2_first": [
+        -2.8503516697721437e-11,
+        8.092373490127176e-18
+      ],
+      "driver_pair_d2_last": [
+        -2.8503330605065956e-11,
+        8.773305262064077e-19
+      ]
+    },
+    {
+      "case": "0",
+      "config": "0",
+      "profile": "linear",
+      "d_bin": "0",
+      "epoch": "23",
+      "rep": "0",
+      "lane": "warm",
+      "qf_warm_sweeps": 24,
+      "qf_warm_converged": "0",
+      "qf_warm_worst_residual": "+3.600015329105941097228411625034610468e-19",
+      "qf_warm_scalar_certificate": "1",
+      "max_step_last": 2.6631139528010993e-11,
+      "max_step_first": 2.80962910072576e-09,
+      "max_step_ratio_last_first": 0.00947852494876703,
+      "dominant_root_counts": {
+        "8": 15,
+        "11": 9
+      },
+      "dominant_root_role_hints": {
+        "2": 24
+      },
+      "dominant_partner_pair_counts": {
+        "8-11": 24
+      },
+      "max_step_monotone_nonincrease_fraction": 0.5652173913043478,
+      "driver_pair": [
+        8,
+        11
+      ],
+      "driver_pair_fraction": 1.0,
+      "driver_pair_role_hints": [
+        2,
+        2
+      ],
+      "driver_pair_final_roles": [
+        2,
+        2
+      ],
+      "driver_pair_physical_real": [
+        -1,
+        -1
+      ],
+      "driver_pair_role_match_valid": [
+        true,
+        true
+      ],
+      "driver_pair_sep_first": 3.050220568556312e-06,
+      "driver_pair_sep_last": 3.0502524540369263e-06,
+      "driver_pair_m_abs_drift": 2.923326168086353e-11,
+      "driver_pair_d2_abs_drift": 2.9243122814038395e-16,
+      "driver_pair_d2_relative_drift": 3.1431221381627275e-05,
+      "driver_pair_m_first": [
+        0.01848142217055388,
+        -1.28812979523449e-11
+      ],
+      "driver_pair_m_last": [
+        0.01848142216948177,
+        8.375510842413698e-12
+      ],
+      "driver_pair_d2_first": [
+        -9.303845516837986e-12,
+        1.0570480160676511e-17
+      ],
+      "driver_pair_d2_last": [
+        -9.304040033355734e-12,
+        -6.899512164921437e-18
+      ]
+    },
+    {
+      "case": "64",
+      "config": "64",
+      "profile": "linear",
+      "d_bin": "0",
+      "epoch": "0",
+      "rep": "0",
+      "lane": "cold",
+      "qf_warm_sweeps": 24,
+      "qf_warm_converged": "0",
+      "qf_warm_worst_residual": "+5.166702060805517161632942713596771936e-20",
+      "qf_warm_scalar_certificate": "1",
+      "max_step_last": 1.040736111236626e-15,
+      "max_step_first": 5.33177390230916e-13,
+      "max_step_ratio_last_first": 0.0019519509459804535,
+      "dominant_root_counts": {
+        "6": 2,
+        "8": 2,
+        "9": 1,
+        "11": 18,
+        "13": 1
+      },
+      "dominant_root_role_hints": {
+        "2": 24
+      },
+      "dominant_partner_pair_counts": {
+        "9-11": 19,
+        "6-8": 2,
+        "6-7": 2,
+        "7-13": 1
+      },
+      "max_step_monotone_nonincrease_fraction": 0.6956521739130435,
+      "driver_pair": [
+        9,
+        11
+      ],
+      "driver_pair_fraction": 0.7916666666666666,
+      "driver_pair_role_hints": [
+        2,
+        2
+      ],
+      "driver_pair_final_roles": [
+        1,
+        1
+      ],
+      "driver_pair_physical_real": [
+        1,
+        1
+      ],
+      "driver_pair_role_match_valid": [
+        true,
+        true
+      ],
+      "driver_pair_sep_first": 8.012394526064311e-06,
+      "driver_pair_sep_last": 8.012394526064311e-06,
+      "driver_pair_m_abs_drift": 1.485877393347934e-14,
+      "driver_pair_d2_abs_drift": 4.762268133279873e-19,
+      "driver_pair_d2_relative_drift": 7.4180403784349385e-09,
+      "driver_pair_m_first": [
+        0.006507529512672251,
+        -1.353240402949285e-31
+      ],
+      "driver_pair_m_last": [
+        0.006507529512672251,
+        6.382774090408892e-37
+      ],
+      "driver_pair_d2_first": [
+        6.419846604130534e-11,
+        4.2420231700259036e-36
+      ],
+      "driver_pair_d2_last": [
+        6.419846604130534e-11,
+        2.045652167323893e-41
+      ]
+    },
+    {
+      "case": "64",
+      "config": "64",
+      "profile": "linear",
+      "d_bin": "0",
+      "epoch": "7",
+      "rep": "0",
+      "lane": "cold",
+      "qf_warm_sweeps": 24,
+      "qf_warm_converged": "0",
+      "qf_warm_worst_residual": "+4.564763492784517152609079524280746724e-20",
+      "qf_warm_scalar_certificate": "1",
+      "max_step_last": 3.088287922393697e-16,
+      "max_step_first": 1.1588548388839495e-12,
+      "max_step_ratio_last_first": 0.0002664948032117563,
+      "dominant_root_counts": {
+        "7": 2,
+        "8": 12,
+        "9": 1,
+        "11": 1,
+        "12": 8
+      },
+      "dominant_root_role_hints": {
+        "2": 24
+      },
+      "dominant_partner_pair_counts": {
+        "8-13": 12,
+        "6-12": 8,
+        "9-11": 2,
+        "6-7": 2
+      },
+      "max_step_monotone_nonincrease_fraction": 0.6521739130434783,
+      "driver_pair": [
+        8,
+        13
+      ],
+      "driver_pair_fraction": 0.5,
+      "driver_pair_role_hints": [
+        2,
+        2
+      ],
+      "driver_pair_final_roles": [
+        2,
+        2
+      ],
+      "driver_pair_physical_real": [
+        -1,
+        -1
+      ],
+      "driver_pair_role_match_valid": [
+        true,
+        true
+      ],
+      "driver_pair_sep_first": 5.835575078705189e-05,
+      "driver_pair_sep_last": 5.835575078729779e-05,
+      "driver_pair_m_abs_drift": 3.861827884250922e-16,
+      "driver_pair_d2_abs_drift": 9.016182480117161e-20,
+      "driver_pair_d2_relative_drift": 2.6476182805848676e-11,
+      "driver_pair_m_first": [
+        0.006590298594208995,
+        5.8643596344670904e-05
+      ],
+      "driver_pair_m_last": [
+        0.006590298594208963,
+        5.8643596344900274e-05
+      ],
+      "driver_pair_d2_first": [
+        2.276960347652048e-09,
+        -2.5322238222833273e-09
+      ],
+      "driver_pair_d2_last": [
+        2.2769603476371607e-09,
+        -2.5322238223353085e-09
+      ]
+    },
+    {
+      "case": "64",
+      "config": "64",
+      "profile": "linear",
+      "d_bin": "0",
+      "epoch": "15",
+      "rep": "0",
+      "lane": "cold",
+      "qf_warm_sweeps": 24,
+      "qf_warm_converged": "0",
+      "qf_warm_worst_residual": "+3.635745120436087759866532539810235424e-20",
+      "qf_warm_scalar_certificate": "1",
+      "max_step_last": 5.36130364161028e-16,
+      "max_step_first": 1.8098490233014269e-12,
+      "max_step_ratio_last_first": 0.00029622933032449775,
+      "dominant_root_counts": {
+        "7": 5,
+        "8": 6,
+        "9": 5,
+        "12": 8
+      },
+      "dominant_root_role_hints": {
+        "2": 24
+      },
+      "dominant_partner_pair_counts": {
+        "6-12": 8,
+        "8-13": 6,
+        "7-9": 5,
+        "6-9": 5
+      },
+      "max_step_monotone_nonincrease_fraction": 0.5652173913043478,
+      "driver_pair": [
+        6,
+        12
+      ],
+      "driver_pair_fraction": 0.3333333333333333,
+      "driver_pair_role_hints": [
+        2,
+        2
+      ],
+      "driver_pair_final_roles": [
+        1,
+        2
+      ],
+      "driver_pair_physical_real": [
+        1,
+        -1
+      ],
+      "driver_pair_role_match_valid": [
+        true,
+        true
+      ],
+      "driver_pair_sep_first": 5.00335045594987e-05,
+      "driver_pair_sep_last": 5.003350455901304e-05,
+      "driver_pair_m_abs_drift": 5.051398822902074e-16,
+      "driver_pair_d2_abs_drift": 1.0109567774959337e-19,
+      "driver_pair_d2_relative_drift": 4.038413086585002e-11,
+      "driver_pair_m_first": [
+        0.006610909724136904,
+        -2.4138706126463313e-05
+      ],
+      "driver_pair_m_last": [
+        0.006610909724136907,
+        -2.413870612621072e-05
+      ],
+      "driver_pair_d2_first": [
+        -2.1580654891726822e-09,
+        -1.268669566927195e-09
+      ],
+      "driver_pair_d2_last": [
+        -2.1580654891237255e-09,
+        -1.2686695669145767e-09
+      ]
+    },
+    {
+      "case": "64",
+      "config": "64",
+      "profile": "linear",
+      "d_bin": "0",
+      "epoch": "23",
+      "rep": "0",
+      "lane": "cold",
+      "qf_warm_sweeps": 24,
+      "qf_warm_converged": "0",
+      "qf_warm_worst_residual": "+1.133861422080159782588118556725232453e-20",
+      "qf_warm_scalar_certificate": "1",
+      "max_step_last": 7.596913394754574e-15,
+      "max_step_first": 1.3393729408374234e-12,
+      "max_step_ratio_last_first": 0.0056719925893117685,
+      "dominant_root_counts": {
+        "6": 23,
+        "7": 1
+      },
+      "dominant_root_role_hints": {
+        "2": 24
+      },
+      "dominant_partner_pair_counts": {
+        "6-7": 24
+      },
+      "max_step_monotone_nonincrease_fraction": 0.6086956521739131,
+      "driver_pair": [
+        6,
+        7
+      ],
+      "driver_pair_fraction": 1.0,
+      "driver_pair_role_hints": [
+        2,
+        2
+      ],
+      "driver_pair_final_roles": [
+        1,
+        1
+      ],
+      "driver_pair_physical_real": [
+        1,
+        1
+      ],
+      "driver_pair_role_match_valid": [
+        true,
+        true
+      ],
+      "driver_pair_sep_first": 9.42936893418966e-06,
+      "driver_pair_sep_last": 9.42936893418966e-06,
+      "driver_pair_m_abs_drift": 9.495876307497042e-15,
+      "driver_pair_d2_abs_drift": 3.581704977051681e-19,
+      "driver_pair_d2_relative_drift": 4.028325484006786e-09,
+      "driver_pair_m_first": [
+        0.006512288867691874,
+        5.870321002387751e-31
+      ],
+      "driver_pair_m_last": [
+        0.006512288867691874,
+        1.372932691335796e-37
+      ],
+      "driver_pair_d2_first": [
+        8.891299849706104e-11,
+        2.0848386971504633e-35
+      ],
+      "driver_pair_d2_last": [
+        8.891299849706104e-11,
+        -5.1783555473660625e-42
+      ]
+    },
+    {
+      "case": "64",
+      "config": "64",
+      "profile": "linear",
+      "d_bin": "0",
+      "epoch": "0",
+      "rep": "0",
+      "lane": "warm",
+      "qf_warm_sweeps": 24,
+      "qf_warm_converged": "0",
+      "qf_warm_worst_residual": "+5.166702060805517161632942713596771936e-20",
+      "qf_warm_scalar_certificate": "1",
+      "max_step_last": 1.040736111236626e-15,
+      "max_step_first": 5.33177390230916e-13,
+      "max_step_ratio_last_first": 0.0019519509459804535,
+      "dominant_root_counts": {
+        "6": 2,
+        "8": 2,
+        "9": 1,
+        "11": 18,
+        "13": 1
+      },
+      "dominant_root_role_hints": {
+        "2": 24
+      },
+      "dominant_partner_pair_counts": {
+        "9-11": 19,
+        "6-8": 2,
+        "6-7": 2,
+        "7-13": 1
+      },
+      "max_step_monotone_nonincrease_fraction": 0.6956521739130435,
+      "driver_pair": [
+        9,
+        11
+      ],
+      "driver_pair_fraction": 0.7916666666666666,
+      "driver_pair_role_hints": [
+        2,
+        2
+      ],
+      "driver_pair_final_roles": [
+        1,
+        1
+      ],
+      "driver_pair_physical_real": [
+        1,
+        1
+      ],
+      "driver_pair_role_match_valid": [
+        true,
+        true
+      ],
+      "driver_pair_sep_first": 8.012394526064311e-06,
+      "driver_pair_sep_last": 8.012394526064311e-06,
+      "driver_pair_m_abs_drift": 1.485877393347934e-14,
+      "driver_pair_d2_abs_drift": 4.762268133279873e-19,
+      "driver_pair_d2_relative_drift": 7.4180403784349385e-09,
+      "driver_pair_m_first": [
+        0.006507529512672251,
+        -1.353240402949285e-31
+      ],
+      "driver_pair_m_last": [
+        0.006507529512672251,
+        6.382774090408892e-37
+      ],
+      "driver_pair_d2_first": [
+        6.419846604130534e-11,
+        4.2420231700259036e-36
+      ],
+      "driver_pair_d2_last": [
+        6.419846604130534e-11,
+        2.045652167323893e-41
+      ]
+    },
+    {
+      "case": "64",
+      "config": "64",
+      "profile": "linear",
+      "d_bin": "0",
+      "epoch": "7",
+      "rep": "0",
+      "lane": "warm",
+      "qf_warm_sweeps": 24,
+      "qf_warm_converged": "0",
+      "qf_warm_worst_residual": "+2.456898662275637798142233675708048892e-20",
+      "qf_warm_scalar_certificate": "1",
+      "max_step_last": 1.8846964166959825e-16,
+      "max_step_first": 1.2182959522948689e-12,
+      "max_step_ratio_last_first": 0.0001546993908291195,
+      "dominant_root_counts": {
+        "4": 2,
+        "5": 1,
+        "7": 21
+      },
+      "dominant_root_role_hints": {
+        "2": 24
+      },
+      "dominant_partner_pair_counts": {
+        "5-7": 22,
+        "4-11": 2
+      },
+      "max_step_monotone_nonincrease_fraction": 0.43478260869565216,
+      "driver_pair": [
+        5,
+        7
+      ],
+      "driver_pair_fraction": 0.9166666666666666,
+      "driver_pair_role_hints": [
+        2,
+        2
+      ],
+      "driver_pair_final_roles": [
+        1,
+        1
+      ],
+      "driver_pair_physical_real": [
+        1,
+        1
+      ],
+      "driver_pair_role_match_valid": [
+        true,
+        true
+      ],
+      "driver_pair_sep_first": 2.9508010994605967e-06,
+      "driver_pair_sep_last": 2.9508011148542965e-06,
+      "driver_pair_m_abs_drift": 5.1731188777104364e-14,
+      "driver_pair_d2_abs_drift": 4.352373417948653e-19,
+      "driver_pair_d2_relative_drift": 4.998575727585869e-08,
+      "driver_pair_m_first": [
+        0.0065088396069567615,
+        -8.188100970631259e-31
+      ],
+      "driver_pair_m_last": [
+        0.00650883960690503,
+        -1.589036594987815e-38
+      ],
+      "driver_pair_d2_first": [
+        8.707227128577866e-12,
+        -9.075246141482302e-36
+      ],
+      "driver_pair_d2_last": [
+        8.70722721942536e-12,
+        1.875572382413728e-43
+      ]
+    },
+    {
+      "case": "64",
+      "config": "64",
+      "profile": "linear",
+      "d_bin": "0",
+      "epoch": "15",
+      "rep": "0",
+      "lane": "warm",
+      "qf_warm_sweeps": 24,
+      "qf_warm_converged": "0",
+      "qf_warm_worst_residual": "+4.170963438360851485175142129708154622e-20",
+      "qf_warm_scalar_certificate": "1",
+      "max_step_last": 1.1784663320679206e-15,
+      "max_step_first": 5.542981820559929e-12,
+      "max_step_ratio_last_first": 0.0002126051230579134,
+      "dominant_root_counts": {
+        "4": 1,
+        "5": 8,
+        "6": 1,
+        "7": 1,
+        "8": 2,
+        "9": 5,
+        "11": 6
+      },
+      "dominant_root_role_hints": {
+        "2": 24
+      },
+      "dominant_partner_pair_counts": {
+        "5-8": 10,
+        "8-11": 6,
+        "9-11": 5,
+        "4-7": 2,
+        "4-6": 1
+      },
+      "max_step_monotone_nonincrease_fraction": 0.43478260869565216,
+      "driver_pair": [
+        5,
+        8
+      ],
+      "driver_pair_fraction": 0.4166666666666667,
+      "driver_pair_role_hints": [
+        2,
+        2
+      ],
+      "driver_pair_final_roles": [
+        2,
+        1
+      ],
+      "driver_pair_physical_real": [
+        -1,
+        1
+      ],
+      "driver_pair_role_match_valid": [
+        true,
+        true
+      ],
+      "driver_pair_sep_first": 5.003350455843858e-05,
+      "driver_pair_sep_last": 5.003350455962101e-05,
+      "driver_pair_m_abs_drift": 1.364085182560707e-15,
+      "driver_pair_d2_abs_drift": 2.715106611651942e-19,
+      "driver_pair_d2_relative_drift": 1.0845886111562681e-10,
+      "driver_pair_m_first": [
+        0.006610909724138116,
+        2.413870612624454e-05
+      ],
+      "driver_pair_m_last": [
+        0.006610909724136803,
+        2.4138706126497015e-05
+      ],
+      "driver_pair_d2_first": [
+        -2.1580654891942712e-09,
+        1.2686695666811463e-09
+      ],
+      "driver_pair_d2_last": [
+        -2.1580654891734594e-09,
+        1.2686695669500239e-09
+      ]
+    },
+    {
+      "case": "64",
+      "config": "64",
+      "profile": "linear",
+      "d_bin": "0",
+      "epoch": "23",
+      "rep": "0",
+      "lane": "warm",
+      "qf_warm_sweeps": 24,
+      "qf_warm_converged": "0",
+      "qf_warm_worst_residual": "+2.729529164074727883563039469792400661e-20",
+      "qf_warm_scalar_certificate": "1",
+      "max_step_last": 6.039225630721547e-16,
+      "max_step_first": 3.5705491662875155e-13,
+      "max_step_ratio_last_first": 0.0016913996557568318,
+      "dominant_root_counts": {
+        "4": 6,
+        "6": 2,
+        "7": 1,
+        "9": 6,
+        "10": 1,
+        "11": 8
+      },
+      "dominant_root_role_hints": {
+        "2": 24
+      },
+      "dominant_partner_pair_counts": {
+        "10-11": 9,
+        "4-8": 6,
+        "8-9": 6,
+        "6-9": 2,
+        "7-10": 1
+      },
+      "max_step_monotone_nonincrease_fraction": 0.6956521739130435,
+      "driver_pair": [
+        10,
+        11
+      ],
+      "driver_pair_fraction": 0.375,
+      "driver_pair_role_hints": [
+        2,
+        2
+      ],
+      "driver_pair_final_roles": [
+        1,
+        1
+      ],
+      "driver_pair_physical_real": [
+        1,
+        1
+      ],
+      "driver_pair_role_match_valid": [
+        true,
+        true
+      ],
+      "driver_pair_sep_first": 9.429368930952532e-06,
+      "driver_pair_sep_last": 9.42936894284046e-06,
+      "driver_pair_m_abs_drift": 1.1888059980869059e-14,
+      "driver_pair_d2_abs_drift": 4.483825955903511e-19,
+      "driver_pair_d2_relative_drift": 5.042936392624684e-09,
+      "driver_pair_m_first": [
+        0.00651228886768932,
+        -4.410274469550214e-34
+      ],
+      "driver_pair_m_last": [
+        0.006512288867695264,
+        1.975445774304297e-37
+      ],
+      "driver_pair_d2_first": [
+        8.891299843601292e-11,
+        1.313113739998468e-38
+      ],
+      "driver_pair_d2_last": [
+        8.891299866020421e-11,
+        7.450882812996146e-42
+      ]
+    },
+    {
+      "case": "9",
+      "config": "9",
+      "profile": "uniform",
+      "d_bin": "2",
+      "epoch": "7",
+      "rep": "0",
+      "lane": "cold",
+      "qf_warm_sweeps": 13,
+      "qf_warm_converged": "1",
+      "qf_warm_worst_residual": "+5.288241898719723566160705801641281097e-27",
+      "qf_warm_scalar_certificate": "1",
+      "max_step_last": 4.610926965221108e-22,
+      "max_step_first": 5.3227702744467715e-14,
+      "max_step_ratio_last_first": 8.662645065403185e-09,
+      "dominant_root_counts": {
+        "6": 2,
+        "7": 1,
+        "9": 2,
+        "13": 8
+      },
+      "dominant_root_role_hints": {
+        "2": 13
+      },
+      "dominant_partner_pair_counts": {
+        "9-13": 10,
+        "6-9": 2,
+        "7-8": 1
+      },
+      "max_step_monotone_nonincrease_fraction": 0.5833333333333334,
+      "driver_pair": [
+        9,
+        13
+      ],
+      "driver_pair_fraction": 0.7692307692307693,
+      "driver_pair_role_hints": [
+        2,
+        2
+      ],
+      "driver_pair_final_roles": [
+        1,
+        1
+      ],
+      "driver_pair_physical_real": [
+        1,
+        1
+      ],
+      "driver_pair_role_match_valid": [
+        true,
+        true
+      ],
+      "driver_pair_sep_first": 3.0935625986769683e-09,
+      "driver_pair_sep_last": 3.093564366807112e-09,
+      "driver_pair_m_abs_drift": 8.840584514446803e-16,
+      "driver_pair_d2_abs_drift": 1.0939645688907792e-23,
+      "driver_pair_d2_relative_drift": 1.1431031972496314e-06,
+      "driver_pair_m_first": [
+        0.0002544299370042496,
+        1.0713325880245421e-36
+      ],
+      "driver_pair_m_last": [
+        0.0002544299370040691,
+        2.353257865026181e-43
+      ],
+      "driver_pair_d2_first": [
+        9.570129551932998e-18,
+        -1.2987731553016977e-44
+      ],
+      "driver_pair_d2_last": [
+        9.570140491578687e-18,
+        2.9119818708614295e-51
+      ]
+    },
+    {
+      "case": "9",
+      "config": "9",
+      "profile": "uniform",
+      "d_bin": "2",
+      "epoch": "7",
+      "rep": "0",
+      "lane": "warm",
+      "qf_warm_sweeps": 24,
+      "qf_warm_converged": "0",
+      "qf_warm_worst_residual": "+1.224631660866832985246312523488386534e-26",
+      "qf_warm_scalar_certificate": "1",
+      "max_step_last": 1.7219111146327713e-18,
+      "max_step_first": 4.0454260193776314e-14,
+      "max_step_ratio_last_first": 4.256439510659198e-05,
+      "dominant_root_counts": {
+        "10": 9,
+        "12": 3,
+        "13": 12
+      },
+      "dominant_root_role_hints": {
+        "2": 24
+      },
+      "dominant_partner_pair_counts": {
+        "12-13": 15,
+        "10-12": 9
+      },
+      "max_step_monotone_nonincrease_fraction": 0.4782608695652174,
+      "driver_pair": [
+        12,
+        13
+      ],
+      "driver_pair_fraction": 0.625,
+      "driver_pair_role_hints": [
+        2,
+        2
+      ],
+      "driver_pair_final_roles": [
+        1,
+        1
+      ],
+      "driver_pair_physical_real": [
+        1,
+        1
+      ],
+      "driver_pair_role_match_valid": [
+        true,
+        true
+      ],
+      "driver_pair_sep_first": 3.0935636702229213e-09,
+      "driver_pair_sep_last": 3.093563498950556e-09,
+      "driver_pair_m_abs_drift": 1.0599160438218291e-15,
+      "driver_pair_d2_abs_drift": 5.412689783675143e-24,
+      "driver_pair_d2_relative_drift": 5.655812708300023e-07,
+      "driver_pair_m_first": [
+        0.0002544299370044695,
+        -2.910146335796975e-39
+      ],
+      "driver_pair_m_last": [
+        0.0002544299370038516,
+        1.467302843024503e-43
+      ],
+      "driver_pair_d2_first": [
+        9.570136181723111e-18,
+        2.9080561710908387e-47
+      ],
+      "driver_pair_d2_last": [
+        9.570135122039208e-18,
+        1.8156778068347922e-51
+      ]
+    }
+  ]
+}

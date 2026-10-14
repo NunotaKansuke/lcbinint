@@ -1,0 +1,13 @@
+kind	arm	u	value_rtol	nodes	panels	merges	mu	value_error	grad_x	quality_x	reason_x	grad_error_x	radial_x	inner_x	geometry_x	event_x	roundoff_x	projective_fold_count
+adaptive	baseline	0.5	0.001	323	5	0	33.289335638821022	0.027575786678858787	76.075961613017398	FiniteUncertified	BudgetExceeded	65.330702310616488	65.328438312304712	0.0022507727474033561	4.6033272429226488e-08	1.3179530633046975e-05	4.6754683657927462e-13	2
+adaptive	baseline	0.5	0.0001	353	6	0	33.288857868774429	0.0019563272422104981	93.687262038164775	FiniteUncertified	BudgetExceeded	124.48656715649152	124.43029273358628	0.056260669397095363	2.0202255769061326e-10	1.3753305641500462e-05	4.5966183911988291e-13	2
+reference	independent_value_fd	0.5	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	2
+fd	GL64x1	0.5	0.001	-	-	-	-	-	nan	failed	reference_failure	-	-	-	-	-	2
+fd	GL64x1	0.5	0.00050000000000000001	-	-	-	-	-	nan	failed	reference_failure	-	-	-	-	-	2
+fd	GL64x1	0.5	0.00025000000000000001	-	-	-	-	-	nan	failed	reference_failure	-	-	-	-	-	2
+fd	GL128x2	0.5	0.001	-	-	-	-	-	nan	failed	reference_failure	-	-	-	-	-	2
+fd	GL128x2	0.5	0.00050000000000000001	-	-	-	-	-	nan	failed	reference_failure	-	-	-	-	-	2
+fd	GL128x2	0.5	0.00025000000000000001	-	-	-	-	-	nan	failed	reference_failure	-	-	-	-	-	2
+fd	GL256x4	0.5	0.001	-	-	-	-	-	nan	failed	reference_failure	-	-	-	-	-	2
+fd	GL256x4	0.5	0.00050000000000000001	-	-	-	-	-	nan	failed	reference_failure	-	-	-	-	-	2
+fd	GL256x4	0.5	0.00025000000000000001	-	-	-	-	-	nan	failed	reference_failure	-	-	-	-	-	2

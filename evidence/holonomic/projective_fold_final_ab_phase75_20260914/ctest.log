@@ -1,0 +1,50 @@
+Internal ctest changing into directory: /rogue1_8/nunota/lcbinint/build-holonomic-m7
+Test project /rogue1_8/nunota/lcbinint/build-holonomic-m7
+      Start  1: holonomic_point_images
+ 1/22 Test  #1: holonomic_point_images ............   Passed    0.37 sec
+      Start  2: holonomic_quartic_sturm
+ 2/22 Test  #2: holonomic_quartic_sturm ...........   Passed    0.00 sec
+      Start  3: holonomic_quartic_local_bracket
+ 3/22 Test  #3: holonomic_quartic_local_bracket ...   Passed    0.01 sec
+      Start  4: holonomic_d14_native_residual
+ 4/22 Test  #4: holonomic_d14_native_residual .....   Passed    0.02 sec
+      Start  5: holonomic_m7_reference
+ 5/22 Test  #5: holonomic_m7_reference ............   Passed    0.03 sec
+      Start  6: holonomic_transport
+ 6/22 Test  #6: holonomic_transport ...............   Passed    0.03 sec
+      Start  7: holonomic_finite_source_binary
+ 7/22 Test  #7: holonomic_finite_source_binary ....   Passed    3.62 sec
+      Start  8: holonomic_root_pair
+ 8/22 Test  #8: holonomic_root_pair ...............   Passed    0.18 sec
+      Start  9: holonomic_ode
+ 9/22 Test  #9: holonomic_ode .....................   Passed    0.52 sec
+      Start 10: holonomic_gm_taylor
+10/22 Test #10: holonomic_gm_taylor ...............   Passed    0.04 sec
+      Start 11: holonomic_gm_physical
+11/22 Test #11: holonomic_gm_physical .............   Passed    0.03 sec
+      Start 12: holonomic_chart_p4
+12/22 Test #12: holonomic_chart_p4 ................   Passed    0.03 sec
+      Start 13: holonomic_reciprocal_chart
+13/22 Test #13: holonomic_reciprocal_chart ........   Passed    0.01 sec
+      Start 14: holonomic_gm_coverage
+14/22 Test #14: holonomic_gm_coverage .............   Passed    8.62 sec
+      Start 15: holonomic_gm_lauricella6
+15/22 Test #15: holonomic_gm_lauricella6 ..........   Passed    0.04 sec
+      Start 16: holonomic_gm_phase7_shared
+16/22 Test #16: holonomic_gm_phase7_shared ........   Passed    0.01 sec
+      Start 17: holonomic_adaptive_radial
+17/22 Test #17: holonomic_adaptive_radial .........   Passed    0.07 sec
+      Start 18: holonomic_projective_fold
+18/22 Test #18: holonomic_projective_fold .........   Passed    0.00 sec
+      Start 19: holonomic_d14_positive
+19/22 Test #19: holonomic_d14_positive ............   Passed    0.01 sec
+      Start 20: holonomic_d14_root_scheduling
+20/22 Test #20: holonomic_d14_root_scheduling .....   Passed    0.01 sec
+      Start 21: holonomic_d14_event_contract
+21/22 Test #21: holonomic_d14_event_contract ......   Passed    0.08 sec
+      Start 22: holonomic_radial_atlas
+22/22 Test #22: holonomic_radial_atlas ............   Passed    0.16 sec
+
+100% tests passed, 0 tests failed out of 22
+
+Total Test time (real) =  13.88 sec

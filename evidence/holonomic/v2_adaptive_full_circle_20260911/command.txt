@@ -1,0 +1,14 @@
+cmake -S tests/holonomic_cpp -B /tmp/lcbinint-holonomic-adaptive-build -DCMAKE_BUILD_TYPE=Release -DLCBININT_BUILD_HOLONOMIC_M7_PY=OFF
+cmake --build /tmp/lcbinint-holonomic-adaptive-build -j2
+
+/usr/bin/c++ -O3 -DNDEBUG -std=gnu++17 -I/rogue1_8/nunota/lcbinint/src -march=native -funroll-loops -ffp-contract=fast -fno-math-errno evidence/holonomic/v2_vbm_adaptive_qrho_20260911/v2_adaptive_value_runner.cpp -o /tmp/v2_adaptive_value_qrho_phase_next2 -lquadmath
+/tmp/v2_adaptive_value_qrho_phase_next2 evidence/holonomic/v2_vbm_adaptive_qrho_20260911/input_snapshot.tsv /tmp/v2_adaptive_value_qrho_phase_next2.tsv
+cp /tmp/v2_adaptive_value_qrho_phase_next2.tsv evidence/holonomic/v2_adaptive_full_circle_20260911/v2_results.tsv
+
+/tmp/lcbinint-holonomic-adaptive-build/bench_adaptive_diagnostics evidence/holonomic/v2_adaptive_full_circle_20260911/hard_cases.tsv /tmp/adaptive-case9-final case9
+/tmp/lcbinint-holonomic-adaptive-build/bench_adaptive_diagnostics evidence/holonomic/v2_adaptive_full_circle_20260911/hard_cases.tsv /tmp/adaptive-case92-final case92
+python3 evidence/holonomic/v2_adaptive_full_circle_20260911/summarize.py evidence/holonomic/v2_adaptive_full_circle_20260911/v2_results.tsv evidence/holonomic/v2_adaptive_full_circle_20260911/hard_case9 evidence/holonomic/v2_adaptive_full_circle_20260911/hard_case92
+
+/tmp/lcbinint-holonomic-adaptive-build/check_adaptive_reference /tmp/adaptive_hard_cases.tsv > evidence/holonomic/v2_adaptive_full_circle_20260911/reference_hard_cases.csv
+/tmp/lcbinint-holonomic-adaptive-build/test_adaptive_radial
+(cd /rogue1_8/nunota/lcbinint && /tmp/lcbinint-holonomic-adaptive-build/test_holonomic_m7 evidence/holonomic/m7_reference.tsv)

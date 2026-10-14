@@ -1,0 +1,5 @@
+radius=0.1 extrema=2 offered=64 solved=56 PASS
+radius=0.001 extrema=2 offered=64 solved=62 PASS
+radius=1e-05 extrema=2 offered=64 solved=62 PASS
+radius=1e-07 extrema=2 offered=64 solved=62 PASS
+analytic support checks PASS

@@ -1,0 +1,37 @@
+loaded 108 bench cases, reps=8
+
+== whole-epoch wall time, best-of-8 per case ==
+  V0   median   1.2580  p90   2.0203  p95   2.3701  p99   2.5645  max   2.5948  (ms)
+  V1   median   1.1870  p90   1.9692  p95   2.3125  p99   2.5180  max   2.5470  (ms)
+  V2   median   1.0501  p90   1.8599  p95   1.9565  p99   2.1573  max   2.1754  (ms)
+
+== speedup vs V0 (per-case ratio, then percentiles) ==
+  V0/V1 (+m,v):     median 1.034x  p90 1.163x  p95 1.181x  p99 1.201x  min 0.985x
+  V0/V2 (+holo):    median 1.215x  p90 1.421x  p95 1.595x  p99 1.888x  min 1.026x
+  aggregate median-of-medians:  V0 1.2580  V1 1.1870  V2 1.0501 ms  ->  V2 1.198x
+
+== radial pass only (classify_cells hoisted; 1.47x ceiling term) ==
+  V0 median 0.5610  V2 median 0.3035 ms   speedup median 2.114x  p90 3.340x  p95 4.270x  min 1.014x
+  radial fraction of whole epoch (V0): 44.6%
+
+== accuracy vs V0 ==
+  mu:      V1 max |dmu/mu| 1.534e-14  median 1.309e-16
+           V2 max |dmu/mu| 2.044e-13  median 2.408e-16   (worst: extreme-q-planet)
+  grad_mu: V1 max rel 1.218e-04  median 1.823e-11
+           V2 max rel 1.218e-04  median 6.730e-11
+           V2 worst: rand008  j=2  rho=0.00142 q=0.00439 mu=1.203
+             grad_mu[j]: V0 -2.151902e-05  V2 -2.151640e-05  (abs d 2.62e-09)
+
+== Jacobian reliability (status) ==
+  OK count:  V0 104/108   V1 104/108   V2 104/108
+  status-change vs V0:  V1 0   V2 0
+
+== decision-20 gate ==
+  full-Jac median >= 2x faster AND p90/p95/p99 non-regressing.
+  V2 median 1.0501 ms vs V0 1.2580 ms  (1.198x)  not met (see note)
+  p90 ok  p95 ok  p99 ok  (V2 <= V0 => non-regressing)
+
+  NOTE: whole-epoch includes classify_cells (D14) which is common to
+  all 3 -- the profile ceiling (1.47x) is on the radial pass only.
+
+  checksum 18851.252482

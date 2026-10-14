@@ -1,0 +1,6 @@
+loaded 108 cases reps=8 trajectory_epochs=8 n_r=64
+V2 cold_value cases=108 p50=1.061341 p90=1.857671 p95=1.962563 p99=2.148704 max=2.155929 status_ok=104 status_bad=4 max_mu_ref=2.044e-13 max_grad_ref=0.000e+00
+V2 cold_value+5Jac cases=108 p50=1.060509 p90=1.853790 p95=1.972270 p99=2.143540 max=2.153832 status_ok=104 status_bad=4 max_mu_ref=2.044e-13 max_grad_ref=1.218e-04
+V2 warm_value_steady cases=756 p50=0.926387 p90=1.567333 p95=1.835835 p99=2.495674 max=3.325811 status_ok=728 status_bad=28 max_mu_ref=5.839e-14 max_grad_ref=0.000e+00
+V2 warm_value+5Jac_steady cases=756 p50=0.913148 p90=1.555824 p95=1.826575 p99=2.497883 max=3.374274 status_ok=728 status_bad=28 max_mu_ref=5.839e-14 max_grad_ref=1.379e-03
+checksum=8020.682566286263

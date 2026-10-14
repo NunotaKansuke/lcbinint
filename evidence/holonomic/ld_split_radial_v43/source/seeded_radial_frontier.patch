@@ -1,0 +1,14 @@
+--- evidence/holonomic/ld_split_radial_v43/source/seeded_radial_frontier_before.hpp	2026-10-14 03:00:17.533469724 +0900
++++ src/lcbinint/magnification/holonomic/seeded_radial_frontier.hpp	2026-10-14 03:00:17.555469510 +0900
+@@ -453,8 +453,10 @@
+         exploration_cfg.prepared_fold_pair_seed=true;
+ #endif
+ #ifndef HOLO_FRONTIER_DISABLE_WEIGHTED_RADIAL
+-    if(u==0 && cfg.effective_gradient_policy()==GradientPolicy::None && !cfg.with_jacobian)
++    if(cfg.effective_gradient_policy()==GradientPolicy::None && !cfg.with_jacobian) {
+         exploration_cfg.weighted_radial=true;
++        exploration_cfg.split_ld_radial=u>0;
++    }
+ #endif
+ #ifndef HOLO_FRONTIER_DISABLE_ANGULAR_VALUE_BUDGET
+     if(u>0 && cfg.effective_gradient_policy()==GradientPolicy::None && !cfg.with_jacobian)

@@ -1,0 +1,33 @@
+{
+  "rows": 7216,
+  "ok_mismatches": 0,
+  "node_mismatches": 0,
+  "max_scaled_mu_difference": 9.684796462903853e-12,
+  "profiles": {
+    "uniform": {
+      "eligible": 6153,
+      "bracket_pass": 6142,
+      "cold_baseline": 43840,
+      "cold_candidate": 37869,
+      "whole_baseline_ms": 0.2468535,
+      "whole_candidate_ms": 0.248639,
+      "arc_baseline_ms": 0.06892199999999998,
+      "arc_candidate_ms": 0.07082549999999999
+    },
+    "linear": {
+      "eligible": 7933,
+      "bracket_pass": 7916,
+      "cold_baseline": 47400,
+      "cold_candidate": 39730,
+      "whole_baseline_ms": 0.3054745,
+      "whole_candidate_ms": 0.307774,
+      "arc_baseline_ms": 0.07910100000000002,
+      "arc_candidate_ms": 0.08056749999999999
+    }
+  },
+  "reference": {
+    "rows": 550,
+    "usable": 466,
+    "violations": 0
+  }
+}

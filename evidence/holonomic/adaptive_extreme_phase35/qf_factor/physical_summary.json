@@ -1,0 +1,17 @@
+{
+  "0": {
+    "physical_count_mismatch": 7064,
+    "missing_physical_cases": 7060,
+    "extra_physical_cases": 4
+  },
+  "2": {
+    "physical_count_mismatch": 6750,
+    "missing_physical_cases": 6744,
+    "extra_physical_cases": 6
+  },
+  "4": {
+    "physical_count_mismatch": 6458,
+    "missing_physical_cases": 6398,
+    "extra_physical_cases": 60
+  }
+}

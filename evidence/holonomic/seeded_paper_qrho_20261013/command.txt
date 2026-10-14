@@ -1,0 +1,12 @@
+Build:
+  bash benchmarks/holonomic/build_seeded_paper_qrho.sh
+
+Successful full benchmark command (ran in a monitored Codex process session; exit 0):
+  echo $$ > evidence/holonomic/seeded_paper_qrho_20261013/pid
+  exec bash evidence/holonomic/seeded_paper_qrho_20261013/run_full.sh \
+    > evidence/holonomic/seeded_paper_qrho_20261013/run.log 2>&1
+
+Runner arguments: input_snapshot.tsv, raw_results.tsv, 3 repetitions, all 7,216 inputs, no resume.
+Single-thread environment: OMP_NUM_THREADS=1, OMP_DYNAMIC=FALSE, OPENBLAS_NUM_THREADS=1, MKL_NUM_THREADS=1.
+The attempted nohup/setsid launch did not produce output and exited before verification, so it was discarded; the successful measured run above remained attached and was monitored to exit.
+The site SGE qstat query was unavailable from the sandbox because the qmaster socket could not be opened; no scheduler submission was made.

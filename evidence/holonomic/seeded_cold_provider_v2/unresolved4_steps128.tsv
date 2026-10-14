@@ -1,0 +1,5 @@
+id support seeds seed_cold_ms trace_us d14_us completed paths steps retries quartics folds oracle_folds matched missing extra max_radius_error topology_disagreements value_relerr status reason
+1037 0 5 0.046020999999999999 213.06200000000001 734.80200000000002 1 13 167 227 16 6 8 6 2 0 0 11 0.00015445148122514253 0 "local discovery; completeness requires independent audit"
+1052 0 6 0.019289000000000001 161.01900000000001 349.68099999999998 1 15 115 111 20 7 8 7 1 0 0 4 0.00014953554068606025 0 "local discovery; completeness requires independent audit"
+1060 0 5 0.013977 156.16999999999999 375.17599999999999 1 13 108 106 19 7 8 7 1 0 0 4 9.5123522960718963e-05 0 "local discovery; completeness requires independent audit"
+1070 0 5 0.019387000000000001 160.845 279.76600000000002 1 14 172 241 16 6 8 6 2 0 0 8 0.0002352148116622285 0 "local discovery; completeness requires independent audit"

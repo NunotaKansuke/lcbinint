@@ -1,0 +1,14 @@
+{
+  "transitions": 5412,
+  "unchanged_physical_count": 5020,
+  "unchanged_matched_physical_identity": 4972,
+  "all_old_center_disks_disjoint": 3604,
+  "no_physical_disk_overlap": 4242,
+  "median_small_motion_roots": 12.0,
+  "median_root_motion_over_separation_quantiles": {
+    "0.5": 0.06918271032365525,
+    "0.9": 0.23423753768382538,
+    "0.99": 1.1961567113711051
+  },
+  "limitation": "Uses future oracle roots and binary64 exports. No event completeness or interval certificate; not a production routing rule."
+}

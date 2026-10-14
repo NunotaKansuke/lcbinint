@@ -1,0 +1,4 @@
+/usr/bin/c++ -O3 -DNDEBUG -std=gnu++17 -fext-numeric-literals -I/rogue1_8/nunota/lcbinint/src -march=native -funroll-loops -ffp-contract=fast -fno-math-errno evidence/holonomic/v2_adaptive_best_trajectory_20260913/v2_adaptive_trajectory_runner.cpp -o /tmp/v2_adaptive_best_trajectory_runner -lquadmath
+taskset -c 0-7 /tmp/v2_adaptive_best_trajectory_runner evidence/holonomic/v2_adaptive_best_trajectory_20260913/input_snapshot.tsv evidence/holonomic/v2_adaptive_best_trajectory_20260913/results.tsv 3
+python3 evidence/holonomic/v2_adaptive_best_trajectory_20260913/summarize.py
+MPLCONFIGDIR=/tmp/mpl-v2-best-trajectory python3 evidence/holonomic/v2_adaptive_best_trajectory_20260913/make_figures.py

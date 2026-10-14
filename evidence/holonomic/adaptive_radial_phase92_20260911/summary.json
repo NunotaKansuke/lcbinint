@@ -1,0 +1,1550 @@
+{
+  "phase": "9.2",
+  "generated": "2026-09-11",
+  "base_commit": "7b296fe",
+  "objective": "Reuse certified D14/topology event metadata in adaptive V2 and make setup timing exclusive of integration.",
+  "scope": [
+    "src/lcbinint/magnification/holonomic",
+    "tests/holonomic_cpp",
+    "checks/holonomic",
+    "docs/holonomic",
+    "evidence/holonomic"
+  ],
+  "production_impact": "Adaptive isolated path only; fixed-n_r classify_cells callers keep metadata opt-in disabled; PF6/GM and production router unchanged.",
+  "reuse_on": {
+    "contracts": [
+      {
+        "policy": "None",
+        "warm": false,
+        "rtol": 0.001,
+        "cases": 110,
+        "value_converged": 110,
+        "stops": {
+          "Converged": 110
+        },
+        "value_stops": {
+          "Converged": 110
+        },
+        "gradient_stops": {
+          "Converged": 110
+        },
+        "gradient_quality": {
+          "NotRequested": 550,
+          "ToleranceMet": 0,
+          "FiniteUncertified": 0,
+          "Invalid": 0
+        }
+      },
+      {
+        "policy": "None",
+        "warm": false,
+        "rtol": 0.0001,
+        "cases": 110,
+        "value_converged": 110,
+        "stops": {
+          "Converged": 110
+        },
+        "value_stops": {
+          "Converged": 110
+        },
+        "gradient_stops": {
+          "Converged": 110
+        },
+        "gradient_quality": {
+          "NotRequested": 550,
+          "ToleranceMet": 0,
+          "FiniteUncertified": 0,
+          "Invalid": 0
+        }
+      },
+      {
+        "policy": "None",
+        "warm": true,
+        "rtol": 0.001,
+        "cases": 110,
+        "value_converged": 110,
+        "stops": {
+          "Converged": 110
+        },
+        "value_stops": {
+          "Converged": 110
+        },
+        "gradient_stops": {
+          "Converged": 110
+        },
+        "gradient_quality": {
+          "NotRequested": 550,
+          "ToleranceMet": 0,
+          "FiniteUncertified": 0,
+          "Invalid": 0
+        }
+      },
+      {
+        "policy": "None",
+        "warm": true,
+        "rtol": 0.0001,
+        "cases": 110,
+        "value_converged": 110,
+        "stops": {
+          "Converged": 110
+        },
+        "value_stops": {
+          "Converged": 110
+        },
+        "gradient_stops": {
+          "Converged": 110
+        },
+        "gradient_quality": {
+          "NotRequested": 550,
+          "ToleranceMet": 0,
+          "FiniteUncertified": 0,
+          "Invalid": 0
+        }
+      },
+      {
+        "policy": "ValueFirst",
+        "warm": false,
+        "rtol": 0.001,
+        "cases": 110,
+        "value_converged": 110,
+        "stops": {
+          "Converged": 110
+        },
+        "value_stops": {
+          "Converged": 110
+        },
+        "gradient_stops": {
+          "BudgetExceeded": 65,
+          "InnerAccuracyLimited": 1,
+          "EventLocationLimited": 32,
+          "Converged": 12
+        },
+        "gradient_quality": {
+          "NotRequested": 0,
+          "ToleranceMet": 225,
+          "FiniteUncertified": 325,
+          "Invalid": 0
+        }
+      },
+      {
+        "policy": "ValueFirst",
+        "warm": false,
+        "rtol": 0.0001,
+        "cases": 110,
+        "value_converged": 110,
+        "stops": {
+          "Converged": 110
+        },
+        "value_stops": {
+          "Converged": 110
+        },
+        "gradient_stops": {
+          "BudgetExceeded": 50,
+          "InnerAccuracyLimited": 1,
+          "EventLocationLimited": 39,
+          "Converged": 20
+        },
+        "gradient_quality": {
+          "NotRequested": 0,
+          "ToleranceMet": 264,
+          "FiniteUncertified": 286,
+          "Invalid": 0
+        }
+      },
+      {
+        "policy": "ValueFirst",
+        "warm": true,
+        "rtol": 0.001,
+        "cases": 110,
+        "value_converged": 110,
+        "stops": {
+          "Converged": 109,
+          "TopologyUnresolved": 1
+        },
+        "value_stops": {
+          "Converged": 110
+        },
+        "gradient_stops": {
+          "BudgetExceeded": 59,
+          "InnerAccuracyLimited": 1,
+          "EventLocationLimited": 32,
+          "Converged": 17,
+          "TopologyUnresolved": 1
+        },
+        "gradient_quality": {
+          "NotRequested": 0,
+          "ToleranceMet": 251,
+          "FiniteUncertified": 294,
+          "Invalid": 5
+        }
+      },
+      {
+        "policy": "ValueFirst",
+        "warm": true,
+        "rtol": 0.0001,
+        "cases": 110,
+        "value_converged": 110,
+        "stops": {
+          "Converged": 109,
+          "TopologyUnresolved": 1
+        },
+        "value_stops": {
+          "Converged": 110
+        },
+        "gradient_stops": {
+          "BudgetExceeded": 48,
+          "InnerAccuracyLimited": 1,
+          "EventLocationLimited": 38,
+          "Converged": 22,
+          "TopologyUnresolved": 1
+        },
+        "gradient_quality": {
+          "NotRequested": 0,
+          "ToleranceMet": 276,
+          "FiniteUncertified": 269,
+          "Invalid": 5
+        }
+      },
+      {
+        "policy": "Strict",
+        "warm": false,
+        "rtol": 0.001,
+        "cases": 110,
+        "value_converged": 110,
+        "stops": {
+          "EventLocationLimited": 73,
+          "TopologyUnresolved": 21,
+          "InnerAccuracyLimited": 5,
+          "BudgetExceeded": 6,
+          "Converged": 5
+        },
+        "value_stops": {
+          "Converged": 110
+        },
+        "gradient_stops": {
+          "EventLocationLimited": 73,
+          "TopologyUnresolved": 19,
+          "InnerAccuracyLimited": 5,
+          "BudgetExceeded": 6,
+          "Converged": 7
+        },
+        "gradient_quality": {
+          "NotRequested": 0,
+          "ToleranceMet": 173,
+          "FiniteUncertified": 272,
+          "Invalid": 105
+        }
+      },
+      {
+        "policy": "Strict",
+        "warm": false,
+        "rtol": 0.0001,
+        "cases": 110,
+        "value_converged": 110,
+        "stops": {
+          "EventLocationLimited": 73,
+          "TopologyUnresolved": 21,
+          "InnerAccuracyLimited": 5,
+          "BudgetExceeded": 6,
+          "Converged": 5
+        },
+        "value_stops": {
+          "Converged": 110
+        },
+        "gradient_stops": {
+          "EventLocationLimited": 73,
+          "TopologyUnresolved": 19,
+          "InnerAccuracyLimited": 5,
+          "BudgetExceeded": 6,
+          "Converged": 7
+        },
+        "gradient_quality": {
+          "NotRequested": 0,
+          "ToleranceMet": 173,
+          "FiniteUncertified": 272,
+          "Invalid": 105
+        }
+      },
+      {
+        "policy": "Strict",
+        "warm": true,
+        "rtol": 0.001,
+        "cases": 110,
+        "value_converged": 110,
+        "stops": {
+          "Converged": 4,
+          "TopologyUnresolved": 23,
+          "InnerAccuracyLimited": 4,
+          "EventLocationLimited": 72,
+          "BudgetExceeded": 7
+        },
+        "value_stops": {
+          "Converged": 110
+        },
+        "gradient_stops": {
+          "Converged": 11,
+          "TopologyUnresolved": 16,
+          "InnerAccuracyLimited": 4,
+          "EventLocationLimited": 72,
+          "BudgetExceeded": 7
+        },
+        "gradient_quality": {
+          "NotRequested": 0,
+          "ToleranceMet": 169,
+          "FiniteUncertified": 266,
+          "Invalid": 115
+        }
+      },
+      {
+        "policy": "Strict",
+        "warm": true,
+        "rtol": 0.0001,
+        "cases": 110,
+        "value_converged": 110,
+        "stops": {
+          "Converged": 4,
+          "TopologyUnresolved": 23,
+          "InnerAccuracyLimited": 4,
+          "EventLocationLimited": 72,
+          "BudgetExceeded": 7
+        },
+        "value_stops": {
+          "Converged": 110
+        },
+        "gradient_stops": {
+          "Converged": 11,
+          "TopologyUnresolved": 16,
+          "InnerAccuracyLimited": 4,
+          "EventLocationLimited": 72,
+          "BudgetExceeded": 7
+        },
+        "gradient_quality": {
+          "NotRequested": 0,
+          "ToleranceMet": 169,
+          "FiniteUncertified": 266,
+          "Invalid": 115
+        }
+      }
+    ],
+    "paired_selected_cache_on": [
+      {
+        "jac": false,
+        "warm": false,
+        "rtol": 0.001,
+        "cases": 110,
+        "whole_ms": {
+          "p50": 0.822058,
+          "p90": 1.1330003000000004,
+          "p95": 1.3170283499999997,
+          "p99": 15.19577167999995,
+          "max": 21.093097
+        },
+        "stage_medians_ms": {
+          "topology_ms": 0.6937055000000001,
+          "setup_ms": 0.0133975,
+          "physics_ms": 0.090224,
+          "estimator_ms": 0.005417,
+          "scheduler_ms": 0.001081
+        },
+        "setup_part_medians_ms": {
+          "setup_frame_ms": 1.9e-05,
+          "setup_cuts_ms": 0.0022745,
+          "setup_event_ms": 0.0070935,
+          "setup_panel_ms": 0.002871
+        },
+        "event_medians": {
+          "event_double_checks": 0.0,
+          "event_dd_checks": 6.0,
+          "event_dd_accepts": 6.0,
+          "event_qf_refinements": 0.0,
+          "qf_family_constructions": 0.0,
+          "event_topology_reuses": 6.0,
+          "event_radius_reuses": 6.0,
+          "event_direct_qf_failures": 0.0
+        },
+        "nodes_median": 67.0,
+        "evaluations_median": 67.0,
+        "stop_distribution": {
+          "Converged": 110
+        }
+      },
+      {
+        "jac": false,
+        "warm": false,
+        "rtol": 0.0001,
+        "cases": 110,
+        "whole_ms": {
+          "p50": 0.820843,
+          "p90": 1.1945039000000002,
+          "p95": 1.3923844499999998,
+          "p99": 14.991001099999949,
+          "max": 16.458322
+        },
+        "stage_medians_ms": {
+          "topology_ms": 0.6728995,
+          "setup_ms": 0.008984,
+          "physics_ms": 0.10180800000000001,
+          "estimator_ms": 0.0042905,
+          "scheduler_ms": 0.000814
+        },
+        "setup_part_medians_ms": {
+          "setup_frame_ms": 1.9e-05,
+          "setup_cuts_ms": 0.001022,
+          "setup_event_ms": 0.006921999999999999,
+          "setup_panel_ms": 0.0006495
+        },
+        "event_medians": {
+          "event_double_checks": 0.0,
+          "event_dd_checks": 6.0,
+          "event_dd_accepts": 6.0,
+          "event_qf_refinements": 0.0,
+          "qf_family_constructions": 0.0,
+          "event_topology_reuses": 6.0,
+          "event_radius_reuses": 6.0,
+          "event_direct_qf_failures": 0.0
+        },
+        "nodes_median": 69.0,
+        "evaluations_median": 69.0,
+        "stop_distribution": {
+          "Converged": 110
+        }
+      },
+      {
+        "jac": false,
+        "warm": true,
+        "rtol": 0.001,
+        "cases": 110,
+        "whole_ms": {
+          "p50": 0.6609925,
+          "p90": 0.9674300000000005,
+          "p95": 1.3379843999999996,
+          "p99": 10.460642749999968,
+          "max": 11.597762
+        },
+        "stage_medians_ms": {
+          "topology_ms": 0.5496865,
+          "setup_ms": 0.008796,
+          "physics_ms": 0.120068,
+          "estimator_ms": 0.003647,
+          "scheduler_ms": 0.0007065
+        },
+        "setup_part_medians_ms": {
+          "setup_frame_ms": 2e-05,
+          "setup_cuts_ms": 0.001005,
+          "setup_event_ms": 0.006871,
+          "setup_panel_ms": 0.0006644999999999999
+        },
+        "event_medians": {
+          "event_double_checks": 0.0,
+          "event_dd_checks": 6.0,
+          "event_dd_accepts": 6.0,
+          "event_qf_refinements": 0.0,
+          "qf_family_constructions": 0.0,
+          "event_topology_reuses": 6.0,
+          "event_radius_reuses": 6.0,
+          "event_direct_qf_failures": 0.0
+        },
+        "nodes_median": 67.0,
+        "evaluations_median": 67.0,
+        "stop_distribution": {
+          "Converged": 110
+        }
+      },
+      {
+        "jac": false,
+        "warm": true,
+        "rtol": 0.0001,
+        "cases": 110,
+        "whole_ms": {
+          "p50": 0.6890645,
+          "p90": 1.1041025,
+          "p95": 1.4333504999999993,
+          "p99": 10.793655259999975,
+          "max": 11.717816
+        },
+        "stage_medians_ms": {
+          "topology_ms": 0.543231,
+          "setup_ms": 0.008669,
+          "physics_ms": 0.1364555,
+          "estimator_ms": 0.0039775,
+          "scheduler_ms": 0.000823
+        },
+        "setup_part_medians_ms": {
+          "setup_frame_ms": 1.9e-05,
+          "setup_cuts_ms": 0.000976,
+          "setup_event_ms": 0.006861,
+          "setup_panel_ms": 0.0006100000000000001
+        },
+        "event_medians": {
+          "event_double_checks": 0.0,
+          "event_dd_checks": 6.0,
+          "event_dd_accepts": 6.0,
+          "event_qf_refinements": 0.0,
+          "qf_family_constructions": 0.0,
+          "event_topology_reuses": 6.0,
+          "event_radius_reuses": 6.0,
+          "event_direct_qf_failures": 0.0
+        },
+        "nodes_median": 69.0,
+        "evaluations_median": 69.0,
+        "stop_distribution": {
+          "Converged": 110
+        }
+      },
+      {
+        "jac": true,
+        "warm": false,
+        "rtol": 0.001,
+        "cases": 110,
+        "whole_ms": {
+          "p50": 9.4001845,
+          "p90": 20.356139300000006,
+          "p95": 43.05387169999998,
+          "p99": 72.79229999999997,
+          "max": 226.505036
+        },
+        "stage_medians_ms": {
+          "topology_ms": 0.6796445,
+          "setup_ms": 0.010336499999999998,
+          "physics_ms": 2.8763575,
+          "estimator_ms": 1.727479,
+          "scheduler_ms": 0.0278325
+        },
+        "setup_part_medians_ms": {
+          "setup_frame_ms": 1.9e-05,
+          "setup_cuts_ms": 0.0013755,
+          "setup_event_ms": 0.006896,
+          "setup_panel_ms": 0.001323
+        },
+        "event_medians": {
+          "event_double_checks": 0.0,
+          "event_dd_checks": 6.0,
+          "event_dd_accepts": 6.0,
+          "event_qf_refinements": 0.0,
+          "qf_family_constructions": 0.0,
+          "event_topology_reuses": 6.0,
+          "event_radius_reuses": 6.0,
+          "event_direct_qf_failures": 0.0
+        },
+        "nodes_median": 2016.0,
+        "evaluations_median": 2016.0,
+        "stop_distribution": {
+          "EventLocationLimited": 59,
+          "TopologyUnresolved": 31,
+          "Converged": 10,
+          "InnerAccuracyLimited": 3,
+          "BudgetExceeded": 7
+        }
+      },
+      {
+        "jac": true,
+        "warm": false,
+        "rtol": 0.0001,
+        "cases": 110,
+        "whole_ms": {
+          "p50": 3.0533824999999997,
+          "p90": 12.629188800000005,
+          "p95": 19.170846849999997,
+          "p99": 42.82790243999997,
+          "max": 50.259356
+        },
+        "stage_medians_ms": {
+          "topology_ms": 0.6912085,
+          "setup_ms": 0.0147825,
+          "physics_ms": 0.9926245,
+          "estimator_ms": 0.514307,
+          "scheduler_ms": 0.011210999999999999
+        },
+        "setup_part_medians_ms": {
+          "setup_frame_ms": 4.95e-05,
+          "setup_cuts_ms": 0.0021085,
+          "setup_event_ms": 0.009112499999999999,
+          "setup_panel_ms": 0.002286
+        },
+        "event_medians": {
+          "event_double_checks": 0.0,
+          "event_dd_checks": 6.0,
+          "event_dd_accepts": 6.0,
+          "event_qf_refinements": 0.0,
+          "qf_family_constructions": 0.0,
+          "event_topology_reuses": 6.0,
+          "event_radius_reuses": 6.0,
+          "event_direct_qf_failures": 0.0
+        },
+        "nodes_median": 606.0,
+        "evaluations_median": 606.0,
+        "stop_distribution": {
+          "EventLocationLimited": 73,
+          "TopologyUnresolved": 21,
+          "InnerAccuracyLimited": 5,
+          "BudgetExceeded": 6,
+          "Converged": 5
+        }
+      },
+      {
+        "jac": true,
+        "warm": true,
+        "rtol": 0.001,
+        "cases": 110,
+        "whole_ms": {
+          "p50": 8.2452155,
+          "p90": 15.172490600000001,
+          "p95": 39.051630249999995,
+          "p99": 58.483412639999976,
+          "max": 1882.979155
+        },
+        "stage_medians_ms": {
+          "topology_ms": 0.5579065000000001,
+          "setup_ms": 0.012878,
+          "physics_ms": 4.183052999999999,
+          "estimator_ms": 1.7753525,
+          "scheduler_ms": 0.024279000000000002
+        },
+        "setup_part_medians_ms": {
+          "setup_frame_ms": 4.65e-05,
+          "setup_cuts_ms": 0.0017014999999999999,
+          "setup_event_ms": 0.0083865,
+          "setup_panel_ms": 0.0019060000000000001
+        },
+        "event_medians": {
+          "event_double_checks": 0.0,
+          "event_dd_checks": 6.0,
+          "event_dd_accepts": 6.0,
+          "event_qf_refinements": 0.0,
+          "qf_family_constructions": 0.0,
+          "event_topology_reuses": 6.0,
+          "event_radius_reuses": 6.0,
+          "event_direct_qf_failures": 0.0
+        },
+        "nodes_median": 2022.0,
+        "evaluations_median": 2022.0,
+        "stop_distribution": {
+          "Converged": 7,
+          "TopologyUnresolved": 33,
+          "EventLocationLimited": 60,
+          "InnerAccuracyLimited": 2,
+          "BudgetExceeded": 8
+        }
+      },
+      {
+        "jac": true,
+        "warm": true,
+        "rtol": 0.0001,
+        "cases": 110,
+        "whole_ms": {
+          "p50": 3.871297,
+          "p90": 14.673409600000001,
+          "p95": 29.34279814999997,
+          "p99": 42.10494059999999,
+          "max": 53.372871
+        },
+        "stage_medians_ms": {
+          "topology_ms": 0.553454,
+          "setup_ms": 0.011619,
+          "physics_ms": 1.946665,
+          "estimator_ms": 0.5222114999999999,
+          "scheduler_ms": 0.010957999999999999
+        },
+        "setup_part_medians_ms": {
+          "setup_frame_ms": 2.1e-05,
+          "setup_cuts_ms": 0.0014245,
+          "setup_event_ms": 0.007487000000000001,
+          "setup_panel_ms": 0.001353
+        },
+        "event_medians": {
+          "event_double_checks": 0.0,
+          "event_dd_checks": 6.0,
+          "event_dd_accepts": 6.0,
+          "event_qf_refinements": 0.0,
+          "qf_family_constructions": 0.0,
+          "event_topology_reuses": 6.0,
+          "event_radius_reuses": 6.0,
+          "event_direct_qf_failures": 0.0
+        },
+        "nodes_median": 658.0,
+        "evaluations_median": 658.0,
+        "stop_distribution": {
+          "Converged": 4,
+          "TopologyUnresolved": 23,
+          "InnerAccuracyLimited": 4,
+          "EventLocationLimited": 72,
+          "BudgetExceeded": 7
+        }
+      }
+    ],
+    "diagnostics": {
+      "epochs": 16,
+      "events": 128,
+      "value_converged": 16,
+      "epoch_stops": {
+        "Converged": 16
+      },
+      "precision_tier": {
+        "1": 128
+      },
+      "double_reason": {
+        "TopologySeedReused": 128
+      },
+      "dd_reason": {
+        "DDAccepted": 128
+      },
+      "qf_reason": {
+        "NotAttempted": 128
+      },
+      "topology_reused": {
+        "1": 128
+      },
+      "d14_condition": {
+        "p50": 2.0355897071867418e-07,
+        "p90": 0.01934417850898679,
+        "p95": 0.019350205034067376,
+        "p99": 0.019350205034067376,
+        "max": 0.019350205034067376
+      },
+      "uncertainty": {
+        "p50": 1.6653345369377348e-16,
+        "p90": 2.220446049250313e-16,
+        "p95": 2.220446049250313e-16,
+        "p99": 2.220446049250313e-16,
+        "max": 2.220446049250313e-16
+      }
+    },
+    "timing_sanity": {
+      "file": "evidence/holonomic/adaptive_radial_phase92_20260911/reuse_on/paired.csv",
+      "rows": 4400,
+      "finite_rows": 4400,
+      "bad_rows": 0,
+      "passed": true,
+      "stages": [
+        "topology_ms",
+        "setup_ms",
+        "physics_ms",
+        "estimator_ms",
+        "scheduler_ms"
+      ],
+      "setup_parts": [
+        "setup_frame_ms",
+        "setup_cuts_ms",
+        "setup_event_ms",
+        "setup_panel_ms"
+      ],
+      "rule": "finite nonnegative stages; each <= 10*whole+0.1 ms; sum <= 2*whole+0.1 ms",
+      "bad": []
+    }
+  },
+  "reuse_off": {
+    "contracts": [
+      {
+        "policy": "None",
+        "warm": false,
+        "rtol": 0.001,
+        "cases": 110,
+        "value_converged": 110,
+        "stops": {
+          "Converged": 110
+        },
+        "value_stops": {
+          "Converged": 110
+        },
+        "gradient_stops": {
+          "Converged": 110
+        },
+        "gradient_quality": {
+          "NotRequested": 550,
+          "ToleranceMet": 0,
+          "FiniteUncertified": 0,
+          "Invalid": 0
+        }
+      },
+      {
+        "policy": "None",
+        "warm": false,
+        "rtol": 0.0001,
+        "cases": 110,
+        "value_converged": 110,
+        "stops": {
+          "Converged": 110
+        },
+        "value_stops": {
+          "Converged": 110
+        },
+        "gradient_stops": {
+          "Converged": 110
+        },
+        "gradient_quality": {
+          "NotRequested": 550,
+          "ToleranceMet": 0,
+          "FiniteUncertified": 0,
+          "Invalid": 0
+        }
+      },
+      {
+        "policy": "None",
+        "warm": true,
+        "rtol": 0.001,
+        "cases": 110,
+        "value_converged": 110,
+        "stops": {
+          "Converged": 110
+        },
+        "value_stops": {
+          "Converged": 110
+        },
+        "gradient_stops": {
+          "Converged": 110
+        },
+        "gradient_quality": {
+          "NotRequested": 550,
+          "ToleranceMet": 0,
+          "FiniteUncertified": 0,
+          "Invalid": 0
+        }
+      },
+      {
+        "policy": "None",
+        "warm": true,
+        "rtol": 0.0001,
+        "cases": 110,
+        "value_converged": 110,
+        "stops": {
+          "Converged": 110
+        },
+        "value_stops": {
+          "Converged": 110
+        },
+        "gradient_stops": {
+          "Converged": 110
+        },
+        "gradient_quality": {
+          "NotRequested": 550,
+          "ToleranceMet": 0,
+          "FiniteUncertified": 0,
+          "Invalid": 0
+        }
+      },
+      {
+        "policy": "ValueFirst",
+        "warm": false,
+        "rtol": 0.001,
+        "cases": 110,
+        "value_converged": 110,
+        "stops": {
+          "Converged": 110
+        },
+        "value_stops": {
+          "Converged": 110
+        },
+        "gradient_stops": {
+          "BudgetExceeded": 64,
+          "InnerAccuracyLimited": 1,
+          "EventLocationLimited": 33,
+          "Converged": 12
+        },
+        "gradient_quality": {
+          "NotRequested": 0,
+          "ToleranceMet": 223,
+          "FiniteUncertified": 327,
+          "Invalid": 0
+        }
+      },
+      {
+        "policy": "ValueFirst",
+        "warm": false,
+        "rtol": 0.0001,
+        "cases": 110,
+        "value_converged": 110,
+        "stops": {
+          "Converged": 110
+        },
+        "value_stops": {
+          "Converged": 110
+        },
+        "gradient_stops": {
+          "BudgetExceeded": 49,
+          "InnerAccuracyLimited": 1,
+          "EventLocationLimited": 39,
+          "Converged": 21
+        },
+        "gradient_quality": {
+          "NotRequested": 0,
+          "ToleranceMet": 267,
+          "FiniteUncertified": 283,
+          "Invalid": 0
+        }
+      },
+      {
+        "policy": "ValueFirst",
+        "warm": true,
+        "rtol": 0.001,
+        "cases": 110,
+        "value_converged": 110,
+        "stops": {
+          "Converged": 109,
+          "TopologyUnresolved": 1
+        },
+        "value_stops": {
+          "Converged": 110
+        },
+        "gradient_stops": {
+          "BudgetExceeded": 59,
+          "InnerAccuracyLimited": 1,
+          "EventLocationLimited": 33,
+          "Converged": 16,
+          "TopologyUnresolved": 1
+        },
+        "gradient_quality": {
+          "NotRequested": 0,
+          "ToleranceMet": 250,
+          "FiniteUncertified": 295,
+          "Invalid": 5
+        }
+      },
+      {
+        "policy": "ValueFirst",
+        "warm": true,
+        "rtol": 0.0001,
+        "cases": 110,
+        "value_converged": 110,
+        "stops": {
+          "Converged": 109,
+          "TopologyUnresolved": 1
+        },
+        "value_stops": {
+          "Converged": 110
+        },
+        "gradient_stops": {
+          "BudgetExceeded": 47,
+          "InnerAccuracyLimited": 1,
+          "EventLocationLimited": 40,
+          "Converged": 21,
+          "TopologyUnresolved": 1
+        },
+        "gradient_quality": {
+          "NotRequested": 0,
+          "ToleranceMet": 273,
+          "FiniteUncertified": 272,
+          "Invalid": 5
+        }
+      },
+      {
+        "policy": "Strict",
+        "warm": false,
+        "rtol": 0.001,
+        "cases": 110,
+        "value_converged": 110,
+        "stops": {
+          "EventLocationLimited": 72,
+          "TopologyUnresolved": 21,
+          "InnerAccuracyLimited": 5,
+          "BudgetExceeded": 6,
+          "Converged": 6
+        },
+        "value_stops": {
+          "Converged": 110
+        },
+        "gradient_stops": {
+          "EventLocationLimited": 72,
+          "Converged": 12,
+          "InnerAccuracyLimited": 5,
+          "BudgetExceeded": 6,
+          "TopologyUnresolved": 15
+        },
+        "gradient_quality": {
+          "NotRequested": 0,
+          "ToleranceMet": 176,
+          "FiniteUncertified": 269,
+          "Invalid": 105
+        }
+      },
+      {
+        "policy": "Strict",
+        "warm": false,
+        "rtol": 0.0001,
+        "cases": 110,
+        "value_converged": 110,
+        "stops": {
+          "EventLocationLimited": 72,
+          "TopologyUnresolved": 21,
+          "InnerAccuracyLimited": 5,
+          "BudgetExceeded": 6,
+          "Converged": 6
+        },
+        "value_stops": {
+          "Converged": 110
+        },
+        "gradient_stops": {
+          "EventLocationLimited": 72,
+          "Converged": 12,
+          "InnerAccuracyLimited": 5,
+          "BudgetExceeded": 6,
+          "TopologyUnresolved": 15
+        },
+        "gradient_quality": {
+          "NotRequested": 0,
+          "ToleranceMet": 176,
+          "FiniteUncertified": 269,
+          "Invalid": 105
+        }
+      },
+      {
+        "policy": "Strict",
+        "warm": true,
+        "rtol": 0.001,
+        "cases": 110,
+        "value_converged": 110,
+        "stops": {
+          "Converged": 9,
+          "TopologyUnresolved": 23,
+          "InnerAccuracyLimited": 4,
+          "EventLocationLimited": 67,
+          "BudgetExceeded": 7
+        },
+        "value_stops": {
+          "Converged": 110
+        },
+        "gradient_stops": {
+          "Converged": 14,
+          "TopologyUnresolved": 18,
+          "InnerAccuracyLimited": 4,
+          "EventLocationLimited": 67,
+          "BudgetExceeded": 7
+        },
+        "gradient_quality": {
+          "NotRequested": 0,
+          "ToleranceMet": 193,
+          "FiniteUncertified": 242,
+          "Invalid": 115
+        }
+      },
+      {
+        "policy": "Strict",
+        "warm": true,
+        "rtol": 0.0001,
+        "cases": 110,
+        "value_converged": 110,
+        "stops": {
+          "Converged": 9,
+          "TopologyUnresolved": 23,
+          "InnerAccuracyLimited": 4,
+          "EventLocationLimited": 67,
+          "BudgetExceeded": 7
+        },
+        "value_stops": {
+          "Converged": 110
+        },
+        "gradient_stops": {
+          "Converged": 14,
+          "TopologyUnresolved": 18,
+          "InnerAccuracyLimited": 4,
+          "EventLocationLimited": 67,
+          "BudgetExceeded": 7
+        },
+        "gradient_quality": {
+          "NotRequested": 0,
+          "ToleranceMet": 193,
+          "FiniteUncertified": 242,
+          "Invalid": 115
+        }
+      }
+    ],
+    "paired_selected_cache_on": [
+      {
+        "jac": false,
+        "warm": false,
+        "rtol": 0.001,
+        "cases": 110,
+        "whole_ms": {
+          "p50": 0.8275345000000001,
+          "p90": 1.1591589,
+          "p95": 1.3295373499999998,
+          "p99": 15.037397969999951,
+          "max": 16.657606
+        },
+        "stage_medians_ms": {
+          "topology_ms": 0.6915804999999999,
+          "setup_ms": 0.022233,
+          "physics_ms": 0.0892065,
+          "estimator_ms": 0.0048595,
+          "scheduler_ms": 0.001065
+        },
+        "setup_part_medians_ms": {
+          "setup_frame_ms": 1.9e-05,
+          "setup_cuts_ms": 0.002177,
+          "setup_event_ms": 0.015452500000000001,
+          "setup_panel_ms": 0.0025845
+        },
+        "event_medians": {
+          "event_double_checks": 6.0,
+          "event_dd_checks": 0.0,
+          "event_dd_accepts": 0.0,
+          "event_qf_refinements": 0.0,
+          "qf_family_constructions": 0.0,
+          "event_topology_reuses": 0.0,
+          "event_radius_reuses": 0.0,
+          "event_direct_qf_failures": 0.0
+        },
+        "nodes_median": 67.0,
+        "evaluations_median": 67.0,
+        "stop_distribution": {
+          "Converged": 110
+        }
+      },
+      {
+        "jac": false,
+        "warm": false,
+        "rtol": 0.0001,
+        "cases": 110,
+        "whole_ms": {
+          "p50": 0.827847,
+          "p90": 1.2513096000000001,
+          "p95": 1.34288455,
+          "p99": 14.96219946999995,
+          "max": 16.552196
+        },
+        "stage_medians_ms": {
+          "topology_ms": 0.6774560000000001,
+          "setup_ms": 0.01784,
+          "physics_ms": 0.102709,
+          "estimator_ms": 0.0035455,
+          "scheduler_ms": 0.0008435000000000001
+        },
+        "setup_part_medians_ms": {
+          "setup_frame_ms": 1.9e-05,
+          "setup_cuts_ms": 0.0010105000000000001,
+          "setup_event_ms": 0.015575499999999999,
+          "setup_panel_ms": 0.0007055
+        },
+        "event_medians": {
+          "event_double_checks": 6.0,
+          "event_dd_checks": 0.0,
+          "event_dd_accepts": 0.0,
+          "event_qf_refinements": 0.0,
+          "qf_family_constructions": 0.0,
+          "event_topology_reuses": 0.0,
+          "event_radius_reuses": 0.0,
+          "event_direct_qf_failures": 0.0
+        },
+        "nodes_median": 69.0,
+        "evaluations_median": 69.0,
+        "stop_distribution": {
+          "Converged": 110
+        }
+      },
+      {
+        "jac": false,
+        "warm": true,
+        "rtol": 0.001,
+        "cases": 110,
+        "whole_ms": {
+          "p50": 0.664716,
+          "p90": 0.9960046000000004,
+          "p95": 1.2689928499999998,
+          "p99": 10.497327069999967,
+          "max": 11.429844
+        },
+        "stage_medians_ms": {
+          "topology_ms": 0.5516515,
+          "setup_ms": 0.017779999999999997,
+          "physics_ms": 0.120118,
+          "estimator_ms": 0.0030889999999999997,
+          "scheduler_ms": 0.0007155
+        },
+        "setup_part_medians_ms": {
+          "setup_frame_ms": 1.9e-05,
+          "setup_cuts_ms": 0.000997,
+          "setup_event_ms": 0.0150425,
+          "setup_panel_ms": 0.0006815
+        },
+        "event_medians": {
+          "event_double_checks": 6.0,
+          "event_dd_checks": 0.0,
+          "event_dd_accepts": 0.0,
+          "event_qf_refinements": 0.0,
+          "qf_family_constructions": 0.0,
+          "event_topology_reuses": 0.0,
+          "event_radius_reuses": 0.0,
+          "event_direct_qf_failures": 0.0
+        },
+        "nodes_median": 67.0,
+        "evaluations_median": 67.0,
+        "stop_distribution": {
+          "Converged": 110
+        }
+      },
+      {
+        "jac": false,
+        "warm": true,
+        "rtol": 0.0001,
+        "cases": 110,
+        "whole_ms": {
+          "p50": 0.6946825000000001,
+          "p90": 1.1004208000000002,
+          "p95": 1.29966455,
+          "p99": 10.764631659999974,
+          "max": 11.738532
+        },
+        "stage_medians_ms": {
+          "topology_ms": 0.5432509999999999,
+          "setup_ms": 0.017807999999999997,
+          "physics_ms": 0.138917,
+          "estimator_ms": 0.0032185,
+          "scheduler_ms": 0.0007955
+        },
+        "setup_part_medians_ms": {
+          "setup_frame_ms": 1.9e-05,
+          "setup_cuts_ms": 0.0009815000000000002,
+          "setup_event_ms": 0.015033000000000001,
+          "setup_panel_ms": 0.0006360000000000001
+        },
+        "event_medians": {
+          "event_double_checks": 6.0,
+          "event_dd_checks": 0.0,
+          "event_dd_accepts": 0.0,
+          "event_qf_refinements": 0.0,
+          "qf_family_constructions": 0.0,
+          "event_topology_reuses": 0.0,
+          "event_radius_reuses": 0.0,
+          "event_direct_qf_failures": 0.0
+        },
+        "nodes_median": 69.0,
+        "evaluations_median": 69.0,
+        "stop_distribution": {
+          "Converged": 110
+        }
+      },
+      {
+        "jac": true,
+        "warm": false,
+        "rtol": 0.001,
+        "cases": 110,
+        "whole_ms": {
+          "p50": 8.6056665,
+          "p90": 19.579719200000007,
+          "p95": 44.22108084999998,
+          "p99": 64.73518883999999,
+          "max": 200.996889
+        },
+        "stage_medians_ms": {
+          "topology_ms": 0.6811510000000001,
+          "setup_ms": 0.019574,
+          "physics_ms": 2.8503594999999997,
+          "estimator_ms": 1.7175075,
+          "scheduler_ms": 0.025237
+        },
+        "setup_part_medians_ms": {
+          "setup_frame_ms": 1.9e-05,
+          "setup_cuts_ms": 0.0013679999999999999,
+          "setup_event_ms": 0.015286500000000001,
+          "setup_panel_ms": 0.0013485
+        },
+        "event_medians": {
+          "event_double_checks": 6.0,
+          "event_dd_checks": 0.0,
+          "event_dd_accepts": 0.0,
+          "event_qf_refinements": 0.0,
+          "qf_family_constructions": 0.0,
+          "event_topology_reuses": 0.0,
+          "event_radius_reuses": 0.0,
+          "event_direct_qf_failures": 0.0
+        },
+        "nodes_median": 1919.5,
+        "evaluations_median": 1919.5,
+        "stop_distribution": {
+          "EventLocationLimited": 61,
+          "TopologyUnresolved": 30,
+          "Converged": 9,
+          "InnerAccuracyLimited": 3,
+          "BudgetExceeded": 7
+        }
+      },
+      {
+        "jac": true,
+        "warm": false,
+        "rtol": 0.0001,
+        "cases": 110,
+        "whole_ms": {
+          "p50": 3.2260025,
+          "p90": 12.7568603,
+          "p95": 19.0633511,
+          "p99": 38.79463748999998,
+          "max": 42.933628
+        },
+        "stage_medians_ms": {
+          "topology_ms": 0.6920985,
+          "setup_ms": 0.0218775,
+          "physics_ms": 1.0457195000000001,
+          "estimator_ms": 0.512804,
+          "scheduler_ms": 0.011131499999999999
+        },
+        "setup_part_medians_ms": {
+          "setup_frame_ms": 4e-05,
+          "setup_cuts_ms": 0.002104,
+          "setup_event_ms": 0.016861,
+          "setup_panel_ms": 0.0019389999999999998
+        },
+        "event_medians": {
+          "event_double_checks": 6.0,
+          "event_dd_checks": 0.0,
+          "event_dd_accepts": 0.0,
+          "event_qf_refinements": 0.0,
+          "qf_family_constructions": 0.0,
+          "event_topology_reuses": 0.0,
+          "event_radius_reuses": 0.0,
+          "event_direct_qf_failures": 0.0
+        },
+        "nodes_median": 606.0,
+        "evaluations_median": 606.0,
+        "stop_distribution": {
+          "EventLocationLimited": 72,
+          "TopologyUnresolved": 21,
+          "InnerAccuracyLimited": 5,
+          "BudgetExceeded": 6,
+          "Converged": 6
+        }
+      },
+      {
+        "jac": true,
+        "warm": true,
+        "rtol": 0.001,
+        "cases": 110,
+        "whole_ms": {
+          "p50": 8.324645499999999,
+          "p90": 14.715703000000001,
+          "p95": 39.21872045,
+          "p99": 67.25266238999995,
+          "max": 1244.371033
+        },
+        "stage_medians_ms": {
+          "topology_ms": 0.55966,
+          "setup_ms": 0.021215499999999998,
+          "physics_ms": 4.251183,
+          "estimator_ms": 1.6891965,
+          "scheduler_ms": 0.022523
+        },
+        "setup_part_medians_ms": {
+          "setup_frame_ms": 2.5e-05,
+          "setup_cuts_ms": 0.001686,
+          "setup_event_ms": 0.0161405,
+          "setup_panel_ms": 0.0016075
+        },
+        "event_medians": {
+          "event_double_checks": 6.0,
+          "event_dd_checks": 0.0,
+          "event_dd_accepts": 0.0,
+          "event_qf_refinements": 0.0,
+          "qf_family_constructions": 0.0,
+          "event_topology_reuses": 0.0,
+          "event_radius_reuses": 0.0,
+          "event_direct_qf_failures": 0.0
+        },
+        "nodes_median": 1914.0,
+        "evaluations_median": 1914.0,
+        "stop_distribution": {
+          "Converged": 12,
+          "TopologyUnresolved": 32,
+          "EventLocationLimited": 56,
+          "InnerAccuracyLimited": 2,
+          "BudgetExceeded": 8
+        }
+      },
+      {
+        "jac": true,
+        "warm": true,
+        "rtol": 0.0001,
+        "cases": 110,
+        "whole_ms": {
+          "p50": 3.864701,
+          "p90": 14.2548412,
+          "p95": 29.076490699999972,
+          "p99": 41.99604043999999,
+          "max": 53.394711
+        },
+        "stage_medians_ms": {
+          "topology_ms": 0.5542845000000001,
+          "setup_ms": 0.019549499999999997,
+          "physics_ms": 2.1889865,
+          "estimator_ms": 0.5266569999999999,
+          "scheduler_ms": 0.011763
+        },
+        "setup_part_medians_ms": {
+          "setup_frame_ms": 2.1e-05,
+          "setup_cuts_ms": 0.0013135,
+          "setup_event_ms": 0.0156115,
+          "setup_panel_ms": 0.0010745
+        },
+        "event_medians": {
+          "event_double_checks": 6.0,
+          "event_dd_checks": 0.0,
+          "event_dd_accepts": 0.0,
+          "event_qf_refinements": 0.0,
+          "qf_family_constructions": 0.0,
+          "event_topology_reuses": 0.0,
+          "event_radius_reuses": 0.0,
+          "event_direct_qf_failures": 0.0
+        },
+        "nodes_median": 658.0,
+        "evaluations_median": 658.0,
+        "stop_distribution": {
+          "Converged": 9,
+          "TopologyUnresolved": 23,
+          "InnerAccuracyLimited": 4,
+          "EventLocationLimited": 67,
+          "BudgetExceeded": 7
+        }
+      }
+    ],
+    "diagnostics": {
+      "epochs": 16,
+      "events": 128,
+      "value_converged": 16,
+      "epoch_stops": {
+        "Converged": 16
+      },
+      "precision_tier": {
+        "0": 128
+      },
+      "double_reason": {
+        "DoubleBudgetAccepted": 128
+      },
+      "dd_reason": {
+        "NotAttempted": 128
+      },
+      "qf_reason": {
+        "NotAttempted": 128
+      },
+      "topology_reused": {
+        "0": 128
+      },
+      "d14_condition": {
+        "p50": 2.0355897071867418e-07,
+        "p90": 0.01934417850898679,
+        "p95": 0.019350205034067376,
+        "p99": 0.019350205034067376,
+        "max": 0.019350205034067376
+      },
+      "uncertainty": {
+        "p50": 1.6653345369377348e-16,
+        "p90": 2.220446049250313e-16,
+        "p95": 2.220446049250313e-16,
+        "p99": 2.220446049250313e-16,
+        "max": 2.220446049250313e-16
+      }
+    },
+    "timing_sanity": {
+      "file": "evidence/holonomic/adaptive_radial_phase92_20260911/reuse_off/paired.csv",
+      "rows": 4400,
+      "finite_rows": 4400,
+      "bad_rows": 0,
+      "passed": true,
+      "stages": [
+        "topology_ms",
+        "setup_ms",
+        "physics_ms",
+        "estimator_ms",
+        "scheduler_ms"
+      ],
+      "setup_parts": [
+        "setup_frame_ms",
+        "setup_cuts_ms",
+        "setup_event_ms",
+        "setup_panel_ms"
+      ],
+      "rule": "finite nonnegative stages; each <= 10*whole+0.1 ms; sum <= 2*whole+0.1 ms",
+      "bad": []
+    }
+  },
+  "regression_fixture": {
+    "reuse_on": {
+      "rows": 440,
+      "value_converged": 440,
+      "bad_value_rows": []
+    },
+    "reuse_off": {
+      "rows": 440,
+      "value_converged": 440,
+      "bad_value_rows": []
+    }
+  },
+  "tests": {
+    "unit": "1470 checks 0 failures",
+    "ctest_passed": true,
+    "ctest_tests": 15,
+    "reference_observed_violations": {
+      "reuse_on_cold": 0,
+      "reuse_on_warm": 0,
+      "reuse_off_cold": 0,
+      "reuse_off_warm": 0
+    }
+  },
+  "files": {
+    "paired": "reuse_{on,off}/paired.csv",
+    "contracts": "reuse_{on,off}/contracts.csv",
+    "diagnostics": "reuse_{on,off}/diagnostics/{epochs,events,refinements}.csv",
+    "timing": "reuse_{on,off}/timing_sanity.json"
+  },
+  "comparison": {
+    "reference_phase91": {
+      "whole_attempt_ms": {
+        "p50": 1.121343,
+        "p90": 1.4740706000000001,
+        "p95": 1.5496277,
+        "p99": 8.592770760000013,
+        "max": 16.817649
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.659923,
+        "setup_ms": 0.419471,
+        "setup_frame_ms": 2.1e-05,
+        "setup_cuts_ms": 0.002017,
+        "setup_event_ms": 0.307941,
+        "setup_panel_ms": 0.002768,
+        "physics_ms": 0.078725,
+        "estimator_ms": 0.004702,
+        "scheduler_ms": 0.000975
+      },
+      "event_medians": {
+        "event_double_checks": 6,
+        "event_dd_checks": 0,
+        "event_dd_accepts": 0,
+        "event_qf_refinements": 4,
+        "qf_family_constructions": 1
+      }
+    },
+    "phase92_reuse_on": {
+      "whole_attempt_ms": {
+        "p50": 0.809633,
+        "p90": 1.1035498000000001,
+        "p95": 1.2248424999999994,
+        "p99": 10.454454940000016,
+        "max": 21.093097
+      },
+      "stage_medians_ms": {
+        "topology_ms": 0.699513,
+        "setup_ms": 0.013656,
+        "setup_frame_ms": 1.9e-05,
+        "setup_cuts_ms": 0.002269,
+        "setup_event_ms": 0.007323,
+        "setup_panel_ms": 0.003031,
+        "physics_ms": 0.072977,
+        "estimator_ms": 0.004671,
+        "scheduler_ms": 0.000995
+      },
+      "event_medians": {
+        "event_double_checks": 0,
+        "event_dd_checks": 6,
+        "event_dd_accepts": 6,
+        "event_qf_refinements": 0,
+        "qf_family_constructions": 0,
+        "event_topology_reuses": 6,
+        "event_radius_reuses": 6,
+        "event_direct_qf_failures": 0
+      }
+    },
+    "event_reuse_effect": {
+      "cold_value_u0_rtol1e-3": {
+        "setup_event_ms_on": 0.0070935,
+        "setup_event_ms_off": 0.015452500000000001
+      }
+    }
+  }
+}

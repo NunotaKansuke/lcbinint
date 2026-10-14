@@ -1,0 +1,10 @@
+Internal ctest changing into directory: /rogue1_8/nunota/lcbinint/build-holonomic-m7
+Test project /rogue1_8/nunota/lcbinint/build-holonomic-m7
+    Start  3: holonomic_quartic_local_bracket
+1/2 Test  #3: holonomic_quartic_local_bracket ...   Passed    0.01 sec
+    Start 16: holonomic_adaptive_radial
+2/2 Test #16: holonomic_adaptive_radial .........   Passed    1.10 sec
+
+100% tests passed, 0 tests failed out of 2
+
+Total Test time (real) =   1.11 sec

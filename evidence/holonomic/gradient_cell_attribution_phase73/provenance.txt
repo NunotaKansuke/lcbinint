@@ -1,0 +1,69 @@
+Phase73 gradient cell attribution provenance
+Date: 2026-09-14 (Asia/Tokyo)
+Repository: /rogue1_8/nunota/lcbinint
+Branch: dev/holonomic
+Base HEAD: f928e3b42d25635195c7fba985cb72b811c383f3
+Scope: research diagnostics only; no production source or solver configuration changed.
+
+Environment
+  OS/kernel: Linux x86_64, 5.14.0-570.23.1.el9_6.x86_64
+  CPU: Intel Xeon Gold 6530, 64 logical CPUs, 2 sockets, 1 thread/core
+  Compiler: c++ (GCC) 11.5.0 20240719 (Red Hat 11.5.0-5)
+  Runtime affinity: taskset -c 0
+  Common compile flags:
+    -O3 -DNDEBUG -std=gnu++17 -fext-numeric-literals -I<repo>/src
+    -DHOLO_D14_NATIVE_RESIDUAL_SCREEN -DHOLO_D14_DIRECT_CONVOLUTION
+    -DHOLO_ADAPTIVE_STATIONARY_ENDPOINT -DHOLO_D14_WARM_NOISE_HANDOFF
+    -DHOLO_D14_SCALAR_CONSTANTS -DHOLO_ARC_COMPACT_STORAGE
+    -DHOLO_ADAPTIVE_SPARSE_ANCHOR -DHOLO_ADAPTIVE_SAMPLE_GROWTH
+    -DHOLO_MV_RATIONAL_MIDPOINT -DHOLO_QUARTIC_WARM_SOLVE_TOL=1e-11
+    -march=native -funroll-loops -ffp-contract=fast -fno-math-errno -lquadmath
+  direct_derivative, endpoint_audit, and same_node_audit additionally define
+  HOLO_ADAPTIVE_FOLD_QUARTIC_SEED; ld_decomposition does not.
+  No HOLO_* environment variables were set for the run.
+
+Inputs
+  Case data: evidence/holonomic/adaptive_radial_20260911/reference_cases.tsv
+  Case data SHA256: 5d625cbc9f4dc16de2a81754bbff131f1cb1ba9780fccdff4ddb210417347548
+  Phase72 production cells: evidence/holonomic/moving_map_gradient_phase72/cells.tsv
+    SHA256 6110d579fc364c07ca2d9593a582224f6cc2c6a0ab74a22c5a252e8e777e6c1f
+  Phase72 Q8 nodes: evidence/holonomic/moving_map_gradient_phase72/nodes.tsv
+    SHA256 5a6d1fc13b1e8111e4f620d93e20982f3d38aad27e62e2f76658cddda20b96a5
+  Phase72 topology events: evidence/holonomic/moving_map_gradient_phase72/all_events.tsv
+    SHA256 3512ecabea8ba03223f7153efb781032ff10c325517a0d77fdbea824a32bdc4c
+  Phase72 summary/independent FD: evidence/holonomic/moving_map_gradient_phase72/summary.json
+    SHA256 8fecbd7ab60156e7b2960b883fb1c5a9d75a23da13b82c18b81689bea7348fca
+
+Reproduction
+  bash evidence/holonomic/gradient_cell_attribution_phase73/run_phase73.sh
+
+The script compiles independent direct fixed-R derivative/reference helpers,
+regenerates caustic and rand035 per-cell radial reference series, performs the
+same-node and LD term decomposition audits, writes summary.json and
+cell_ranking.tsv, then updates SHA256SUMS. Its angular direct-QF integration
+uses qf Sturm-isolated arcs; same-node angular audit uses 128 and 256 nodes.
+Caustic radial GL uses 128/256/512/1024 nodes, angular 128, with an unregularized
+run and a diagnostic-only forced theta=pi endpoint map. Rand035 base radial
+series uses 48x1/128, 80x4/256, 112x8/512, 112x8/1024; extended cells 2/3/8
+also use 112x8/1024, 128x16/1024, 160x32/1024. `ld_decomposition.cpp`
+reuses the production Q8 sample/root-pair state only to split dvK and v*dK;
+it is not the independent reference.
+
+The included Phase72 reference translation unit emits GCC's
+"control reaches end of non-void function" warning after its main is renamed
+for inclusion. This warning is inherited from the research reference source;
+the Phase73 diagnostic executables return success and produce the listed raw.
+
+Reference limits
+  Gauss-Legendre order sequences and finite-difference spreads are observed
+  convergence checks, not formal error bounds. Near fold endpoints, distinct
+  radial nodes are ultimately limited by binary64 R representation, so the
+  highest radial order can be worse. The nonmonotone rand035 cell-2 160x32
+  result and caustic 512/1024 drift are retained and explicitly not selected
+  as reference truth. rand035 cell 11 has 48 source-invalid nodes and 207
+  K-rule rejects in the Phase72 Q8 audit; its production whole sum is
+  valid-only/incomplete.
+
+Git worktree had unrelated pre-existing dirty/untracked VBM benchmark and
+.claude artifacts during the run. They were not read for this diagnostic,
+modified, staged, committed, or removed.

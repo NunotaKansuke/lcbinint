@@ -1,0 +1,17 @@
+{
+  "reference_rows": 550,
+  "reference_usable": 466,
+  "reference_violations": 0,
+  "gradient_rows": 220,
+  "gradient_nonfinite": 0,
+  "gradient_quality_changes": 28,
+  "gradient_invalid_before": 100,
+  "gradient_invalid_after": 100,
+  "gradient_max_scaled_delta": 0.9834573717365912,
+  "gradient_value_nonconverged": 20,
+  "gradient_baseline_value_nonconverged": 20,
+  "gradient_new_value_nonconverged": 0,
+  "gradient_quality_downgrades": 28,
+  "gradient_quality_upgrades": 0,
+  "rounded_input_v2_max_relative_delta": 5.045963646921336e-13
+}

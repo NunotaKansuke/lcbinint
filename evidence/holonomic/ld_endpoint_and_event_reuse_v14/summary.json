@@ -1,0 +1,85 @@
+{
+  "before.tsv": {
+    "all": {
+      "candidate_integration_ms": 0.3466443448275862,
+      "candidate_no_caustic_ms": 0.5784573103448276,
+      "nodes": 141.4712643678161
+    },
+    "0": {
+      "candidate_integration_ms": 0.3074415744680851,
+      "candidate_no_caustic_ms": 0.5466698085106383,
+      "nodes": 140.29787234042553
+    },
+    "0.5": {
+      "candidate_integration_ms": 0.3927076,
+      "candidate_no_caustic_ms": 0.615807625,
+      "nodes": 142.85
+    }
+  },
+  "after.tsv": {
+    "all": {
+      "candidate_integration_ms": 0.3262342873563218,
+      "candidate_no_caustic_ms": 0.5544966666666666,
+      "nodes": 141.4712643678161
+    },
+    "0": {
+      "candidate_integration_ms": 0.30137087234042553,
+      "candidate_no_caustic_ms": 0.5365818510638298,
+      "nodes": 140.29787234042553
+    },
+    "0.5": {
+      "candidate_integration_ms": 0.3554488,
+      "candidate_no_caustic_ms": 0.575546575,
+      "nodes": 142.85
+    }
+  },
+  "before_repeat.tsv": {
+    "all": {
+      "candidate_integration_ms": 0.347366816091954,
+      "candidate_no_caustic_ms": 0.577138908045977,
+      "nodes": 141.4712643678161
+    },
+    "0": {
+      "candidate_integration_ms": 0.3075454042553192,
+      "candidate_no_caustic_ms": 0.5448102127659574,
+      "nodes": 140.29787234042553
+    },
+    "0.5": {
+      "candidate_integration_ms": 0.394156975,
+      "candidate_no_caustic_ms": 0.615125125,
+      "nodes": 142.85
+    }
+  },
+  "after_repeat.tsv": {
+    "all": {
+      "candidate_integration_ms": 0.3271510574712644,
+      "candidate_no_caustic_ms": 0.5563908735632184,
+      "nodes": 141.4712643678161
+    },
+    "0": {
+      "candidate_integration_ms": 0.30179155319148937,
+      "candidate_no_caustic_ms": 0.5385110212765957,
+      "nodes": 140.29787234042553
+    },
+    "0.5": {
+      "candidate_integration_ms": 0.356948475,
+      "candidate_no_caustic_ms": 0.5773997,
+      "nodes": 142.85
+    }
+  },
+  "initial": {
+    "rows": 192,
+    "resolved": 178,
+    "failures": 0
+  },
+  "fold": {
+    "rows": 352,
+    "resolved": 288,
+    "failures": 0
+  },
+  "deeper": {
+    "rows": 352,
+    "resolved": 288,
+    "failures": 0
+  }
+}

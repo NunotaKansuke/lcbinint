@@ -1,0 +1,34 @@
+{
+  "rows": 7216,
+  "changed": {
+    "mu": 0,
+    "ok": 0,
+    "nodes": 0
+  },
+  "groups": {
+    "linear": {
+      "quartic_cold": 15037,
+      "quartic_warm": 49307,
+      "quartic_unseeded": 15037,
+      "quartic_disabled": 0,
+      "quartic_after_warm": 0,
+      "quartic_degree_change": 0,
+      "quartic_cold_sweeps": 353459,
+      "quartic_warm_sweeps": 261046,
+      "cold_sweeps_per_call": 23.50595198510341,
+      "warm_sweeps_per_call": 5.294298983917091
+    },
+    "uniform": {
+      "quartic_cold": 15037,
+      "quartic_warm": 45555,
+      "quartic_unseeded": 15037,
+      "quartic_disabled": 0,
+      "quartic_after_warm": 0,
+      "quartic_degree_change": 0,
+      "quartic_cold_sweeps": 353459,
+      "quartic_warm_sweeps": 236736,
+      "cold_sweeps_per_call": 23.50595198510341,
+      "warm_sweeps_per_call": 5.196707276918011
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "base_commit": "e4b6d314af330050bc5a94670c2c8ddf5e5d0def",
+  "compiler": "c++ (GCC) 11.5.0 20240719 (Red Hat 11.5.0-5)",
+  "platform": "Linux-5.14.0-570.23.1.el9_6.x86_64-x86_64-with-glibc2.34",
+  "cpu": 0,
+  "repeat": 3,
+  "whole_run_order": [
+    "candidate",
+    "baseline"
+  ],
+  "baseline_binary": "/tmp/p42_whole (Phase42 compact-storage baseline, no sparse anchor)",
+  "notes": "Candidate timed without anchor audit; correctness on CPU1 and compilations overlapped part of candidate timing. Baseline ran later. No randomized interleaving; small differences need caution."
+}

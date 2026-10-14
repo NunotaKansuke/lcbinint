@@ -1,0 +1,87 @@
+Phase B step 3 -- on-axis D14 factorization feasibility  (2026-09-08)
+====================================================================
+
+Approach #3 (user rank #3, "narrow but mathematically clean"): for
+ys = 0 EXACTLY, the sympy proof (87521a12-d14_axis_factor_check.py) gives
+
+    Disc_t(P) / R^4  =  16 * F6(v) * G4(v)^2 ,   v = R^2
+        F6(v) = even-part_R( p4(R) * p0(R) )        deg_v 6
+        G4(v) = ( p2(R)^2 - 4 p4(R) p0(R) ) / R^2   deg_v 4
+
+with G4 doubled -> the degree-14 D14 = 6 + 2*4.
+
+--------------------------------------------------------------------
+STEP 1 -- does the identity hold in the C++ p_coeffs_in_R basis?
+--------------------------------------------------------------------
+The C++ `re_detail::p_coeffs_in_R` construction (cT0/cT1/cT2 from
+n0/n1/n2, a_i = |cTi|^2 / Re-cross, p_i = rho^2 R^2 b_i - a_i) was
+matched TERM BY TERM against the sympy script's tr/ti/p[] on-axis
+(Y=0, zeta real): cT0 == tr[0], cT2 == tr[2], cT1 (pure imag) == i*ti[1],
+LD terms identical.  Confirmed numerically at mpmath 70-digit for both
+exact-ys=0 bench configs (on-axis-off xs=0.5 a=1.1 q=0.4 rho=0.05 ;
+caustic-cross xs=0.12 a=1.0 q=0.5 rho=0.02):
+
+  identity  16 F H^2 == Disc_t(P)   : max rel  2.4e-71   (round-off)
+  F = p4*p0  even in R              : max rel  0.0  (exact -- odd cross terms cancel)
+  H = p2^2 - 4F  even in R          : max rel  0.0  (exact)
+  p2(R) is purely EVEN in R ; p0(R), p4(R) are NOT (odd R^1,R^3,R^5 terms).
+
+So the factorization is real and exact in the production basis.
+
+--------------------------------------------------------------------
+STEP 2 -- is it a CLOSED FORM?  (checkpoint §18.3 assumed "Ferrari sextic + quartic")
+--------------------------------------------------------------------
+NO, not fully.
+
+* G4(v) is degree 4  ->  Ferrari closed form, 4 roots, clean.  Each is a
+  multiplicity-2 root of D14 (a-priori double: the current Aberth spends
+  iterations resolving this artificial cluster; Ferrari removes it).
+
+* F6(v) is degree 6 and has NO product factorization.  Splitting
+  p0 = pe0(v) + R*po0(v), p4 = pe4(v) + R*po4(v):
+      F6(v) = pe4(v)*pe0(v)  +  v * po4(v)*po0(v)
+  -- a SUM, not a product of two cubics.  A general sextic has no
+  radical solution.  "Ferrari closed-form sextic" (checkpoint §18.3)
+  does not exist.
+
+* Worse, F6's own roots are REAL and CLUSTERED for the on-axis cases:
+  on-axis-off F6 roots in v = {0.453, 0.506, 0.509, 0.542, 2.398, 2.518}
+  -> in R {0.673, 0.712, 0.713, 0.736, 1.548, 1.587}: two tight
+  triple/near-triple clusters.  This IS why on-axis D14 Aberth is slow
+  (B0 top-12: on-axis-off #3/#4, caustic-cross #7/#8) -- and F6 keeps
+  that clustering.
+
+--------------------------------------------------------------------
+STEP 3 -- revised payoff
+--------------------------------------------------------------------
+B3 would replace a degree-14 clustered Aberth with:
+  - degree-4 Ferrari (G4, closed form, removes the artificial double)
+  - degree-6 clustered numerical solve (F6, still Aberth/compensated)
+Estimated ~1.5-2x on the on-axis solve (roughly half the degree; F6
+still clustered), plus it removes the G4^2 multiplicity-2 pathology.
+
+Scope: exact ys = 0 only -- 2 of 108 bench configs (4 rows).  In a real
+light curve, exact on-axis occurs only for an impact parameter u0 = 0
+trajectory (the highest-magnification events).  Near-axis (small |ys|)
+does NOT get the factorization and still needs the full solve or a
+perturbative seed (checkpoint §18.3 "near-axis perturbative hard-root
+seeding" -- unbuilt, research-grade).
+
+--------------------------------------------------------------------
+VERDICT
+--------------------------------------------------------------------
+The identity is confirmed exact in the production basis and B3 is
+IMPLEMENTABLE, but its value is much smaller than checkpoint §18.3
+assumed: no closed form (F6 is an irreducible clustered sextic), narrow
+scope (exact ys=0), ~1.5-2x on ~2% of cases.  B1 (compensated, DONE,
+1.71x epoch median, all 108) already dominates it.
+
+RECOMMENDATION: defer B3.  If pursued, the worthwhile piece is the
+Ferrari G4 sub-solve (removes the a-priori double root that slows the
+on-axis Aberth) folded into `solve_d14` behind a `|Y| < 1e-14` guard --
+NOT a separate closed-form engine.  Priority order stands: B2 (all-root
+cross-epoch warm-start) is the larger lever for the series/light-curve
+workload, pending the workspace-threading decision (see §20).
+
+Files: evidence/holonomic/d14_onaxis_factorization.txt ;
+       scratch scripts in the session scratchpad (b3_identity_check.py).

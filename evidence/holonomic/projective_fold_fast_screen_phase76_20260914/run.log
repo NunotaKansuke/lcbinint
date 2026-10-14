@@ -1,0 +1,324 @@
+
+run_start=2026-09-14T04:17:32Z arm=baseline policy=value rep=0
+progress trajectories 128/1804 rows=1024
+progress trajectories 256/1804 rows=2048
+progress trajectories 384/1804 rows=3072
+progress trajectories 512/1804 rows=4096
+progress trajectories 640/1804 rows=5120
+progress trajectories 768/1804 rows=6144
+progress trajectories 896/1804 rows=7168
+progress trajectories 1024/1804 rows=8192
+progress trajectories 1152/1804 rows=9216
+progress trajectories 1280/1804 rows=10240
+progress trajectories 1408/1804 rows=11264
+progress trajectories 1536/1804 rows=12288
+progress trajectories 1664/1804 rows=13312
+progress trajectories 1792/1804 rows=14336
+variant=baseline policy=None rep=0 wrote=14432 trajectories=1804 sink=1.46959e+07
+run_end=2026-09-14T04:18:21Z arm=baseline policy=value rep=0 rows=14434
+
+run_start=2026-09-14T04:18:21Z arm=qf policy=value rep=0
+progress trajectories 128/1804 rows=1024
+progress trajectories 256/1804 rows=2048
+progress trajectories 384/1804 rows=3072
+progress trajectories 512/1804 rows=4096
+progress trajectories 640/1804 rows=5120
+progress trajectories 768/1804 rows=6144
+progress trajectories 896/1804 rows=7168
+progress trajectories 1024/1804 rows=8192
+progress trajectories 1152/1804 rows=9216
+progress trajectories 1280/1804 rows=10240
+progress trajectories 1408/1804 rows=11264
+progress trajectories 1536/1804 rows=12288
+progress trajectories 1664/1804 rows=13312
+progress trajectories 1792/1804 rows=14336
+variant=projective policy=None rep=0 wrote=14432 trajectories=1804 sink=1.46959e+07
+run_end=2026-09-14T04:19:11Z arm=qf policy=value rep=0 rows=14434
+
+run_start=2026-09-14T04:19:11Z arm=screen policy=value rep=0
+progress trajectories 128/1804 rows=1024
+progress trajectories 256/1804 rows=2048
+progress trajectories 384/1804 rows=3072
+progress trajectories 512/1804 rows=4096
+progress trajectories 640/1804 rows=5120
+progress trajectories 768/1804 rows=6144
+progress trajectories 896/1804 rows=7168
+progress trajectories 1024/1804 rows=8192
+progress trajectories 1152/1804 rows=9216
+progress trajectories 1280/1804 rows=10240
+progress trajectories 1408/1804 rows=11264
+progress trajectories 1536/1804 rows=12288
+progress trajectories 1664/1804 rows=13312
+progress trajectories 1792/1804 rows=14336
+variant=projective policy=None rep=0 wrote=14432 trajectories=1804 sink=1.46959e+07
+run_end=2026-09-14T04:20:00Z arm=screen policy=value rep=0 rows=14434
+
+run_start=2026-09-14T04:20:00Z arm=qf policy=value rep=1
+progress trajectories 128/1804 rows=1024
+progress trajectories 256/1804 rows=2048
+progress trajectories 384/1804 rows=3072
+progress trajectories 512/1804 rows=4096
+progress trajectories 640/1804 rows=5120
+progress trajectories 768/1804 rows=6144
+progress trajectories 896/1804 rows=7168
+progress trajectories 1024/1804 rows=8192
+progress trajectories 1152/1804 rows=9216
+progress trajectories 1280/1804 rows=10240
+progress trajectories 1408/1804 rows=11264
+progress trajectories 1536/1804 rows=12288
+progress trajectories 1664/1804 rows=13312
+progress trajectories 1792/1804 rows=14336
+variant=projective policy=None rep=1 wrote=14432 trajectories=1804 sink=1.46959e+07
+run_end=2026-09-14T04:20:50Z arm=qf policy=value rep=1 rows=14434
+
+run_start=2026-09-14T04:20:50Z arm=screen policy=value rep=1
+progress trajectories 128/1804 rows=1024
+progress trajectories 256/1804 rows=2048
+progress trajectories 384/1804 rows=3072
+progress trajectories 512/1804 rows=4096
+progress trajectories 640/1804 rows=5120
+progress trajectories 768/1804 rows=6144
+progress trajectories 896/1804 rows=7168
+progress trajectories 1024/1804 rows=8192
+progress trajectories 1152/1804 rows=9216
+progress trajectories 1280/1804 rows=10240
+progress trajectories 1408/1804 rows=11264
+progress trajectories 1536/1804 rows=12288
+progress trajectories 1664/1804 rows=13312
+progress trajectories 1792/1804 rows=14336
+variant=projective policy=None rep=1 wrote=14432 trajectories=1804 sink=1.46959e+07
+run_end=2026-09-14T04:21:40Z arm=screen policy=value rep=1 rows=14434
+
+run_start=2026-09-14T04:21:40Z arm=baseline policy=value rep=1
+progress trajectories 128/1804 rows=1024
+progress trajectories 256/1804 rows=2048
+progress trajectories 384/1804 rows=3072
+progress trajectories 512/1804 rows=4096
+progress trajectories 640/1804 rows=5120
+progress trajectories 768/1804 rows=6144
+progress trajectories 896/1804 rows=7168
+progress trajectories 1024/1804 rows=8192
+progress trajectories 1152/1804 rows=9216
+progress trajectories 1280/1804 rows=10240
+progress trajectories 1408/1804 rows=11264
+progress trajectories 1536/1804 rows=12288
+progress trajectories 1664/1804 rows=13312
+progress trajectories 1792/1804 rows=14336
+variant=baseline policy=None rep=1 wrote=14432 trajectories=1804 sink=1.46959e+07
+run_end=2026-09-14T04:22:29Z arm=baseline policy=value rep=1 rows=14434
+
+run_start=2026-09-14T04:22:29Z arm=screen policy=value rep=2
+progress trajectories 128/1804 rows=1024
+progress trajectories 256/1804 rows=2048
+progress trajectories 384/1804 rows=3072
+progress trajectories 512/1804 rows=4096
+progress trajectories 640/1804 rows=5120
+progress trajectories 768/1804 rows=6144
+progress trajectories 896/1804 rows=7168
+progress trajectories 1024/1804 rows=8192
+progress trajectories 1152/1804 rows=9216
+progress trajectories 1280/1804 rows=10240
+progress trajectories 1408/1804 rows=11264
+progress trajectories 1536/1804 rows=12288
+progress trajectories 1664/1804 rows=13312
+progress trajectories 1792/1804 rows=14336
+variant=projective policy=None rep=2 wrote=14432 trajectories=1804 sink=1.46959e+07
+run_end=2026-09-14T04:23:18Z arm=screen policy=value rep=2 rows=14434
+
+run_start=2026-09-14T04:23:18Z arm=baseline policy=value rep=2
+progress trajectories 128/1804 rows=1024
+progress trajectories 256/1804 rows=2048
+progress trajectories 384/1804 rows=3072
+progress trajectories 512/1804 rows=4096
+progress trajectories 640/1804 rows=5120
+progress trajectories 768/1804 rows=6144
+progress trajectories 896/1804 rows=7168
+progress trajectories 1024/1804 rows=8192
+progress trajectories 1152/1804 rows=9216
+progress trajectories 1280/1804 rows=10240
+progress trajectories 1408/1804 rows=11264
+progress trajectories 1536/1804 rows=12288
+progress trajectories 1664/1804 rows=13312
+progress trajectories 1792/1804 rows=14336
+variant=baseline policy=None rep=2 wrote=14432 trajectories=1804 sink=1.46959e+07
+run_end=2026-09-14T04:24:07Z arm=baseline policy=value rep=2 rows=14434
+
+run_start=2026-09-14T04:24:08Z arm=qf policy=value rep=2
+progress trajectories 128/1804 rows=1024
+progress trajectories 256/1804 rows=2048
+progress trajectories 384/1804 rows=3072
+progress trajectories 512/1804 rows=4096
+progress trajectories 640/1804 rows=5120
+progress trajectories 768/1804 rows=6144
+progress trajectories 896/1804 rows=7168
+progress trajectories 1024/1804 rows=8192
+progress trajectories 1152/1804 rows=9216
+progress trajectories 1280/1804 rows=10240
+progress trajectories 1408/1804 rows=11264
+progress trajectories 1536/1804 rows=12288
+progress trajectories 1664/1804 rows=13312
+progress trajectories 1792/1804 rows=14336
+variant=projective policy=None rep=2 wrote=14432 trajectories=1804 sink=1.46959e+07
+run_end=2026-09-14T04:24:57Z arm=qf policy=value rep=2 rows=14434
+
+run_start=2026-09-14T04:24:58Z arm=qf policy=jac rep=0
+progress trajectories 128/1804 rows=1024
+progress trajectories 256/1804 rows=2048
+progress trajectories 384/1804 rows=3072
+progress trajectories 512/1804 rows=4096
+progress trajectories 640/1804 rows=5120
+progress trajectories 768/1804 rows=6144
+progress trajectories 896/1804 rows=7168
+progress trajectories 1024/1804 rows=8192
+progress trajectories 1152/1804 rows=9216
+progress trajectories 1280/1804 rows=10240
+progress trajectories 1408/1804 rows=11264
+progress trajectories 1536/1804 rows=12288
+progress trajectories 1664/1804 rows=13312
+progress trajectories 1792/1804 rows=14336
+variant=projective policy=ValueFirst rep=0 wrote=14432 trajectories=1804 sink=1.46959e+07
+run_end=2026-09-14T04:26:06Z arm=qf policy=jac rep=0 rows=14434
+
+run_start=2026-09-14T04:26:06Z arm=screen policy=jac rep=0
+progress trajectories 128/1804 rows=1024
+progress trajectories 256/1804 rows=2048
+progress trajectories 384/1804 rows=3072
+progress trajectories 512/1804 rows=4096
+progress trajectories 640/1804 rows=5120
+progress trajectories 768/1804 rows=6144
+progress trajectories 896/1804 rows=7168
+progress trajectories 1024/1804 rows=8192
+progress trajectories 1152/1804 rows=9216
+progress trajectories 1280/1804 rows=10240
+progress trajectories 1408/1804 rows=11264
+progress trajectories 1536/1804 rows=12288
+progress trajectories 1664/1804 rows=13312
+progress trajectories 1792/1804 rows=14336
+variant=projective policy=ValueFirst rep=0 wrote=14432 trajectories=1804 sink=1.46959e+07
+run_end=2026-09-14T04:27:15Z arm=screen policy=jac rep=0 rows=14434
+
+run_start=2026-09-14T04:27:15Z arm=baseline policy=jac rep=0
+progress trajectories 128/1804 rows=1024
+progress trajectories 256/1804 rows=2048
+progress trajectories 384/1804 rows=3072
+progress trajectories 512/1804 rows=4096
+progress trajectories 640/1804 rows=5120
+progress trajectories 768/1804 rows=6144
+progress trajectories 896/1804 rows=7168
+progress trajectories 1024/1804 rows=8192
+progress trajectories 1152/1804 rows=9216
+progress trajectories 1280/1804 rows=10240
+progress trajectories 1408/1804 rows=11264
+progress trajectories 1536/1804 rows=12288
+progress trajectories 1664/1804 rows=13312
+progress trajectories 1792/1804 rows=14336
+variant=baseline policy=ValueFirst rep=0 wrote=14432 trajectories=1804 sink=1.46959e+07
+run_end=2026-09-14T04:28:22Z arm=baseline policy=jac rep=0 rows=14434
+
+run_start=2026-09-14T04:28:23Z arm=screen policy=jac rep=1
+progress trajectories 128/1804 rows=1024
+progress trajectories 256/1804 rows=2048
+progress trajectories 384/1804 rows=3072
+progress trajectories 512/1804 rows=4096
+progress trajectories 640/1804 rows=5120
+progress trajectories 768/1804 rows=6144
+progress trajectories 896/1804 rows=7168
+progress trajectories 1024/1804 rows=8192
+progress trajectories 1152/1804 rows=9216
+progress trajectories 1280/1804 rows=10240
+progress trajectories 1408/1804 rows=11264
+progress trajectories 1536/1804 rows=12288
+progress trajectories 1664/1804 rows=13312
+progress trajectories 1792/1804 rows=14336
+variant=projective policy=ValueFirst rep=1 wrote=14432 trajectories=1804 sink=1.46959e+07
+run_end=2026-09-14T04:29:31Z arm=screen policy=jac rep=1 rows=14434
+
+run_start=2026-09-14T04:29:31Z arm=baseline policy=jac rep=1
+progress trajectories 128/1804 rows=1024
+progress trajectories 256/1804 rows=2048
+progress trajectories 384/1804 rows=3072
+progress trajectories 512/1804 rows=4096
+progress trajectories 640/1804 rows=5120
+progress trajectories 768/1804 rows=6144
+progress trajectories 896/1804 rows=7168
+progress trajectories 1024/1804 rows=8192
+progress trajectories 1152/1804 rows=9216
+progress trajectories 1280/1804 rows=10240
+progress trajectories 1408/1804 rows=11264
+progress trajectories 1536/1804 rows=12288
+progress trajectories 1664/1804 rows=13312
+progress trajectories 1792/1804 rows=14336
+variant=baseline policy=ValueFirst rep=1 wrote=14432 trajectories=1804 sink=1.46959e+07
+run_end=2026-09-14T04:30:38Z arm=baseline policy=jac rep=1 rows=14434
+
+run_start=2026-09-14T04:30:39Z arm=qf policy=jac rep=1
+progress trajectories 128/1804 rows=1024
+progress trajectories 256/1804 rows=2048
+progress trajectories 384/1804 rows=3072
+progress trajectories 512/1804 rows=4096
+progress trajectories 640/1804 rows=5120
+progress trajectories 768/1804 rows=6144
+progress trajectories 896/1804 rows=7168
+progress trajectories 1024/1804 rows=8192
+progress trajectories 1152/1804 rows=9216
+progress trajectories 1280/1804 rows=10240
+progress trajectories 1408/1804 rows=11264
+progress trajectories 1536/1804 rows=12288
+progress trajectories 1664/1804 rows=13312
+progress trajectories 1792/1804 rows=14336
+variant=projective policy=ValueFirst rep=1 wrote=14432 trajectories=1804 sink=1.46959e+07
+run_end=2026-09-14T04:31:47Z arm=qf policy=jac rep=1 rows=14434
+
+run_start=2026-09-14T04:31:47Z arm=baseline policy=jac rep=2
+progress trajectories 128/1804 rows=1024
+progress trajectories 256/1804 rows=2048
+progress trajectories 384/1804 rows=3072
+progress trajectories 512/1804 rows=4096
+progress trajectories 640/1804 rows=5120
+progress trajectories 768/1804 rows=6144
+progress trajectories 896/1804 rows=7168
+progress trajectories 1024/1804 rows=8192
+progress trajectories 1152/1804 rows=9216
+progress trajectories 1280/1804 rows=10240
+progress trajectories 1408/1804 rows=11264
+progress trajectories 1536/1804 rows=12288
+progress trajectories 1664/1804 rows=13312
+progress trajectories 1792/1804 rows=14336
+variant=baseline policy=ValueFirst rep=2 wrote=14432 trajectories=1804 sink=1.46959e+07
+run_end=2026-09-14T04:32:55Z arm=baseline policy=jac rep=2 rows=14434
+
+run_start=2026-09-14T04:32:55Z arm=qf policy=jac rep=2
+progress trajectories 128/1804 rows=1024
+progress trajectories 256/1804 rows=2048
+progress trajectories 384/1804 rows=3072
+progress trajectories 512/1804 rows=4096
+progress trajectories 640/1804 rows=5120
+progress trajectories 768/1804 rows=6144
+progress trajectories 896/1804 rows=7168
+progress trajectories 1024/1804 rows=8192
+progress trajectories 1152/1804 rows=9216
+progress trajectories 1280/1804 rows=10240
+progress trajectories 1408/1804 rows=11264
+progress trajectories 1536/1804 rows=12288
+progress trajectories 1664/1804 rows=13312
+progress trajectories 1792/1804 rows=14336
+variant=projective policy=ValueFirst rep=2 wrote=14432 trajectories=1804 sink=1.46959e+07
+run_end=2026-09-14T04:34:04Z arm=qf policy=jac rep=2 rows=14434
+
+run_start=2026-09-14T04:34:05Z arm=screen policy=jac rep=2
+progress trajectories 128/1804 rows=1024
+progress trajectories 256/1804 rows=2048
+progress trajectories 384/1804 rows=3072
+progress trajectories 512/1804 rows=4096
+progress trajectories 640/1804 rows=5120
+progress trajectories 768/1804 rows=6144
+progress trajectories 896/1804 rows=7168
+progress trajectories 1024/1804 rows=8192
+progress trajectories 1152/1804 rows=9216
+progress trajectories 1280/1804 rows=10240
+progress trajectories 1408/1804 rows=11264
+progress trajectories 1536/1804 rows=12288
+progress trajectories 1664/1804 rows=13312
+progress trajectories 1792/1804 rows=14336
+variant=projective policy=ValueFirst rep=2 wrote=14432 trajectories=1804 sink=1.46959e+07
+run_end=2026-09-14T04:35:14Z arm=screen policy=jac rep=2 rows=14434

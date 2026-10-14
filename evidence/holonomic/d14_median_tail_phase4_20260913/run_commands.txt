@@ -1,0 +1,6 @@
+g++ -O3 -DNDEBUG -std=gnu++17 -DHOLO_D14_EVENT_CONTRACT_RESEARCH=1 -Isrc -march=native -funroll-loops -ffp-contract=fast -fno-math-errno evidence/holonomic/d14_overflow_whole_epoch_tail_20260912/whole_epoch_runner.cpp -o /tmp/d14_ordered_whole -lquadmath
+taskset -c 0 env HOLO_D14_LOCAL_PAIRS=1 HOLO_D14_ACTIVE_PRESEARCH=1 HOLO_D14_ACTIVE_TOL=1e-12 HOLO_D14_ACTIVE_PATIENCE=2 /tmp/d14_ordered_whole evidence/holonomic/d14_overflow_whole_epoch_tail_20260912/input_snapshot.tsv whole_baseline.tsv 3
+taskset -c 0 env HOLO_D14_LOCAL_PAIRS=1 HOLO_D14_ACTIVE_PRESEARCH=1 HOLO_D14_ACTIVE_TOL=1e-11 HOLO_D14_ACTIVE_PATIENCE=1 /tmp/d14_ordered_whole evidence/holonomic/d14_overflow_whole_epoch_tail_20260912/input_snapshot.tsv whole_active.tsv 3
+taskset -c 0 env HOLO_D14_LOCAL_PAIRS=1 HOLO_D14_ACTIVE_PRESEARCH=1 HOLO_D14_ACTIVE_TOL=1e-11 HOLO_D14_ACTIVE_PATIENCE=1 HOLO_D14_EVENT_CONTRACT_ACCEPT=1 /tmp/d14_ordered_whole evidence/holonomic/d14_overflow_whole_epoch_tail_20260912/input_snapshot.tsv whole_combined.tsv 3
+python3 evidence/holonomic/d14_median_tail_phase4_20260913/summarize.py
+ctest --test-dir build-holonomic-m7 --output-on-failure

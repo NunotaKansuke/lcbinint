@@ -1,0 +1,11 @@
+{
+  "client_date": "2026-10-13",
+  "host": "rogue1",
+  "branch": "experiment/seeded-boundary-events",
+  "head": "f3547723b79828d9c501182746028e99f7bad116",
+  "compiler": "g++ (GCC) 11.5.0 20240719 (Red Hat 11.5.0-5)",
+  "baseline": "accepted dirty v34 and saved binaries",
+  "timing": "fresh seed included; caustic excluded; one thread; 5 reps; forward/reverse; profile binaries measured separately",
+  "scope": "research checkout only; tolerance unchanged; no master/default promotion",
+  "status": "all14432 numerical outputs identical; tests2269 passed; unresolved old3 violations/6 failures and coverage_certified=false retained; no commit/push"
+}

@@ -1,0 +1,54 @@
+{
+  "before_final.tsv": {
+    "all": {
+      "candidate_integration_ms": 0.3897302528735632,
+      "candidate_no_caustic_ms": 0.6184397586206897,
+      "nodes": 141.4712643678161
+    },
+    "0": {
+      "candidate_integration_ms": 0.36304097872340424,
+      "candidate_no_caustic_ms": 0.5987663617021277,
+      "nodes": 140.29787234042553
+    },
+    "0.5": {
+      "candidate_integration_ms": 0.42109015,
+      "candidate_no_caustic_ms": 0.641556,
+      "nodes": 142.85
+    }
+  },
+  "initial_final.tsv": {
+    "all": {
+      "candidate_integration_ms": 0.3721229885057471,
+      "candidate_no_caustic_ms": 0.6021464597701149,
+      "nodes": 141.4712643678161
+    },
+    "0": {
+      "candidate_integration_ms": 0.3301976170212766,
+      "candidate_no_caustic_ms": 0.5680528085106383,
+      "nodes": 140.29787234042553
+    },
+    "0.5": {
+      "candidate_integration_ms": 0.4213853,
+      "candidate_no_caustic_ms": 0.6422065,
+      "nodes": 142.85
+    }
+  },
+  "max_difference_vs_strict": 6.763399002168069e-14,
+  "groups": {
+    "initial": {
+      "rows": 192,
+      "resolved": 178,
+      "failures": 0
+    },
+    "fold": {
+      "rows": 352,
+      "resolved": 288,
+      "failures": 0
+    },
+    "deeper": {
+      "rows": 352,
+      "resolved": 288,
+      "failures": 0
+    }
+  }
+}

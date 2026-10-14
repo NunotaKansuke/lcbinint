@@ -1,0 +1,54 @@
+{
+  "before": {
+    "uniform": {
+      "seed_ms": 4.0275,
+      "planning_ms": 21.296000000000003,
+      "integration_ms": 37.8045,
+      "count_ms": 6.451499999999999,
+      "event_ms": 4.987500000000001,
+      "march_ms": 7.2115,
+      "repair_ms": 6.219499999999999,
+      "endpoint_ms": 5.2075000000000005,
+      "setup_event_ms": 5.791,
+      "setup_panel_ms": 0.6890000000000001
+    },
+    "linear": {
+      "seed_ms": 4.146000000000001,
+      "planning_ms": 21.636,
+      "integration_ms": 75.96,
+      "count_ms": 6.359,
+      "event_ms": 4.998,
+      "march_ms": 7.212,
+      "repair_ms": 6.484,
+      "endpoint_ms": 5.22,
+      "setup_event_ms": 5.797,
+      "setup_panel_ms": 0.6809999999999999
+    }
+  },
+  "after": {
+    "uniform": {
+      "seed_ms": 3.8855,
+      "planning_ms": 20.892500000000002,
+      "integration_ms": 37.5455,
+      "count_ms": 6.339499999999999,
+      "event_ms": 5.0435,
+      "march_ms": 7.26,
+      "repair_ms": 5.6295,
+      "endpoint_ms": 5.218,
+      "setup_event_ms": 5.08,
+      "setup_panel_ms": 0.7010000000000001
+    },
+    "linear": {
+      "seed_ms": 4.006,
+      "planning_ms": 21.533,
+      "integration_ms": 75.359,
+      "count_ms": 6.3740000000000006,
+      "event_ms": 5.058,
+      "march_ms": 7.2490000000000006,
+      "repair_ms": 6.064,
+      "endpoint_ms": 5.241,
+      "setup_event_ms": 5.096,
+      "setup_panel_ms": 0.6819999999999999
+    }
+  }
+}

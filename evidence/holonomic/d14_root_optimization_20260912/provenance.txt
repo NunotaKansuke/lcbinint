@@ -1,0 +1,88 @@
+D14 root-work scheduling experiments: provenance
+Date: 2026-09-12 (Asia/Tokyo)
+Repository: NunotaKansuke/lcbinint
+Branch: dev/holonomic
+Base commit: 3d30124f8ebb1da7bee10b08d5e1298636c7f747
+
+Machine and build
+-----------------
+Host: rogue1
+CPU: Intel Xeon Gold 6530; benchmark pinned to logical CPU 0 with taskset
+Compiler: g++ (GCC) 11.5.0 20240719 (Red Hat 11.5.0-5)
+Trajectory runner flags: -O3 -DNDEBUG -std=gnu++17 -I src -lquadmath
+Main benchmark: 1,804 trajectories, 14,432 rows (two adaptive value tolerances),
+three repetitions per row; cold, trajectory-warm, and radial-only lanes.
+Adaptive radial n_r; no fixed-n_r substitution.
+
+Input
+-----
+Snapshot: input_snapshot.tsv
+SHA-256: 6646492658ed416e75cb8c6c821ee853f79cdf7761fc41441186aa67b81fa05b
+
+Primary whole-trajectory artifacts
+----------------------------------
+baseline_current.tsv.gz
+  SHA-256: c623b44f7fce6f03db0ee189b2d5f3f11e223967f9503e7b17f74a36f538d130
+active_1e-12_p2_local_current.tsv.gz
+  SHA-256: 16c9993f92e864bf1d6fe816905fc977791b7a93031ce57c61092cab7d1dbccc
+summary.json
+  SHA-256: 6a2469c30a02f3cae5c539908967f59b3d95946a5583bc34bd9f67069be093be
+
+Reproduction commands (run from repository root)
+-------------------------------------------------
+c++ -O3 -DNDEBUG -std=gnu++17 -I src \
+  benchmarks/holonomic/bench_d14_positive_trajectory.cpp \
+  -o /tmp/d14_root_optimization_runner -lquadmath
+
+taskset -c 0 /tmp/d14_root_optimization_runner \
+  evidence/holonomic/d14_root_optimization_20260912/input_snapshot.tsv \
+  /tmp/d14_baseline.tsv 3
+
+HOLO_D14_LOCAL_PAIRS=1 \
+HOLO_D14_ACTIVE_PRESEARCH=1 \
+HOLO_D14_ACTIVE_TOL=1e-12 \
+HOLO_D14_ACTIVE_PATIENCE=2 \
+taskset -c 0 /tmp/d14_root_optimization_runner \
+  evidence/holonomic/d14_root_optimization_20260912/input_snapshot.tsv \
+  /tmp/d14_active_safe.tsv 3
+
+python3 benchmarks/holonomic/summarize_d14_root_optimization.py \
+  evidence/holonomic/d14_root_optimization_20260912 \
+  --baseline baseline_current.tsv.gz \
+  > evidence/holonomic/d14_root_optimization_20260912/summary.json
+
+Short component profile (108 cases, 3 repetitions, 4 trajectory epochs):
+cmake --build build-holonomic-m7 --target bench_v2_profile bench_d14_structure -j4
+taskset -c 0 build-holonomic-m7/bench_v2_profile \
+  evidence/holonomic/gm_coverage_cases.tsv 3 4
+
+Repeat the profile command with the four HOLO_D14_* assignments above to
+measure the safe candidate. Other A/B variants and rejected trials are
+recorded in profiles/ and as compressed TSVs in this directory.
+
+Validation performed
+--------------------
+ctest --test-dir build-holonomic-m7 --output-on-failure -j4
+  Result: 17/17 passed.
+With HOLO_D14_LOCAL_PAIRS=1, HOLO_D14_ACTIVE_PRESEARCH=1,
+HOLO_D14_ACTIVE_TOL=1e-12, HOLO_D14_ACTIVE_PATIENCE=2:
+  test_holonomic_m7: 10,397 checks, 0 failures
+  test_d14_positive: passed
+  test_adaptive_radial: 1,482 checks, 0 failures
+  test_quartic_sturm: passed
+  test_root_pair: 2,809 checks, 0 failures
+
+Relevant source hashes
+----------------------
+benchmarks/holonomic/bench_d14_positive_trajectory.cpp
+  b300bb8a077e063a1d07aed337d3f0d8c064ee80dfc8f92d1463b3ba6b278100
+src/lcbinint/magnification/holonomic/d14_structure.hpp
+  2bf2ab531748d9156cfedda01871720a6142a964a25b001a75c6b6a512e985d3
+src/lcbinint/magnification/holonomic/radial_events.hpp
+  5f11ac0382d630ddcc7a9bbb21aed1742ea9fc8df94dd22e9f3c9d2dc0dad470
+src/lcbinint/magnification/holonomic/v2_profile.hpp
+  26e1fb50cfc3671a0b4ccd0ec188eff3c213bebb9b9c465d03faf1c9f9c1fbca
+tests/holonomic_cpp/bench_v2_profile.cpp
+  4f59bd4d87adafbdb0bd694ece28cce74044dbf06e13c26914c69940af2d38ba
+benchmarks/holonomic/summarize_d14_root_optimization.py
+  efc72918770c1a82e940d947e226f1e4be6279a50e3476e07f3f2cd74ed24374

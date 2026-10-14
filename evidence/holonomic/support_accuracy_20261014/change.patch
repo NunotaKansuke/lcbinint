@@ -1,0 +1,194 @@
+diff --git a/benchmarks/holonomic/build_seeded_image_seeds.sh b/benchmarks/holonomic/build_seeded_image_seeds.sh
+index 951fde35..606c4912 100644
+--- a/benchmarks/holonomic/build_seeded_image_seeds.sh
++++ b/benchmarks/holonomic/build_seeded_image_seeds.sh
+@@ -4,9 +4,18 @@ export TMPDIR="$PWD/build-seeded-events"
+ mkdir -p "$TMPDIR"
+ SOURCE=evidence/holonomic/low_magnification_fixed_cost_v30/seed_indexed.cpp
+ OBJECT=build-seeded-events/seed_indexed_v30.o
+-if [ ! -f "$OBJECT" ] || [ "$SOURCE" -nt "$OBJECT" ]; then
++SUPPORT_HEADER=src/lcbinint/magnification/component_certificate.hpp
++SUPPORT_INCLUDE=build-seeded-events/support-include
++mkdir -p "$SUPPORT_INCLUDE/lcbinint/magnification"
++SUPPORT_COPY="$SUPPORT_INCLUDE/lcbinint/magnification/component_certificate.hpp"
++# Override only this header: the seed provider's remaining ABI headers must
++# continue to match the existing backend archives.
++if ! cmp -s "$SUPPORT_HEADER" "$SUPPORT_COPY"; then
++  cp "$SUPPORT_HEADER" "$SUPPORT_COPY"
++fi
++if [ ! -f "$OBJECT" ] || [ "$SOURCE" -nt "$OBJECT" ] || [ "$SUPPORT_COPY" -nt "$OBJECT" ]; then
+   g++ -O3 -DNDEBUG -march=native -std=gnu++17 -fPIC \
+-    -I/rogue1_8/nunota/lcbinint/include -I/rogue1_8/nunota/lcbinint/src \
++    -I"$SUPPORT_INCLUDE" -I/rogue1_8/nunota/lcbinint/include -I/rogue1_8/nunota/lcbinint/src \
+     -I/rogue1_8/nunota/lcbinint/third_party/skowron_gould \
+     -isystem /home/nunota/.miniconda3/envs/myenv/include \
+     -c "$SOURCE" -o "$OBJECT"
+diff --git a/src/lcbinint/magnification/component_certificate.hpp b/src/lcbinint/magnification/component_certificate.hpp
+index 1b9d61b6..fe43a934 100644
+--- a/src/lcbinint/magnification/component_certificate.hpp
++++ b/src/lcbinint/magnification/component_certificate.hpp
+@@ -2,6 +2,9 @@
+ 
+ #include "lcbinint/types.hpp"
+ 
++#include <algorithm>
++#include <array>
++#include <cmath>
+ #include <cstdint>
+ #include <limits>
+ #include <vector>
+@@ -127,6 +130,26 @@ DiskSupport finalize_disk_support(
+ // support is unproven.  The double kernel and the Jet kernel share this
+ // traversal so that a support descriptor can never mean two different things
+ // to them.
++
++// Resolve a local geometric scale only when the ordinary ladder needs it.
++inline double local_support_probe_scale(const DiskSupport& support, std::size_t i)
++{
++    const auto& extremum = support.extrema[i];
++    double local_scale2 = std::numeric_limits<double>::infinity();
++    for (std::size_t other = 0; other < support.extrema.size(); ++other) {
++        if (other == i) continue;
++        const auto& neighbour = support.extrema[other];
++        const double dx = extremum.position.x - neighbour.position.x;
++        const double dy = extremum.position.y - neighbour.position.y;
++        const double uncertainty = 32.0 * std::max(
++            extremum.polyline_margin, neighbour.polyline_margin);
++        const double separation2 = dx * dx + dy * dy;
++        if (separation2 > uncertainty * uncertainty)
++            local_scale2 = std::min(local_scale2, separation2);
++    }
++    return std::sqrt(local_scale2);
++}
++
+ template <typename ProbeFn>
+ bool resolve_certified_probes(const DiskSupport& support, ProbeFn&& probe)
+ {
+@@ -136,7 +159,10 @@ bool resolve_certified_probes(const DiskSupport& support, ProbeFn&& probe)
+     constexpr int kUnseen = -1;
+     std::vector<int> baseline(support.extrema.size(), kUnseen);
+     std::vector<unsigned char> departed(kProbeDirections * support.extrema.size(), 0);
+-    for (const auto& candidate : support.probes) {
++    std::size_t previous_slot = std::numeric_limits<std::size_t>::max();
++    int ray_step = 0;
++    for (std::size_t probe_index = 0; probe_index < support.probes.size(); ++probe_index) {
++        const auto& candidate = support.probes[probe_index];
+         if (candidate.extremum < 0 ||
+             static_cast<std::size_t>(candidate.extremum) >= support.extrema.size()) {
+             continue;
+@@ -144,9 +170,38 @@ bool resolve_certified_probes(const DiskSupport& support, ProbeFn&& probe)
+         const auto index = static_cast<std::size_t>(candidate.extremum);
+         const std::size_t slot =
+             kProbeDirections * index + static_cast<std::size_t>(candidate.direction);
++        ray_step = slot == previous_slot ? ray_step + 1 : 0;
++        previous_slot = slot;
+         if (departed[slot]) {
+             continue;
+         }
++        // Before spending the fine tail of a complete legacy ray, try one
++        // local-scale point if even the legacy minimum can jump over a tiny
++        // caustic. A witnessed transition uses the existing per-ray early-out.
++        // If it fails, every original point is still evaluated unchanged.
++        if (ray_step == 3 && support.extrema[index].inside_disk &&
++            !support.unresolved && probe_index + 4 < support.probes.size()) {
++            const auto& last = support.probes[probe_index + 4];
++            if (last.extremum == candidate.extremum && last.direction == candidate.direction) {
++                const auto& extremum = support.extrema[index];
++                const double offset = std::max(
++                    0.1 * local_support_probe_scale(support, index),
++                    4.0 * extremum.polyline_margin);
++                if (offset < last.offset) {
++                    const int d = static_cast<int>(candidate.direction);
++                    const SourcePosition direction = d < 2 ? extremum.normal : extremum.tangent;
++                    const double sign = (d % 2) == 0 ? 1.0 : -1.0;
++                    const int local_count = probe({
++                        extremum.position.x + sign * offset * direction.x,
++                        extremum.position.y + sign * offset * direction.y});
++                    if (local_count >= 0 && baseline[index] != kUnseen &&
++                        baseline[index] != local_count) {
++                        departed[slot] = 1;
++                        continue;
++                    }
++                }
++            }
++        }
+         const int count = probe(candidate.position);
+         if (count < 0) {
+             continue;
+@@ -167,6 +222,59 @@ bool resolve_certified_probes(const DiskSupport& support, ProbeFn&& probe)
+             straddled =
+                 straddled || departed[kProbeDirections * i + static_cast<std::size_t>(d)] != 0;
+         }
++        if (!straddled && !support.unresolved) {
++            // If neither the legacy ladder nor the single local lookahead
++            // witnessed a transition, try the remaining local scales. This
++            // fallback is confined to still-unproven extrema; the acceptance
++            // criterion remains an observed image-count change.
++            const auto& extremum = support.extrema[i];
++            const double local_scale = local_support_probe_scale(support, i);
++            std::array<int, kProbeDirections> offered {};
++            std::array<double, kProbeDirections> safe_offset;
++            safe_offset.fill(std::numeric_limits<double>::infinity());
++            for (const auto& candidate : support.probes) {
++                if (candidate.extremum == static_cast<int>(i)) {
++                    const auto d = static_cast<std::size_t>(candidate.direction);
++                    if (d < safe_offset.size()) {
++                        ++offered[d];
++                        safe_offset[d] = std::min(safe_offset[d], candidate.offset);
++                    }
++                }
++            }
++            const std::array<SourcePosition, kProbeDirections> directions {{
++                extremum.normal, {-extremum.normal.x, -extremum.normal.y},
++                extremum.tangent, {-extremum.tangent.x, -extremum.tangent.y}}};
++            constexpr std::array<double, 5> fractions {{0.1, 0.03, 0.01, 0.003, 0.001}};
++            // The initial pass has already supplied its seeds. The retry
++            // needs only one additional local image-count witness for this
++            // extremum's existing predicate. Interleave the four rays so an
++            // unproductive ray cannot exhaust the fine ladder first.
++            std::array<double, kProbeDirections> previous_offset = safe_offset;
++            for (double fraction : fractions) {
++                for (int d = 0; d < kProbeDirections; ++d) {
++                    // A shorter positive step along an already offered ray
++                    // stays inside the convex source disk.
++                    if (offered[d] != 8 || !std::isfinite(safe_offset[d]) ||
++                        !std::isfinite(local_scale))
++                        continue;
++                    const double offset = std::max(
++                        fraction * local_scale, 4.0 * extremum.polyline_margin);
++                    if (!(offset < previous_offset[d])) continue;
++                    previous_offset[d] = offset;
++                    const SourcePosition position {
++                        extremum.position.x + offset * directions[d].x,
++                        extremum.position.y + offset * directions[d].y};
++                    const int count = probe(position);
++                    if (count < 0) continue;
++                    if (baseline[i] == kUnseen) baseline[i] = count;
++                    else if (baseline[i] != count) {
++                        straddled = true;
++                        break;
++                    }
++                }
++                if (straddled) break;
++            }
++        }
+         if (!straddled) {
+             proven = false;
+         }
+diff --git a/src/lcbinint/magnification/probe_diagnostics.hpp b/src/lcbinint/magnification/probe_diagnostics.hpp
+index ea65e2b1..0b36d824 100644
+--- a/src/lcbinint/magnification/probe_diagnostics.hpp
++++ b/src/lcbinint/magnification/probe_diagnostics.hpp
+@@ -29,9 +29,9 @@ struct ProbeCounters {
+     // the seeding stage is arithmetic on the results.
+     long long certified_solves = 0;
+     // What the certificate proposed against what was actually spent.  The
+-    // traversal stops a direction as soon as it departs from its baseline, so
+-    // ``certified_offered`` above ``certified_solves`` is the early-out working
+-    // rather than probes going missing.
++    // traversal stops a direction as soon as it departs from its baseline.
++    // This counts the nominal source-limb ladder; lazy local-scale refinement
++    // is charged to certified_solves and can exceed the nominal offered count.
+     long long certified_offered = 0;
+     long long certified_extrema = 0;
+     // Support descriptors built, and disks whose support the ladder failed to

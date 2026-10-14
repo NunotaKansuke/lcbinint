@@ -1,0 +1,21 @@
+{
+  "baseline_p50_ms": {
+    "whole": 0.42751049999999996,
+    "topology": 0.1958645,
+    "physics": 0.16348050000000003,
+    "arc": 0.10281899999999995,
+    "endpoint": 0.0248044999999999
+  },
+  "candidate_p50_ms": {
+    "whole": 0.3890789999999999,
+    "topology": 0.19569550000000002,
+    "physics": 0.1268784999999999,
+    "arc": 0.0775595,
+    "endpoint": 0.02478749999999995
+  },
+  "attempts": 114014,
+  "successes": 113913,
+  "mu_relative_delta": 0.0,
+  "node_mismatch": 0,
+  "convergence_mismatch": 0
+}

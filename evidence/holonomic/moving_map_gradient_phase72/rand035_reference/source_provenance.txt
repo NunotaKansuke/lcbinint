@@ -1,0 +1,18 @@
+The raw files in this directory are a byte-for-byte snapshot of the completed
+Phase72 independent rand035 reference campaign at base commit
+f83e30f398fa1a7918f28de0afa30165f47a5cdc:
+
+  reference.tsv SHA256
+    4d0c16dd4334e3cae36336680adc5b6725fc4037261f2c8a666c389b66a3a932
+  reference_x_high.tsv SHA256
+    5e458074d8ee442ba51a7d344ead0c1ffa2592697cdfb902fe10a8f1240475b3
+  source summary SHA256
+    61920ef1ce41be87441dd586081d20e841eb09a2ead748e6e1093b6f6114a111
+
+The current benchmark base is dfe09dee62a99bbd18f3ce01246c84c6e130464b.
+The intervening commits have no diff under src/lcbinint/magnification/holonomic
+or tests/holonomic_cpp, so the direct physical-value and topology code used by
+this independent reference is unchanged. `reference.cpp` is included with its
+relative include path adapted to this evidence subdirectory. A full rerun is
+available via run_reference.sh; it recomputes 144 direct integrals and is
+substantially more expensive than the shadow run.

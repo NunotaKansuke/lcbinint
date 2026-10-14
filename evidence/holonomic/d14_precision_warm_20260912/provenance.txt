@@ -1,0 +1,27 @@
+D14 precision/warm benchmark provenance
+date=2026-09-12 Asia/Tokyo
+repository=NunotaKansuke/lcbinint
+branch=dev/holonomic
+spec=docs/holonomic/d14_precision_and_warm_design_20260911_ja.md
+measured_tree_head=ed04ae35e23efedb6d57ebeb465ef91fc68dcaa7
+baseline_trajectory_head=26593fa005ac0c82eb13c11dd7c7ef79dd976867
+working_tree_scope=isolated holonomic only; pre-existing .claude and unrelated evidence left untouched
+
+default_candidate_env=HOLO_D14_REAL unset (default on), HOLO_D14_REAL_TOL unset (1e-14), HOLO_D14_DIRECT_WARM unset (off), HOLO_D14_STRUCT_LEGACY unset
+legacy_env=HOLO_D14_STRUCT_LEGACY=1
+
+build=cmake --build build-holonomic-m7 -j4
+tests=ctest --test-dir build-holonomic-m7 --output-on-failure -j4
+d14_candidate=taskset -c 0-7 ./build-holonomic-m7/bench_d14_structure evidence/holonomic/gm_coverage_cases.tsv 5
+d14_legacy=HOLO_D14_STRUCT_LEGACY=1 taskset -c 0-7 ./build-holonomic-m7/bench_d14_structure evidence/holonomic/gm_coverage_cases.tsv 5
+trajectory_compile=/usr/bin/c++ -O3 -DNDEBUG -std=gnu++17 -I/rogue1_8/nunota/lcbinint/src -march=native -funroll-loops -ffp-contract=fast -fno-math-errno evidence/holonomic/d14_precision_warm_20260912/trajectory/runner.cpp -o /tmp/d14_precision_warm_trajectory_runner -lquadmath
+trajectory_run=taskset -c 0-7 /tmp/d14_precision_warm_trajectory_runner evidence/holonomic/d14_precision_warm_20260912/trajectory/input_snapshot.tsv evidence/holonomic/d14_precision_warm_20260912/trajectory/results.tsv 3
+trajectory_summary=python3 evidence/holonomic/d14_precision_warm_20260912/trajectory/summarize.py
+figures=MPLCONFIGDIR=/tmp/mpl-d14-precision-warm-20260912 python3 evidence/holonomic/d14_precision_warm_20260912/trajectory/make_figures.py
+
+sha256_binary=a4c6f349a275ef86945df5a78186177014cafa3177c7a22db37496b0a111c117
+sha256_input=6646492658ed416e75cb8c6c821ee853f79cdf7761fc41441186aa67b81fa05b
+sha256_results=82d7cf3fdd6e8be0bd0f0651c1bc47d072f259dacc4b1171ab294e5d4ce7127e
+sha256_runner=c32f57e9167aa3e6584b37203f979fb80ff186cdf7cbf81490d2f1e0b022b11f
+sha256_summarize=5fee8f11edf331a97471a4a1407c993b64848255353fc7af3fe6418966ad7982
+sha256_make_figures=aa81e0e520a903df794c82057ff7f7316438a753f629c3e50c8837c9224861b4

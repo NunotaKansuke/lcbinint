@@ -1,0 +1,6 @@
+/usr/bin/c++ -O3 -DNDEBUG -std=gnu++17 -fext-numeric-literals -Isrc -march=native -funroll-loops -ffp-contract=fast -fno-math-errno evidence/holonomic/adaptive_estimator_phase10_20260913/runner_weighted.cpp -o /tmp/adaptive_estimator_baseline -lquadmath
+/usr/bin/c++ -O3 -DNDEBUG -std=gnu++17 -fext-numeric-literals -Isrc -march=native -funroll-loops -ffp-contract=fast -fno-math-errno evidence/holonomic/adaptive_estimator_phase10_20260913/runner_hybrid.cpp -o /tmp/adaptive_estimator_hybrid -lquadmath
+taskset -c 0 /tmp/adaptive_estimator_baseline evidence/holonomic/v2_adaptive_best_trajectory_20260913/input_snapshot.tsv evidence/holonomic/adaptive_estimator_phase10_20260913/baseline.tsv 1
+taskset -c 0 /tmp/adaptive_estimator_hybrid evidence/holonomic/v2_adaptive_best_trajectory_20260913/input_snapshot.tsv evidence/holonomic/adaptive_estimator_phase10_20260913/hybrid125.tsv 1
+taskset -c 0 ./build-holonomic-m7/check_adaptive_reference evidence/holonomic/adaptive_radial_phase92_20260911/reuse_on/reference_cases.tsv > evidence/holonomic/adaptive_estimator_phase10_20260913/reference/default_independent.csv
+ctest --test-dir build-holonomic-m7 -R 'holonomic_(adaptive_radial|finite_source_binary|quartic_sturm)' --output-on-failure

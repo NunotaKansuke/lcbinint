@@ -1,0 +1,29 @@
+date_utc=2026-09-14T04:16:08Z
+git_head=cbbc5725e0d5dc45a8b71beb2401f8a3fd78ab80
+input_sha256=6646492658ed416e75cb8c6c821ee853f79cdf7761fc41441186aa67b81fa05b  /rogue1_8/nunota/lcbinint/evidence/holonomic/projective_fold_fast_screen_phase76_20260914/input_snapshot.tsv
+reference_sha256=5d625cbc9f4dc16de2a81754bbff131f1cb1ba9780fccdff4ddb210417347548  /rogue1_8/nunota/lcbinint/evidence/holonomic/projective_fold_fast_screen_phase76_20260914/reference_cases.tsv
+compiler=c++ (GCC) 11.5.0 20240719 (Red Hat 11.5.0-5)
+cpu=INTEL(R) XEON(R) GOLD 6530
+affinity=taskset -c 0-7; serial runner
+compile_flags=-O3 -DNDEBUG -std=gnu++17 -fext-numeric-literals -I/rogue1_8/nunota/lcbinint/src -march=native -funroll-loops -ffp-contract=fast -fno-math-errno
+arms: baseline=production path; qf=projective fold research with original qf probe; screen=same research path with fail-open interval screen
+policy=value-only None or ValueFirst+5 analytic Jacobians; mu_atol=1e-16; mu_rtol=1e-3,1e-4; grad_rtol=1e-3; default grad_atol
+timers=full-cold includes D14/topology+adaptive; full-warm includes L2 warm D14 topology+adaptive; radial-only prebuilds topology outside timer
+repetitions=3 process repetitions per arm/policy; arm order rotates; each runner excludes its own warmup trajectory
+unrelated HOLO env vars are unset as in Phase75
+d7e155e4bd5550918087cf0e2ba46517dde9d3cada667204bfc730461dfee487  /tmp/phase76_projective_baseline
+e099611fd2e2c00a27996930e8e8d0c03ea26dc255877057479788a59d86adca  /tmp/phase76_projective_qf
+d9b28f87fcaa0a1719f6b592570cd3fac393a8a6513ba4833bafeb7a0027539a  /tmp/phase76_projective_screen
+d08df97791f49d808637691192a2f428d038345031ccf61c763777ed9d12a15f  /tmp/phase76_target_baseline
+f413480a70d187dce028a80727feed0ce3a65784c7c6d0a9124074a00cb6f15c  /tmp/phase76_target_qf
+fcdb9b86ca8c6d5145e4ad8e110616502875681c9de767cc209adbc9b9bd7f6b  /tmp/phase76_target_screen
+3b74d5af32d0d872e36497c76a81bf986cb2e03ca72d6f30db6a75a774fc43a8  /tmp/phase76_projective_screen_scan
+source_sha256:
+132d689036ad46e5345ebb648f699a94cbce8118b3b848021582c4eaecd92950  src/lcbinint/magnification/holonomic/projective_fold_screen.hpp
+a4c1fe304d3cda934ec0b3df73cca2b13e2d69246f69335206a2e217833ad282  src/lcbinint/magnification/holonomic/adaptive_epoch.hpp
+5c8b07cc8b6b9ad502734052082ff256e16418fc6b65e706f4e10091e48b99cd  tests/holonomic_cpp/test_projective_fold.cpp
+a553c28a581de587ebcf432764391dad9e2da1388719163fb68fdbaa0f4c60ed  evidence/holonomic/projective_fold_fast_screen_phase76_20260914/trajectory_ab.cpp
+433e15743e0adc637ea21c915e662585acb21e413a4e11ebc18c834443f47f6c  evidence/holonomic/projective_fold_fast_screen_phase76_20260914/projective_trajectory_ab.cpp
+4f7710fdcb98b4e66e7a0e346451c9a9cffe92f7c1fdcb19ed3a9524ea04e550  evidence/holonomic/projective_fold_fast_screen_phase76_20260914/projective_screen_scan.cpp
+b30592c475569a4371174593d92c9fde079a5163763a6acf24d58a8f869464c0  evidence/holonomic/projective_fold_fast_screen_phase76_20260914/run_phase76.sh
+d84ec21f47f3a696e357ec8c1004f35aad8f492c48482dad94598a8e47214612  evidence/holonomic/projective_fold_fast_screen_phase76_20260914/summarize_phase76.py

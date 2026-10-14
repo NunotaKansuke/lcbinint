@@ -1,0 +1,111 @@
+{
+  "normal": {
+    "before_matched": {
+      "seed_ms": 0.0841132643678161,
+      "planning_ms": 0.08815095402298852,
+      "candidate_integration_ms": 0.16828473563218396,
+      "candidate_no_caustic_ms": 0.3435117471264367
+    },
+    "after_matched": {
+      "seed_ms": 0.08367308045977011,
+      "planning_ms": 0.08024112643678162,
+      "candidate_integration_ms": 0.16655539080459772,
+      "candidate_no_caustic_ms": 0.3333399195402299
+    },
+    "before_reverse": {
+      "seed_ms": 0.08388118390804596,
+      "planning_ms": 0.08792355172413796,
+      "candidate_integration_ms": 0.16774210344827592,
+      "candidate_no_caustic_ms": 0.34226789655172407
+    },
+    "after_reverse": {
+      "seed_ms": 0.08364751724137931,
+      "planning_ms": 0.07979554022988505,
+      "candidate_integration_ms": 0.16839464367816087,
+      "candidate_no_caustic_ms": 0.33459698850574715
+    },
+    "reduction_matched": {
+      "seed_ms": 0.005233228211440344,
+      "planning_ms": 0.08973048192018573,
+      "candidate_integration_ms": 0.01027630236984789,
+      "candidate_no_caustic_ms": 0.029611294726589965
+    },
+    "reduction_reverse": {
+      "seed_ms": 0.0027856863217715633,
+      "planning_ms": 0.09244407595992843,
+      "candidate_integration_ms": -0.003890139782861235,
+      "candidate_no_caustic_ms": 0.02241199984941522
+    }
+  },
+  "validation": {
+    "conditions": 896,
+    "reference_resolved_before": 754,
+    "reference_resolved_after": 754,
+    "unresolved_reference": 142,
+    "candidate_failures_on_resolved_reference": 0,
+    "candidate_failures_against_before_reference": 0,
+    "magnification_changes": 1,
+    "maximum_relative_change": 1.386113752876232e-16,
+    "node_count_changes": 4,
+    "maximum_discrepancy_over_tolerance": 0.24896766490094166
+  },
+  "profile": {
+    "before": {
+      "arc_ms": 0.061260842911877424,
+      "pair_ms": 0.03794751724137929,
+      "endpoint_ms": 0.018716662835249035,
+      "K_ms": 0.009147440613026822,
+      "physical_ms": 0.17475134865900366,
+      "estimator_ms": 0.015732961685823752,
+      "scheduler_ms": 0.001414858237547893,
+      "setup_ms": 0.010332727969348653,
+      "setup_event_ms": 0.007186417624521076,
+      "setup_panel_ms": 0.001891704980842912,
+      "integration_ms": 0.23906718390804593,
+      "dynamic_count_ms": 0.021500582375478926,
+      "allocation_ms": 0.010377049808429106,
+      "allocation_count": 3.574712643678161,
+      "arc_body_ms": 0.057747367816091945,
+      "tail_ms": 0.004318206896551723,
+      "node_loop_ms": 0.19919745977011497,
+      "header_ms": 0.0034757547892720303,
+      "coeff_ms": 0.0033563371647509586,
+      "rescue_ms": 0.013435532567049806,
+      "prediction_ms": 0.010272659003831416,
+      "map_ms": 0.005896015325670493,
+      "frontier_count_ms": 0.0362262988505747,
+      "frontier_event_ms": 0.02957440613026822
+    },
+    "after": {
+      "arc_ms": 0.060972586206896544,
+      "pair_ms": 0.03816634865900383,
+      "endpoint_ms": 0.018507160919540223,
+      "K_ms": 0.009015731800766279,
+      "physical_ms": 0.1729804291187739,
+      "estimator_ms": 0.01581722605363985,
+      "scheduler_ms": 0.0014075325670498086,
+      "setup_ms": 0.010080708812260536,
+      "setup_event_ms": 0.006985536398467437,
+      "setup_panel_ms": 0.0018600114942528732,
+      "integration_ms": 0.2350128275862069,
+      "dynamic_count_ms": 0.021192578544061307,
+      "allocation_ms": 0.009304839080459771,
+      "allocation_count": 3.574712643678161,
+      "arc_body_ms": 0.057174888888888865,
+      "tail_ms": 0.004234819923371647,
+      "node_loop_ms": 0.19645946360153257,
+      "header_ms": 0.0034514329501915708,
+      "coeff_ms": 0.003280980842911878,
+      "rescue_ms": 0.01339886590038314,
+      "prediction_ms": 0.01043706130268199,
+      "map_ms": 0.005943555555555556,
+      "frontier_count_ms": 0.03571752873563218,
+      "frontier_event_ms": 0.020244823754789254
+    }
+  },
+  "image_starts": {
+    "attempts": 1668,
+    "accepted": 1344,
+    "fraction": 0.8057553956834532
+  }
+}

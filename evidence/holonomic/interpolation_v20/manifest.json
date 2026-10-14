@@ -1,0 +1,18 @@
+{
+  "checkout": "/rogue1_8/nunota/lcbinint/experiments/seeded-boundary-events",
+  "branch": "experiment/seeded-boundary-events",
+  "head": "f3547723b79828d9c501182746028e99f7bad116",
+  "timing": "one thread; all compilation completed before serial timing; fresh source workspaces; normal87 tol1e-4,5 reps, mean of medians; holdout3; audit1",
+  "sources": {
+    "src/lcbinint/magnification/holonomic/adaptive_epoch.hpp": "61e28987aaf1c492a161279b50a44bbc62da3a17d2e1e593acca072901fe83c8",
+    "src/lcbinint/magnification/holonomic/adaptive_radial.hpp": "f89e517033ceac0bad0560247304fcd5fe694ccebcd422277026c52d0c4e3efb",
+    "src/lcbinint/magnification/holonomic/radius_terms.hpp": "4449c447a7fc227b1532d086d78ce02077a5b42c89d73ea8fb75a667b0733e5b",
+    "src/lcbinint/magnification/holonomic/root_pair.hpp": "7cdd0141a40bfe8a6314e7f5221e361e4230671a8060f8078a595607822898de",
+    "src/lcbinint/magnification/holonomic/v2_profile.hpp": "4d63840f8d7bed2d67352a1c0cd5f103ef7f64ac34cf1db154e0e7da09cfc3fd",
+    "src/lcbinint/magnification/holonomic/nested_fejer2.hpp": "2c0d499239263a580ac269ceb86312545de6c9592e09c07ca6687408f1060d68",
+    "src/lcbinint/magnification/holonomic/chebyshev_prediction.hpp": "67cfeda9c04b1557eb33f9e2058f9d7e0e24f946bb3122eff84c7e6dae873e2b",
+    "benchmarks/holonomic/bench_seeded_radial_full.cpp": "4242d19776b30cf404d8590c9349a61b720d377c0a9a961fd1be0abbd31d65b5",
+    "benchmarks/holonomic/bench_chebyshev_prediction.cpp": "a3de6d5153b8fefcde6053a8b5142df9bb155af6c60174c71938664b44151e6d",
+    "tests/holonomic_cpp/test_chebyshev_prediction.cpp": "988f43ca5ec41e4ff9bd6a8d619910ba9585ceed51f53712033c0f62e382a4ea"
+  }
+}

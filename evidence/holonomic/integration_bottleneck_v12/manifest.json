@@ -1,0 +1,12 @@
+{
+  "source_hashes": {
+    "src/lcbinint/magnification/holonomic/adaptive_epoch.hpp": "952d1acc6bc5ba938913acd5eeaf1ebfa4eb2099b74f190b22da724eac27f912",
+    "src/lcbinint/magnification/holonomic/adaptive_radial.hpp": "81ccb76f766baefc5d0cadf57244b376a0bc8684a1ef1d2e884143259dfc1cab",
+    "src/lcbinint/magnification/holonomic/radius_terms.hpp": "746042b6bfb5f0e935d35ef648c02312af4cdbf520c3af3a5f414fbf2667d100",
+    "src/lcbinint/magnification/holonomic/seeded_radial_frontier.hpp": "a1109627bd5810e06aef726ea985307ae4f1cb61be9cd0440628c77097a2ca29"
+  },
+  "threads": 1,
+  "normal_reps": 5,
+  "holdout_reps": 3,
+  "reference": "D14 matched tolerance"
+}

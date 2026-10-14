@@ -1,0 +1,18 @@
+diff --git a/src/lcbinint/magnification/holonomic/adaptive_radial.hpp b/src/lcbinint/magnification/holonomic/adaptive_radial.hpp
+index 0ba4c57..c52fc2d 100644
+--- a/src/lcbinint/magnification/holonomic/adaptive_radial.hpp
++++ b/src/lcbinint/magnification/holonomic/adaptive_radial.hpp
+@@ -531,7 +531,12 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
+ #endif
+             w.samples.reserve(reserve_target);
+         }
+-        for(int k=1;k<m;++k) {
++        for(int visit=1;visit<m;++visit) {
++#ifdef HOLO_ADAPTIVE_CENTER_OUT
++            const int k=(visit==1)?m/2:((visit%2)==0?m/2-visit/2:m/2+visit/2);
++#else
++            const int k=visit;
++#endif
+             int slot=k*step;
+             bool fresh=p.samples[slot]<0;
+             if(!fresh&&cfg.reuse_samples){++stats.reused_nodes;continue;}

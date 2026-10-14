@@ -1,0 +1,158 @@
+# D14 overflow fix: matched adaptive whole-epoch A/B and tail diagnosis
+# Repository: NunotaKansuke/lcbinint
+# Base: dev/holonomic @ 56d1be6ce857ee623bb32550befcfac9a4c46ac4
+# Machine: Intel Xeon Gold 6530; compiler: GCC 11.5.0
+# Input SHA256: 6646492658ed416e75cb8c6c821ee853f79cdf7761fc41441186aa67b81fa05b
+# The raw trajectory contains 1,804 trajectories x 4 epochs x 2 targets = 14,432 rows.
+# It is value-only, adaptive RelTol 1e-3 and 1e-4, with 3 timed repeats per row.
+
+cd /rogue1_8/nunota/lcbinint
+
+# Build the frozen whole-epoch runner with identical flags. The legacy binary
+# changes only binary64 complex division via the compile-time A/B switch.
+/usr/bin/c++ -O3 -DNDEBUG -std=gnu++17 \
+  -I/rogue1_8/nunota/lcbinint/src -march=native -funroll-loops \
+  -ffp-contract=fast -fno-math-errno \
+  evidence/holonomic/d14_overflow_whole_epoch_tail_20260912/whole_epoch_runner.cpp \
+  -o /tmp/d14_overflow_safe_rebuilt -lquadmath
+
+/usr/bin/c++ -O3 -DNDEBUG -std=gnu++17 \
+  -DHOLO_D14_FORCE_LEGACY_DOUBLE_DIV=1 \
+  -I/rogue1_8/nunota/lcbinint/src -march=native -funroll-loops \
+  -ffp-contract=fast -fno-math-errno \
+  evidence/holonomic/d14_overflow_whole_epoch_tail_20260912/whole_epoch_runner.cpp \
+  -o /tmp/d14_overflow_legacy_rebuilt -lquadmath
+
+sha256sum /tmp/d14_overflow_safe_rebuilt /tmp/d14_overflow_legacy_rebuilt
+# At evidence capture these were:
+# 1940df8532e2718ee1267576784a44374f200eab0c3dd80883882fbb2704c5e5  safe
+# 9757e809a012737145123e32f374a642ab8c7fdff9127919186c5213c0db164a  legacy
+
+# Run sequentially on the same CPUs; do not run both binaries concurrently.
+taskset -c 0-7 env HOLO_D14_LOCAL_PAIRS=1 HOLO_D14_ACTIVE_PRESEARCH=1 \
+  HOLO_D14_ACTIVE_TOL=1e-12 HOLO_D14_ACTIVE_PATIENCE=2 \
+  /tmp/d14_overflow_safe_rebuilt \
+  evidence/holonomic/d14_overflow_whole_epoch_tail_20260912/input_snapshot.tsv \
+  evidence/holonomic/d14_overflow_whole_epoch_tail_20260912/overflow_safe_full_trajectory.tsv 3 \
+  > evidence/holonomic/d14_overflow_whole_epoch_tail_20260912/overflow_safe_stdout.log \
+  2> evidence/holonomic/d14_overflow_whole_epoch_tail_20260912/overflow_safe_stderr.log
+
+taskset -c 0-7 env HOLO_D14_LOCAL_PAIRS=1 HOLO_D14_ACTIVE_PRESEARCH=1 \
+  HOLO_D14_ACTIVE_TOL=1e-12 HOLO_D14_ACTIVE_PATIENCE=2 \
+  /tmp/d14_overflow_legacy_rebuilt \
+  evidence/holonomic/d14_overflow_whole_epoch_tail_20260912/input_snapshot.tsv \
+  evidence/holonomic/d14_overflow_whole_epoch_tail_20260912/overflow_legacy_full_trajectory.tsv 3 \
+  > evidence/holonomic/d14_overflow_whole_epoch_tail_20260912/overflow_legacy_stdout.log \
+  2> evidence/holonomic/d14_overflow_whole_epoch_tail_20260912/overflow_legacy_stderr.log
+
+# Optional extra safe-only repetition for timing spread. This is not paired
+# with another legacy run and is excluded from the main A/B summary.
+taskset -c 0-7 env HOLO_D14_LOCAL_PAIRS=1 HOLO_D14_ACTIVE_PRESEARCH=1 \
+  HOLO_D14_ACTIVE_TOL=1e-12 HOLO_D14_ACTIVE_PATIENCE=2 \
+  /tmp/d14_overflow_safe_rebuilt \
+  evidence/holonomic/d14_overflow_whole_epoch_tail_20260912/input_snapshot.tsv \
+  evidence/holonomic/d14_overflow_whole_epoch_tail_20260912/overflow_safe_unpaired_repeat.tsv 3 \
+  > evidence/holonomic/d14_overflow_whole_epoch_tail_20260912/overflow_safe_unpaired_repeat.stdout.log \
+  2> evidence/holonomic/d14_overflow_whole_epoch_tail_20260912/overflow_safe_unpaired_repeat.stderr.log
+
+gzip -9 evidence/holonomic/d14_overflow_whole_epoch_tail_20260912/overflow_safe_full_trajectory.tsv
+gzip -9 evidence/holonomic/d14_overflow_whole_epoch_tail_20260912/overflow_legacy_full_trajectory.tsv
+
+python3 evidence/holonomic/d14_overflow_whole_epoch_tail_20260912/summarize_overflow_whole_ab.py \
+  evidence/holonomic/d14_overflow_whole_epoch_tail_20260912/overflow_safe_full_trajectory.tsv.gz \
+  evidence/holonomic/d14_overflow_whole_epoch_tail_20260912/overflow_legacy_full_trajectory.tsv.gz \
+  evidence/holonomic/d14_overflow_whole_epoch_tail_20260912/whole_epoch_summary.json
+
+gzip -9 evidence/holonomic/d14_overflow_whole_epoch_tail_20260912/overflow_safe_unpaired_repeat.tsv
+
+# The full 7,216-row/lane rootwork table is the committed Phase 9.2 evidence
+# under d14_case92_presearch_overflow_20260912/. The full commands and hashes
+# are in that directory's run_commands.txt and sha256_manifest.txt. This task
+# adds focused per-sweep qf traces from the current source.
+/usr/bin/c++ -O3 -DNDEBUG -std=gnu++17 \
+  -DHOLO_D14_TRACE_QF_ITERATIONS=1 \
+  -I/rogue1_8/nunota/lcbinint/src -march=native -funroll-loops \
+  -ffp-contract=fast -fno-math-errno \
+  benchmarks/holonomic/bench_d14_root_work_detail.cpp \
+  -o /tmp/bench_d14_qf_trace -lquadmath
+
+# Add HOLO_D14_QF_TRACE=1 and use one case filter to capture the per-sweep
+# P, P', S, P'-P*S, correction, nearest-pair and finite-root diagnostics.
+taskset -c 0 env HOLO_D14_LOCAL_PAIRS=1 HOLO_D14_ACTIVE_PRESEARCH=1 \
+  HOLO_D14_ACTIVE_TOL=1e-12 HOLO_D14_ACTIVE_PATIENCE=2 HOLO_D14_QF_TRACE=1 \
+  /tmp/bench_d14_qf_trace \
+  evidence/holonomic/d14_root_scheduling_phase2_20260912/input_snapshot.tsv \
+  /tmp/case149_roots.tsv /tmp/case149_timing.tsv 1 both 149 1 uniform \
+  2> evidence/holonomic/d14_overflow_whole_epoch_tail_20260912/case149_qf_trace_final.log
+
+taskset -c 0 env HOLO_D14_LOCAL_PAIRS=1 HOLO_D14_ACTIVE_PRESEARCH=1 \
+  HOLO_D14_ACTIVE_TOL=1e-12 HOLO_D14_ACTIVE_PATIENCE=2 HOLO_D14_QF_TRACE=1 \
+  /tmp/bench_d14_qf_trace \
+  evidence/holonomic/d14_root_scheduling_phase2_20260912/input_snapshot.tsv \
+  /tmp/case0_roots.tsv /tmp/case0_timing.tsv 1 both 0 0 linear \
+  2> evidence/holonomic/d14_overflow_whole_epoch_tail_20260912/case0_qf_trace.log
+
+taskset -c 0 env HOLO_D14_LOCAL_PAIRS=1 HOLO_D14_ACTIVE_PRESEARCH=1 \
+  HOLO_D14_ACTIVE_TOL=1e-12 HOLO_D14_ACTIVE_PATIENCE=2 HOLO_D14_QF_TRACE=1 \
+  /tmp/bench_d14_qf_trace \
+  evidence/holonomic/d14_root_scheduling_phase2_20260912/input_snapshot.tsv \
+  /tmp/case64_roots.tsv /tmp/case64_timing.tsv 1 both 64 0 linear \
+  2> evidence/holonomic/d14_overflow_whole_epoch_tail_20260912/case64_qf_trace.log
+
+taskset -c 0 env HOLO_D14_LOCAL_PAIRS=1 HOLO_D14_ACTIVE_PRESEARCH=1 \
+  HOLO_D14_ACTIVE_TOL=1e-12 HOLO_D14_ACTIVE_PATIENCE=2 HOLO_D14_QF_TRACE=1 \
+  /tmp/bench_d14_qf_trace \
+  evidence/holonomic/d14_root_scheduling_phase2_20260912/input_snapshot.tsv \
+  /tmp/case9_roots.tsv /tmp/case9_timing.tsv 1 warm 9 2 uniform \
+  2> evidence/holonomic/d14_overflow_whole_epoch_tail_20260912/case9_qf_trace.log
+
+taskset -c 0 env HOLO_D14_LOCAL_PAIRS=1 HOLO_D14_ACTIVE_PRESEARCH=1 \
+  HOLO_D14_ACTIVE_TOL=1e-12 HOLO_D14_ACTIVE_PATIENCE=2 HOLO_D14_QF_TRACE=1 \
+  /tmp/bench_d14_qf_trace \
+  evidence/holonomic/d14_root_scheduling_phase2_20260912/input_snapshot.tsv \
+  /tmp/case49_dbin1_roots.tsv /tmp/case49_dbin1_timing.tsv 1 both 49 1 linear \
+  2> evidence/holonomic/d14_overflow_whole_epoch_tail_20260912/case49_dbin1_qf_trace.log
+
+taskset -c 0 env HOLO_D14_LOCAL_PAIRS=1 HOLO_D14_ACTIVE_PRESEARCH=1 \
+  HOLO_D14_ACTIVE_TOL=1e-12 HOLO_D14_ACTIVE_PATIENCE=2 HOLO_D14_QF_TRACE=1 \
+  /tmp/bench_d14_qf_trace \
+  evidence/holonomic/d14_root_scheduling_phase2_20260912/input_snapshot.tsv \
+  /tmp/case49_dbin4_roots.tsv /tmp/case49_dbin4_timing.tsv 1 both 49 4 linear \
+  2> evidence/holonomic/d14_overflow_whole_epoch_tail_20260912/case49_dbin4_qf_trace.log
+
+# The qf-warm continuation experiment is research-only and is deliberately
+# excluded from the production source. Apply its patch to a clean 56d1be6
+# checkout before compiling with HOLO_D14_QF_CONTINUE_WARM_CANDIDATE=1.
+git apply --check evidence/holonomic/d14_overflow_whole_epoch_tail_20260912/qf_warm_continue_experiment.patch
+git apply evidence/holonomic/d14_overflow_whole_epoch_tail_20260912/qf_warm_continue_experiment.patch
+
+/usr/bin/c++ -O3 -DNDEBUG -std=gnu++17 \
+  -DHOLO_D14_QF_CONTINUE_WARM_CANDIDATE=1 \
+  -I/rogue1_8/nunota/lcbinint/src -march=native -funroll-loops \
+  -ffp-contract=fast -fno-math-errno \
+  benchmarks/holonomic/bench_d14_root_work_detail.cpp \
+  -o /tmp/bench_d14_qf_continue -lquadmath
+
+taskset -c 0 env HOLO_D14_LOCAL_PAIRS=1 HOLO_D14_ACTIVE_PRESEARCH=1 \
+  HOLO_D14_ACTIVE_TOL=1e-12 HOLO_D14_ACTIVE_PATIENCE=2 \
+  /tmp/bench_d14_qf_continue \
+  evidence/holonomic/d14_root_scheduling_phase2_20260912/input_snapshot.tsv \
+  evidence/holonomic/d14_overflow_whole_epoch_tail_20260912/qf_continue_full_roots.tsv \
+  evidence/holonomic/d14_overflow_whole_epoch_tail_20260912/qf_continue_full_timing.tsv \
+  1 both
+
+/usr/bin/c++ -O3 -DNDEBUG -std=gnu++17 \
+  -DHOLO_D14_QF_CONTINUE_WARM_CANDIDATE=1 \
+  -I/rogue1_8/nunota/lcbinint/src -march=native -funroll-loops \
+  -ffp-contract=fast -fno-math-errno \
+  evidence/holonomic/d14_overflow_whole_epoch_tail_20260912/whole_epoch_runner.cpp \
+  -o /tmp/bench_d14_qf_continue_trajectory -lquadmath
+
+taskset -c 0-7 env HOLO_D14_LOCAL_PAIRS=1 HOLO_D14_ACTIVE_PRESEARCH=1 \
+  HOLO_D14_ACTIVE_TOL=1e-12 HOLO_D14_ACTIVE_PATIENCE=2 \
+  /tmp/bench_d14_qf_continue_trajectory \
+  evidence/holonomic/d14_overflow_whole_epoch_tail_20260912/input_snapshot.tsv \
+  evidence/holonomic/d14_overflow_whole_epoch_tail_20260912/qf_continue_full_trajectory.tsv 3
+
+# Regenerate machine-readable summaries from the checked-in lossless raw.
+python3 evidence/holonomic/d14_overflow_whole_epoch_tail_20260912/summarize_d14_tail.py

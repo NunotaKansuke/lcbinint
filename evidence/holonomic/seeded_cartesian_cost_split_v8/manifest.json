@@ -1,0 +1,16 @@
+{
+  "threads": 1,
+  "reps": 3,
+  "caustic_bins": 1400,
+  "tol": 0.0001,
+  "cartesian_stage_method": "Prepopulate exact same epoch seed cache key (infinite caustic_distance), then time preplanned fill; post-seed stage retains cache lookup/copy. Fresh objects each rep.",
+  "candidate_seed_provider": "archived discriminant-algebraic-minimal-seeds-20261012-v1",
+  "cartesian_seed_provider": "current main checkout",
+  "nbin_selection": "v7 per-input fastest passing grid, reused, selection cost excluded",
+  "hashes": {
+    "benchmarks/holonomic/bench_cartesian_cost_split.cpp": "47a51576214f5ddbd4fcb0ca1333ad16286d365165f439b40e44f7d618a5d59c",
+    "evidence/holonomic/seeded_cartesian_cost_split_v8/selected.tsv": "b341f2d5899cfb16ebcc032ba6451bbb729425bec3521313b1f0adc355af8585",
+    "evidence/holonomic/seeded_cartesian_cost_split_v8/cartesian.tsv": "ebec4e6b0c058fe0b7ae19ffd1c0d81deb998004998c41621561161bddc7e0bb",
+    "evidence/holonomic/seeded_cartesian_cost_split_v8/candidate.tsv": "460a991bb017c96a9feea536682a4159acc3934f16ef9913504f742136bc3ffc"
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "input_rows": 7216,
+  "raw_rows": 14432,
+  "raw_expected_rows": 14432,
+  "header_columns": 53,
+  "column_mismatch_rows": [],
+  "duplicate_keys": 0,
+  "missing_keys": 0,
+  "extra_keys": 0,
+  "input_metadata_mismatches": 0,
+  "metadata_examples": [],
+  "vbm_rows": 14432,
+  "vbm_key_mismatch": 0,
+  "status_counts": {
+    "OK": 14202,
+    "TopologyUnresolved": 50,
+    "SEED_SUPPORT_UNPROVEN": 180
+  },
+  "value_stop_counts": {
+    "Converged": 14382,
+    "TopologyUnresolved": 50
+  },
+  "numerical_status_counts": {
+    "OK": 14382,
+    "GRADIENT_UNRELIABLE": 50
+  },
+  "support_proven_rows": 14252,
+  "coverage_certified_rows": 0,
+  "value_converged_rows": 14382,
+  "seed_count_p50": 5,
+  "seed_ms_p50": 0.040807,
+  "caustic_prebuild_ms_p50_excluded": 1.243411,
+  "pass": true
+}

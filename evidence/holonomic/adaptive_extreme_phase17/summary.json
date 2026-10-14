@@ -1,0 +1,10 @@
+{
+  "rows": 7216,
+  "native_calls": 7330,
+  "native_pass": 368,
+  "native_violations": 0,
+  "native_total_ms": 20.70061899999972,
+  "native_p50_ms": 0.002834,
+  "qf_plus_native_p50_ms": 0.029302,
+  "remaining_qf_p50_ms": 0.026462999999999952
+}

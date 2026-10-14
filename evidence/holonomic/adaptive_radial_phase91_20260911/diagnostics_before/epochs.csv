@@ -1,0 +1,17 @@
+name,u,policy,warm,rtol,stop,value_stop,gradient_stop,value_converged,mu,value_error,nodes,evaluations,event_count,refinement_count,topology_ms,setup_ms,physics_ms,estimator_ms,scheduler_ms
+rand033,0,None,0,0.001,EventLocationLimited,EventLocationLimited,Converged,0,30.3881,0.321505,85,85,8,11,0.825907,1.56383,0.135628,0.004422,0.000965
+rand033,0,None,0,0.0001,Converged,Converged,Converged,1,30.3854,0.00146422,166,166,8,19,0.764266,0.915836,0.229522,0.009652,0.00238
+rand033,0,None,1,0.001,EventLocationLimited,EventLocationLimited,Converged,0,30.3231,0.323691,85,85,8,11,0.321415,0.591379,0.153019,0.003527,0.000804
+rand033,0,None,1,0.0001,Converged,Converged,Converged,1,30.3204,0.00146839,166,166,8,19,0.315977,0.804725,0.250062,0.008413,0.002073
+rand033,0,ValueFirst,0,0.001,EventLocationLimited,EventLocationLimited,EventLocationLimited,0,30.3881,0.321505,85,85,8,11,0.729811,0.599489,0.129815,0.011393,0.003024
+rand033,0,ValueFirst,0,0.0001,Converged,Converged,BudgetExceeded,1,30.3854,0.00146422,238,238,8,22,0.732528,1.08563,0.368196,0.071919,0.009855
+rand033,0,ValueFirst,1,0.001,EventLocationLimited,EventLocationLimited,EventLocationLimited,0,30.3231,0.323691,85,85,8,11,0.325009,0.584773,0.141254,0.010268,0.002616
+rand033,0,ValueFirst,1,0.0001,Converged,Converged,BudgetExceeded,1,30.3204,0.00146839,238,238,8,22,0.321631,1.02776,0.369662,0.071918,0.009242
+rand033,0.5,None,0,0.001,EventLocationLimited,EventLocationLimited,Converged,0,31.5159,0.451719,85,85,8,11,0.730534,0.631269,0.184411,0.004172,0.000933
+rand033,0.5,None,0,0.0001,Converged,Converged,Converged,1,31.5142,0.00118651,166,166,8,19,0.732796,0.919837,0.316291,0.010119,0.002481
+rand033,0.5,None,1,0.001,EventLocationLimited,EventLocationLimited,Converged,0,31.4516,0.456369,85,85,8,11,0.312034,0.606637,0.182307,0.003603,0.000666
+rand033,0.5,None,1,0.0001,Converged,Converged,Converged,1,31.45,0.00118183,166,166,8,19,0.313489,0.910471,0.352937,0.00956,0.002349
+rand033,0.5,ValueFirst,0,0.001,EventLocationLimited,EventLocationLimited,EventLocationLimited,0,31.5159,0.451719,85,85,8,11,0.751277,0.686096,0.225924,0.01275,0.003147
+rand033,0.5,ValueFirst,0,0.0001,Converged,Converged,BudgetExceeded,1,31.5142,0.00118651,238,238,8,22,0.731099,1.27663,0.567101,0.074904,0.010173
+rand033,0.5,ValueFirst,1,0.001,EventLocationLimited,EventLocationLimited,EventLocationLimited,0,31.4516,0.456369,85,85,8,11,0.31956,0.684491,0.240276,0.012513,0.002874
+rand033,0.5,ValueFirst,1,0.0001,Converged,Converged,BudgetExceeded,1,31.45,0.00118183,238,238,8,22,0.326976,1.26599,0.600235,0.077758,0.010819

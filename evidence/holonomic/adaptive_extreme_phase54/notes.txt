@@ -1,0 +1,7 @@
+Research trial, base 69b2dc8.
+Only transport_pairs_valid midpoint lens-map evaluation changed.
+Preserved: positive v, finite m/v, TMax, ordered disjoint pairs, gap guard,
+endpoint polynomial residuals, thin-arc certificate, downstream arc construction.
+Rational midpoint changes binary64 rounding. No claim of an interval certificate.
+No production acceptance before independent numerical validation and whole A/B.
+Raw cache1/cache2 names mean candidate, not a cache implementation.

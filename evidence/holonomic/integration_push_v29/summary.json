@@ -1,0 +1,116 @@
+{
+  "normal": {
+    "before_matched": {
+      "seed_ms": 0.0841916896551724,
+      "planning_ms": 0.08008241379310345,
+      "candidate_integration_ms": 0.1690188275862069,
+      "candidate_no_caustic_ms": 0.3361900459770115
+    },
+    "after_matched": {
+      "seed_ms": 0.0836808275862069,
+      "planning_ms": 0.07215956321839079,
+      "candidate_integration_ms": 0.15322158620689652,
+      "candidate_no_caustic_ms": 0.3118166551724137
+    },
+    "before_reverse": {
+      "seed_ms": 0.08398321839080461,
+      "planning_ms": 0.08305548275862067,
+      "candidate_integration_ms": 0.16998150574712645,
+      "candidate_no_caustic_ms": 0.33917740229885057
+    },
+    "after_reverse": {
+      "seed_ms": 0.08411020689655171,
+      "planning_ms": 0.072505091954023,
+      "candidate_integration_ms": 0.15662219540229885,
+      "candidate_no_caustic_ms": 0.31616380459770105
+    },
+    "reduction_matched": {
+      "seed_ms": 0.006067844356822616,
+      "planning_ms": 0.09893371340156787,
+      "candidate_integration_ms": 0.09346438858270456,
+      "candidate_no_caustic_ms": 0.07249884729265443
+    },
+    "reduction_reverse": {
+      "seed_ms": -0.0015120700085127226,
+      "planning_ms": 0.12702822804919045,
+      "candidate_integration_ms": 0.0785927285801411,
+      "candidate_no_caustic_ms": 0.06785121162309082
+    }
+  },
+  "validation": {
+    "conditions": 896,
+    "reference_resolved_before": 754,
+    "reference_resolved_after": 754,
+    "unresolved_reference": 142,
+    "candidate_failures_on_resolved_reference": 0,
+    "candidate_failures_against_before_reference": 0,
+    "magnification_changes": 301,
+    "maximum_relative_change": 6.268630929795326e-13,
+    "node_count_changes": 0,
+    "maximum_discrepancy_over_tolerance": 0.2489676651091549
+  },
+  "profile": {
+    "before": {
+      "arc_ms": 0.06151568199233719,
+      "pair_ms": 0.03841282758620689,
+      "endpoint_ms": 0.018452256704980834,
+      "K_ms": 0.009042310344827584,
+      "physical_ms": 0.1735774674329503,
+      "estimator_ms": 0.015595632183908045,
+      "scheduler_ms": 0.0013868735632183904,
+      "setup_ms": 0.00993772796934866,
+      "setup_event_ms": 0.00688152490421456,
+      "setup_panel_ms": 0.0018941992337164744,
+      "integration_ms": 0.23843744061302677,
+      "dynamic_count_ms": 0.021061153256704972,
+      "allocation_ms": 0.01067311877394637,
+      "allocation_count": 3.574712643678161,
+      "arc_body_ms": 0.05715955938697321,
+      "tail_ms": 0.004250800766283525,
+      "node_loop_ms": 0.1988337318007663,
+      "header_ms": 0.0034137969348659,
+      "coeff_ms": 0.003291816091954022,
+      "rescue_ms": 0.01334840996168582,
+      "prediction_ms": 0.010385938697318013,
+      "map_ms": 0.006071678160919541,
+      "frontier_count_ms": 0.03804468582375478,
+      "frontier_event_ms": 0.020218172413793117
+    },
+    "after": {
+      "arc_ms": 0.04965398850574712,
+      "pair_ms": 0.03749362835249043,
+      "endpoint_ms": 0.018637597701149422,
+      "K_ms": 0.009036383141762453,
+      "physical_ms": 0.16288884291187755,
+      "estimator_ms": 0.010696819923371645,
+      "scheduler_ms": 0.0014003218390804602,
+      "setup_ms": 0.010209003831417622,
+      "setup_event_ms": 0.006979643678160918,
+      "setup_panel_ms": 0.0019573218390804593,
+      "integration_ms": 0.2226622605363986,
+      "dynamic_count_ms": 0.02193003065134098,
+      "allocation_ms": 0.010623613026819918,
+      "allocation_count": 3.574712643678161,
+      "arc_body_ms": 0.057510390804597716,
+      "tail_ms": 0.00428007662835249,
+      "node_loop_ms": 0.1876987318007662,
+      "header_ms": 0.003447904214559388,
+      "coeff_ms": 0.0032879348659003845,
+      "rescue_ms": 0.013483850574712635,
+      "prediction_ms": 0.007135605363984675,
+      "map_ms": 0.006104195402298849,
+      "frontier_count_ms": 0.03576432183908045,
+      "frontier_event_ms": 0.01998346743295019
+    }
+  },
+  "image_starts": {
+    "attempts": 1668,
+    "accepted": 1344,
+    "fraction": 0.8057553956834532
+  },
+  "simd_validation": {
+    "conditions": 896,
+    "magnification_changes_vs_pre_vector": 0,
+    "node_changes_vs_pre_vector": 0
+  }
+}

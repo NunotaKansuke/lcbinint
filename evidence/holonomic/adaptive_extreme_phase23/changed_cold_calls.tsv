@@ -1,0 +1,13 @@
+case_id	configuration_id	profile	d_bin_index	epoch_index	lane	qf_cold_calls	qf_cold_sweeps	base_qf_cold_calls	base_qf_cold_sweeps
+105	105	linear	1	0	cold	0	0	1	164
+105	105	linear	1	7	cold	1	119	0	0
+105	105	linear	1	15	cold	1	188	0	0
+105	105	uniform	1	0	cold	0	0	1	164
+105	105	uniform	1	7	cold	1	119	0	0
+105	105	uniform	1	15	cold	1	188	0	0
+105	105	linear	1	0	warm	0	0	1	164
+105	105	linear	1	7	warm	0	0	1	119
+105	105	uniform	1	0	warm	0	0	1	164
+105	105	uniform	1	7	warm	0	0	1	119
+149	149	linear	1	23	warm	1	400	0	0
+149	149	uniform	1	23	warm	1	400	0	0

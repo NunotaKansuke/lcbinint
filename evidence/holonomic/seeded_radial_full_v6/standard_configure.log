@@ -1,0 +1,10 @@
+-- The CXX compiler identification is GNU 11.5.0
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Python extension disabled
+-- Configuring done (0.3s)
+-- Generating done (0.0s)
+-- Build files have been written to: /rogue1_8/nunota/lcbinint/experiments/seeded-boundary-events/build-standard-current

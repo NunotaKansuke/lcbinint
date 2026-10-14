@@ -1,0 +1,2 @@
+/tmp/lcbinint_gradient_fold_build/bench_gradient_2d_modes evidence/holonomic/gradient_2d_failure_cases_20260916.tsv 58 0 1 1 3 > evidence/holonomic/gradient_2d_modes_20260916_cold_generous_dual_nested15.csv
+/tmp/lcbinint_gradient_fold_build/bench_gradient_2d_modes evidence/holonomic/gradient_2d_failure_cases_20260916.tsv 58 1 1 1 3 > evidence/holonomic/gradient_2d_modes_20260916_warm_generous_dual_nested15.csv

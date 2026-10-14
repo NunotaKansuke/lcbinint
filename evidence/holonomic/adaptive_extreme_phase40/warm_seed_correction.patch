@@ -1,0 +1,33 @@
+diff --git a/src/lcbinint/magnification/holonomic/radial_events.hpp b/src/lcbinint/magnification/holonomic/radial_events.hpp
+index 82cd679..fd3d702 100644
+--- a/src/lcbinint/magnification/holonomic/radial_events.hpp
++++ b/src/lcbinint/magnification/holonomic/radial_events.hpp
+@@ -1370,6 +1370,28 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
+         }
+         if (!ok) presearch_seed.clear();
+     }
++#ifdef HOLO_D14_WARM_SEED_CORRECTION
++    // Research: improve basin seeds only; all incumbent correction/certificate
++    // stages remain mandatory. Preserve a seed if local displacement is large.
++    if(sc && !presearch_seed.empty() && !direct_warm) {
++        const auto sr=d14_struct_cast<D14Real>(*sc);
++        for(int i=0;i<deg;++i) {
++            const auto original=(*warm_seed)[i];
++            const Cplx<D14Real> v(d14_from_qf(original.re),d14_from_qf(original.im));
++            Cplx<D14Real> f,d;d14_struct_eval(sr,v,f,d);
++            const auto correction=f/d;
++            const double dr=static_cast<double>(correction.re),di=static_cast<double>(correction.im);
++            double separation=std::numeric_limits<double>::infinity();
++            for(int j=0;j<deg;++j)if(i!=j)
++                separation=std::min(separation,std::hypot(double(original.re-(*warm_seed)[j].re),double(original.im-(*warm_seed)[j].im)));
++            if(std::isfinite(dr)&&std::isfinite(di)&&std::hypot(dr,di)<0.25*separation) {
++                const auto next=v-correction;
++                const double re=static_cast<double>(next.re)/sscale,im=static_cast<double>(next.im)/sscale;
++                if(std::isfinite(re)&&std::isfinite(im))presearch_seed[i]={re,im};
++            }
++        }
++    }
++#endif
+     int pre_iters = 0;
+     auto pre_begin = V2Clock::now();
+     if(prof) v2_profile_add_ms(&V2Profile::d14_prepare_ms,prepare_begin,pre_begin);

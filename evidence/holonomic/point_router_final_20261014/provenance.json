@@ -1,0 +1,24 @@
+{
+  "base_commit": "88f7de2cc9f26f37032aef10cb5f7a82a2ab9c2b",
+  "baseline_native_sha256": "0f183aab9168213e29834553c69b1185ed3fdaaeec2f32fef5bfe456c9b6ae2b",
+  "optimized_native_sha256": "b04f1b83ec3d8fe473a0a3c645d05caa28a8f544828fb942ac27e1308876547c",
+  "baseline_source_manifest": "../point_router_refine_20261014/provenance.json",
+  "source_sha256": {
+    "src/lcbinint/magnification/point_source_magnifier.cpp": "ec8ca0b4ed703de63b8ba71cb47875656dd1c4a3fad0eea70df2ef892843236e",
+    "src/lcbinint/magnification/point_source_magnifier.hpp": "2a0d486238f681f50166d8d31e180c9649f4dda605ac527fc6dbfd39e65f5732",
+    "src/lcbinint/magnification/finite_source_magnifier.cpp": "90e8d8c049cb32ee37b781d5c1de420cbb37630080f594cbe56139959681ee79",
+    "src/lcbinint/magnification/finite_source_magnifier.hpp": "3234d45147e47fc977a49a7d45329624cb6328a96f4ebe35737a99741788927d",
+    "src/lcbinint/magnification/binary_caustic_enclosure.hpp": "30e6045f0f7cf5624bd674b0fe9e17d4dc2878cf761cc7dc19c236cbb336496e"
+  },
+  "vbm_version": "5.5",
+  "vbm_installed_source": "/home/nunota/.miniconda3/envs/myenv/lib/python3.10/site-packages/VBMicrolensing/lib/VBMicrolensingLibrary.cpp",
+  "vbm_source_sha256": "378451e561e9ad13f71418cd927a3e27cbfc6abb429d55723c8338a3c5f2f73b",
+  "vbm_functions": {
+    "BinaryLightCurve": 5664,
+    "BinaryMag2": 1170,
+    "BinaryMag0": 716,
+    "NewImages_quintic": 1517
+  },
+  "vbm_classifier": "Local derivative/ghost diagnostics and small-q safedist; no global caustic curve or strip construction in point classifier.",
+  "validation": "unit_core and 46 selected native/API regressions pass; optional JAX FFI warmup deselected (build FFI OFF)"
+}

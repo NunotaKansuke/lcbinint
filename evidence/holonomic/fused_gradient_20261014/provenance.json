@@ -1,0 +1,54 @@
+{
+  "checkout": "/rogue1_8/nunota/lcbinint/experiments/seeded-boundary-events",
+  "branch": "experiment/seeded-boundary-events",
+  "base_commit": "5d8b0c919d2c89c8dfbe98491cd405f71ec8c757",
+  "host": "rogue1",
+  "machine": "x86_64",
+  "compiler": "g++ (GCC) 11.5.0 20240719 (Red Hat 11.5.0-5)",
+  "repetitions": 3,
+  "value_rtol": 0.0001,
+  "value_atol": 1e-08,
+  "timing": "fresh magnifier per repetition; caustic prebuild excluded; seed/index preparation included; seed set shared; independent workspace; alternating value/fused order",
+  "gradient_precision_checked": false,
+  "sha256": {
+    "benchmarks/holonomic/fused_gradient/bench.cpp": "993f548884ab7929ea490e2c1afef37fe73479e0802b0b71a5ed96f6e05c9186",
+    "benchmarks/holonomic/fused_gradient/fused_k.hpp": "5f4fbcd30643fbb6669ad3f973b3559f07ef1bbf8895caa343c5dd394f97b3bd",
+    "benchmarks/holonomic/fused_gradient/build_overlay.py": "1328109469d1bf11fa479ab756df70af45c242a54a8197d4793142b162f00dad",
+    "benchmarks/holonomic/fused_gradient/fused_motion.hpp": "9f06dec44e38d4aa55c7eb1b90571205cb65f895801a0388ba6ab47a51b193d2",
+    "benchmarks/holonomic/fused_gradient/build_material_overlay.py": "68010c70f4d830eb70da25d770d2623141a4f0fc74056a8bff0eb76032121c41",
+    "benchmarks/holonomic/fused_gradient/reference_fd.cpp": "70720a624629e250d009629a0f4e670c94bad0f1a92525eb4ea514c38242aae6",
+    "benchmarks/holonomic/fused_gradient/evaluate.hpp": "fdd49eb071a8b10381813dc71b0083abe3d03be22cd38ee9f4be7b7d60655b5f",
+    "benchmarks/holonomic/fused_gradient/build.sh": "5bebdb38da79679f6661458807232cb1472a469a35ee8d15d5d661e53f79daa6",
+    "benchmarks/holonomic/fused_gradient/audit.py": "f7111f67e6f70645b6f0f2606cc58356de1ebdaec68a1237d9d79a880213066c",
+    "benchmarks/holonomic/fused_gradient/README.md": "ff84b5b89b96e58c802d14c663830ef9b2194ee974397077f14e821fbad5ec85",
+    "benchmarks/holonomic/fused_gradient/provenance.py": "173d829aafa5cbcc42684ad3d8a7f8b62edbfcf5d73be09fe5b7b698fc07921e",
+    "build-seeded-events/seed_indexed_v30.o": "d6f96ca8a462ee66665d4ec6e8e93dac8306d997bc5cca8d01d6ab7c220123aa",
+    "build-standard-current/liblcbinint_magnification.a": "6ee06bb68a4c42596795d5f2dfdae3d0d8a48338b1251e8e3f80966a1040f5a1",
+    "build-standard-current/liblcbinint_lightcurve.a": "639ad947912062ee039a377c437baaaaf3b96f6faeb05eafd2f8e0237ddc14da",
+    "evidence/holonomic/seeded_paper_qrho_20261014/input_snapshot.tsv": "6646492658ed416e75cb8c6c821ee853f79cdf7761fc41441186aa67b81fa05b",
+    "build-seeded-events/fused-gradient/baseline": "f06e0010102d85628317e11b727cd10d533e9f70e6463787811a0558fca928df",
+    "build-seeded-events/fused-gradient/fused": "77f024b20546a278d2b9da80ef2f5eb17ed2e3b1765082b0b6c9b035365ea80d"
+  },
+  "overlay": {
+    "adaptive_radial.hpp": {
+      "base_sha256": "85e46ab994397edda09b736148e82b3a7fb752769503efa95f9f56bd0766c958",
+      "overlay_sha256": "ecaa9be34bcbcb17da36a796a9da0dc5a824d8a6123f9a5f33242e9e00df6ad4"
+    },
+    "adaptive_epoch.hpp": {
+      "base_sha256": "d28e9f11b3b846cd82572e8c64e48b9216244168128b67e63e022ad6ac6b6a32",
+      "overlay_sha256": "f68ed65a7494f6528ec3fb4b9c3d826d40efa08db04fe791c46fa5c20e0d3991"
+    },
+    "phi.hpp": {
+      "base_sha256": "ea7ed37297a2b498875bdc00067315eaae90bf6737000db55e3fab44b832a430",
+      "overlay_sha256": "7f5bade51069f6f57506413db8e2a082b9ac3d430131c0c72e60d8ff2d665744"
+    },
+    "holonomic_transport.hpp": {
+      "base_sha256": "6875ff11e76e3edd846466295697b2ad83cf9c692cce30d59e8fbb3b9916c831",
+      "overlay_sha256": "8d84d1e33298954858d9a63e765d9179f7fc99daa60c1ffa65d23fccb7832723"
+    },
+    "seeded_radial_frontier.hpp": {
+      "base_sha256": "b37e852adc04c943814818cc557dbb087e8f39d140e1d01059e0cb087a3f9a79",
+      "overlay_sha256": "f2deccc434c91b0ab844ab0c71d1e6c2e1a6abd8b2a54ff7ad71c31d8b908428"
+    }
+  }
+}

@@ -1,0 +1,21 @@
+-- Configuring done (0.0s)
+-- Generating done (0.0s)
+-- Build files have been written to: /rogue1_8/nunota/lcbinint/build-holonomic-m7
+[ 50%] Building CXX object CMakeFiles/test_adaptive_radial.dir/test_adaptive_radial.cpp.o
+[100%] Linking CXX executable test_adaptive_radial
+[100%] Built target test_adaptive_radial
+[ 50%] Building CXX object CMakeFiles/bench_adaptive_radial.dir/bench_adaptive_radial.cpp.o
+[100%] Linking CXX executable bench_adaptive_radial
+[100%] Built target bench_adaptive_radial
+[ 50%] Building CXX object CMakeFiles/bench_adaptive_controls.dir/bench_adaptive_controls.cpp.o
+[100%] Linking CXX executable bench_adaptive_controls
+[100%] Built target bench_adaptive_controls
+[ 50%] Building CXX object CMakeFiles/check_adaptive_reference.dir/check_adaptive_reference.cpp.o
+[100%] Linking CXX executable check_adaptive_reference
+[100%] Built target check_adaptive_reference
+[ 50%] Building CXX object CMakeFiles/check_adaptive_jacobian.dir/check_adaptive_jacobian.cpp.o
+[100%] Linking CXX executable check_adaptive_jacobian
+[100%] Built target check_adaptive_jacobian
+[ 50%] Building CXX object CMakeFiles/check_adaptive_limits.dir/check_adaptive_limits.cpp.o
+[100%] Linking CXX executable check_adaptive_limits
+[100%] Built target check_adaptive_limits

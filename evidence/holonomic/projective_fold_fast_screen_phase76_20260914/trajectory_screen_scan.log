@@ -1,0 +1,1 @@
+mode=snapshot inputs=7216 chart_p4=3376 old_accepted=0 screen_rejects=3376 false_rejects=0 screen_possible=0 screen_unresolved=0 old_probe_ms=42.1588 screen_only_ms=18.4499 screen_eval_ms=18.4499

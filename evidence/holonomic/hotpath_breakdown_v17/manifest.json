@@ -1,0 +1,12 @@
+{
+  "checkout": "/rogue1_8/nunota/lcbinint/experiments/seeded-boundary-events",
+  "head": "f3547723b79828d9c501182746028e99f7bad116",
+  "changes": "profiling only; new scopes enabled by HOLO_FRONTIER_COST_PROFILE",
+  "timing": "serial; fresh per-source workspaces; no compilation concurrent; one thread; nested per-repetition arithmetic means; 87 normal conditions tol1e-4, three repetitions",
+  "source_sha256": {
+    "src/lcbinint/magnification/holonomic/adaptive_epoch.hpp": "af09517444055a6be1e6b323ceed54f8b719466ee18fba24147d30d671845c3f",
+    "src/lcbinint/magnification/holonomic/adaptive_radial.hpp": "a23837ff94b0b95405bff7a168efbf19e029a3942c615176e8f487e2cf91e895",
+    "src/lcbinint/magnification/holonomic/v2_profile.hpp": "b791e1dc2859eedad4ef700642e4ce9299d2623b35a7a8bf565e621e5a1f7ff2",
+    "benchmarks/holonomic/bench_seeded_integration_profile.cpp": "a7ae8e0ddcd429f0ee70da86e3b31c0d14e510419a61a26faa7f48473beed307"
+  }
+}

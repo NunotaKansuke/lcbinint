@@ -1,0 +1,200 @@
+CASE 20 linear 2 7 atlas=Complete contacts=9
+CONTACT 0 R=0.094080622230620886 lo=1.9307401514240403e-18 chart=0 s=0.62337218858388821 closest_old=physical_real delta_R=0
+CONTACT 1 R=0.095283903508967593 lo=1.148607997194592e-19 chart=0 s=0.62951653872754776 closest_old=physical_real delta_R=0
+CONTACT 2 R=0.11008616832931202 lo=3.2766906881445659e-18 chart=0 s=0.6858720625424044 closest_old=physical_real delta_R=0
+CONTACT 3 R=0.10485117212800327 lo=6.1749179959246335e-18 chart=0 s=0.69612232554465092 closest_old=physical_real delta_R=0
+CONTACT 4 R=0.10280885316526604 lo=-4.8719700619220088e-18 chart=0 s=0.70352489545198615 closest_old=physical_real delta_R=1.3877787807814457e-17
+CONTACT 5 R=0.10111245639569366 lo=6.4067597554190134e-18 chart=0 s=0.71362145689067158 closest_old=physical_real delta_R=1.3877787807814457e-17
+CONTACT 6 R=0.10111245639569366 lo=6.4067597554193123e-18 chart=0 s=0.71362145689067158 closest_old=physical_real delta_R=1.3877787807814457e-17
+CONTACT 7 R=3.8418039509654762 lo=-1.856408506436952e-16 chart=0 s=-0.37811175684313569 closest_old=physical_real delta_R=0
+CONTACT 8 R=3.8452580671142575 lo=-1.612376610446997e-16 chart=0 s=-0.37810387768385073 closest_old=physical_real delta_R=0
+OVERLAPPING_R 6 5 original_union_identity=0
+CASE 22 linear 2 15 atlas=Complete contacts=7
+CONTACT 0 R=0.12262563951434644 lo=5.031526718308115e-18 chart=1 s=0.97346707814471634 closest_old=physical_real delta_R=0
+CONTACT 1 R=0.1763806051079547 lo=-2.0003897536002099e-18 chart=0 s=-0.93642351703694338 closest_old=physical_real delta_R=0
+CONTACT 2 R=0.054682188447369107 lo=-1.39618960281683e-18 chart=0 s=-0.44930385995374966 closest_old=physical_real delta_R=0
+CONTACT 3 R=0.05085472072971902 lo=1.5300255207699918e-18 chart=0 s=-0.43421478302165201 closest_old=physical_real delta_R=0
+CONTACT 4 R=2.054100337359567 lo=-2.1984406880988092e-16 chart=0 s=0.11019977495882217 closest_old=physical_real delta_R=0
+CONTACT 5 R=2.054100337359567 lo=-2.1984406880988092e-16 chart=0 s=0.11019977495882217 closest_old=physical_real delta_R=0
+CONTACT 6 R=2.0675271250209675 lo=-1.9629243587237242e-16 chart=0 s=0.10698808843713316 closest_old=physical_real delta_R=0
+OVERLAPPING_R 5 4 original_union_identity=0
+CASE 30 linear 4 7 atlas=Complete contacts=10
+CONTACT 0 R=0.0053292274240498826 lo=3.1845803138804951e-19 chart=1 s=-0.00032553371026208279 closest_old=physical_complex delta_R=0 direct_probe_real=0 direct_residual=4.8695246906103948e-05 reciprocal_candidate_valid=1 reciprocal_candidate_residual=8.5821284624983355e-21
+CONTACT 1 R=0.0055390921670490654 lo=1.6280964384840328e-19 chart=1 s=-0.0003255337359262889 closest_old=physical_complex delta_R=0 direct_probe_real=0 direct_residual=7.9774458581883363e-05 reciprocal_candidate_valid=1 reciprocal_candidate_residual=1.4539560421997706e-20
+CONTACT 2 R=2.0165504572968169 lo=-1.6973608370067583e-17 chart=0 s=0.00011102685724493182 closest_old=physical_real delta_R=0
+CONTACT 3 R=2.0672305127911672 lo=-1.1152150924819444e-17 chart=0 s=-0.00042207075682616698 closest_old=physical_real delta_R=0
+CONTACT 4 R=2.2636573903816593 lo=-7.4363558544835973e-18 chart=0 s=-0.12022716330145662 closest_old=physical_real delta_R=0
+CONTACT 5 R=3.841638008811477 lo=1.258408622650809e-16 chart=0 s=-0.084836463281722285 closest_old=physical_real delta_R=0
+CONTACT 6 R=4.0555463414373465 lo=1.6952107915773814e-16 chart=0 s=-0.00036332436970735706 closest_old=physical_real delta_R=0
+CONTACT 7 R=2.2929998884802201 lo=1.4440813499648191e-16 chart=0 s=0.12589949193648853 closest_old=physical_real delta_R=0
+CONTACT 8 R=3.8617209367435357 lo=2.6617848376822521e-17 chart=0 s=0.079963782253390417 closest_old=physical_real delta_R=0
+CONTACT 9 R=4.0000404125917424 lo=-1.4345006165591211e-16 chart=0 s=9.7935510499470499e-05 closest_old=physical_real delta_R=0
+CASE 30 linear 4 15 atlas=Complete contacts=10
+CONTACT 0 R=0.0053152169657737164 lo=-1.2647538646670175e-19 chart=1 s=-0.00032465841452607879 closest_old=physical_complex delta_R=0 direct_probe_real=0 direct_residual=7.7978541630885312e-06 reciprocal_candidate_valid=1 reciprocal_candidate_residual=1.353060686983615e-21
+CONTACT 1 R=0.0055239606264263861 lo=-2.5484143051254944e-19 chart=1 s=-0.00032465843978029266 closest_old=physical_complex delta_R=0 direct_probe_real=0 direct_residual=7.6947385972634002e-05 reciprocal_candidate_valid=1 reciprocal_candidate_residual=1.3976622903975524e-20
+CONTACT 2 R=2.0201695802400081 lo=-1.2195680797125791e-16 chart=0 s=0.00012951223880232752 closest_old=physical_real delta_R=0
+CONTACT 3 R=2.0706530276117663 lo=-8.5987963702710244e-17 chart=0 s=-0.00044741677805082409 closest_old=physical_real delta_R=0
+CONTACT 4 R=2.2312819276825371 lo=1.0734769816806307e-16 chart=0 s=-0.11168634282511863 closest_old=physical_real delta_R=0
+CONTACT 5 R=3.8753891408615884 lo=9.0434550575632595e-17 chart=0 s=-0.077760512462187126 closest_old=physical_real delta_R=0
+CONTACT 6 R=4.0595154220254601 lo=2.4038395440474149e-16 chart=0 s=-0.0003766867334383683 closest_old=physical_real delta_R=0
+CONTACT 7 R=2.2563136785898306 lo=-2.7123737874215488e-17 chart=0 s=0.11734296240292848 closest_old=physical_real delta_R=0
+CONTACT 8 R=3.892389988547416 lo=9.8724335804723201e-18 chart=0 s=0.073164469386064704 closest_old=physical_real delta_R=0
+CONTACT 9 R=4.0038117477229234 lo=-1.7625343462718515e-16 chart=0 s=0.00012183208807810917 closest_old=physical_real delta_R=0
+CASE 30 linear 4 23 atlas=Complete contacts=10
+CONTACT 0 R=0.0053012798278615691 lo=4.2620091147640142e-19 chart=1 s=-0.00032378781117467417 closest_old=physical_complex delta_R=0 direct_probe_real=0 direct_residual=4.6277393498598951e-05 reciprocal_candidate_valid=1 reciprocal_candidate_residual=7.944449398112416e-21
+CONTACT 1 R=0.0055089113470257519 lo=3.8940387957667217e-19 chart=1 s=-0.00032378783602651366 closest_old=physical_complex delta_R=0 direct_probe_real=0 direct_residual=7.0758930587801929e-05 reciprocal_candidate_valid=1 reciprocal_candidate_residual=1.273430698547881e-20
+CONTACT 2 R=2.0237749881425318 lo=2.0115281026110548e-16 chart=0 s=0.00014750532791724479 closest_old=physical_real delta_R=0
+CONTACT 3 R=2.0740619129895879 lo=-1.4423879598171844e-16 chart=0 s=-0.00047368460365435706 closest_old=physical_real delta_R=0
+CONTACT 4 R=2.207175151259003 lo=-1.4868150722851498e-16 chart=0 s=-0.10411095294061375 closest_old=physical_real delta_R=0
+CONTACT 5 R=3.9019543996234951 lo=1.131932276270892e-16 chart=0 s=-0.071804448782988722 closest_old=physical_real delta_R=0
+CONTACT 6 R=4.0634981916247472 lo=-4.4295767462751495e-16 chart=0 s=-0.00038921453875101909 closest_old=physical_real delta_R=0
+CONTACT 7 R=2.2287755907589384 lo=3.9427554206318751e-17 chart=0 s=0.10967340920167405 closest_old=physical_real delta_R=0
+CONTACT 8 R=3.916530205976859 lo=-1.332042952060333e-16 chart=0 s=0.067461684955432047 closest_old=physical_real delta_R=0
+CONTACT 9 R=4.00759689897383 lo=2.3506703738374299e-16 chart=0 s=0.00014672112908149063 closest_old=physical_real delta_R=0
+CASE 75 linear 1 15 atlas=Complete contacts=6
+CONTACT 0 R=0.026296751066125622 lo=1.3373130456092129e-18 chart=1 s=-0.12512430847432143 closest_old=physical_real delta_R=0
+CONTACT 1 R=0.064568915556333178 lo=-3.6974354974789897e-18 chart=1 s=-0.0010581540102471477 closest_old=physical_complex delta_R=0 direct_probe_real=0 direct_residual=0.00031445288836474364 reciprocal_candidate_valid=0 reciprocal_candidate_residual=inf
+CONTACT 2 R=0.053186308683710978 lo=-1.9778447711110307e-18 chart=0 s=-0.48052007322098345 closest_old=physical_real delta_R=0
+CONTACT 3 R=0.13440843418695619 lo=8.3286446586663837e-18 chart=0 s=-0.42472251466605876 closest_old=physical_real delta_R=0
+CONTACT 4 R=3.3347558861182223 lo=-1.9631485381843528e-16 chart=0 s=0.00027606516116361314 closest_old=physical_real delta_R=0
+CONTACT 5 R=3.3476328422466404 lo=-1.8008326772812054e-16 chart=0 s=0.00027062039349340188 closest_old=physical_real delta_R=0
+CASE 85 linear 3 7 atlas=Complete contacts=7
+CONTACT 0 R=0.5327798989951763 lo=3.4954802596423539e-17 chart=0 s=-0.92544318838566009 closest_old=physical_real delta_R=0
+CONTACT 1 R=0.54496811620088481 lo=-3.1947827315608737e-19 chart=0 s=-0.91595613872133386 closest_old=physical_real delta_R=0
+CONTACT 2 R=0.54496811620088481 lo=-3.1947827315609064e-19 chart=0 s=-0.91595613872133386 closest_old=physical_real delta_R=0
+CONTACT 3 R=0.13231219399617544 lo=-1.3589039043296292e-17 chart=0 s=0.16755324660792037 closest_old=physical_real delta_R=0
+CONTACT 4 R=0.13378681611667118 lo=5.0070089196347905e-18 chart=0 s=0.16886577356070159 closest_old=physical_real delta_R=0
+CONTACT 5 R=1.9220650528875598 lo=-3.3098834463848441e-17 chart=0 s=0.057365009270009558 closest_old=physical_real delta_R=0
+CONTACT 6 R=1.9252460011850436 lo=7.9241668127035078e-17 chart=0 s=0.055432799112675075 closest_old=physical_real delta_R=0
+OVERLAPPING_R 2 1 original_union_identity=0
+CASE 86 linear 2 7 atlas=Complete contacts=7
+CONTACT 0 R=0.0012399550285679148 lo=-5.873256521651533e-20 chart=1 s=-0.075535092675177412 closest_old=physical_real delta_R=0
+CONTACT 1 R=0.0020367850812258522 lo=1.362789812226112e-19 chart=1 s=-0.075548991439311264 closest_old=physical_real delta_R=0
+CONTACT 2 R=0.29918766492139809 lo=9.0681063884011029e-18 chart=0 s=0.001621043648963108 closest_old=physical_real delta_R=0
+CONTACT 3 R=0.41702355487365422 lo=8.7462123800054523e-18 chart=0 s=-0.035558886611097074 closest_old=physical_real delta_R=0
+CONTACT 4 R=0.29918766492139809 lo=9.0681063884011029e-18 chart=0 s=0.001621043648963108 closest_old=physical_real delta_R=0
+CONTACT 5 R=2.2966823992461709 lo=2.1769164118575329e-16 chart=0 s=-0.00056753095463989492 closest_old=physical_real delta_R=0
+CONTACT 6 R=2.4406270846370592 lo=-1.7829401792756759e-16 chart=0 s=-0.034656387942880069 closest_old=physical_real delta_R=0
+OVERLAPPING_R 4 2 original_union_identity=0
+CASE 89 linear 1 0 atlas=Complete contacts=8
+CONTACT 0 R=0.04857090646898532 lo=2.0410098522404112e-18 chart=1 s=-0.43625114207418447 closest_old=physical_real delta_R=0
+CONTACT 1 R=0.035240117183563728 lo=-2.9208967443985256e-18 chart=1 s=-0.056905806780044622 closest_old=physical_real delta_R=0
+CONTACT 2 R=0.042191800814844103 lo=1.937314063484595e-18 chart=1 s=-0.0017403747275354612 closest_old=physical_complex delta_R=0 direct_probe_real=0 direct_residual=2.1861343873226794e-06 reciprocal_candidate_valid=0 reciprocal_candidate_residual=inf
+CONTACT 3 R=0.065358269311745765 lo=-4.4293274830152566e-18 chart=1 s=0.62052747508524964 closest_old=physical_real delta_R=0
+CONTACT 4 R=0.010818019954630871 lo=1.5196876370019879e-19 chart=0 s=0.045106057120250814 closest_old=physical_real delta_R=0
+CONTACT 5 R=0.013426383866718581 lo=7.3753399559169936e-19 chart=0 s=0.046323618943226882 closest_old=physical_real delta_R=0
+CONTACT 6 R=2.0398521198027355 lo=1.5984329805391456e-16 chart=0 s=0.0019036158538956068 closest_old=physical_real delta_R=0
+CONTACT 7 R=2.0463882229896182 lo=2.4741359498267311e-17 chart=0 s=0.0017672135975531733 closest_old=physical_real delta_R=0
+CASE 89 linear 1 7 atlas=Complete contacts=8
+CONTACT 0 R=0.048489175086799667 lo=1.8610863618377082e-19 chart=1 s=-0.44987446004296477 closest_old=physical_real delta_R=0
+CONTACT 1 R=0.03473047406239884 lo=-1.2708970998460657e-18 chart=1 s=-0.061367187223303116 closest_old=physical_real delta_R=0
+CONTACT 2 R=0.041655596071059675 lo=2.5665823128668135e-18 chart=1 s=0.0020005876800201759 closest_old=physical_complex delta_R=0 direct_probe_real=0 direct_residual=3.7582311929649903e-06 reciprocal_candidate_valid=0 reciprocal_candidate_residual=inf
+CONTACT 3 R=0.06527334947622844 lo=-5.4215984446096599e-19 chart=1 s=0.62937253163889662 closest_old=physical_real delta_R=0
+CONTACT 4 R=0.01095318887866838 lo=6.3702015150535332e-19 chart=0 s=0.045781135030251954 closest_old=physical_real delta_R=0
+CONTACT 5 R=0.01361417090501349 lo=-2.1822399155758715e-19 chart=0 s=0.047100406886732754 closest_old=physical_real delta_R=0
+CONTACT 6 R=2.0402477419027836 lo=-9.8031059591435767e-17 chart=0 s=0.0019083455320543878 closest_old=physical_real delta_R=0
+CONTACT 7 R=2.0467881204862066 lo=-2.7600583078318476e-17 chart=0 s=0.0017710824891988379 closest_old=physical_real delta_R=0
+CASE 100 linear 1 15 atlas=Complete contacts=7
+CONTACT 0 R=0.72919712279775517 lo=-2.0897911134344303e-17 chart=1 s=-0.99848064257540015 closest_old=physical_real delta_R=0
+CONTACT 1 R=0.47402800599176048 lo=-2.101463786760747e-17 chart=0 s=-0.83329954283448204 closest_old=physical_real delta_R=0
+CONTACT 2 R=0.39187160159244211 lo=1.1486526038043461e-17 chart=0 s=-0.32376700796716756 closest_old=physical_real delta_R=0
+CONTACT 3 R=0.72919712279775517 lo=-2.0897911134344303e-17 chart=0 s=1.0015216693842768 closest_old=physical_real delta_R=0
+CONTACT 4 R=0.82668973069761242 lo=-3.4697888905500754e-17 chart=0 s=0.92429060164246157 closest_old=physical_real delta_R=0
+CONTACT 5 R=2.0492302150888979 lo=-1.6424288312565927e-16 chart=0 s=-0.026831731832806668 closest_old=physical_real delta_R=0
+CONTACT 6 R=2.0763812824296206 lo=1.8360655825267365e-16 chart=0 s=-0.024391600200347936 closest_old=physical_real delta_R=0
+OVERLAPPING_R 3 0 original_union_identity=1
+CASE 106 linear 2 7 atlas=Complete contacts=10
+CONTACT 0 R=0.72030530055422559 lo=5.3233608051993797e-17 chart=1 s=-0.030441910684150912 closest_old=physical_real delta_R=0
+CONTACT 1 R=0.78532434163714326 lo=-1.1878595516881844e-17 chart=1 s=0.00040913536800172786 closest_old=physical_complex delta_R=0 direct_probe_real=0 direct_residual=0.00027468686366971632 reciprocal_candidate_valid=1 reciprocal_candidate_residual=1.0331936721497405e-17
+CONTACT 2 R=0.92373917286587148 lo=3.4161324119110556e-17 chart=1 s=0.79477254345184511 closest_old=physical_real delta_R=0
+CONTACT 3 R=7.5978096415419495e-05 lo=-3.107784243918619e-21 chart=0 s=0.0019418845774274403 closest_old=physical_real delta_R=0
+CONTACT 4 R=7.8406570059875059e-05 lo=-3.0773841716870941e-21 chart=0 s=0.0019418846022931804 closest_old=physical_real delta_R=0
+CONTACT 5 R=1.017504292820677 lo=3.0771769056444279e-17 chart=0 s=-0.85147584111314256 closest_old=physical_real delta_R=0
+CONTACT 6 R=1.2845675781491692 lo=5.9436322749349078e-17 chart=0 s=-0.030362061782355034 closest_old=physical_real delta_R=0
+CONTACT 7 R=1.2146923915371786 lo=-6.1711868450485432e-17 chart=0 s=0.00038964693782993979 closest_old=physical_real delta_R=0
+CONTACT 8 R=1.1134456871382334 lo=7.7842240474034729e-17 chart=0 s=0.51919946560044894 closest_old=physical_real delta_R=0
+CONTACT 9 R=1.0277440993505498 lo=-8.703765263452849e-17 chart=0 s=0.76776209298342502 closest_old=physical_real delta_R=0
+CASE 119 linear 0 15 atlas=Complete contacts=8
+CONTACT 0 R=0.016331234898889532 lo=3.5215883955059157e-19 chart=1 s=-0.17637295686792881 closest_old=physical_real delta_R=0
+CONTACT 1 R=0.080196474933377768 lo=2.1933522605200368e-18 chart=1 s=-0.00033686524731106523 closest_old=physical_complex delta_R=0 direct_probe_real=0 direct_residual=0.006581466081107914 reciprocal_candidate_valid=1 reciprocal_candidate_residual=6.22476317656364e-20
+CONTACT 2 R=0.035258945465348961 lo=2.9850505031217321e-18 chart=0 s=-0.6503529066617274 closest_old=physical_real delta_R=0
+CONTACT 3 R=0.36421180936702269 lo=-3.6466899423292268e-18 chart=0 s=-0.76646515474720001 closest_old=physical_real delta_R=0
+CONTACT 4 R=0.14021301942371836 lo=-3.7215773592551071e-18 chart=0 s=0.01724553467439446 closest_old=physical_real delta_R=0
+CONTACT 5 R=0.25161842427396558 lo=-6.8239442230719841e-18 chart=0 s=0.73467136296776625 closest_old=physical_real delta_R=0
+CONTACT 6 R=2.1053311441010742 lo=4.3514407688998018e-17 chart=0 s=0.010851441932898682 closest_old=physical_real delta_R=0
+CONTACT 7 R=2.1965104524874985 lo=7.0027831590931888e-18 chart=0 s=0.0051555568559347367 closest_old=physical_real delta_R=0
+CASE 140 linear 1 15 atlas=Complete contacts=6
+CONTACT 0 R=0.40704363080786915 lo=1.3448696158507742e-17 chart=1 s=-0.0091568481733174563 closest_old=physical_real delta_R=0
+CONTACT 1 R=0.45647668980865569 lo=8.8553102763222094e-18 chart=1 s=-0.0014165666394382959 closest_old=physical_complex delta_R=0 direct_probe_real=0 direct_residual=1.4914962436825655e-06 reciprocal_candidate_valid=1 reciprocal_candidate_residual=2.2376270958834945e-18
+CONTACT 2 R=0.0011908282078183117 lo=-3.7178923371737214e-20 chart=0 s=0.0049643672089520934 closest_old=physical_real delta_R=0
+CONTACT 3 R=0.0012955273356472323 lo=5.4959697270882975e-20 chart=0 s=0.004964382757341847 closest_old=physical_real delta_R=0
+CONTACT 4 R=1.5442467206645658 lo=1.0878322034348702e-16 chart=0 s=-0.0017614666882152744 closest_old=physical_real delta_R=0
+CONTACT 5 R=1.5955851729164368 lo=-1.1089292564619307e-16 chart=0 s=-0.0088986750984422804 closest_old=physical_real delta_R=0
+CASE 140 linear 1 23 atlas=Complete contacts=6
+CONTACT 0 R=0.40360010736608914 lo=2.103587909143415e-17 chart=1 s=-0.0098026746733759808 closest_old=physical_real delta_R=0
+CONTACT 1 R=0.45285738540230225 lo=-5.6865981127610909e-18 chart=1 s=-0.000612354319223886 closest_old=physical_complex delta_R=0 direct_probe_real=0 direct_residual=3.912895077819599e-05 reciprocal_candidate_valid=1 reciprocal_candidate_residual=2.2701802808949405e-18
+CONTACT 2 R=0.0011975627480490618 lo=5.047053182237309e-20 chart=0 s=0.0049934877611574197 closest_old=physical_real delta_R=0
+CONTACT 3 R=0.0013034962036008956 lo=-8.6157970293499665e-20 chart=0 s=0.0049935038656516067 closest_old=physical_real delta_R=0
+CONTACT 4 R=1.5478233943376491 lo=6.6538490120553618e-17 chart=0 s=-0.0010016003814730164 closest_old=physical_real delta_R=0
+CONTACT 5 R=1.5993694611563281 lo=6.8706716015313016e-17 chart=0 s=-0.0094577110320830955 closest_old=physical_real delta_R=0
+CASE 150 linear 0 0 atlas=Complete contacts=6
+CONTACT 0 R=0.61259689045073273 lo=4.1471869026276248e-17 chart=1 s=0.0032795662721941442 closest_old=physical_real delta_R=0
+CONTACT 1 R=0.69748792351837685 lo=-3.0640955708582757e-17 chart=1 s=0.0012699716110647569 closest_old=physical_complex delta_R=0 direct_probe_real=0 direct_residual=1.5679897951992022e-06 reciprocal_candidate_valid=1 reciprocal_candidate_residual=1.7856115703160317e-18
+CONTACT 2 R=0.033696064008950796 lo=5.1382706792668076e-19 chart=0 s=-0.00055505180890575291 closest_old=physical_real delta_R=0
+CONTACT 3 R=0.036003424466962794 lo=3.0735291881107002e-18 chart=0 s=-0.0005553001193701996 closest_old=physical_real delta_R=0
+CONTACT 4 R=1.3157913505227037 lo=5.3348341518249239e-17 chart=0 s=0.0020534895176537028 closest_old=physical_real delta_R=0
+CONTACT 5 R=1.4021565423978282 lo=7.9541876977484188e-17 chart=0 s=0.0018020218123774364 closest_old=physical_real delta_R=0
+CASE 150 linear 0 7 atlas=Complete contacts=6
+CONTACT 0 R=0.60768027909668731 lo=-3.1121188369601573e-17 chart=1 s=0.0034563412193550514 closest_old=physical_real delta_R=0
+CONTACT 1 R=0.69209411468337823 lo=-3.8384822136347808e-17 chart=1 s=0.0009691380503030763 closest_old=physical_complex delta_R=0 direct_probe_real=0 direct_residual=2.9465443756167679e-05 reciprocal_candidate_valid=1 reciprocal_candidate_residual=1.1402458779242646e-17
+CONTACT 2 R=0.033829026911780871 lo=-3.2237499343674091e-19 chart=0 s=-0.00055684324602330102 closest_old=physical_real delta_R=0
+CONTACT 3 R=0.0361527520925643 lo=-1.4869804041369729e-18 chart=0 s=-0.00055709703525174293 closest_old=physical_real delta_R=0
+CONTACT 4 R=1.3208334986038317 lo=7.2214866583982857e-17 chart=0 s=0.0018005245470113316 closest_old=physical_real delta_R=0
+CONTACT 5 R=1.4076622175218532 lo=4.4860841244230752e-17 chart=0 s=0.0020216956266649747 closest_old=physical_real delta_R=0
+CASE 150 linear 0 15 atlas=Complete contacts=6
+CONTACT 0 R=0.60209695773889083 lo=1.9737486665923465e-17 chart=1 s=0.0036362137056690324 closest_old=physical_real delta_R=0
+CONTACT 1 R=0.68596518628666237 lo=-2.4417806431755745e-17 chart=1 s=0.00062947890766685286 closest_old=physical_complex delta_R=0 direct_probe_real=0 direct_residual=0.00014936203536538523 reciprocal_candidate_valid=1 reciprocal_candidate_residual=1.0319787652779092e-17
+CONTACT 2 R=0.033982122541027025 lo=2.1295446596356831e-18 chart=0 s=-0.00055889949804320571 closest_old=physical_real delta_R=0
+CONTACT 3 R=0.036324730026563376 lo=1.1238224875455705e-18 chart=0 s=-0.00055915970980920029 closest_old=physical_real delta_R=0
+CONTACT 4 R=1.3266304986839603 lo=-3.8450413987442277e-17 chart=0 s=0.0015290384722361418 closest_old=physical_real delta_R=0
+CONTACT 5 R=1.4139888563576715 lo=-7.9396791553368939e-17 chart=0 s=0.0022524562469638043 closest_old=physical_real delta_R=0
+CASE 150 linear 0 23 atlas=Complete contacts=6
+CONTACT 0 R=0.67987408401721949 lo=2.0704203372829701e-17 chart=1 s=0.00029025792123265546 closest_old=physical_complex delta_R=0 direct_probe_real=0 direct_residual=0.00040968993947678773 reciprocal_candidate_valid=1 reciprocal_candidate_residual=1.2848131332608729e-18
+CONTACT 1 R=0.59655166602770404 lo=5.0699220631687126e-17 chart=1 s=0.003793029583753842 closest_old=physical_real delta_R=0
+CONTACT 2 R=0.034136443984197178 lo=2.3955436290845586e-18 chart=0 s=-0.00056096520978573248 closest_old=physical_real delta_R=0
+CONTACT 3 R=0.036498127398884 lo=-2.9842656977945421e-18 chart=0 s=-0.00056123202065537405 closest_old=physical_real delta_R=0
+CONTACT 4 R=1.3324643513205015 lo=-8.4867118036094698e-17 chart=0 s=0.0012710985566709979 closest_old=physical_real delta_R=0
+CONTACT 5 R=1.4203521737530056 lo=-1.714496377370094e-17 chart=0 s=0.0024588345618712106 closest_old=physical_real delta_R=0
+CASE 157 linear 4 7 atlas=Complete contacts=10
+CONTACT 0 R=0.62495953356170819 lo=-2.7581516117346133e-18 chart=1 s=-0.59110036558261903 closest_old=physical_real delta_R=0
+CONTACT 1 R=0.51997081068271278 lo=-2.8509554435911655e-17 chart=1 s=-0.0053628454091149734 closest_old=physical_real delta_R=0
+CONTACT 2 R=0.38264104074939548 lo=7.2755954988311499e-18 chart=1 s=0.001075835684496108 closest_old=physical_complex delta_R=0 direct_probe_real=0 direct_residual=1.0465876905183318e-05 reciprocal_candidate_valid=1 reciprocal_candidate_residual=2.6241918441976223e-18
+CONTACT 3 R=0.63998245223533146 lo=9.3134543783180394e-18 chart=1 s=0.61753223115919043 closest_old=physical_real delta_R=0
+CONTACT 4 R=0.00010051897587117044 lo=-3.8983714607209656e-21 chart=0 s=0.0014608814975424903 closest_old=physical_real delta_R=0
+CONTACT 5 R=0.00012751222533038912 lo=6.9003097158638142e-21 chart=0 s=0.0014608862293058636 closest_old=physical_real delta_R=0
+CONTACT 6 R=1.5110603919964509 lo=9.1768680928609995e-17 chart=0 s=-0.10270208168235886 closest_old=physical_real delta_R=0
+CONTACT 7 R=1.5131628505881163 lo=7.7352629035689881e-17 chart=0 s=-0.013133960176618125 closest_old=physical_real delta_R=0
+CONTACT 8 R=1.5073300115964152 lo=6.908780738988937e-17 chart=0 s=0.11898222953910342 closest_old=physical_real delta_R=0
+CONTACT 9 R=1.6210098266800281 lo=1.6558091454352522e-17 chart=0 s=0.00079719765706140271 closest_old=physical_real delta_R=0
+CASE 157 linear 4 15 atlas=Complete contacts=10
+CONTACT 0 R=0.64202648669249918 lo=-4.722933815718173e-17 chart=1 s=-0.64646185621600205 closest_old=physical_real delta_R=0
+CONTACT 1 R=0.50994247212843691 lo=5.3885101788530004e-17 chart=1 s=-0.0048422605722044662 closest_old=physical_real delta_R=0
+CONTACT 2 R=0.37363585764166707 lo=2.6955503059211642e-17 chart=1 s=0.00092672009675596957 closest_old=physical_complex delta_R=0 direct_probe_real=0 direct_residual=1.4213008931029631e-05 reciprocal_candidate_valid=1 reciprocal_candidate_residual=1.8258175654638301e-18
+CONTACT 3 R=0.65881397438903577 lo=-1.2362199448447762e-17 chart=1 s=0.67426546086443073 closest_old=physical_real delta_R=0
+CONTACT 4 R=0.00010202147938509411 lo=-2.7660243843228934e-21 chart=0 s=0.001485338767882718 closest_old=physical_real delta_R=0
+CONTACT 5 R=0.00012993935946940946 lo=2.9595856038490393e-21 chart=0 s=0.0014853440002516197 closest_old=physical_real delta_R=0
+CONTACT 6 R=1.5138528742400583 lo=-1.3289221633188631e-17 chart=0 s=-0.13080980264668221 closest_old=physical_real delta_R=0
+CONTACT 7 R=1.5201702729301854 lo=-5.8077811882881496e-17 chart=0 s=-0.008888364161136586 closest_old=physical_real delta_R=0
+CONTACT 8 R=1.5089278164811268 lo=4.2604044644732039e-17 chart=0 s=0.14368533907716599 closest_old=physical_real delta_R=0
+CONTACT 9 R=1.6290712472456867 lo=3.3418132173876896e-17 chart=0 s=0.00072101811695350366 closest_old=physical_real delta_R=0
+CASE 157 linear 4 23 atlas=Complete contacts=10
+CONTACT 0 R=0.66583389946767002 lo=4.0768363860721182e-17 chart=1 s=-0.71049786840075391 closest_old=physical_real delta_R=0
+CONTACT 1 R=0.49998354014938051 lo=-1.6898550880759562e-17 chart=1 s=-0.0043861740082639482 closest_old=physical_real delta_R=0
+CONTACT 2 R=0.36470329699513521 lo=-1.4327937279916597e-17 chart=1 s=0.00077447105134421208 closest_old=physical_complex delta_R=0 direct_probe_real=0 direct_residual=1.9352428032843534e-05 reciprocal_candidate_valid=1 reciprocal_candidate_residual=1.126546616050918e-18
+CONTACT 3 R=0.68460592974332013 lo=-5.0322888844188748e-17 chart=1 s=0.73999863625117679 closest_old=physical_real delta_R=0
+CONTACT 4 R=0.00010356956817410204 lo=5.7313837606214688e-21 chart=0 s=0.0015106284851130521 closest_old=physical_real delta_R=0
+CONTACT 5 R=0.0001324606398378096 lo=4.4013690440877184e-21 chart=0 s=0.0015106342810638697 closest_old=physical_real delta_R=0
+CONTACT 6 R=1.5138080802062941 lo=-8.5343634769430794e-17 chart=0 s=-0.15728447412022248 closest_old=physical_real delta_R=0
+CONTACT 7 R=1.5272617785525926 lo=1.020992580870768e-16 chart=0 s=-0.006673552479185144 closest_old=physical_real delta_R=0
+CONTACT 8 R=1.5075269548469616 lo=-7.3432474454906916e-17 chart=0 s=0.16891634729146607 closest_old=physical_real delta_R=0
+CONTACT 9 R=1.6372052518149498 lo=1.0668363282687991e-16 chart=0 s=0.0006325470975583825 closest_old=physical_real delta_R=0

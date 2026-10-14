@@ -1,0 +1,516 @@
+{
+  "base_commit": "f83e30f398fa1a7918f28de0afa30165f47a5cdc",
+  "comparisons": [
+    {
+      "arms": [
+        {
+          "distinct_gradients_across_path_and_repeat": 1,
+          "distinct_qualities_across_path_and_repeat": [
+            "ToleranceMet"
+          ],
+          "gradient": 17.042609887299207,
+          "gradient_quality": "ToleranceMet",
+          "gradient_reason": "ToleranceMet",
+          "ledger": {
+            "event": 4.558228070219568e-06,
+            "geometry": 3.332922139472556e-09,
+            "inner": 0.0,
+            "radial": 0.006544557363739414,
+            "roundoff": 2.196255955439534e-14
+          },
+          "ledger_over_observed_error": 21167.301154751945,
+          "ledger_total": 0.006549118924753736,
+          "mode": "p_only",
+          "mu": 6.307502657024774,
+          "nodes": 300,
+          "observed_absolute_error": 3.0939791884065926e-07,
+          "observed_error_over_ledger": 4.724267835040016e-05,
+          "observed_error_ratio_to_p_only": null,
+          "paired_replicates": 4,
+          "reference": 17.04260957790129,
+          "representative": {
+            "path": "cold",
+            "repeat": 0
+          }
+        },
+        {
+          "distinct_gradients_across_path_and_repeat": 1,
+          "distinct_qualities_across_path_and_repeat": [
+            "FiniteUncertified"
+          ],
+          "gradient": 17.26027913754309,
+          "gradient_quality": "FiniteUncertified",
+          "gradient_reason": "BudgetExceeded",
+          "ledger": {
+            "event": 4.556781214533094e-06,
+            "geometry": 5.409324743194236e-11,
+            "inner": 0.0,
+            "radial": 1.9763694155184968,
+            "roundoff": 2.1890425693020245e-14
+          },
+          "ledger_over_observed_error": 9.07969849163179,
+          "ledger_total": 1.9763739723538265,
+          "mode": "h_split_at_4",
+          "mu": 6.307502657024774,
+          "nodes": 89,
+          "observed_absolute_error": 0.21766955964180212,
+          "observed_error_over_ledger": 0.11013581573459072,
+          "observed_error_ratio_to_p_only": 703526.2566000081,
+          "paired_replicates": 4,
+          "reference": 17.04260957790129,
+          "representative": {
+            "path": "cold",
+            "repeat": 0
+          }
+        }
+      ],
+      "axis": "X",
+      "case": "rand035",
+      "h_split_over_p_only_observed_error_ratio": 703526.2566000081,
+      "input_is_barycentric": false,
+      "reference": {
+        "chosen_raw": "reference_x_high.tsv",
+        "chosen_resolution": {
+          "angular_nodes": 1024,
+          "nr": 160,
+          "radial_subdivisions": 32
+        },
+        "chosen_resolution_id": 6,
+        "chosen_step": 0.00025,
+        "estimator": "5-point central FD of direct physical-value integral",
+        "fd_step_rho_multipliers": [
+          0.001,
+          0.0005,
+          0.00025
+        ],
+        "large_step_resolution4_gradient": 17.042609577897355,
+        "mid_step_high_resolution_gradient": 17.042609577879666,
+        "observed_stability_spread": 8.73523831046441e-09,
+        "previous_resolution_mid_step_gradient": 17.042609569144428,
+        "previous_resolution_small_step_gradient": 17.042609580090993,
+        "resolution_difference_mid_step": 8.73523831046441e-09,
+        "resolution_difference_small_step": 2.1897044177876523e-09,
+        "step_difference_high_resolution": 2.162181544917985e-11,
+        "value_gradient": 17.04260957790129
+      },
+      "row": 99,
+      "u": 0.0,
+      "user_coordinate": "xs"
+    },
+    {
+      "arms": [
+        {
+          "distinct_gradients_across_path_and_repeat": 1,
+          "distinct_qualities_across_path_and_repeat": [
+            "ToleranceMet"
+          ],
+          "gradient": 36.010207100782154,
+          "gradient_quality": "ToleranceMet",
+          "gradient_reason": "ToleranceMet",
+          "ledger": {
+            "event": 9.63131450949551e-06,
+            "geometry": 7.041457587166866e-09,
+            "inner": 0.0,
+            "radial": 0.013828331045031448,
+            "roundoff": 4.6405821350095355e-14
+          },
+          "ledger_over_observed_error": 21163.955608020253,
+          "ledger_total": 0.013837969401044937,
+          "mode": "p_only",
+          "mu": 6.307502657024774,
+          "nodes": 300,
+          "observed_absolute_error": 6.538460795013634e-07,
+          "observed_error_over_ledger": 4.725014635832263e-05,
+          "observed_error_ratio_to_p_only": null,
+          "paired_replicates": 4,
+          "reference": 36.010206446936074,
+          "representative": {
+            "path": "cold",
+            "repeat": 0
+          }
+        },
+        {
+          "distinct_gradients_across_path_and_repeat": 1,
+          "distinct_qualities_across_path_and_repeat": [
+            "FiniteUncertified"
+          ],
+          "gradient": 36.47013162791261,
+          "gradient_quality": "FiniteUncertified",
+          "gradient_reason": "BudgetExceeded",
+          "ledger": {
+            "event": 9.628257373659597e-06,
+            "geometry": 1.1343611333905186e-10,
+            "inner": 0.0,
+            "radial": 4.175972337089608,
+            "roundoff": 4.625340597908023e-14
+          },
+          "ledger_over_observed_error": 9.07969847746504,
+          "ledger_total": 4.175981965460464,
+          "mode": "h_split_at_4",
+          "mu": 6.307502657024774,
+          "nodes": 89,
+          "observed_absolute_error": 0.45992518097653345,
+          "observed_error_over_ledger": 0.11013581590643194,
+          "observed_error_ratio_to_p_only": 703415.0626509559,
+          "paired_replicates": 4,
+          "reference": 36.010206446936074,
+          "representative": {
+            "path": "cold",
+            "repeat": 0
+          }
+        }
+      ],
+      "axis": "Y",
+      "case": "rand035",
+      "h_split_over_p_only_observed_error_ratio": 703415.0626509559,
+      "input_is_barycentric": false,
+      "reference": {
+        "chosen_raw": "reference.tsv",
+        "chosen_resolution": {
+          "angular_nodes": 1024,
+          "nr": 128,
+          "radial_subdivisions": 16
+        },
+        "chosen_resolution_id": 5,
+        "chosen_step": 0.00025,
+        "estimator": "5-point central FD of direct physical-value integral",
+        "fd_step_rho_multipliers": [
+          0.001,
+          0.0005,
+          0.00025
+        ],
+        "large_step_resolution4_gradient": 36.010185283057126,
+        "mid_step_high_resolution_gradient": 36.010206446983254,
+        "observed_stability_spread": 4.718003765447065e-11,
+        "previous_resolution_mid_step_gradient": 36.01020644696949,
+        "previous_resolution_small_step_gradient": 36.010206446955735,
+        "resolution_difference_mid_step": 1.376321279167314e-11,
+        "resolution_difference_small_step": 1.9660717498481972e-11,
+        "step_difference_high_resolution": 4.718003765447065e-11,
+        "value_gradient": 36.010206446936074
+      },
+      "row": 99,
+      "u": 0.0,
+      "user_coordinate": "ys"
+    },
+    {
+      "arms": [
+        {
+          "distinct_gradients_across_path_and_repeat": 1,
+          "distinct_qualities_across_path_and_repeat": [
+            "ToleranceMet"
+          ],
+          "gradient": 16.91829013675337,
+          "gradient_quality": "ToleranceMet",
+          "gradient_reason": "ToleranceMet",
+          "ledger": {
+            "event": 2.7571124287087667e-06,
+            "geometry": 1.9997532836835337e-09,
+            "inner": 1.8067756050489852e-08,
+            "radial": 0.0039310245004836476,
+            "roundoff": 2.3159572491996316e-14
+          },
+          "ledger_over_observed_error": 21186.534709621592,
+          "ledger_total": 0.0039338016804448496,
+          "mode": "p_only",
+          "mu": 6.292839505068458,
+          "nodes": 300,
+          "observed_absolute_error": 1.856746152384403e-07,
+          "observed_error_over_ledger": 4.7199790513446396e-05,
+          "observed_error_ratio_to_p_only": null,
+          "paired_replicates": 4,
+          "reference": 16.918289951078755,
+          "representative": {
+            "path": "cold",
+            "repeat": 0
+          }
+        },
+        {
+          "distinct_gradients_across_path_and_repeat": 1,
+          "distinct_qualities_across_path_and_repeat": [
+            "FiniteUncertified"
+          ],
+          "gradient": 17.048891637616318,
+          "gradient_quality": "FiniteUncertified",
+          "gradient_reason": "BudgetExceeded",
+          "ledger": {
+            "event": 2.855894930274969e-06,
+            "geometry": 3.2455948459165416e-11,
+            "inner": 1.8026528914307588e-08,
+            "radial": 1.3028107012349202,
+            "roundoff": 2.3165111790358037e-14
+          },
+          "ledger_over_observed_error": 9.975472826793457,
+          "ledger_total": 1.3028135751888585,
+          "mode": "h_split_at_4",
+          "mu": 6.292839505068458,
+          "nodes": 89,
+          "observed_absolute_error": 0.1306016865375632,
+          "observed_error_over_ledger": 0.10024587479343,
+          "observed_error_ratio_to_p_only": 703390.1019256007,
+          "paired_replicates": 4,
+          "reference": 16.918289951078755,
+          "representative": {
+            "path": "cold",
+            "repeat": 0
+          }
+        }
+      ],
+      "axis": "X",
+      "case": "rand035",
+      "h_split_over_p_only_observed_error_ratio": 703390.1019256007,
+      "input_is_barycentric": false,
+      "reference": {
+        "chosen_raw": "reference_x_high.tsv",
+        "chosen_resolution": {
+          "angular_nodes": 1024,
+          "nr": 160,
+          "radial_subdivisions": 32
+        },
+        "chosen_resolution_id": 6,
+        "chosen_step": 0.00025,
+        "estimator": "5-point central FD of direct physical-value integral",
+        "fd_step_rho_multipliers": [
+          0.001,
+          0.0005,
+          0.00025
+        ],
+        "large_step_resolution4_gradient": 16.91828995111512,
+        "mid_step_high_resolution_gradient": 16.91828995110824,
+        "observed_stability_spread": 5.2442850062561774e-09,
+        "previous_resolution_mid_step_gradient": 16.918289945863954,
+        "previous_resolution_small_step_gradient": 16.918289952387862,
+        "resolution_difference_mid_step": 5.2442850062561774e-09,
+        "resolution_difference_small_step": 1.3091074890780874e-09,
+        "step_difference_high_resolution": 2.948397082036536e-11,
+        "value_gradient": 16.918289951078755
+      },
+      "row": 100,
+      "u": 0.5,
+      "user_coordinate": "xs"
+    },
+    {
+      "arms": [
+        {
+          "distinct_gradients_across_path_and_repeat": 1,
+          "distinct_qualities_across_path_and_repeat": [
+            "ToleranceMet"
+          ],
+          "gradient": 35.74752552884675,
+          "gradient_quality": "ToleranceMet",
+          "gradient_reason": "ToleranceMet",
+          "ledger": {
+            "event": 5.825644644260924e-06,
+            "geometry": 4.224874552300121e-09,
+            "inner": 5.1524172392727296e-08,
+            "radial": 0.00830606336296783,
+            "roundoff": 4.8935051492760266e-14
+          },
+          "ledger_over_observed_error": 21186.567372536818,
+          "ledger_total": 0.00831194475670797,
+          "mode": "p_only",
+          "mu": 6.292839505068458,
+          "nodes": 300,
+          "observed_absolute_error": 3.923214464407465e-07,
+          "observed_error_over_ledger": 4.719971774645545e-05,
+          "observed_error_ratio_to_p_only": null,
+          "paired_replicates": 4,
+          "reference": 35.747525136525304,
+          "representative": {
+            "path": "cold",
+            "repeat": 0
+          }
+        },
+        {
+          "distinct_gradients_across_path_and_repeat": 1,
+          "distinct_qualities_across_path_and_repeat": [
+            "FiniteUncertified"
+          ],
+          "gradient": 36.02348014099197,
+          "gradient_quality": "FiniteUncertified",
+          "gradient_reason": "BudgetExceeded",
+          "ledger": {
+            "event": 6.034367271706497e-06,
+            "geometry": 6.806166800343111e-11,
+            "inner": 5.192059795420788e-08,
+            "radial": 2.752775581767362,
+            "roundoff": 4.89467557878437e-14
+          },
+          "ledger_over_observed_error": 9.975472897995068,
+          "ledger_total": 2.752781668123342,
+          "mode": "h_split_at_4",
+          "mu": 6.292839505068458,
+          "nodes": 89,
+          "observed_absolute_error": 0.27595500446666676,
+          "observed_error_over_ledger": 0.10024587407790825,
+          "observed_error_ratio_to_p_only": 703390.0567257035,
+          "paired_replicates": 4,
+          "reference": 35.747525136525304,
+          "representative": {
+            "path": "cold",
+            "repeat": 0
+          }
+        }
+      ],
+      "axis": "Y",
+      "case": "rand035",
+      "h_split_over_p_only_observed_error_ratio": 703390.0567257035,
+      "input_is_barycentric": false,
+      "reference": {
+        "chosen_raw": "reference.tsv",
+        "chosen_resolution": {
+          "angular_nodes": 1024,
+          "nr": 128,
+          "radial_subdivisions": 16
+        },
+        "chosen_resolution_id": 5,
+        "chosen_step": 0.00025,
+        "estimator": "5-point central FD of direct physical-value integral",
+        "fd_step_rho_multipliers": [
+          0.001,
+          0.0005,
+          0.00025
+        ],
+        "large_step_resolution4_gradient": 35.74751243820894,
+        "mid_step_high_resolution_gradient": 35.74752513658427,
+        "observed_stability_spread": 5.896794164073071e-11,
+        "previous_resolution_mid_step_gradient": 35.747525136548894,
+        "previous_resolution_small_step_gradient": 35.747525136517446,
+        "resolution_difference_mid_step": 3.537792281349539e-11,
+        "resolution_difference_small_step": 7.858602657506708e-12,
+        "step_difference_high_resolution": 5.896794164073071e-11,
+        "value_gradient": 35.747525136525304
+      },
+      "row": 100,
+      "u": 0.5,
+      "user_coordinate": "ys"
+    }
+  ],
+  "decision": {
+    "estimator_followup": "Do not modify the ledger in this phase: the actual error is worse under h-split@4, so the condition for estimator-ledger investigation was not met.",
+    "h_split_at_4_defaultization": "reject",
+    "hermite_or_threshold_changes": false,
+    "reason": "For all four rand035 X/Y cases, the 4-round h-split@4 derivative is materially farther from the converged direct-value FD reference than p-only; its FiniteUncertified status reflects real gradient degradation, not only an over-conservative ledger."
+  },
+  "input_rows": [
+    {
+      "a": 3.035303804422572,
+      "barycentric": false,
+      "name": "rand035",
+      "q": 2.1433640368724767e-08,
+      "rho": 0.07530925479707781,
+      "row": 99,
+      "u": 0.0,
+      "xs": -0.07045642231021985,
+      "ys": -0.14887100926364968
+    },
+    {
+      "a": 3.035303804422572,
+      "barycentric": false,
+      "name": "rand035",
+      "q": 2.1433640368724767e-08,
+      "rho": 0.07530925479707781,
+      "row": 100,
+      "u": 0.5,
+      "xs": -0.07045642231021985,
+      "ys": -0.14887100926364968
+    }
+  ],
+  "phase": "Phase72 rand035 gradient-reference continuation",
+  "production_solver_modified": false,
+  "reference_method": {
+    "angular_boundary": "binary128 boundary quartic coefficients, qf Sturm root isolation, then safeguarded qf Newton against direct lens phi",
+    "angular_rule": "direct Gauss-Chebyshev first-kind sqrt-weight integral on certified arcs; periodic trapezoid for full circle",
+    "fd_step_rho_multipliers": [
+      0.001,
+      0.0005,
+      0.00025
+    ],
+    "finite_difference": "5-point central derivative, fresh cold topology for each perturbed LensParams",
+    "note": "Observed convergence spread is diagnostic, not a formal interval enclosure.",
+    "observable": "direct phi-based F0 and sqrt(phi) angular integration; no production K-rule or analytic gradient",
+    "radial_rule": "composite Gauss-Legendre on the existing fold-mapped radial coordinate",
+    "reference_audit_complete": true,
+    "reference_failures_by_code": {
+      "0": 144
+    },
+    "reference_integrals": 144,
+    "reference_value_nonfinite_count": 0,
+    "resolution_levels": [
+      {
+        "angular_nodes": 96,
+        "id": 0,
+        "nr": 48,
+        "radial_subdivisions": 1
+      },
+      {
+        "angular_nodes": 384,
+        "id": 1,
+        "nr": 48,
+        "radial_subdivisions": 1
+      },
+      {
+        "angular_nodes": 384,
+        "id": 2,
+        "nr": 80,
+        "radial_subdivisions": 1
+      },
+      {
+        "angular_nodes": 384,
+        "id": 3,
+        "nr": 80,
+        "radial_subdivisions": 4
+      },
+      {
+        "angular_nodes": 768,
+        "id": 4,
+        "nr": 112,
+        "radial_subdivisions": 8
+      },
+      {
+        "angular_nodes": 1024,
+        "id": 5,
+        "nr": 128,
+        "radial_subdivisions": 16,
+        "used_for_fd_steps": [
+          0.0005,
+          0.00025
+        ]
+      },
+      {
+        "angular_nodes": 1024,
+        "axis": "X",
+        "id": 6,
+        "nr": 160,
+        "radial_subdivisions": 32,
+        "used_for_fd_steps": [
+          0.0005,
+          0.00025
+        ]
+      }
+    ],
+    "topology": "fresh cold classify_cells for every +/-h and +/-2h point; no warm roots reused",
+    "topology_audit_complete": true,
+    "topology_cell_event_shapes": [
+      [
+        11,
+        12
+      ]
+    ],
+    "topology_rows": 32,
+    "topology_status_ok": 32
+  },
+  "whole_epoch_source": {
+    "gradient_policy": "ValueFirst",
+    "gradient_round_budget": 4,
+    "gradient_tolerance": {
+      "atol": 0.0001,
+      "rtol": 0.01
+    },
+    "h_split_at_4_arm": 4,
+    "p_only_arm": 0,
+    "paired_mu_bitwise_mismatches": 0,
+    "raw": "../gradient_radial_split_phase72/corpus.tsv",
+    "value_rtol": 0.001
+  }
+}

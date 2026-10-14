@@ -1,0 +1,517 @@
+{
+  "purpose": "Seeded radial-frontier benchmark on the filled q-rho paper corpus; speed vs saved direct VBM RelTol 1e-3/1e-4 timings and accuracy vs saved VBM RelTol 1e-6 references.",
+  "checkout": "/rogue1_8/nunota/lcbinint/experiments/seeded-boundary-events",
+  "branch": "experiment/seeded-boundary-events",
+  "head": "82d7f236c80f913ac87fb5399cf7f1733743a425",
+  "runner": "/rogue1_8/nunota/lcbinint/experiments/seeded-boundary-events/build-seeded-events/bench_seeded_paper_qrho",
+  "runner_sha256": "624b5ca070e94568b069f36ad6b288954ec099704c07fc5a6f8bd2d374dc482d",
+  "runner_source": "/rogue1_8/nunota/lcbinint/experiments/seeded-boundary-events/benchmarks/holonomic/bench_seeded_paper_qrho.cpp",
+  "runner_source_sha256": "e80189053aface2daacdae5ce950208515be0aac31cb33736df30c69c62596fe",
+  "build_script": "/rogue1_8/nunota/lcbinint/experiments/seeded-boundary-events/benchmarks/holonomic/build_seeded_paper_qrho.sh",
+  "build_script_sha256": "6e752887a1a7297dc810bb03027758a40fbbf1e0760a069baba89451a58006d5",
+  "figure_script": "/rogue1_8/nunota/lcbinint/experiments/seeded-boundary-events/evidence/holonomic/seeded_paper_qrho_20261014/make_figures.py",
+  "figure_script_sha256": "5336d56826504e0e52716b7d698423d7c5a91855ee509f289248d7271031e12e",
+  "inputs": {
+    "input_snapshot": "/rogue1_8/nunota/lcbinint/experiments/seeded-boundary-events/evidence/holonomic/seeded_paper_qrho_20261014/input_snapshot.tsv",
+    "input_snapshot_sha256": "6646492658ed416e75cb8c6c821ee853f79cdf7761fc41441186aa67b81fa05b",
+    "saved_vbm_timing_and_reference_join": "/rogue1_8/nunota/lcbinint/experiments/seeded-boundary-events/evidence/holonomic/seeded_paper_qrho_20261014/vbm_timing_reference.tsv",
+    "saved_vbm_timing_and_reference_join_sha256": "8d75a89ac5e1179c273ab9e1df6f84a27c30aa9185552aa1b79b4e0c19ccbf33",
+    "raw_seeded_results": "/rogue1_8/nunota/lcbinint/experiments/seeded-boundary-events/evidence/holonomic/seeded_paper_qrho_20261014/raw_results.tsv",
+    "raw_seeded_results_sha256": "24f795100b99ff9ebc5abddec500f2a7f845c653f670b19be1e901559458d157"
+  },
+  "matching": {
+    "saved_vbm_rows": 14432,
+    "seeded_rows": 14432,
+    "joined_rows": 14432,
+    "targets": [
+      0.001,
+      0.0001
+    ],
+    "profiles": {
+      "uniform": "u=0; LD off",
+      "linear": "u=0.5; linear LD c=0.5"
+    },
+    "timing_reference": "saved warmed direct VBM BinaryMag2 (uniform) / BinaryMagDark (linear) measurements at matched tolerance; direct VBM 5.5 calls reproduce the saved low-magnification medians within 1%",
+    "accuracy_reference": "saved VBM RelTol=1e-6 magnifications",
+    "timing_scope": "center point-source roots + finite-source seed generation + epoch_seeded_radial_frontier; caustic branch construction excluded; no D14/classify_cells call; input parsing and TSV output excluded",
+    "seed_stage": "center PointSourceMagnifier::binary_images plus FiniteSourceMagnifier::cached_binary_image_seeds, including the caustic-polyline scan and additional seed roots",
+    "caustic_handling": "1400-bin binary caustic branches prepared outside each timed repetition and consumed by seed generation; caustic construction time reported separately but excluded from ms",
+    "full_time_definition": "median across 3 paired repetitions of seed_ms + epoch_seeded_radial_frontier wall time",
+    "frontier_coverage": "coverage_certified is recorded; the current seeded radial frontier reports false and does not claim a universal radial-support proof",
+    "adaptive_config": {
+      "mu_rtol": "matched target 1e-3 or 1e-4",
+      "mu_atol": 1e-08,
+      "gradient_policy": "None",
+      "with_jacobian": false,
+      "reuse_samples": true,
+      "repetitions": 3,
+      "reducer": "median"
+    }
+  },
+  "status_summary": {
+    "rows": 14432,
+    "ok": 14248,
+    "non_ok": 184,
+    "counts": {
+      "OK": 14248,
+      "SEED_SUPPORT_UNPROVEN": 180,
+      "TopologyUnresolved": 4
+    },
+    "value_stop_counts": {
+      "Converged": 14428,
+      "TopologyUnresolved": 4
+    },
+    "support_proven": 14252,
+    "coverage_certified": 0
+  },
+  "external_error_screen": {
+    "rows_internal_status_ok": 14248,
+    "max_relative_error_among_internal_ok": 0.0003651757418833642,
+    "p99_relative_error_among_internal_ok": 2.1622015387293118e-05,
+    "counts_above_threshold": {
+      "0.001": 0,
+      "0.01": 0,
+      "0.1": 0
+    },
+    "distinct_case_epoch_geometries_above_1e-3": 0,
+    "outlier_rows_written": 0,
+    "outlier_threshold": 0.001,
+    "meaning": "status OK checks seed-provider support and value convergence only; it is not a radial-support coverage certificate"
+  },
+  "plot": {
+    "panels_per_figure": 6,
+    "figures": "one 2x3 runtime/error map for each profile x tolerance condition",
+    "min_cell_population": 8,
+    "q_rho_edges": {
+      "q": "geomspace(1e-4, 1, 13)",
+      "rho": "geomspace(3e-5, 1, 13)"
+    },
+    "q_rho_bins": "12 x 12; cells require at least 8 points",
+    "q_rho_population": {
+      "uniform:target=0.001": {
+        "cells": 144,
+        "populated_cells": 144,
+        "empty_or_underpopulated_cells": 0,
+        "min_nonzero_population": 8,
+        "max_population": 80
+      },
+      "uniform:target=0.0001": {
+        "cells": 144,
+        "populated_cells": 144,
+        "empty_or_underpopulated_cells": 0,
+        "min_nonzero_population": 8,
+        "max_population": 80
+      },
+      "linear:target=0.001": {
+        "cells": 144,
+        "populated_cells": 144,
+        "empty_or_underpopulated_cells": 0,
+        "min_nonzero_population": 8,
+        "max_population": 80
+      },
+      "linear:target=0.0001": {
+        "cells": 144,
+        "populated_cells": 144,
+        "empty_or_underpopulated_cells": 0,
+        "min_nonzero_population": 8,
+        "max_population": 80
+      }
+    },
+    "error_color_bounds": [
+      0,
+      1e-08,
+      1e-07,
+      1e-06,
+      3e-06,
+      1e-05,
+      3e-05,
+      0.0001,
+      0.0003
+    ],
+    "speed_ratio": "saved VBM milliseconds / seeded full milliseconds; R>1 means seeded route is faster",
+    "error": "cell p95 of abs(seeded mu - VBM 1e-6 reference) / abs(VBM 1e-6 reference); only internal status OK rows enter error cells; worst pointwise error is separately shown and outliers are listed",
+    "nonok_diagnostic": "non-OK points are retained in raw and joined tables; speed cells include finite positive values and hatch cells with incomplete OK status coverage"
+  },
+  "system": {
+    "platform": "Linux-5.14.0-570.23.1.el9_6.x86_64-x86_64-with-glibc2.34",
+    "python": "3.10.19"
+  },
+  "figures": [
+    {
+      "profile": "uniform",
+      "target": 0.001,
+      "png": "/rogue1_8/nunota/lcbinint/experiments/seeded-boundary-events/evidence/holonomic/seeded_paper_qrho_20261014/figures/q_rho_uniform_1e-3_seeded_radial_vbm1e-6.png",
+      "pdf": "/rogue1_8/nunota/lcbinint/experiments/seeded-boundary-events/evidence/holonomic/seeded_paper_qrho_20261014/figures/q_rho_uniform_1e-3_seeded_radial_vbm1e-6.pdf",
+      "rows": 3608,
+      "status_ok": 3563,
+      "status_ok_fraction": 0.9875277161862528
+    },
+    {
+      "profile": "uniform",
+      "target": 0.0001,
+      "png": "/rogue1_8/nunota/lcbinint/experiments/seeded-boundary-events/evidence/holonomic/seeded_paper_qrho_20261014/figures/q_rho_uniform_1e-4_seeded_radial_vbm1e-6.png",
+      "pdf": "/rogue1_8/nunota/lcbinint/experiments/seeded-boundary-events/evidence/holonomic/seeded_paper_qrho_20261014/figures/q_rho_uniform_1e-4_seeded_radial_vbm1e-6.pdf",
+      "rows": 3608,
+      "status_ok": 3563,
+      "status_ok_fraction": 0.9875277161862528
+    },
+    {
+      "profile": "linear",
+      "target": 0.001,
+      "png": "/rogue1_8/nunota/lcbinint/experiments/seeded-boundary-events/evidence/holonomic/seeded_paper_qrho_20261014/figures/q_rho_linear_1e-3_seeded_radial_vbm1e-6.png",
+      "pdf": "/rogue1_8/nunota/lcbinint/experiments/seeded-boundary-events/evidence/holonomic/seeded_paper_qrho_20261014/figures/q_rho_linear_1e-3_seeded_radial_vbm1e-6.pdf",
+      "rows": 3608,
+      "status_ok": 3561,
+      "status_ok_fraction": 0.9869733924611973
+    },
+    {
+      "profile": "linear",
+      "target": 0.0001,
+      "png": "/rogue1_8/nunota/lcbinint/experiments/seeded-boundary-events/evidence/holonomic/seeded_paper_qrho_20261014/figures/q_rho_linear_1e-4_seeded_radial_vbm1e-6.png",
+      "pdf": "/rogue1_8/nunota/lcbinint/experiments/seeded-boundary-events/evidence/holonomic/seeded_paper_qrho_20261014/figures/q_rho_linear_1e-4_seeded_radial_vbm1e-6.pdf",
+      "rows": 3608,
+      "status_ok": 3561,
+      "status_ok_fraction": 0.9869733924611973
+    }
+  ],
+  "summary_by_condition": {
+    "linear:target=0.0001": {
+      "rows": 3608,
+      "status_counts": {
+        "OK": 3561,
+        "SEED_SUPPORT_UNPROVEN": 45,
+        "TopologyUnresolved": 2
+      },
+      "numerical_status_counts": {
+        "OK": 3606,
+        "GRADIENT_UNRELIABLE": 2
+      },
+      "value_stop_counts": {
+        "Converged": 3606,
+        "TopologyUnresolved": 2
+      },
+      "seed_support_proven": 3563,
+      "coverage_certified": 0,
+      "status_ok": 3561,
+      "status_ok_fraction": 0.9869733924611973,
+      "adaptive_nodes": {
+        "p50": 68.0,
+        "p90": 139.0,
+        "p95": 187.0,
+        "p99": 554.4399999999987,
+        "max": 1410.0
+      },
+      "adaptive_evaluations": {
+        "p50": 68.0,
+        "p95": 187.0,
+        "max": 1410.0
+      },
+      "adaptive_timing_ms": {
+        "setup_p50": 0.006258,
+        "physics_p50": 0.0,
+        "estimator_p50": 0.0,
+        "scheduler_p50": 0.0,
+        "setup_event_p50": 0.004882000000000001
+      },
+      "stage_timing_ms": {
+        "caustic_prebuild_excluded_p50": 1.2567575,
+        "seed_p50": 0.008602499999999999,
+        "planning_p50": 0.0351875,
+        "integration_p50": 0.058547
+      },
+      "v2_ms": {
+        "p50": 0.117381,
+        "p90": 0.4875014000000002,
+        "p95": 0.60767635,
+        "p99": 1.005478329999998,
+        "max": 2.2111959999999997
+      },
+      "speed_ratio_vbm_over_v2_all_finite": {
+        "p50": 11.212115103571886,
+        "p90": 41.17252677875752,
+        "win_fraction_ratio_gt_1": 0.9753325942350333
+      },
+      "speed_ratio_vbm_over_v2_positive": {
+        "count": 3608,
+        "p50": 11.212115103571886,
+        "p90": 41.17252677875752,
+        "p95": 57.43458637598405,
+        "p99": 110.1363380002383,
+        "max": 555.6269302053715,
+        "win_fraction_ratio_gt_1": 0.9753325942350333
+      },
+      "speed_ratio_vbm_over_v2_status_ok": {
+        "p50": 11.272996703336975,
+        "p90": 41.681853585701205,
+        "p95": 57.746966170865264,
+        "p99": 110.63471359456011,
+        "max": 555.6269302053715,
+        "win_fraction_ratio_gt_1": 0.97893850042123
+      },
+      "relative_error_v2_over_vbm_1e-6_all_statuses": {
+        "p50": 6.459509228315101e-07,
+        "p95": 7.96186980249513e-06,
+        "p99": 1.6204001956153012e-05,
+        "max": 0.0002177763990177146
+      },
+      "relative_error_v2_over_vbm_1e-6_status_ok": {
+        "p50": 6.441829215976895e-07,
+        "p95": 7.921982312508388e-06,
+        "p99": 1.5795242134569435e-05,
+        "max": 0.0002177763990177146
+      }
+    },
+    "linear:target=0.001": {
+      "rows": 3608,
+      "status_counts": {
+        "OK": 3561,
+        "SEED_SUPPORT_UNPROVEN": 45,
+        "TopologyUnresolved": 2
+      },
+      "numerical_status_counts": {
+        "OK": 3606,
+        "GRADIENT_UNRELIABLE": 2
+      },
+      "value_stop_counts": {
+        "Converged": 3606,
+        "TopologyUnresolved": 2
+      },
+      "seed_support_proven": 3563,
+      "coverage_certified": 0,
+      "status_ok": 3561,
+      "status_ok_fraction": 0.9869733924611973,
+      "adaptive_nodes": {
+        "p50": 51.0,
+        "p90": 99.0,
+        "p95": 122.64999999999964,
+        "p99": 293.0,
+        "max": 837.0
+      },
+      "adaptive_evaluations": {
+        "p50": 51.0,
+        "p95": 122.64999999999964,
+        "max": 837.0
+      },
+      "adaptive_timing_ms": {
+        "setup_p50": 0.0066205,
+        "physics_p50": 0.0,
+        "estimator_p50": 0.0,
+        "scheduler_p50": 0.0,
+        "setup_event_p50": 0.0050620000000000005
+      },
+      "stage_timing_ms": {
+        "caustic_prebuild_excluded_p50": 1.2567575,
+        "seed_p50": 0.008602499999999999,
+        "planning_p50": 0.036708500000000005,
+        "integration_p50": 0.048191
+      },
+      "v2_ms": {
+        "p50": 0.1127705,
+        "p90": 0.4552082,
+        "p95": 0.5320704999999999,
+        "p99": 0.8094621399999989,
+        "max": 1.824135
+      },
+      "speed_ratio_vbm_over_v2_all_finite": {
+        "p50": 2.8984973890943015,
+        "p90": 10.038223038921759,
+        "win_fraction_ratio_gt_1": 0.8547671840354767
+      },
+      "speed_ratio_vbm_over_v2_positive": {
+        "count": 3608,
+        "p50": 2.8984973890943015,
+        "p90": 10.038223038921759,
+        "p95": 13.801747504723508,
+        "p99": 25.568408702436844,
+        "max": 45.32102915369953,
+        "win_fraction_ratio_gt_1": 0.8547671840354767
+      },
+      "speed_ratio_vbm_over_v2_status_ok": {
+        "p50": 2.938145809197252,
+        "p90": 10.1126334270739,
+        "p95": 13.860316606644425,
+        "p99": 25.584844788572557,
+        "max": 45.32102915369953,
+        "win_fraction_ratio_gt_1": 0.8576242628475147
+      },
+      "relative_error_v2_over_vbm_1e-6_all_statuses": {
+        "p50": 6.93027174656356e-07,
+        "p95": 1.0640962195271894e-05,
+        "p99": 4.152361493777446e-05,
+        "max": 0.00028312320744170447
+      },
+      "relative_error_v2_over_vbm_1e-6_status_ok": {
+        "p50": 6.874745206794768e-07,
+        "p95": 1.0558767006772771e-05,
+        "p99": 3.894569025520056e-05,
+        "max": 0.00028312320744170447
+      }
+    },
+    "uniform:target=0.0001": {
+      "rows": 3608,
+      "status_counts": {
+        "OK": 3563,
+        "SEED_SUPPORT_UNPROVEN": 45
+      },
+      "numerical_status_counts": {
+        "OK": 3608
+      },
+      "value_stop_counts": {
+        "Converged": 3608
+      },
+      "seed_support_proven": 3563,
+      "coverage_certified": 0,
+      "status_ok": 3563,
+      "status_ok_fraction": 0.9875277161862528,
+      "adaptive_nodes": {
+        "p50": 67.0,
+        "p90": 131.0,
+        "p95": 187.0,
+        "p99": 585.5099999999989,
+        "max": 1410.0
+      },
+      "adaptive_evaluations": {
+        "p50": 67.0,
+        "p95": 187.0,
+        "max": 1410.0
+      },
+      "adaptive_timing_ms": {
+        "setup_p50": 0.006234,
+        "physics_p50": 0.0,
+        "estimator_p50": 0.0,
+        "scheduler_p50": 0.0,
+        "setup_event_p50": 0.004875
+      },
+      "stage_timing_ms": {
+        "caustic_prebuild_excluded_p50": 1.256003,
+        "seed_p50": 0.008485,
+        "planning_p50": 0.034704,
+        "integration_p50": 0.0464235
+      },
+      "v2_ms": {
+        "p50": 0.105599,
+        "p90": 0.43872940000000005,
+        "p95": 0.5090067499999998,
+        "p99": 0.8893783799999974,
+        "max": 2.2447880000000002
+      },
+      "speed_ratio_vbm_over_v2_all_finite": {
+        "p50": 1.2508122918341011,
+        "p90": 2.2556639746864255,
+        "win_fraction_ratio_gt_1": 0.6114190687361419
+      },
+      "speed_ratio_vbm_over_v2_positive": {
+        "count": 3608,
+        "p50": 1.2508122918341011,
+        "p90": 2.2556639746864255,
+        "p95": 2.4823791800828596,
+        "p99": 2.8936543287699394,
+        "max": 3.6642455603895923,
+        "win_fraction_ratio_gt_1": 0.6114190687361419
+      },
+      "speed_ratio_vbm_over_v2_status_ok": {
+        "p50": 1.2639644473408518,
+        "p90": 2.25951501402685,
+        "p95": 2.4859149165595147,
+        "p99": 2.896693456894097,
+        "max": 3.6642455603895923,
+        "win_fraction_ratio_gt_1": 0.6191411731686781
+      },
+      "relative_error_v2_over_vbm_1e-6_all_statuses": {
+        "p50": 2.4612230822534875e-08,
+        "p95": 2.961028264305045e-07,
+        "p99": 2.1682869135792303e-06,
+        "max": 0.0002705965501750303
+      },
+      "relative_error_v2_over_vbm_1e-6_status_ok": {
+        "p50": 2.455272212254279e-08,
+        "p95": 2.9424874949389326e-07,
+        "p99": 2.089203101849288e-06,
+        "max": 0.0002705965501750303
+      }
+    },
+    "uniform:target=0.001": {
+      "rows": 3608,
+      "status_counts": {
+        "OK": 3563,
+        "SEED_SUPPORT_UNPROVEN": 45
+      },
+      "numerical_status_counts": {
+        "OK": 3608
+      },
+      "value_stop_counts": {
+        "Converged": 3608
+      },
+      "seed_support_proven": 3563,
+      "coverage_certified": 0,
+      "status_ok": 3563,
+      "status_ok_fraction": 0.9875277161862528,
+      "adaptive_nodes": {
+        "p50": 45.0,
+        "p90": 97.0,
+        "p95": 121.0,
+        "p99": 307.0,
+        "max": 884.0
+      },
+      "adaptive_evaluations": {
+        "p50": 45.0,
+        "p95": 121.0,
+        "max": 884.0
+      },
+      "adaptive_timing_ms": {
+        "setup_p50": 0.006576,
+        "physics_p50": 0.0,
+        "estimator_p50": 0.0,
+        "scheduler_p50": 0.0,
+        "setup_event_p50": 0.005046
+      },
+      "stage_timing_ms": {
+        "caustic_prebuild_excluded_p50": 1.256003,
+        "seed_p50": 0.008485,
+        "planning_p50": 0.0362305,
+        "integration_p50": 0.038912
+      },
+      "v2_ms": {
+        "p50": 0.1036315,
+        "p90": 0.42219829999999997,
+        "p95": 0.49478059999999985,
+        "p99": 0.7342844499999984,
+        "max": 2.2393680000000002
+      },
+      "speed_ratio_vbm_over_v2_all_finite": {
+        "p50": 0.7452632833534825,
+        "p90": 1.2913447692761266,
+        "win_fraction_ratio_gt_1": 0.3062638580931264
+      },
+      "speed_ratio_vbm_over_v2_positive": {
+        "count": 3608,
+        "p50": 0.7452632833534825,
+        "p90": 1.2913447692761266,
+        "p95": 1.4193858331453602,
+        "p99": 1.6510576999979476,
+        "max": 2.2843100872477073,
+        "win_fraction_ratio_gt_1": 0.3062638580931264
+      },
+      "speed_ratio_vbm_over_v2_status_ok": {
+        "p50": 0.7532166796571413,
+        "p90": 1.2925486605087608,
+        "p95": 1.421041171007302,
+        "p99": 1.6519819731367626,
+        "max": 2.2843100872477073,
+        "win_fraction_ratio_gt_1": 0.31013191131069323
+      },
+      "relative_error_v2_over_vbm_1e-6_all_statuses": {
+        "p50": 4.0575566900485775e-08,
+        "p95": 2.929117901277293e-06,
+        "p99": 3.752296762990918e-05,
+        "max": 0.0003651757418833642
+      },
+      "relative_error_v2_over_vbm_1e-6_status_ok": {
+        "p50": 4.010592842598493e-08,
+        "p95": 2.841851684159021e-06,
+        "p99": 3.692152069582339e-05,
+        "max": 0.0003651757418833642
+      }
+    }
+  }
+}

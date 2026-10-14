@@ -1,0 +1,16 @@
+{'case_id': 115, 'profile': 'linear', 'epoch': 7, 'rtol': 0.0001, 'mu': 1936.0020889041048, 'seconds': 0.019172355066984892, 'saved_reference': 1936.1101048538053}
+{'case_id': 115, 'profile': 'linear', 'epoch': 7, 'rtol': 1e-06, 'mu': 1936.1101048541796, 'seconds': 1.4793999620014802, 'saved_reference': 1936.1101048538053}
+{'case_id': 115, 'profile': 'linear', 'epoch': 7, 'rtol': 1e-07, 'mu': 1936.1196184530143, 'seconds': 4.050489543005824, 'saved_reference': 1936.1101048538053}
+{'case_id': 115, 'profile': 'linear', 'epoch': 7, 'rtol': 1e-08, 'mu': 1936.1102389750208, 'seconds': 16.509231873904355, 'saved_reference': 1936.1101048538053}
+{'case_id': 115, 'profile': 'linear', 'epoch': 15, 'rtol': 0.0001, 'mu': 1580.8782106393978, 'seconds': 0.014952138997614384, 'saved_reference': 1581.2061363808323}
+{'case_id': 115, 'profile': 'linear', 'epoch': 15, 'rtol': 1e-06, 'mu': 1581.2061363808323, 'seconds': 0.5399462339701131, 'saved_reference': 1581.2061363808323}
+{'case_id': 115, 'profile': 'linear', 'epoch': 15, 'rtol': 1e-07, 'mu': 1581.2066702589213, 'seconds': 1.2309139500139281, 'saved_reference': 1581.2061363808323}
+{'case_id': 115, 'profile': 'linear', 'epoch': 15, 'rtol': 1e-08, 'mu': 1581.206716616568, 'seconds': 3.776701638009399, 'saved_reference': 1581.2061363808323}
+{'case_id': 115, 'profile': 'uniform', 'epoch': 7, 'rtol': 0.0001, 'mu': 2032.5928607039239, 'seconds': 0.0008458110969513655, 'saved_reference': 2032.6501863306585}
+{'case_id': 115, 'profile': 'uniform', 'epoch': 7, 'rtol': 1e-06, 'mu': 2032.6501863306246, 'seconds': 0.0025800690054893494, 'saved_reference': 2032.6501863306585}
+{'case_id': 115, 'profile': 'uniform', 'epoch': 7, 'rtol': 1e-07, 'mu': 2032.6506084898426, 'seconds': 0.005336220026947558, 'saved_reference': 2032.6501863306585}
+{'case_id': 115, 'profile': 'uniform', 'epoch': 7, 'rtol': 1e-08, 'mu': 2032.6506627989693, 'seconds': 0.011798863997682929, 'saved_reference': 2032.6501863306585}
+{'case_id': 115, 'profile': 'uniform', 'epoch': 15, 'rtol': 0.0001, 'mu': 1603.4734253055879, 'seconds': 0.0007792599499225616, 'saved_reference': 1603.5496163377559}
+{'case_id': 115, 'profile': 'uniform', 'epoch': 15, 'rtol': 1e-06, 'mu': 1603.5496163352882, 'seconds': 0.0028230290627107024, 'saved_reference': 1603.5496163377559}
+{'case_id': 115, 'profile': 'uniform', 'epoch': 15, 'rtol': 1e-07, 'mu': 1603.5502329751432, 'seconds': 0.0077315429225564, 'saved_reference': 1603.5496163377559}
+{'case_id': 115, 'profile': 'uniform', 'epoch': 15, 'rtol': 1e-08, 'mu': 1603.5502867971159, 'seconds': 0.02459356002509594, 'saved_reference': 1603.5496163377559}

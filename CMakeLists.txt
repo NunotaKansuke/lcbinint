@@ -88,7 +88,12 @@ target_include_directories(lcbinint_magnification
     PRIVATE
         "${LCBININT_BOOST_INCLUDE_DIR}"
         "${CMAKE_CURRENT_SOURCE_DIR}/third_party/skowron_gould")
-target_link_libraries(lcbinint_magnification PUBLIC GSL::gsl GSL::gslcblas m)
+# libquadmath: the header-only ATPT holonomic engine
+# (magnification/holonomic/, reached from finite_source_magnifier.cpp for the
+# FiniteSourceMethod::holonomic_binary plan) does __float128 / quadmath.h
+# arithmetic in its D14 root polish.  GSL already pulls libquadmath in
+# transitively; this makes the dependency explicit for the direct calls.
+target_link_libraries(lcbinint_magnification PUBLIC GSL::gsl GSL::gslcblas m quadmath)
 
 # Lens/trajectory model + light-curve/likelihood API; depends on lcbinint_magnification.
 add_library(lcbinint_lightcurve

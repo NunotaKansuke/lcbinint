@@ -1,0 +1,33 @@
+NOTE: analytic5Jac rows are the pre-certification local-gate experiment.
+Final LD analytic status is GRADIENT_UNRELIABLE; see gm_jac_fail_closed_phase3.csv.
+ANALYTIC_JAC nodes=13952 accurate=13691 max_physical_reseed_error=5.741e-05
+value cold u=0.0 epochs=108 GM/V2 median ms 1.1334974999999998 0.9216565 status OK 103 103 max mu/Jac err 3.375735e-14 0.0
+  median stage ms: {'topology_ms': 0.887953, 'seed_ms': 0.0, 'connection_ms': 0.0, 'transport_ms': 0.0, 'arc_ms': 0.191998, 'reseed_ms': 0.0}
+  connection successes/attempts: 0 0 transport nodes: 0 / 0
+value cold u=0.5 epochs=108 GM/V2 median ms 140.25037650000002 1.1831939999999999 status OK 103 103 max mu/Jac err 1.909523e-08 0.0
+  median stage ms: {'topology_ms': 0.8799494999999999, 'seed_ms': 0.203318, 'connection_ms': 136.461882, 'transport_ms': 2.727519, 'arc_ms': 0.18642750000000002, 'reseed_ms': 0.0}
+  connection successes/attempts: 51698 51698 transport nodes: 28160 / 28160
+value warm u=0.0 epochs=54 GM/V2 median ms 1.094268 0.894355 status OK 51 51 max mu/Jac err 3.375735e-14 0.0
+  median stage ms: {'topology_ms': 0.705168, 'seed_ms': 0.0, 'connection_ms': 0.0, 'transport_ms': 0.0, 'arc_ms': 0.33659, 'reseed_ms': 0.0}
+  connection successes/attempts: 0 0 transport nodes: 0 / 0
+value warm u=0.5 epochs=54 GM/V2 median ms 140.0716645 1.117017 status OK 51 51 max mu/Jac err 1.90733e-08 0.0
+  median stage ms: {'topology_ms': 0.7043094999999999, 'seed_ms': 0.2032985, 'connection_ms': 136.40689450000002, 'transport_ms': 2.7304015, 'arc_ms': 0.327801, 'reseed_ms': 0.0}
+  connection successes/attempts: 26034 26034 transport nodes: 14208 / 14208
+analytic5Jac-local-gate-only cold u=0.0 epochs=108 GM/V2 median ms 1.112511 1.088884 status OK 103 103 max mu/Jac err 3.375735e-14 5.829581e-08
+  median stage ms: {'topology_ms': 0.8821665000000001, 'seed_ms': 0.0, 'connection_ms': 0.0, 'transport_ms': 0.0, 'arc_ms': 0.188219, 'reseed_ms': 0.0}
+  connection successes/attempts: 0 0 transport nodes: 0 / 0
+analytic5Jac-local-gate-only cold u=0.5 epochs=108 GM/V2 median ms 444.19151999999997 1.097482 status OK 103 103 max mu/Jac err 1.909525e-08 0.001912435
+  median stage ms: {'topology_ms': 0.8620715000000001, 'seed_ms': 0.87273, 'connection_ms': 428.1704175, 'transport_ms': 15.1392055, 'arc_ms': 0.19207950000000001, 'reseed_ms': 0.0}
+  connection successes/attempts: 73223 73223 transport nodes: 28160 / 28160
+analytic5Jac-local-gate-only warm u=0.0 epochs=54 GM/V2 median ms 1.107388 1.017016 status OK 51 51 max mu/Jac err 3.375735e-14 5.829581e-08
+  median stage ms: {'topology_ms': 0.7047565, 'seed_ms': 0.0, 'connection_ms': 0.0, 'transport_ms': 0.0, 'arc_ms': 0.335846, 'reseed_ms': 0.0}
+  connection successes/attempts: 0 0 transport nodes: 0 / 0
+analytic5Jac-local-gate-only warm u=0.5 epochs=54 GM/V2 median ms 443.8514985 1.0353115000000002 status OK 51 51 max mu/Jac err 1.907331e-08 0.001895586
+  median stage ms: {'topology_ms': 0.7041105000000001, 'seed_ms': 0.8783995, 'connection_ms': 428.110323, 'transport_ms': 15.1419565, 'arc_ms': 0.3397125, 'reseed_ms': 0.0}
+  connection successes/attempts: 36878 36878 transport nodes: 14208 / 14208
+analytic Jacobian marginal cold median ms 305.581106 median paired ratio 3.189674253529515
+analytic Jacobian marginal warm median ms 305.58268 median paired ratio 3.175049190687719
+value original 108 cases: status OK 104 / 108 LD all-node transport 54 / 54
+analytic5Jac-local-gate-only original 108 cases: status OK 104 / 108 LD all-node transport 54 / 54
+angular derivative reference: 512/2048 agreement <1e-7: 41 / 54
+Unconverged angular derivatives are not independent scientific acceptance.

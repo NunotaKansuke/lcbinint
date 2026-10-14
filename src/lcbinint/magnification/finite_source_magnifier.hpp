@@ -8,12 +8,26 @@
 #include <cmath>
 #include <cstddef>
 #include <limits>
+#include <memory>
 #include <string>
+#include <utility>
 #include <vector>
+
+namespace lcbinint::holonomic {
+struct PreparedEpochGeometry;
+}
 
 namespace lcbinint::magnification {
 
 class PointSourceMagnifier;
+
+// Allocate an empty rolling PreparedEpochGeometry for a trajectory that will
+// evaluate FiniteSourceMethod::holonomic_binary across many nearby epochs.
+// Attach the returned handle to every holonomic MagnificationExecutionPlan
+// entry for that trajectory (MagnificationExecutionPlan::prepared_geometry) so
+// consecutive epochs reuse the D14 root set / cell plan (L2 warm-seeded D14,
+// exact-parity, fail-closed -- checkpoint sec.21 / Phase C step 2 part 3).
+std::shared_ptr<holonomic::PreparedEpochGeometry> make_prepared_epoch_geometry();
 
 enum class FiniteSourceMethod {
     point_source,
@@ -22,6 +36,18 @@ enum class FiniteSourceMethod {
     inverse_ray_polar,
     inverse_ray_spine,
     source_plane_quadrature,
+    // ATPT holonomic binary finite-source engine (fused value + 5-Jacobian
+    // radial pass; header-only, src/lcbinint/magnification/holonomic/).  Wired
+    // through binary_mag_preplanned only -- selected by LightCurve.warmup()
+    // where the engine is reference-validated and faster (Phase C step 2).
+    // The ordinary routing cascade never picks it; a non-OK holonomic Status
+    // fails closed (converged = false), never a silent approximation.
+    holonomic_binary,
+    // Result method for the caustic-seeded radial-frontier value integrator.
+    // holonomic_auto is a request-only sentinel that preserves the ordinary
+    // point/hex/integral selector and replaces only its integral branch.
+    holonomic_seeded_radial,
+    holonomic_auto,
 };
 
 // Canonical, engine-neutral finite-source geometry for one source position:
@@ -113,6 +139,13 @@ struct FiniteSourceResult {
     int point_source_ghost_count = 0;
     int point_source_safety_flags = 0;
     double caustic_distance = std::numeric_limits<double>::infinity();
+    bool seed_support_proven = false;
+    bool frontier_discovery_completed = false;
+    bool integral_support_certified = false;
+    bool value_converged = false;
+    int center_image_count = 0;
+    int augmented_seed_count = 0;
+    std::string diagnostic_stop;
 };
 
 // Explicitly requested trace of the Cartesian run-fill route.  This is a
@@ -171,7 +204,11 @@ public:
         double point_source_magnification,
         const std::vector<SourcePosition>* center_image_seeds = nullptr,
         bool point_source_magnification_is_exact = false,
-        const PointSourceMagnifier* point_magnifier_hint = nullptr) const;
+        const PointSourceMagnifier* point_magnifier_hint = nullptr,
+        bool use_seeded_radial_frontier = false,
+        double holonomic_mu_atol = std::numeric_limits<double>::quiet_NaN(),
+        double holonomic_mu_rtol = std::numeric_limits<double>::quiet_NaN(),
+        bool barycentric_frame = false) const;
     // Run the same Cartesian inverse-ray route used by the multi-run fill,
     // but retain its run-discovery/frontier order for visualization or audit.
     // This is deliberately separate from binary_mag() so production calls do
@@ -194,7 +231,8 @@ public:
         FiniteSourceMethod method,
         int resolution,
         const std::vector<SourcePosition>* center_image_seeds = nullptr,
-        const PointSourceMagnifier* point_magnifier_hint = nullptr) const;
+        const PointSourceMagnifier* point_magnifier_hint = nullptr,
+        holonomic::PreparedEpochGeometry* rolling_prepared = nullptr) const;
     FiniteSourceResult triple_mag(
         const model::TripleLensGeometry& geometry,
         SourcePosition source,
@@ -215,6 +253,9 @@ public:
         double caustic_distance,
         const std::vector<SourcePosition>* center_image_seeds,
         bool* support_proven) const;
+    // Start a cold binary-epoch diagnostic while retaining the reusable
+    // limb-darkening table. The normal production path keeps these caches.
+    void clear_binary_epoch_caches() const;
     double limb_darkening_table_brightness(double normalized_radius2) const;
     const double* limb_darkening_table_data() const
     {
@@ -254,7 +295,15 @@ public:
         double source_radius,
         double point_source_magnification,
         const PointSourceMagnifier* point_magnifier_hint = nullptr) const;
+    // Lower bound from a cover of every continuous critical-curve phase.
+    // Zero means no clearance was proved; it is never an estimated distance.
+    double binary_caustic_clearance_lower_bound(
+        double separation, double mass_ratio, SourcePosition source) const;
+
 private:
+    bool binary_point_topology_clearance(
+        double separation, double mass_ratio, SourcePosition source,
+        double source_radius) const;
     void ensure_binary_caustic_cache(
         double separation, double mass_ratio, double separation_tolerance = 0.0) const;
     double binary_caustic_distance(
@@ -294,6 +343,12 @@ private:
     struct CausticSegRef { int branch; int pos; };
     mutable std::vector<std::vector<CausticSegRef>> caustic_cache_branch_grid_;
     mutable double caustic_cache_max_seg_len_ = 0.0;
+    mutable bool caustic_enclosure_attempted_ = false;
+    mutable double caustic_enclosure_separation_ = 0.0;
+    mutable double caustic_enclosure_mass_ratio_ = 0.0;
+    mutable std::vector<std::pair<SourcePosition, double>> caustic_enclosure_;
+    mutable SourcePosition caustic_clearance_source_ {};
+    mutable double caustic_clearance_witness_ = 0.0;
     struct BinarySeedCacheEntry {
         double separation;
         double mass_ratio;
@@ -312,6 +367,10 @@ private:
     mutable double result_cache_source_y_ = 0.0;
     mutable double result_cache_source_radius_ = 0.0;
     mutable double result_cache_point_magnification_ = 0.0;
+    mutable bool result_cache_seeded_radial_frontier_ = false;
+    mutable double result_cache_holonomic_mu_atol_ = 0.0;
+    mutable double result_cache_holonomic_mu_rtol_ = 0.0;
+    mutable bool result_cache_barycentric_frame_ = false;
     mutable FiniteSourceResult result_cache_;
     mutable bool limb_darkening_table_valid_ = false;
     mutable double limb_darkening_table_c_ = 0.0;

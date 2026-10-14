@@ -1,0 +1,33 @@
+{
+  "before.tsv": {
+    "candidate_integration_ms": 0.3287534827586207,
+    "candidate_no_caustic_ms": 0.5571989885057471
+  },
+  "after.tsv": {
+    "candidate_integration_ms": 0.3018301034482759,
+    "candidate_no_caustic_ms": 0.5313951149425288
+  },
+  "before_repeat.tsv": {
+    "candidate_integration_ms": 0.3282424367816092,
+    "candidate_no_caustic_ms": 0.5578754942528735
+  },
+  "after_repeat.tsv": {
+    "candidate_integration_ms": 0.30174188505747124,
+    "candidate_no_caustic_ms": 0.5317521379310345
+  },
+  "initial": {
+    "rows": 192,
+    "resolved": 178,
+    "failures": 0
+  },
+  "fold": {
+    "rows": 352,
+    "resolved": 288,
+    "failures": 0
+  },
+  "deeper": {
+    "rows": 352,
+    "resolved": 288,
+    "failures": 0
+  }
+}

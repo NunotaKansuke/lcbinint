@@ -1,0 +1,23 @@
+# D14 event-accuracy contract research benchmark
+# Base: c5582b12678797da9d33af7ce90343989a5a0743
+# Host: rogue1, Intel Xeon Gold 6530, GCC 11.5.0, CPU core 0
+
+cd /rogue1_8/nunota/lcbinint
+cmake -S tests/holonomic_cpp -B build-holonomic-global -DCMAKE_BUILD_TYPE=Release
+cmake --build build-holonomic-global --target bench_d14_event_contract -j2
+
+taskset -c 0 env \
+  HOLO_D14_LOCAL_PAIRS=1 \
+  HOLO_D14_ACTIVE_PRESEARCH=1 \
+  HOLO_D14_ACTIVE_TOL=1e-12 \
+  HOLO_D14_ACTIVE_PATIENCE=2 \
+  build-holonomic-global/bench_d14_event_contract \
+  evidence/holonomic/d14_overflow_whole_epoch_tail_20260912/input_snapshot.tsv \
+  evidence/holonomic/d14_event_contract_20260912/event_contract.tsv
+
+gzip -9 -f evidence/holonomic/d14_event_contract_20260912/event_contract.tsv
+python3 evidence/holonomic/d14_event_contract_20260912/summarize.py
+
+cmake --build build-holonomic-global -j2
+ctest --test-dir build-holonomic-global --output-on-failure -j2
+

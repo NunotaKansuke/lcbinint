@@ -1,0 +1,21 @@
+--- a/src/lcbinint/magnification/holonomic/radius_terms.hpp
++++ b/src/lcbinint/magnification/holonomic/radius_terms.hpp
+@@ -591,8 +591,17 @@
+                     ++prof->rootpair_tiny_bracket_pass;
+             }
+ #endif
++            bool floor_reject=rp.v<=kTransportVFloor;
++#ifdef HOLO_MV_TINY_BRACKET_ACCEPT
++            // Certify both distinct endpoints instead of accepting a tiny-v
++            // pair from its Newton step alone. Set-level branch checks follow.
++            if(floor_reject && !pred_wild && conv && std::isfinite(rp.m) && rp.v>0.0) {
++                const std::array<double,4> endpoints{rp.t_minus(),rp.t_plus(),0,0};
++                floor_reject=!local_bracket_detail::certify(pc,endpoints,2);
++            }
++#endif
+             if (pred_wild || !conv || !std::isfinite(rp.m) ||
+-                !std::isfinite(rp.v) || rp.v <= kTransportVFloor) {
++                !std::isfinite(rp.v) || floor_reject) {
+                 if (prof && !pred_wild) {
+                     ++prof->rootpair_newton_reject;
+                     if (!conv) ++prof->rootpair_residual_reject;

@@ -1,0 +1,1579 @@
+{
+  "commit": "88f7de2cc9f26f37032aef10cb5f7a82a2ab9c2b",
+  "native": "/rogue1_8/nunota/lcbinint/experiments/seeded-boundary-events/build-seeded-events/python-api/_lcbinint.cpython-310-x86_64-linux-gnu.so",
+  "vbm_version": "5.5",
+  "repetitions": 41,
+  "rows": [
+    {
+      "case": "ordinary",
+      "params": {
+        "t0": 0.0,
+        "tE": 1.0,
+        "u0": 0.3,
+        "alpha": 0.0,
+        "s": 1.2,
+        "q": 0.01,
+        "rho": 0.003
+      },
+      "ld": 0.0,
+      "atol": 0.001,
+      "rtol": 0.001,
+      "counts": {
+        "point_source": 201
+      },
+      "lc_ms": 0.2635431010276079,
+      "vbm_ms": 0.17828401178121567,
+      "epoch_sum_ms": 0.24183999999999986,
+      "first_epoch_ms": 0.0010270000000000001,
+      "by_method_ms": {
+        "point_source": 0.24183999999999986
+      },
+      "vbm_route_subsets": {
+        "point_source": {
+          "median_ms": 0.17571006901562214,
+          "samples_ms": [
+            0.17523195128887892,
+            0.17647608183324337,
+            0.1743159955367446,
+            0.1743860775604844,
+            0.1765700289979577,
+            0.1766460482031107,
+            0.1768280053511262,
+            0.17795199528336525,
+            0.17674302216619253,
+            0.1770639792084694,
+            0.17559295520186424,
+            0.17608399502933025,
+            0.1755439443513751,
+            0.17834303434938192,
+            0.1758680446073413,
+            0.1759869046509266,
+            0.17634592950344086,
+            0.1760569866746664,
+            0.17803197260946035,
+            0.17564499285072088,
+            0.175839988514781,
+            0.17568992916494608,
+            0.1760020386427641,
+            0.17554103396832943,
+            0.17789495177567005,
+            0.1757410354912281,
+            0.17571006901562214,
+            0.17532892525196075,
+            0.1749380026012659,
+            0.1747530186548829,
+            0.1765670021995902,
+            0.1744310138747096,
+            0.17411296721547842,
+            0.17443392425775528,
+            0.17397000920027494,
+            0.17682102043181658,
+            0.17449306324124336,
+            0.17417909111827612,
+            0.17440901137888432,
+            0.1742360182106495,
+            0.17453299369663
+          ]
+        }
+      },
+      "samples": [
+        {
+          "vb_ms": 0.1795729622244835,
+          "lc_ms": 0.3064459888264537,
+          "epoch_sum_ms": 0.26679700000000006,
+          "by_method_ms": {
+            "point_source": 0.26679700000000006
+          },
+          "first_epoch_ms": 0.00135,
+          "warm_epoch_sum_ms": 0.19494399999999998,
+          "warm_first_epoch_ms": 0.0010869999999999999,
+          "warm_by_method_ms": {
+            "point_source": 0.19494399999999998
+          }
+        },
+        {
+          "lc_ms": 0.31155499164015055,
+          "vb_ms": 0.18894905224442482,
+          "epoch_sum_ms": 0.26280199999999976,
+          "by_method_ms": {
+            "point_source": 0.26280199999999976
+          },
+          "first_epoch_ms": 0.00558,
+          "warm_epoch_sum_ms": 0.1950720000000001,
+          "warm_first_epoch_ms": 0.001192,
+          "warm_by_method_ms": {
+            "point_source": 0.1950720000000001
+          }
+        },
+        {
+          "vb_ms": 0.17540599219501019,
+          "lc_ms": 0.27834298089146614,
+          "epoch_sum_ms": 0.24805700000000014,
+          "by_method_ms": {
+            "point_source": 0.24805700000000014
+          },
+          "first_epoch_ms": 0.0011409999999999999,
+          "warm_epoch_sum_ms": 0.1927830000000001,
+          "warm_first_epoch_ms": 0.001041,
+          "warm_by_method_ms": {
+            "point_source": 0.1927830000000001
+          }
+        },
+        {
+          "lc_ms": 0.2688959939405322,
+          "vb_ms": 0.17979799304157495,
+          "epoch_sum_ms": 0.24717000000000006,
+          "by_method_ms": {
+            "point_source": 0.24717000000000006
+          },
+          "first_epoch_ms": 0.001019,
+          "warm_epoch_sum_ms": 0.19240400000000005,
+          "warm_first_epoch_ms": 0.00098,
+          "warm_by_method_ms": {
+            "point_source": 0.19240400000000005
+          }
+        },
+        {
+          "vb_ms": 0.17579004634171724,
+          "lc_ms": 0.2636680146679282,
+          "epoch_sum_ms": 0.24235399999999988,
+          "by_method_ms": {
+            "point_source": 0.24235399999999988
+          },
+          "first_epoch_ms": 0.001031,
+          "warm_epoch_sum_ms": 0.19229799999999997,
+          "warm_first_epoch_ms": 0.0010249999999999999,
+          "warm_by_method_ms": {
+            "point_source": 0.19229799999999997
+          }
+        },
+        {
+          "lc_ms": 0.2631359966471791,
+          "vb_ms": 0.18406100571155548,
+          "epoch_sum_ms": 0.24139700000000003,
+          "by_method_ms": {
+            "point_source": 0.24139700000000003
+          },
+          "first_epoch_ms": 0.001051,
+          "warm_epoch_sum_ms": 0.19107300000000005,
+          "warm_first_epoch_ms": 0.000984,
+          "warm_by_method_ms": {
+            "point_source": 0.19107300000000005
+          }
+        },
+        {
+          "vb_ms": 0.17865700647234917,
+          "lc_ms": 0.26554299984127283,
+          "epoch_sum_ms": 0.24165200000000006,
+          "by_method_ms": {
+            "point_source": 0.24165200000000006
+          },
+          "first_epoch_ms": 0.0021490000000000003,
+          "warm_epoch_sum_ms": 0.19147299999999992,
+          "warm_first_epoch_ms": 0.000975,
+          "warm_by_method_ms": {
+            "point_source": 0.19147299999999992
+          }
+        },
+        {
+          "lc_ms": 0.26478501968085766,
+          "vb_ms": 0.17978204414248466,
+          "epoch_sum_ms": 0.24390300000000012,
+          "by_method_ms": {
+            "point_source": 0.24390300000000012
+          },
+          "first_epoch_ms": 0.0010049999999999998,
+          "warm_epoch_sum_ms": 0.19130700000000012,
+          "warm_first_epoch_ms": 0.000987,
+          "warm_by_method_ms": {
+            "point_source": 0.19130700000000012
+          }
+        },
+        {
+          "vb_ms": 0.17713592387735844,
+          "lc_ms": 0.29999599792063236,
+          "epoch_sum_ms": 0.27870199999999984,
+          "by_method_ms": {
+            "point_source": 0.27870199999999984
+          },
+          "first_epoch_ms": 0.001009,
+          "warm_epoch_sum_ms": 0.193137,
+          "warm_first_epoch_ms": 0.00104,
+          "warm_by_method_ms": {
+            "point_source": 0.193137
+          }
+        },
+        {
+          "lc_ms": 0.2650290261954069,
+          "vb_ms": 0.17841893713921309,
+          "epoch_sum_ms": 0.24417900000000003,
+          "by_method_ms": {
+            "point_source": 0.24417900000000003
+          },
+          "first_epoch_ms": 0.0010270000000000001,
+          "warm_epoch_sum_ms": 0.19473600000000002,
+          "warm_first_epoch_ms": 0.001029,
+          "warm_by_method_ms": {
+            "point_source": 0.19473600000000002
+          }
+        },
+        {
+          "vb_ms": 0.1775010023266077,
+          "lc_ms": 0.2635469427332282,
+          "epoch_sum_ms": 0.24082000000000006,
+          "by_method_ms": {
+            "point_source": 0.24082000000000006
+          },
+          "first_epoch_ms": 0.00104,
+          "warm_epoch_sum_ms": 0.1913340000000001,
+          "warm_first_epoch_ms": 0.0009960000000000001,
+          "warm_by_method_ms": {
+            "point_source": 0.1913340000000001
+          }
+        },
+        {
+          "lc_ms": 0.2620540326461196,
+          "vb_ms": 0.1781389582902193,
+          "epoch_sum_ms": 0.24183999999999986,
+          "by_method_ms": {
+            "point_source": 0.24183999999999986
+          },
+          "first_epoch_ms": 0.0010270000000000001,
+          "warm_epoch_sum_ms": 0.19111499999999998,
+          "warm_first_epoch_ms": 0.000958,
+          "warm_by_method_ms": {
+            "point_source": 0.19111499999999998
+          }
+        },
+        {
+          "vb_ms": 0.18262804951518774,
+          "lc_ms": 0.2630749950185418,
+          "epoch_sum_ms": 0.2429099999999999,
+          "by_method_ms": {
+            "point_source": 0.2429099999999999
+          },
+          "first_epoch_ms": 0.001063,
+          "warm_epoch_sum_ms": 0.192345,
+          "warm_first_epoch_ms": 0.002107,
+          "warm_by_method_ms": {
+            "point_source": 0.192345
+          }
+        },
+        {
+          "lc_ms": 0.2615730045363307,
+          "vb_ms": 0.17952104099094868,
+          "epoch_sum_ms": 0.24077700000000005,
+          "by_method_ms": {
+            "point_source": 0.24077700000000005
+          },
+          "first_epoch_ms": 0.00101,
+          "warm_epoch_sum_ms": 0.21797400000000003,
+          "warm_first_epoch_ms": 0.00108,
+          "warm_by_method_ms": {
+            "point_source": 0.21797400000000003
+          }
+        },
+        {
+          "vb_ms": 0.1926500117406249,
+          "lc_ms": 0.277286977507174,
+          "epoch_sum_ms": 0.25669,
+          "by_method_ms": {
+            "point_source": 0.25669
+          },
+          "first_epoch_ms": 0.001157,
+          "warm_epoch_sum_ms": 0.19131400000000015,
+          "warm_first_epoch_ms": 0.000981,
+          "warm_by_method_ms": {
+            "point_source": 0.19131400000000015
+          }
+        },
+        {
+          "lc_ms": 0.2645449712872505,
+          "vb_ms": 0.17646595370024443,
+          "epoch_sum_ms": 0.24452500000000005,
+          "by_method_ms": {
+            "point_source": 0.24452500000000005
+          },
+          "first_epoch_ms": 0.0009710000000000001,
+          "warm_epoch_sum_ms": 0.19171799999999994,
+          "warm_first_epoch_ms": 0.0009850000000000002,
+          "warm_by_method_ms": {
+            "point_source": 0.19171799999999994
+          }
+        },
+        {
+          "vb_ms": 0.17580098938196898,
+          "lc_ms": 0.26145693846046925,
+          "epoch_sum_ms": 0.24148300000000006,
+          "by_method_ms": {
+            "point_source": 0.24148300000000006
+          },
+          "first_epoch_ms": 0.00101,
+          "warm_epoch_sum_ms": 0.19135999999999997,
+          "warm_first_epoch_ms": 0.0009680000000000001,
+          "warm_by_method_ms": {
+            "point_source": 0.19135999999999997
+          }
+        },
+        {
+          "lc_ms": 0.26037590578198433,
+          "vb_ms": 0.18004293087869883,
+          "epoch_sum_ms": 0.23931699999999992,
+          "by_method_ms": {
+            "point_source": 0.23931699999999992
+          },
+          "first_epoch_ms": 0.000989,
+          "warm_epoch_sum_ms": 0.19271999999999997,
+          "warm_first_epoch_ms": 0.000965,
+          "warm_by_method_ms": {
+            "point_source": 0.19271999999999997
+          }
+        },
+        {
+          "vb_ms": 0.17877505160868168,
+          "lc_ms": 0.2637880388647318,
+          "epoch_sum_ms": 0.24068099999999984,
+          "by_method_ms": {
+            "point_source": 0.24068099999999984
+          },
+          "first_epoch_ms": 0.0009850000000000002,
+          "warm_epoch_sum_ms": 0.19166999999999984,
+          "warm_first_epoch_ms": 0.0010270000000000001,
+          "warm_by_method_ms": {
+            "point_source": 0.19166999999999984
+          }
+        },
+        {
+          "lc_ms": 0.26529503520578146,
+          "vb_ms": 0.18062593881040812,
+          "epoch_sum_ms": 0.24494700000000008,
+          "by_method_ms": {
+            "point_source": 0.24494700000000008
+          },
+          "first_epoch_ms": 0.001026,
+          "warm_epoch_sum_ms": 0.19214300000000012,
+          "warm_first_epoch_ms": 0.001699,
+          "warm_by_method_ms": {
+            "point_source": 0.19214300000000012
+          }
+        },
+        {
+          "vb_ms": 0.17878308426588774,
+          "lc_ms": 0.26425602845847607,
+          "epoch_sum_ms": 0.24335000000000004,
+          "by_method_ms": {
+            "point_source": 0.24335000000000004
+          },
+          "first_epoch_ms": 0.001006,
+          "warm_epoch_sum_ms": 0.1926609999999999,
+          "warm_first_epoch_ms": 0.000991,
+          "warm_by_method_ms": {
+            "point_source": 0.1926609999999999
+          }
+        },
+        {
+          "lc_ms": 0.26056997012346983,
+          "vb_ms": 0.17671298701316118,
+          "epoch_sum_ms": 0.2405149999999999,
+          "by_method_ms": {
+            "point_source": 0.2405149999999999
+          },
+          "first_epoch_ms": 0.0010350000000000001,
+          "warm_epoch_sum_ms": 0.1937930000000001,
+          "warm_first_epoch_ms": 0.000998,
+          "warm_by_method_ms": {
+            "point_source": 0.1937930000000001
+          }
+        },
+        {
+          "vb_ms": 0.1763820182532072,
+          "lc_ms": 0.2592239761725068,
+          "epoch_sum_ms": 0.23975499999999997,
+          "by_method_ms": {
+            "point_source": 0.23975499999999997
+          },
+          "first_epoch_ms": 0.001006,
+          "warm_epoch_sum_ms": 0.19136000000000003,
+          "warm_first_epoch_ms": 0.000995,
+          "warm_by_method_ms": {
+            "point_source": 0.19136000000000003
+          }
+        },
+        {
+          "lc_ms": 0.26284006889909506,
+          "vb_ms": 0.17965503502637148,
+          "epoch_sum_ms": 0.24127699999999996,
+          "by_method_ms": {
+            "point_source": 0.24127699999999996
+          },
+          "first_epoch_ms": 0.001007,
+          "warm_epoch_sum_ms": 0.19159200000000004,
+          "warm_first_epoch_ms": 0.000993,
+          "warm_by_method_ms": {
+            "point_source": 0.19159200000000004
+          }
+        },
+        {
+          "vb_ms": 0.178275047801435,
+          "lc_ms": 0.2654179697856307,
+          "epoch_sum_ms": 0.24384699999999981,
+          "by_method_ms": {
+            "point_source": 0.24384699999999981
+          },
+          "first_epoch_ms": 0.002126,
+          "warm_epoch_sum_ms": 0.19229500000000005,
+          "warm_first_epoch_ms": 0.0016530000000000002,
+          "warm_by_method_ms": {
+            "point_source": 0.19229500000000005
+          }
+        },
+        {
+          "lc_ms": 0.2611840609461069,
+          "vb_ms": 0.17922604456543922,
+          "epoch_sum_ms": 0.240741,
+          "by_method_ms": {
+            "point_source": 0.240741
+          },
+          "first_epoch_ms": 0.001051,
+          "warm_epoch_sum_ms": 0.195409,
+          "warm_first_epoch_ms": 0.001807,
+          "warm_by_method_ms": {
+            "point_source": 0.195409
+          }
+        },
+        {
+          "vb_ms": 0.1778700388967991,
+          "lc_ms": 0.25983701925724745,
+          "epoch_sum_ms": 0.23968799999999998,
+          "by_method_ms": {
+            "point_source": 0.23968799999999998
+          },
+          "first_epoch_ms": 0.001015,
+          "warm_epoch_sum_ms": 0.19156299999999998,
+          "warm_first_epoch_ms": 0.000947,
+          "warm_by_method_ms": {
+            "point_source": 0.19156299999999998
+          }
+        },
+        {
+          "lc_ms": 0.2619789447635412,
+          "vb_ms": 0.17613195814192295,
+          "epoch_sum_ms": 0.2393300000000001,
+          "by_method_ms": {
+            "point_source": 0.2393300000000001
+          },
+          "first_epoch_ms": 0.001012,
+          "warm_epoch_sum_ms": 0.1911899999999999,
+          "warm_first_epoch_ms": 0.0009939999999999999,
+          "warm_by_method_ms": {
+            "point_source": 0.1911899999999999
+          }
+        },
+        {
+          "vb_ms": 0.1778419828042388,
+          "lc_ms": 0.2618769649416208,
+          "epoch_sum_ms": 0.24184099999999994,
+          "by_method_ms": {
+            "point_source": 0.24184099999999994
+          },
+          "first_epoch_ms": 0.00101,
+          "warm_epoch_sum_ms": 0.1912240000000001,
+          "warm_first_epoch_ms": 0.000945,
+          "warm_by_method_ms": {
+            "point_source": 0.1912240000000001
+          }
+        },
+        {
+          "lc_ms": 0.2589939394965768,
+          "vb_ms": 0.176777015440166,
+          "epoch_sum_ms": 0.239086,
+          "by_method_ms": {
+            "point_source": 0.239086
+          },
+          "first_epoch_ms": 0.0009850000000000002,
+          "warm_epoch_sum_ms": 0.19395700000000007,
+          "warm_first_epoch_ms": 0.001013,
+          "warm_by_method_ms": {
+            "point_source": 0.19395700000000007
+          }
+        },
+        {
+          "vb_ms": 0.17828401178121567,
+          "lc_ms": 0.262601999565959,
+          "epoch_sum_ms": 0.24027100000000007,
+          "by_method_ms": {
+            "point_source": 0.24027100000000007
+          },
+          "first_epoch_ms": 0.0021490000000000003,
+          "warm_epoch_sum_ms": 0.19133199999999986,
+          "warm_first_epoch_ms": 0.00097,
+          "warm_by_method_ms": {
+            "point_source": 0.19133199999999986
+          }
+        },
+        {
+          "lc_ms": 0.26385707315057516,
+          "vb_ms": 0.17876201309263706,
+          "epoch_sum_ms": 0.24378399999999997,
+          "by_method_ms": {
+            "point_source": 0.24378399999999997
+          },
+          "first_epoch_ms": 0.002111,
+          "warm_epoch_sum_ms": 0.19157299999999997,
+          "warm_first_epoch_ms": 0.00101,
+          "warm_by_method_ms": {
+            "point_source": 0.19157299999999997
+          }
+        },
+        {
+          "vb_ms": 0.17793697770684958,
+          "lc_ms": 0.26724603958427906,
+          "epoch_sum_ms": 0.24494399999999997,
+          "by_method_ms": {
+            "point_source": 0.24494399999999997
+          },
+          "first_epoch_ms": 0.0010979999999999998,
+          "warm_epoch_sum_ms": 0.19246700000000008,
+          "warm_first_epoch_ms": 0.001038,
+          "warm_by_method_ms": {
+            "point_source": 0.19246700000000008
+          }
+        },
+        {
+          "lc_ms": 0.2734540030360222,
+          "vb_ms": 0.17648597713559866,
+          "epoch_sum_ms": 0.25358999999999987,
+          "by_method_ms": {
+            "point_source": 0.25358999999999987
+          },
+          "first_epoch_ms": 0.001033,
+          "warm_epoch_sum_ms": 0.1984990000000001,
+          "warm_first_epoch_ms": 0.001085,
+          "warm_by_method_ms": {
+            "point_source": 0.1984990000000001
+          }
+        },
+        {
+          "vb_ms": 0.17603696323931217,
+          "lc_ms": 0.26018591597676277,
+          "epoch_sum_ms": 0.23975700000000025,
+          "by_method_ms": {
+            "point_source": 0.23975700000000025
+          },
+          "first_epoch_ms": 0.001013,
+          "warm_epoch_sum_ms": 0.1917679999999999,
+          "warm_first_epoch_ms": 0.000967,
+          "warm_by_method_ms": {
+            "point_source": 0.1917679999999999
+          }
+        },
+        {
+          "lc_ms": 0.25983096566051245,
+          "vb_ms": 0.1760279992595315,
+          "epoch_sum_ms": 0.23959300000000003,
+          "by_method_ms": {
+            "point_source": 0.23959300000000003
+          },
+          "first_epoch_ms": 0.001011,
+          "warm_epoch_sum_ms": 0.1914719999999998,
+          "warm_first_epoch_ms": 0.000998,
+          "warm_by_method_ms": {
+            "point_source": 0.1914719999999998
+          }
+        },
+        {
+          "vb_ms": 0.17802510410547256,
+          "lc_ms": 0.2675699070096016,
+          "epoch_sum_ms": 0.24258999999999992,
+          "by_method_ms": {
+            "point_source": 0.24258999999999992
+          },
+          "first_epoch_ms": 0.0021579999999999998,
+          "warm_epoch_sum_ms": 0.19239499999999998,
+          "warm_first_epoch_ms": 0.002117,
+          "warm_by_method_ms": {
+            "point_source": 0.19239499999999998
+          }
+        },
+        {
+          "lc_ms": 0.2606878988444805,
+          "vb_ms": 0.17836305778473616,
+          "epoch_sum_ms": 0.2403579999999998,
+          "by_method_ms": {
+            "point_source": 0.2403579999999998
+          },
+          "first_epoch_ms": 0.001029,
+          "warm_epoch_sum_ms": 0.19635300000000006,
+          "warm_first_epoch_ms": 0.00209,
+          "warm_by_method_ms": {
+            "point_source": 0.19635300000000006
+          }
+        },
+        {
+          "vb_ms": 0.17718598246574402,
+          "lc_ms": 0.26130606420338154,
+          "epoch_sum_ms": 0.2409710000000001,
+          "by_method_ms": {
+            "point_source": 0.2409710000000001
+          },
+          "first_epoch_ms": 0.001029,
+          "warm_epoch_sum_ms": 0.19261300000000003,
+          "warm_first_epoch_ms": 0.000986,
+          "warm_by_method_ms": {
+            "point_source": 0.19261300000000003
+          }
+        },
+        {
+          "lc_ms": 0.2606739290058613,
+          "vb_ms": 0.1786199864000082,
+          "epoch_sum_ms": 0.240983,
+          "by_method_ms": {
+            "point_source": 0.240983
+          },
+          "first_epoch_ms": 0.0010240000000000002,
+          "warm_epoch_sum_ms": 0.19144499999999992,
+          "warm_first_epoch_ms": 0.000979,
+          "warm_by_method_ms": {
+            "point_source": 0.19144499999999992
+          }
+        },
+        {
+          "vb_ms": 0.17836201004683971,
+          "lc_ms": 0.2635431010276079,
+          "epoch_sum_ms": 0.24333200000000008,
+          "by_method_ms": {
+            "point_source": 0.24333200000000008
+          },
+          "first_epoch_ms": 0.001017,
+          "warm_epoch_sum_ms": 0.19136799999999993,
+          "warm_first_epoch_ms": 0.0009960000000000001,
+          "warm_by_method_ms": {
+            "point_source": 0.19136799999999993
+          }
+        }
+      ],
+      "warm_epoch_sum_ms": 0.19214300000000012,
+      "warm_first_epoch_ms": 0.0009960000000000001,
+      "warm_by_method_ms": {
+        "point_source": 0.19214300000000012
+      }
+    },
+    {
+      "case": "wide_planetary",
+      "params": {
+        "t0": 0.0,
+        "tE": 1.0,
+        "u0": 0.03,
+        "alpha": -0.08,
+        "s": 1.2,
+        "q": 0.01,
+        "rho": 0.003
+      },
+      "ld": 0.0,
+      "atol": 0.001,
+      "rtol": 0.001,
+      "counts": {
+        "hexadecapole": 66,
+        "holonomic_seeded_radial": 21,
+        "point_source": 114
+      },
+      "lc_ms": 5.761349922977388,
+      "vbm_ms": 4.475628957152367,
+      "epoch_sum_ms": 5.723081999999994,
+      "first_epoch_ms": 1.513015,
+      "by_method_ms": {
+        "hexadecapole": 2.5772839999999997,
+        "holonomic_seeded_radial": 3.0411930000000003,
+        "point_source": 0.10320799999999997
+      },
+      "vbm_route_subsets": {
+        "hexadecapole": {
+          "median_ms": 2.653021947480738,
+          "samples_ms": [
+            2.6734370039775968,
+            2.6464100228622556,
+            2.6770069962367415,
+            2.644130028784275,
+            2.6676759589463472,
+            2.642603009007871,
+            2.6768549578264356,
+            2.631222945638001,
+            2.6688630459830165,
+            2.6351449778303504,
+            2.6745700743049383,
+            2.645454020239413,
+            2.678797929547727,
+            2.6376399910077453,
+            2.6690650265663862,
+            2.6283999904990196,
+            2.684085047803819,
+            2.6409539859741926,
+            2.6702869217842817,
+            2.637833938933909,
+            2.668648026883602,
+            2.6287250220775604,
+            2.6745659997686744,
+            2.6304409839212894,
+            2.6739899767562747,
+            2.631331910379231,
+            2.6695929700508714,
+            2.6316429721191525,
+            2.668586908839643,
+            2.626052941195667,
+            2.6695989072322845,
+            2.6463050162419677,
+            2.685016021132469,
+            2.6338970055803657,
+            2.680174889974296,
+            2.64095701277256,
+            2.6804739609360695,
+            2.6359789771959186,
+            2.653021947480738,
+            2.63738795183599,
+            2.67556996550411
+          ]
+        },
+        "holonomic_seeded_radial": {
+          "median_ms": 1.295706955716014,
+          "samples_ms": [
+            1.3072449946776032,
+            1.3669009786099195,
+            1.2979069724678993,
+            1.293626963160932,
+            1.2915409170091152,
+            1.295706955716014,
+            1.3004260836169124,
+            1.330132014118135,
+            1.2919079745188355,
+            1.294221030548215,
+            1.2892880477011204,
+            1.293472945690155,
+            1.2913489481434226,
+            1.3369700172916055,
+            1.2955870479345322,
+            1.3001180486753583,
+            1.296222093515098,
+            1.293386914767325,
+            1.2983970809727907,
+            1.3163469266146421,
+            1.3122160453349352,
+            1.29362300503999,
+            1.2961799511685967,
+            1.286384998820722,
+            1.2999880127608776,
+            1.2919389409944415,
+            1.336037996225059,
+            1.2863579904660583,
+            1.2896290281787515,
+            1.294907066039741,
+            1.2947069481015205,
+            1.2970640091225505,
+            1.3214369537308812,
+            1.3026670785620809,
+            1.29161705262959,
+            1.2949950760230422,
+            1.2926870258525014,
+            1.2959979940205812,
+            1.2986010406166315,
+            1.3377830618992448,
+            1.2919990113005042
+          ]
+        },
+        "point_source": {
+          "median_ms": 0.47232501674443483,
+          "samples_ms": [
+            0.48377306666225195,
+            0.47673098742961884,
+            0.4793889820575714,
+            0.47739804722368717,
+            0.4724839236587286,
+            0.4740810254588723,
+            0.4709330387413502,
+            0.47564401756972075,
+            0.46896201092749834,
+            0.4723070887848735,
+            0.47117099165916443,
+            0.49819902051240206,
+            0.49228500574827194,
+            0.47232501674443483,
+            0.4750440130010247,
+            0.4707119660452008,
+            0.47082104720175266,
+            0.4679980920627713,
+            0.4708600463345647,
+            0.4712439840659499,
+            0.4758050199598074,
+            0.4686029860749841,
+            0.47172000631690025,
+            0.4720330471172929,
+            0.4786079516634345,
+            0.47237600665539503,
+            0.4755719564855099,
+            0.47010101843625307,
+            0.47246902249753475,
+            0.48028503078967333,
+            0.47243002336472273,
+            0.4720849683508277,
+            0.4680610727518797,
+            0.47071604058146477,
+            0.4708039341494441,
+            0.47720095608383417,
+            0.47022197395563126,
+            0.47002406790852547,
+            0.4699010169133544,
+            0.484699965454638,
+            0.4958189092576504
+          ]
+        }
+      },
+      "samples": [
+        {
+          "vb_ms": 4.473684937693179,
+          "lc_ms": 5.88574493303895,
+          "epoch_sum_ms": 5.839481999999997,
+          "by_method_ms": {
+            "hexadecapole": 2.684475000000001,
+            "holonomic_seeded_radial": 3.0511899999999996,
+            "point_source": 0.10381700000000002
+          },
+          "first_epoch_ms": 1.610004,
+          "warm_epoch_sum_ms": 2.8534479999999998,
+          "warm_first_epoch_ms": 0.01551,
+          "warm_by_method_ms": {
+            "hexadecapole": 1.1121830000000004,
+            "holonomic_seeded_radial": 1.6386800000000001,
+            "point_source": 0.10258499999999997
+          }
+        },
+        {
+          "lc_ms": 5.791136994957924,
+          "vb_ms": 4.4718889985233545,
+          "epoch_sum_ms": 5.749179999999999,
+          "by_method_ms": {
+            "hexadecapole": 2.635811,
+            "holonomic_seeded_radial": 3.0101610000000005,
+            "point_source": 0.10320799999999997
+          },
+          "first_epoch_ms": 1.564209,
+          "warm_epoch_sum_ms": 2.8835249999999983,
+          "warm_first_epoch_ms": 0.017549000000000002,
+          "warm_by_method_ms": {
+            "hexadecapole": 1.1195439999999999,
+            "holonomic_seeded_radial": 1.660971,
+            "point_source": 0.10301
+          }
+        },
+        {
+          "vb_ms": 4.464667988941073,
+          "lc_ms": 5.79926697537303,
+          "epoch_sum_ms": 5.761649999999992,
+          "by_method_ms": {
+            "hexadecapole": 2.610494,
+            "holonomic_seeded_radial": 3.047881,
+            "point_source": 0.10327500000000005
+          },
+          "first_epoch_ms": 1.54914,
+          "warm_epoch_sum_ms": 2.859003,
+          "warm_first_epoch_ms": 0.015432000000000001,
+          "warm_by_method_ms": {
+            "hexadecapole": 1.1115099999999998,
+            "holonomic_seeded_radial": 1.6443250000000003,
+            "point_source": 0.10316800000000005
+          }
+        },
+        {
+          "lc_ms": 5.7464620331302285,
+          "vb_ms": 4.47703106328845,
+          "epoch_sum_ms": 5.707784999999999,
+          "by_method_ms": {
+            "hexadecapole": 2.5873220000000003,
+            "holonomic_seeded_radial": 3.0169259999999998,
+            "point_source": 0.103537
+          },
+          "first_epoch_ms": 1.516748,
+          "warm_epoch_sum_ms": 2.848674,
+          "warm_first_epoch_ms": 0.017058,
+          "warm_by_method_ms": {
+            "hexadecapole": 1.083556,
+            "holonomic_seeded_radial": 1.657975,
+            "point_source": 0.10714299999999996
+          }
+        },
+        {
+          "vb_ms": 4.480040981434286,
+          "lc_ms": 5.773475975729525,
+          "epoch_sum_ms": 5.737215000000003,
+          "by_method_ms": {
+            "hexadecapole": 2.584926000000001,
+            "holonomic_seeded_radial": 3.0491220000000006,
+            "point_source": 0.10316699999999998
+          },
+          "first_epoch_ms": 1.516702,
+          "warm_epoch_sum_ms": 2.8537640000000004,
+          "warm_first_epoch_ms": 0.015089,
+          "warm_by_method_ms": {
+            "hexadecapole": 1.1140840000000003,
+            "holonomic_seeded_radial": 1.6365770000000002,
+            "point_source": 0.10310300000000003
+          }
+        },
+        {
+          "lc_ms": 5.778664024546742,
+          "vb_ms": 4.517985042184591,
+          "epoch_sum_ms": 5.738231,
+          "by_method_ms": {
+            "hexadecapole": 2.5756639999999993,
+            "holonomic_seeded_radial": 3.0571139999999994,
+            "point_source": 0.10545299999999994
+          },
+          "first_epoch_ms": 1.517258,
+          "warm_epoch_sum_ms": 2.8895679999999997,
+          "warm_first_epoch_ms": 0.015609,
+          "warm_by_method_ms": {
+            "hexadecapole": 1.1196760000000001,
+            "holonomic_seeded_radial": 1.6619350000000002,
+            "point_source": 0.10795700000000001
+          }
+        },
+        {
+          "vb_ms": 4.472529981285334,
+          "lc_ms": 5.767037975601852,
+          "epoch_sum_ms": 5.731466000000002,
+          "by_method_ms": {
+            "hexadecapole": 2.5747360000000006,
+            "holonomic_seeded_radial": 3.0539100000000006,
+            "point_source": 0.10282000000000004
+          },
+          "first_epoch_ms": 1.514347,
+          "warm_epoch_sum_ms": 2.831221999999996,
+          "warm_first_epoch_ms": 0.015386000000000002,
+          "warm_by_method_ms": {
+            "hexadecapole": 1.082683,
+            "holonomic_seeded_radial": 1.645816,
+            "point_source": 0.10272299999999998
+          }
+        },
+        {
+          "lc_ms": 5.753038916736841,
+          "vb_ms": 4.469393054023385,
+          "epoch_sum_ms": 5.712153,
+          "by_method_ms": {
+            "hexadecapole": 2.5678,
+            "holonomic_seeded_radial": 3.041647,
+            "point_source": 0.10270599999999998
+          },
+          "first_epoch_ms": 1.507657,
+          "warm_epoch_sum_ms": 2.8751570000000006,
+          "warm_first_epoch_ms": 0.015986,
+          "warm_by_method_ms": {
+            "hexadecapole": 1.113334,
+            "holonomic_seeded_radial": 1.6552759999999997,
+            "point_source": 0.10654699999999999
+          }
+        },
+        {
+          "vb_ms": 4.517226945608854,
+          "lc_ms": 5.742372013628483,
+          "epoch_sum_ms": 5.701594999999997,
+          "by_method_ms": {
+            "hexadecapole": 2.5799579999999986,
+            "holonomic_seeded_radial": 3.018541,
+            "point_source": 0.10309600000000003
+          },
+          "first_epoch_ms": 1.518767,
+          "warm_epoch_sum_ms": 2.868683000000001,
+          "warm_first_epoch_ms": 0.015252,
+          "warm_by_method_ms": {
+            "hexadecapole": 1.097834,
+            "holonomic_seeded_radial": 1.6670689999999997,
+            "point_source": 0.10378000000000001
+          }
+        },
+        {
+          "lc_ms": 5.748758907429874,
+          "vb_ms": 4.482034011743963,
+          "epoch_sum_ms": 5.713007999999992,
+          "by_method_ms": {
+            "hexadecapole": 2.5739289999999997,
+            "holonomic_seeded_radial": 3.0357130000000003,
+            "point_source": 0.10336599999999997
+          },
+          "first_epoch_ms": 1.5100770000000001,
+          "warm_epoch_sum_ms": 2.8660930000000007,
+          "warm_first_epoch_ms": 0.016073999999999998,
+          "warm_by_method_ms": {
+            "hexadecapole": 1.0947480000000003,
+            "holonomic_seeded_radial": 1.6628230000000006,
+            "point_source": 0.10852200000000005
+          }
+        },
+        {
+          "vb_ms": 4.524167045019567,
+          "lc_ms": 5.727541982196271,
+          "epoch_sum_ms": 5.691813000000001,
+          "by_method_ms": {
+            "hexadecapole": 2.572115000000001,
+            "holonomic_seeded_radial": 3.0137050000000003,
+            "point_source": 0.10599299999999993
+          },
+          "first_epoch_ms": 1.50807,
+          "warm_epoch_sum_ms": 2.8152960000000027,
+          "warm_first_epoch_ms": 0.015186,
+          "warm_by_method_ms": {
+            "hexadecapole": 1.075772,
+            "holonomic_seeded_radial": 1.6361420000000004,
+            "point_source": 0.103382
+          }
+        },
+        {
+          "lc_ms": 5.751622025854886,
+          "vb_ms": 4.473256994970143,
+          "epoch_sum_ms": 5.711481999999999,
+          "by_method_ms": {
+            "hexadecapole": 2.578035,
+            "holonomic_seeded_radial": 3.030548,
+            "point_source": 0.10289899999999999
+          },
+          "first_epoch_ms": 1.5049169999999998,
+          "warm_epoch_sum_ms": 2.875517999999998,
+          "warm_first_epoch_ms": 0.016165,
+          "warm_by_method_ms": {
+            "hexadecapole": 1.1162260000000004,
+            "holonomic_seeded_radial": 1.6565239999999994,
+            "point_source": 0.10276800000000004
+          }
+        },
+        {
+          "vb_ms": 4.431299050338566,
+          "lc_ms": 5.774008925072849,
+          "epoch_sum_ms": 5.733578999999995,
+          "by_method_ms": {
+            "hexadecapole": 2.576363,
+            "holonomic_seeded_radial": 3.053872,
+            "point_source": 0.103344
+          },
+          "first_epoch_ms": 1.513328,
+          "warm_epoch_sum_ms": 2.8689379999999987,
+          "warm_first_epoch_ms": 0.015435,
+          "warm_by_method_ms": {
+            "hexadecapole": 1.1084749999999997,
+            "holonomic_seeded_radial": 1.6578580000000003,
+            "point_source": 0.102605
+          }
+        },
+        {
+          "lc_ms": 5.7327160611748695,
+          "vb_ms": 4.48829703964293,
+          "epoch_sum_ms": 5.692343999999998,
+          "by_method_ms": {
+            "hexadecapole": 2.5779570000000005,
+            "holonomic_seeded_radial": 3.0116220000000005,
+            "point_source": 0.102765
+          },
+          "first_epoch_ms": 1.513015,
+          "warm_epoch_sum_ms": 2.875085000000003,
+          "warm_first_epoch_ms": 0.01566,
+          "warm_by_method_ms": {
+            "hexadecapole": 1.109943,
+            "holonomic_seeded_radial": 1.661802,
+            "point_source": 0.10333999999999997
+          }
+        },
+        {
+          "vb_ms": 4.491905914619565,
+          "lc_ms": 5.769331008195877,
+          "epoch_sum_ms": 5.729089999999997,
+          "by_method_ms": {
+            "hexadecapole": 2.5760020000000012,
+            "holonomic_seeded_radial": 3.049869,
+            "point_source": 0.10321900000000002
+          },
+          "first_epoch_ms": 1.514213,
+          "warm_epoch_sum_ms": 2.866456999999999,
+          "warm_first_epoch_ms": 0.015545999999999999,
+          "warm_by_method_ms": {
+            "hexadecapole": 1.11199,
+            "holonomic_seeded_radial": 1.6515780000000004,
+            "point_source": 0.10288899999999995
+          }
+        },
+        {
+          "lc_ms": 5.715925013646483,
+          "vb_ms": 4.46274399291724,
+          "epoch_sum_ms": 5.675826000000004,
+          "by_method_ms": {
+            "hexadecapole": 2.5697159999999997,
+            "holonomic_seeded_radial": 3.002103,
+            "point_source": 0.104007
+          },
+          "first_epoch_ms": 1.509383,
+          "warm_epoch_sum_ms": 2.869214999999997,
+          "warm_first_epoch_ms": 0.015659,
+          "warm_by_method_ms": {
+            "hexadecapole": 1.1085109999999998,
+            "holonomic_seeded_radial": 1.657962,
+            "point_source": 0.10274200000000004
+          }
+        },
+        {
+          "vb_ms": 4.469954059459269,
+          "lc_ms": 5.763281020335853,
+          "epoch_sum_ms": 5.728300999999997,
+          "by_method_ms": {
+            "hexadecapole": 2.5741769999999997,
+            "holonomic_seeded_radial": 3.051239,
+            "point_source": 0.102885
+          },
+          "first_epoch_ms": 1.514918,
+          "warm_epoch_sum_ms": 2.865638000000001,
+          "warm_first_epoch_ms": 0.015352000000000001,
+          "warm_by_method_ms": {
+            "hexadecapole": 1.1165610000000004,
+            "holonomic_seeded_radial": 1.64668,
+            "point_source": 0.10239700000000003
+          }
+        },
+        {
+          "lc_ms": 5.740739987231791,
+          "vb_ms": 4.4898620108142495,
+          "epoch_sum_ms": 5.700917,
+          "by_method_ms": {
+            "hexadecapole": 2.566037,
+            "holonomic_seeded_radial": 3.0321350000000007,
+            "point_source": 0.10274499999999995
+          },
+          "first_epoch_ms": 1.507841,
+          "warm_epoch_sum_ms": 2.8707189999999967,
+          "warm_first_epoch_ms": 0.015614,
+          "warm_by_method_ms": {
+            "hexadecapole": 1.1138939999999997,
+            "holonomic_seeded_radial": 1.647441,
+            "point_source": 0.10938400000000002
+          }
+        },
+        {
+          "vb_ms": 4.4834010768681765,
+          "lc_ms": 5.762093933299184,
+          "epoch_sum_ms": 5.726638999999999,
+          "by_method_ms": {
+            "hexadecapole": 2.5772839999999997,
+            "holonomic_seeded_radial": 3.046576999999999,
+            "point_source": 0.10277799999999997
+          },
+          "first_epoch_ms": 1.511875,
+          "warm_epoch_sum_ms": 2.8642779999999974,
+          "warm_first_epoch_ms": 0.015123000000000001,
+          "warm_by_method_ms": {
+            "hexadecapole": 1.1050490000000002,
+            "holonomic_seeded_radial": 1.656158,
+            "point_source": 0.10307100000000002
+          }
+        },
+        {
+          "lc_ms": 5.758743034675717,
+          "vb_ms": 4.48166998103261,
+          "epoch_sum_ms": 5.718101000000007,
+          "by_method_ms": {
+            "hexadecapole": 2.574538000000001,
+            "holonomic_seeded_radial": 3.0398210000000003,
+            "point_source": 0.103742
+          },
+          "first_epoch_ms": 1.510715,
+          "warm_epoch_sum_ms": 2.8746410000000022,
+          "warm_first_epoch_ms": 0.015829,
+          "warm_by_method_ms": {
+            "hexadecapole": 1.106292,
+            "holonomic_seeded_radial": 1.6656470000000003,
+            "point_source": 0.10270200000000002
+          }
+        },
+        {
+          "vb_ms": 4.4464810052886605,
+          "lc_ms": 5.7674439158290625,
+          "epoch_sum_ms": 5.720584999999998,
+          "by_method_ms": {
+            "hexadecapole": 2.6043089999999993,
+            "holonomic_seeded_radial": 3.012793,
+            "point_source": 0.103483
+          },
+          "first_epoch_ms": 1.5449039999999998,
+          "warm_epoch_sum_ms": 2.8619439999999976,
+          "warm_first_epoch_ms": 0.015321000000000001,
+          "warm_by_method_ms": {
+            "hexadecapole": 1.1115870000000003,
+            "holonomic_seeded_radial": 1.6478000000000002,
+            "point_source": 0.102557
+          }
+        },
+        {
+          "lc_ms": 5.727716954424977,
+          "vb_ms": 4.463634919375181,
+          "epoch_sum_ms": 5.682870999999997,
+          "by_method_ms": {
+            "hexadecapole": 2.575146,
+            "holonomic_seeded_radial": 3.004811,
+            "point_source": 0.10291400000000003
+          },
+          "first_epoch_ms": 1.509123,
+          "warm_epoch_sum_ms": 2.8869170000000013,
+          "warm_first_epoch_ms": 0.015901,
+          "warm_by_method_ms": {
+            "hexadecapole": 1.11356,
+            "holonomic_seeded_radial": 1.670455,
+            "point_source": 0.10290199999999998
+          }
+        },
+        {
+          "vb_ms": 4.51954803429544,
+          "lc_ms": 5.769020062871277,
+          "epoch_sum_ms": 5.727271999999994,
+          "by_method_ms": {
+            "hexadecapole": 2.5708019999999996,
+            "holonomic_seeded_radial": 3.052868,
+            "point_source": 0.10360200000000004
+          },
+          "first_epoch_ms": 1.5096129999999999,
+          "warm_epoch_sum_ms": 2.8609720000000016,
+          "warm_first_epoch_ms": 0.015294999999999998,
+          "warm_by_method_ms": {
+            "hexadecapole": 1.1042809999999998,
+            "holonomic_seeded_radial": 1.6540429999999997,
+            "point_source": 0.102648
+          }
+        },
+        {
+          "lc_ms": 5.761349922977388,
+          "vb_ms": 4.494582070037723,
+          "epoch_sum_ms": 5.725389000000006,
+          "by_method_ms": {
+            "hexadecapole": 2.5842419999999984,
+            "holonomic_seeded_radial": 3.0373089999999996,
+            "point_source": 0.10383800000000001
+          },
+          "first_epoch_ms": 1.524868,
+          "warm_epoch_sum_ms": 2.877513000000002,
+          "warm_first_epoch_ms": 0.015895,
+          "warm_by_method_ms": {
+            "hexadecapole": 1.1108390000000001,
+            "holonomic_seeded_radial": 1.6641329999999999,
+            "point_source": 0.10254100000000001
+          }
+        },
+        {
+          "vb_ms": 4.466234939172864,
+          "lc_ms": 5.7750120759010315,
+          "epoch_sum_ms": 5.734081999999999,
+          "by_method_ms": {
+            "hexadecapole": 2.5798399999999995,
+            "holonomic_seeded_radial": 3.0512329999999994,
+            "point_source": 0.10300899999999995
+          },
+          "first_epoch_ms": 1.515042,
+          "warm_epoch_sum_ms": 2.8633209999999982,
+          "warm_first_epoch_ms": 0.01527,
+          "warm_by_method_ms": {
+            "hexadecapole": 1.111364,
+            "holonomic_seeded_radial": 1.6484450000000002,
+            "point_source": 0.10351199999999999
+          }
+        },
+        {
+          "lc_ms": 5.746284034103155,
+          "vb_ms": 4.473619977943599,
+          "epoch_sum_ms": 5.710426000000003,
+          "by_method_ms": {
+            "hexadecapole": 2.5657229999999998,
+            "holonomic_seeded_radial": 3.0356680000000007,
+            "point_source": 0.10903500000000003
+          },
+          "first_epoch_ms": 1.5057180000000001,
+          "warm_epoch_sum_ms": 2.878620999999998,
+          "warm_first_epoch_ms": 0.015577999999999998,
+          "warm_by_method_ms": {
+            "hexadecapole": 1.1112149999999998,
+            "holonomic_seeded_radial": 1.6642839999999999,
+            "point_source": 0.10312199999999998
+          }
+        },
+        {
+          "vb_ms": 4.451020970009267,
+          "lc_ms": 5.758165963925421,
+          "epoch_sum_ms": 5.717384999999993,
+          "by_method_ms": {
+            "hexadecapole": 2.6003650000000005,
+            "holonomic_seeded_radial": 3.014055,
+            "point_source": 0.10296500000000004
+          },
+          "first_epoch_ms": 1.539601,
+          "warm_epoch_sum_ms": 2.855386999999998,
+          "warm_first_epoch_ms": 0.015367,
+          "warm_by_method_ms": {
+            "hexadecapole": 1.1043339999999997,
+            "holonomic_seeded_radial": 1.6483219999999998,
+            "point_source": 0.10273099999999999
+          }
+        },
+        {
+          "lc_ms": 5.758747924119234,
+          "vb_ms": 4.465349018573761,
+          "epoch_sum_ms": 5.71833,
+          "by_method_ms": {
+            "hexadecapole": 2.5738049999999992,
+            "holonomic_seeded_radial": 3.0411930000000003,
+            "point_source": 0.10333200000000006
+          },
+          "first_epoch_ms": 1.5129139999999999,
+          "warm_epoch_sum_ms": 2.8791360000000004,
+          "warm_first_epoch_ms": 0.015958,
+          "warm_by_method_ms": {
+            "hexadecapole": 1.10885,
+            "holonomic_seeded_radial": 1.6647189999999998,
+            "point_source": 0.10556700000000001
+          }
+        },
+        {
+          "vb_ms": 4.499888047575951,
+          "lc_ms": 5.764795001596212,
+          "epoch_sum_ms": 5.724031999999995,
+          "by_method_ms": {
+            "hexadecapole": 2.607695,
+            "holonomic_seeded_radial": 3.013335,
+            "point_source": 0.10300199999999993
+          },
+          "first_epoch_ms": 1.5438290000000001,
+          "warm_epoch_sum_ms": 2.8646230000000013,
+          "warm_first_epoch_ms": 0.015257,
+          "warm_by_method_ms": {
+            "hexadecapole": 1.116189,
+            "holonomic_seeded_radial": 1.64576,
+            "point_source": 0.10267399999999999
+          }
+        },
+        {
+          "lc_ms": 5.760369938798249,
+          "vb_ms": 4.454473964869976,
+          "epoch_sum_ms": 5.7198249999999975,
+          "by_method_ms": {
+            "hexadecapole": 2.5782349999999994,
+            "holonomic_seeded_radial": 3.038443,
+            "point_source": 0.10314700000000003
+          },
+          "first_epoch_ms": 1.5128920000000001,
+          "warm_epoch_sum_ms": 2.8861239999999984,
+          "warm_first_epoch_ms": 0.015668,
+          "warm_by_method_ms": {
+            "hexadecapole": 1.1108270000000002,
+            "holonomic_seeded_radial": 1.6724070000000002,
+            "point_source": 0.10288999999999998
+          }
+        },
+        {
+          "vb_ms": 4.47454396635294,
+          "lc_ms": 5.7648769579827785,
+          "epoch_sum_ms": 5.724093999999997,
+          "by_method_ms": {
+            "hexadecapole": 2.5678930000000006,
+            "holonomic_seeded_radial": 3.050896,
+            "point_source": 0.10530499999999998
+          },
+          "first_epoch_ms": 1.5080989999999999,
+          "warm_epoch_sum_ms": 2.861186000000001,
+          "warm_first_epoch_ms": 0.015193,
+          "warm_by_method_ms": {
+            "hexadecapole": 1.1026559999999996,
+            "holonomic_seeded_radial": 1.6530900000000002,
+            "point_source": 0.10544000000000002
+          }
+        },
+        {
+          "lc_ms": 5.7483030250296,
+          "vb_ms": 4.475628957152367,
+          "epoch_sum_ms": 5.708129000000002,
+          "by_method_ms": {
+            "hexadecapole": 2.5592640000000006,
+            "holonomic_seeded_radial": 3.0461099999999997,
+            "point_source": 0.10275499999999992
+          },
+          "first_epoch_ms": 1.500797,
+          "warm_epoch_sum_ms": 2.8879690000000022,
+          "warm_first_epoch_ms": 0.016076999999999998,
+          "warm_by_method_ms": {
+            "hexadecapole": 1.1201819999999998,
+            "holonomic_seeded_radial": 1.6626930000000002,
+            "point_source": 0.10509400000000006
+          }
+        },
+        {
+          "vb_ms": 4.4837279710918665,
+          "lc_ms": 5.772594944573939,
+          "epoch_sum_ms": 5.729304000000001,
+          "by_method_ms": {
+            "hexadecapole": 2.573225999999999,
+            "holonomic_seeded_radial": 3.0525729999999998,
+            "point_source": 0.10350499999999999
+          },
+          "first_epoch_ms": 1.5102799999999998,
+          "warm_epoch_sum_ms": 2.859745999999999,
+          "warm_first_epoch_ms": 0.015202,
+          "warm_by_method_ms": {
+            "hexadecapole": 1.1152210000000002,
+            "holonomic_seeded_radial": 1.6410639999999996,
+            "point_source": 0.10346099999999998
+          }
+        },
+        {
+          "lc_ms": 5.792479962110519,
+          "vb_ms": 4.462964017875493,
+          "epoch_sum_ms": 5.751623999999996,
+          "by_method_ms": {
+            "hexadecapole": 2.58599,
+            "holonomic_seeded_radial": 3.062887,
+            "point_source": 0.10274700000000005
+          },
+          "first_epoch_ms": 1.5257269999999998,
+          "warm_epoch_sum_ms": 2.8744799999999984,
+          "warm_first_epoch_ms": 0.015933000000000003,
+          "warm_by_method_ms": {
+            "hexadecapole": 1.1140269999999999,
+            "holonomic_seeded_radial": 1.655213,
+            "point_source": 0.1052399999999999
+          }
+        },
+        {
+          "vb_ms": 4.4795459834858775,
+          "lc_ms": 5.7750060223042965,
+          "epoch_sum_ms": 5.723748000000005,
+          "by_method_ms": {
+            "hexadecapole": 2.574506,
+            "holonomic_seeded_radial": 3.0463180000000003,
+            "point_source": 0.10292400000000002
+          },
+          "first_epoch_ms": 1.510155,
+          "warm_epoch_sum_ms": 2.8749629999999984,
+          "warm_first_epoch_ms": 0.01569,
+          "warm_by_method_ms": {
+            "hexadecapole": 1.1090289999999998,
+            "holonomic_seeded_radial": 1.662804,
+            "point_source": 0.10313
+          }
+        },
+        {
+          "lc_ms": 5.759671097621322,
+          "vb_ms": 4.504034062847495,
+          "epoch_sum_ms": 5.722652000000007,
+          "by_method_ms": {
+            "hexadecapole": 2.5812980000000008,
+            "holonomic_seeded_radial": 3.037234,
+            "point_source": 0.10412000000000003
+          },
+          "first_epoch_ms": 1.508412,
+          "warm_epoch_sum_ms": 2.879919999999999,
+          "warm_first_epoch_ms": 0.015971,
+          "warm_by_method_ms": {
+            "hexadecapole": 1.111934,
+            "holonomic_seeded_radial": 1.664828,
+            "point_source": 0.10315799999999997
+          }
+        },
+        {
+          "vb_ms": 4.4684789609164,
+          "lc_ms": 5.788227077573538,
+          "epoch_sum_ms": 5.751459999999997,
+          "by_method_ms": {
+            "hexadecapole": 2.5918009999999985,
+            "holonomic_seeded_radial": 3.0570199999999996,
+            "point_source": 0.10263900000000004
+          },
+          "first_epoch_ms": 1.5103460000000002,
+          "warm_epoch_sum_ms": 2.8643810000000034,
+          "warm_first_epoch_ms": 0.015039,
+          "warm_by_method_ms": {
+            "hexadecapole": 1.103573,
+            "holonomic_seeded_radial": 1.6557900000000003,
+            "point_source": 0.10501800000000001
+          }
+        },
+        {
+          "lc_ms": 5.72917505633086,
+          "vb_ms": 4.4581720139831305,
+          "epoch_sum_ms": 5.688829999999997,
+          "by_method_ms": {
+            "hexadecapole": 2.572497,
+            "holonomic_seeded_radial": 3.0136279999999998,
+            "point_source": 0.10270499999999996
+          },
+          "first_epoch_ms": 1.511605,
+          "warm_epoch_sum_ms": 2.884064999999998,
+          "warm_first_epoch_ms": 0.015962,
+          "warm_by_method_ms": {
+            "hexadecapole": 1.1161329999999998,
+            "holonomic_seeded_radial": 1.6643179999999997,
+            "point_source": 0.10361399999999997
+          }
+        },
+        {
+          "vb_ms": 4.481073934584856,
+          "lc_ms": 5.777565995231271,
+          "epoch_sum_ms": 5.735940999999994,
+          "by_method_ms": {
+            "hexadecapole": 2.5789549999999997,
+            "holonomic_seeded_radial": 3.053604,
+            "point_source": 0.10338200000000004
+          },
+          "first_epoch_ms": 1.514665,
+          "warm_epoch_sum_ms": 2.859422,
+          "warm_first_epoch_ms": 0.015219,
+          "warm_by_method_ms": {
+            "hexadecapole": 1.1129479999999996,
+            "holonomic_seeded_radial": 1.6429779999999998,
+            "point_source": 0.103496
+          }
+        },
+        {
+          "lc_ms": 5.740663036704063,
+          "vb_ms": 4.481325973756611,
+          "epoch_sum_ms": 5.700443999999996,
+          "by_method_ms": {
+            "hexadecapole": 2.5815489999999994,
+            "holonomic_seeded_radial": 3.0154989999999997,
+            "point_source": 0.103396
+          },
+          "first_epoch_ms": 1.5167169999999999,
+          "warm_epoch_sum_ms": 2.8808760000000007,
+          "warm_first_epoch_ms": 0.01569,
+          "warm_by_method_ms": {
+            "hexadecapole": 1.103479,
+            "holonomic_seeded_radial": 1.674813,
+            "point_source": 0.10258400000000001
+          }
+        },
+        {
+          "vb_ms": 4.4882339425385,
+          "lc_ms": 5.759075051173568,
+          "epoch_sum_ms": 5.723081999999994,
+          "by_method_ms": {
+            "hexadecapole": 2.5784669999999985,
+            "holonomic_seeded_radial": 3.0418480000000003,
+            "point_source": 0.10276699999999998
+          },
+          "first_epoch_ms": 1.513247,
+          "warm_epoch_sum_ms": 2.8607739999999997,
+          "warm_first_epoch_ms": 0.015082,
+          "warm_by_method_ms": {
+            "hexadecapole": 1.1162010000000002,
+            "holonomic_seeded_radial": 1.6420729999999994,
+            "point_source": 0.10249999999999994
+          }
+        }
+      ],
+      "warm_epoch_sum_ms": 2.868683000000001,
+      "warm_first_epoch_ms": 0.015577999999999998,
+      "warm_by_method_ms": {
+        "hexadecapole": 1.111364,
+        "holonomic_seeded_radial": 1.656158,
+        "point_source": 0.10312199999999998
+      }
+    }
+  ],
+  "notes": "Native groups timed within one uninterrupted full curve, including preparation in the epoch that incurs it. VBM subsets are separate BinaryLightCurve calls at epochs classified by lcbinint, not VBM internal routes; they do not sum to a full-curve decomposition."
+}

@@ -1,0 +1,67 @@
+{
+  "sources": {
+    "matched": {
+      "path": "evidence/holonomic/adaptive_extreme_phase49/matched.tsv",
+      "sha256": "a810e1429a1bb61eae8ffc88b6176225e7502c8d99b3e587142914fd9f8baae6"
+    },
+    "whole": {
+      "path": "evidence/holonomic/adaptive_extreme_phase48/whole_candidate.tsv",
+      "sha256": "8ce8c5b9b57df5f8e17134c428b4559d628542c6ebd66eb3898028544442d303"
+    }
+  },
+  "groups": {
+    "0.0001/linear": {
+      "rows": 3608,
+      "zero_split_rows": 3608,
+      "nodes_p50": 98.0,
+      "panels_p50": 5.0,
+      "nodes_per_panel_p50": 19.571428571428573,
+      "unclassified_remainder_p50_ms": 0.031338999999999964,
+      "initial_level_only_physics_fraction_p50": 0.35766423357664234,
+      "initial_level_only_with_current_topology_speedup": 5.685340357673885,
+      "initial_level_only_with_zero_topology_speedup": 14.841032148379059,
+      "retained_joint_fraction_for_1.0": 1.0,
+      "retained_joint_fraction_for_1.15": 1.0
+    },
+    "0.0001/uniform": {
+      "rows": 3608,
+      "zero_split_rows": 3608,
+      "nodes_p50": 91.0,
+      "panels_p50": 5.0,
+      "nodes_per_panel_p50": 17.666666666666668,
+      "unclassified_remainder_p50_ms": 0.02887800000000003,
+      "initial_level_only_physics_fraction_p50": 0.39622641509433965,
+      "initial_level_only_with_current_topology_speedup": 0.5511596195458615,
+      "initial_level_only_with_zero_topology_speedup": 1.476854911389193,
+      "retained_joint_fraction_for_1.0": 0.3092730366855373,
+      "retained_joint_fraction_for_1.15": 0.2512935517813493
+    },
+    "0.001/linear": {
+      "rows": 3608,
+      "zero_split_rows": 3608,
+      "nodes_p50": 74.0,
+      "panels_p50": 5.0,
+      "nodes_per_panel_p50": 15.0,
+      "unclassified_remainder_p50_ms": 0.025130000000000027,
+      "initial_level_only_physics_fraction_p50": 0.4666666666666667,
+      "initial_level_only_with_current_topology_speedup": 1.4197517574759104,
+      "initial_level_only_with_zero_topology_speedup": 3.88348026394738,
+      "retained_joint_fraction_for_1.0": 1.0,
+      "retained_joint_fraction_for_1.15": 0.9462966829944727
+    },
+    "0.001/uniform": {
+      "rows": 3608,
+      "zero_split_rows": 3608,
+      "nodes_p50": 67.0,
+      "panels_p50": 5.0,
+      "nodes_per_panel_p50": 12.333333333333334,
+      "unclassified_remainder_p50_ms": 0.023128499999999965,
+      "initial_level_only_physics_fraction_p50": 0.5675675675675675,
+      "initial_level_only_with_current_topology_speedup": 0.325552917861375,
+      "initial_level_only_with_zero_topology_speedup": 0.9200738030388634,
+      "retained_joint_fraction_for_1.0": 0.1747082037407157,
+      "retained_joint_fraction_for_1.15": 0.13608469472066742
+    }
+  },
+  "caveat": "Counterfactual scales keep mesh and other costs fixed; neither measured optimization nor certified runtime lower bound."
+}

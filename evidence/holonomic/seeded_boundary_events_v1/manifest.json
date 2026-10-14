@@ -1,0 +1,25 @@
+{
+  "baseline_commit": "f3547723b79828d9c501182746028e99f7bad116",
+  "branch": "experiment/seeded-boundary-events",
+  "host": "rogue1",
+  "compiler": "g++ (GCC) 11.5.0 20240719 (Red Hat 11.5.0-5)",
+  "flags": "-std=c++17 -O3 -march=native -fext-numeric-literals -Isrc -lquadmath",
+  "seed_source_snapshot": "tests/diagnostics/results/recal2026/seed-construction-stage-only-20261013-v1/source-minimal and build-minimal in original lcbinint checkout",
+  "timing_workers": 1,
+  "threads": 1,
+  "sha256": {
+    "src/lcbinint/magnification/holonomic/root_pair.hpp": "7cdd0141a40bfe8a6314e7f5221e361e4230671a8060f8078a595607822898de",
+    "src/lcbinint/magnification/holonomic/radius_terms.hpp": "ec97491d79b563665dd97d84c6d5ff3f35817df0adf307cc8e5e1823cc9fd4db",
+    "src/lcbinint/magnification/holonomic/adaptive_epoch.hpp": "03b454235bc0f6f44d27b77c626df48778aab4514881383a548f27d78c23c4d6",
+    "src/lcbinint/magnification/holonomic/seeded_boundary_events.hpp": "58b4d645b93b35ee15b17610bcf6b4dc708124a57ef2fed05d553202c5aa2b0b",
+    "benchmarks/holonomic/bench_seeded_boundary_events.cpp": "272d0903e166d80d1d41af7a3241db35c3915e8a20aab76d786ca395ec4f14bd",
+    "benchmarks/holonomic/audit_seeded_adaptive.cpp": "3c077a97398dc94a9bf976226423bc34ee43ab8d9a4cfc643190d71310b3ff6b",
+    "benchmarks/holonomic/export_minimal_boundary_seeds.cpp": "73a4a99b57a5e07ee2d1ab9f30aa24c149ae70985f4de7049b79e593ccd0f3b1",
+    "benchmarks/holonomic/run_seeded_boundary_audit.sh": "4d7240bfba972a0ea5a9647382a7297c2336ec1c3151bb20f1ae1eda2bfaa373",
+    "evidence/holonomic/seeded_boundary_events_v1/inputs.tsv": "412256ef25b84c3ad68a44b6dd5cdc4acabdc8ad967591abc16af13492c3b43b",
+    "evidence/holonomic/seeded_boundary_events_v1/minimal_seeds.tsv": "0b3d3da88ade98d58ef80953ee481870a753142072eb9fb544d6c4e6f3b2bfd2",
+    "tests/holonomic_cpp/test_seeded_root_pair.cpp": "7ba1d597b2ef3257e56044ecf54def7fb1cb8a5e4a2ef30b320eea3f9bd610d6",
+    "benchmarks/holonomic/summarize_seeded_boundary_audit.py": "da4c23e336ad3462a57f5c34a279face80c07930df7273f367152df36882534a",
+    "docs/holonomic/seeded_root_pair_event_checkpoint_20261013_ja.md": "6eacd6d0305988bb8d27c267adc1827b688d6beb43e30b0adf2346f3777910f1"
+  }
+}

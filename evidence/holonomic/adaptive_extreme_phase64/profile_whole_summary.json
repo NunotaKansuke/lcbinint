@@ -1,0 +1,22 @@
+{
+  "0.0001/linear": {
+    "baseline_warm_p50": 0.33947399999999994,
+    "candidate_warm_p50": 0.3326385,
+    "paired_speedup": 1.0190944779332018
+  },
+  "0.0001/uniform": {
+    "baseline_warm_p50": 0.2834144999999999,
+    "candidate_warm_p50": 0.275006,
+    "paired_speedup": 1.0224739397830878
+  },
+  "0.001/linear": {
+    "baseline_warm_p50": 0.29448799999999997,
+    "candidate_warm_p50": 0.28543399999999997,
+    "paired_speedup": 1.0228136084463
+  },
+  "0.001/uniform": {
+    "baseline_warm_p50": 0.2436075,
+    "candidate_warm_p50": 0.2335685,
+    "paired_speedup": 1.0263086699749024
+  }
+}

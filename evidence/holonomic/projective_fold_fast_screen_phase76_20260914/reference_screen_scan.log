@@ -1,0 +1,1 @@
+mode=reference inputs=110 chart_p4=70 old_accepted=8 screen_rejects=62 false_rejects=0 screen_possible=8 screen_unresolved=0 old_probe_ms=0.974755 screen_only_ms=0.358014 screen_eval_ms=0.428083

@@ -1,0 +1,4448 @@
+{
+  "phase": "Phase73 gradient cell attribution",
+  "base_commit": "f928e3b42d25635195c7fba985cb72b811c383f3",
+  "scope": "diagnostic-only; no production path, tolerance, estimator, scheduler, or router changed",
+  "reference_methods": {
+    "fixed_R_same_node": "independent QF lens phi derivative, qf Sturm angular arcs, direct endpoint derivative for F0, direct angular derivative for Fhalf; evaluated at the exact Phase72 Q8 Fejer R nodes; angular 128-vs-256 audit",
+    "radial_cell_reference": "same fixed-R derivative integrated per base cell by Gauss-Legendre with independent direct angular evaluation; caustic-only p4-fold-map transform probe",
+    "whole_gradient_reference": "Phase72 fresh-cold-topology independent value FD; observed spread is diagnostic, not a formal bound",
+    "limits": [
+      "Cellwise Gauss-Legendre results are empirical convergence checks, not interval-certified errors.",
+      "Very high radial orders near a fold can lose distinct R nodes in binary64; a nonmonotone result is retained as a limitation, not selected as truth.",
+      "The Phase72 rand035 production sum is incomplete at cell 11; its 48 invalid nodes are not silently filled by the independent reference."
+    ]
+  },
+  "caustic_projective_endpoint_audit": [
+    {
+      "cell": 5,
+      "R_chart_double": 0.8374637895746331,
+      "R_p4_qf": "0.837463789574633033883475789208562869",
+      "R_delta_qf": "-4.3467064799459519040874463697942702e-17",
+      "p4_at_double": "8.43707026675819887660937508349671917e-18",
+      "p4_at_qf_root": "8.18144068172312105546240629906682992e-36",
+      "phi_at_theta_pi": "4.8148248609680896326399448564623183e-33",
+      "phi_theta_at_pi": "1.16108008074358422028443011538828254e-33",
+      "phi_R_pi": 204.928190619327,
+      "phi_thetatheta_pi": -13.38913171899684,
+      "g_pi": 0.02,
+      "ordinary_fold_check": true
+    },
+    {
+      "cell": 7,
+      "R_chart_double": 0.857203785752395,
+      "R_p4_qf": "0.857203785752395029809731300581906738",
+      "R_delta_qf": "5.42707832263367798198732460905662078e-17",
+      "p4_at_double": "1.10253790462887222064089492948785181e-17",
+      "p4_at_qf_root": "4.5138983071575840305999483029334234e-36",
+      "phi_at_theta_pi": "4.8148248609680896326399448564623183e-33",
+      "phi_theta_at_pi": "-7.39587876647596488622524255585299862e-34",
+      "phi_R_pi": -200.3919019576529,
+      "phi_thetatheta_pi": 8.528644718343708,
+      "g_pi": -0.02,
+      "ordinary_fold_check": true
+    }
+  ],
+  "caustic_event_cell_map_audit": [
+    {
+      "cell": 5,
+      "left_radius": 0.8374637895746331,
+      "cell_left_fold_map": false,
+      "cell_right_fold_map": false,
+      "coincident_topology_events": [
+        {
+          "kind": "chart_p4",
+          "physically_real": false,
+          "fold_t_seed": 0.0,
+          "fold_t_seed_valid": false,
+          "radius": 0.8374637895746331
+        },
+        {
+          "kind": "physical_complex",
+          "physically_real": false,
+          "fold_t_seed": 0.0,
+          "fold_t_seed_valid": true,
+          "radius": 0.8374637895746331
+        }
+      ]
+    },
+    {
+      "cell": 7,
+      "left_radius": 0.857203785752395,
+      "cell_left_fold_map": false,
+      "cell_right_fold_map": true,
+      "coincident_topology_events": [
+        {
+          "kind": "chart_p4",
+          "physically_real": false,
+          "fold_t_seed": 0.0,
+          "fold_t_seed_valid": false,
+          "radius": 0.857203785752395
+        },
+        {
+          "kind": "physical_complex",
+          "physically_real": false,
+          "fold_t_seed": 0.0,
+          "fold_t_seed_valid": true,
+          "radius": 0.857203785752395
+        }
+      ]
+    }
+  ],
+  "same_node_angular_128_vs_256_audit": {
+    "node_rows": 16830,
+    "qf_valid_rows": 16830,
+    "qf_failures": 0,
+    "max_abs_qf_Fp_128_vs_256_at_nodes": 0.0,
+    "max_abs_qf_old_128_vs_256_at_nodes": 0.0,
+    "max_abs_q8_cell_sum_128_vs_256": 0.0,
+    "comparison_precision": "serialized binary64 columns; zero means identical at recorded output precision"
+  },
+  "cases": [
+    {
+      "row": 17,
+      "case": "caustic-cross",
+      "u": 0.0,
+      "parameter": "a",
+      "production_whole_q8_valid_sum": -2.228480422661989,
+      "production_whole_q8_status_complete": true,
+      "independent_qf_same_node_q8_sum": -2.228480438340245,
+      "independent_qf_radial_reference_sum": -2.404689191246713,
+      "independent_value_fd": -2.4046891642370833,
+      "fd_observed_spread_not_formal_bound": 8.260059303211165e-08,
+      "production_minus_fd": 0.17620874157509414,
+      "qf_radial_reference_minus_fd": -2.7009629643970356e-08,
+      "q8_production_minus_same_node_qf": 1.5678255582685097e-08,
+      "cell_abs_sum_over_net_production": 55.632843265058334,
+      "cell_abs_sum_over_net_reference": 51.70580293655593,
+      "same_node_arc_abs_sum_over_net": 55.63284288026307,
+      "same_node_arc_cell_interarc_cancellation_ratios": {
+        "1": 1.0,
+        "5": 1.0,
+        "6": 1.0,
+        "7": 1.0,
+        "12": 1.0
+      },
+      "largest_error_cell_share_of_absolute_cell_error": [
+        {
+          "cell": 7,
+          "share": 0.7449498098923154
+        },
+        {
+          "cell": 5,
+          "share": 0.25505016221133736
+        },
+        {
+          "cell": 12,
+          "share": 2.559654863880802e-08
+        },
+        {
+          "cell": 1,
+          "share": 2.2997985650565196e-09
+        },
+        {
+          "cell": 0,
+          "share": 0.0
+        }
+      ],
+      "largest_error_cell_share_of_net_cell_error": [
+        {
+          "cell": 7,
+          "share": 1.5206170712695914
+        },
+        {
+          "cell": 5,
+          "share": -0.520617128212571
+        },
+        {
+          "cell": 12,
+          "share": 5.2248551927787274e-08
+        },
+        {
+          "cell": 1,
+          "share": 4.694427613870753e-09
+        },
+        {
+          "cell": 0,
+          "share": 0.0
+        }
+      ],
+      "reference_resolution_note": "The diagnostic-only theta=pi fold map gives close 128/256 radial results; 512/1024 drift as double R nodes approach the endpoint and are limited by representability, so higher order is not treated as monotonically better.",
+      "reference_resolution_sequence": [
+        {
+          "radial_order": 128,
+          "whole": -2.404689176456273,
+          "cell5": 44.58630264254082,
+          "cell7": -62.509115037124175,
+          "max_active_cell": 44.58630264254082
+        },
+        {
+          "radial_order": 256,
+          "whole": -2.40468919124671,
+          "cell5": 44.586302627504644,
+          "cell7": -62.50911504533929,
+          "max_active_cell": 44.586302627504644
+        },
+        {
+          "radial_order": 512,
+          "whole": -2.404689259539445,
+          "cell5": 44.58630258393638,
+          "cell7": -62.50911510303048,
+          "max_active_cell": 44.58630258393638
+        },
+        {
+          "radial_order": 1024,
+          "whole": -2.404689321473943,
+          "cell5": 44.586302367275536,
+          "cell7": -62.50911507900156,
+          "max_active_cell": 44.586302367275536
+        }
+      ],
+      "largest_cell_error_contributors": [
+        {
+          "row": 17,
+          "case": "caustic-cross",
+          "u": 0.0,
+          "parameter": "a",
+          "cell": 7,
+          "kind": "arcs",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 256,
+            "subdivisions": 1,
+            "angular_nodes": 128
+          },
+          "reference_radial_sequence": [
+            {
+              "radial_order": 128,
+              "value": -62.509115037124175,
+              "whole": -2.404689176456273
+            },
+            {
+              "radial_order": 256,
+              "value": -62.50911504533929,
+              "whole": -2.40468919124671
+            },
+            {
+              "radial_order": 512,
+              "value": -62.50911510303048,
+              "whole": -2.404689259539445
+            },
+            {
+              "radial_order": 1024,
+              "value": -62.50911507900156,
+              "whole": -2.404689321473943
+            }
+          ],
+          "production_q8": -62.24116898372197,
+          "independent_qf_same_production_nodes_q8": -62.241168983276786,
+          "independent_qf_radial_reference": -62.50911504533929,
+          "production_minus_radial_reference": 0.26794606161732304,
+          "same_nodes_minus_radial_reference": 0.2679460620625065,
+          "same_node_local_derivative_signed_difference": -4.4518344566313317e-10,
+          "same_node_local_derivative_abs_weighted_difference": 5.89116308519843e-10,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 0.2679460620625065,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.7449498098923154,
+          "share_of_net_cell_error": 1.5206170712695914
+        },
+        {
+          "row": 17,
+          "case": "caustic-cross",
+          "u": 0.0,
+          "parameter": "a",
+          "cell": 5,
+          "kind": "arcs",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 256,
+            "subdivisions": 1,
+            "angular_nodes": 128
+          },
+          "reference_radial_sequence": [
+            {
+              "radial_order": 128,
+              "value": 44.58630264254082,
+              "whole": -2.404689176456273
+            },
+            {
+              "radial_order": 256,
+              "value": 44.586302627504644,
+              "whole": -2.40468919124671
+            },
+            {
+              "radial_order": 512,
+              "value": 44.58630258393638,
+              "whole": -2.404689259539445
+            },
+            {
+              "radial_order": 1024,
+              "value": 44.586302367275536,
+              "whole": -2.404689321473943
+            }
+          ],
+          "production_q8": 44.49456532443819,
+          "independent_qf_same_production_nodes_q8": 44.494565324441076,
+          "independent_qf_radial_reference": 44.586302627504644,
+          "production_minus_radial_reference": -0.09173730306645211,
+          "same_nodes_minus_radial_reference": -0.09173730306356731,
+          "same_node_local_derivative_signed_difference": -2.8848035071860068e-12,
+          "same_node_local_derivative_abs_weighted_difference": 5.954412799811536e-12,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": -0.09173730306356731,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.25505016221133736,
+          "share_of_net_cell_error": -0.520617128212571
+        },
+        {
+          "row": 17,
+          "case": "caustic-cross",
+          "u": 0.0,
+          "parameter": "a",
+          "cell": 12,
+          "kind": "arcs",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 256,
+            "subdivisions": 1,
+            "angular_nodes": 128
+          },
+          "reference_radial_sequence": [
+            {
+              "radial_order": 128,
+              "value": -0.8614222822803606,
+              "whole": -2.404689176456273
+            },
+            {
+              "radial_order": 256,
+              "value": -0.8614222734183723,
+              "whole": -2.40468919124671
+            },
+            {
+              "radial_order": 512,
+              "value": -0.8614222394123736,
+              "whole": -2.404689259539445
+            },
+            {
+              "radial_order": 1024,
+              "value": -0.8614221021818961,
+              "whole": -2.404689321473943
+            }
+          ],
+          "production_q8": -0.8614222642117193,
+          "independent_qf_same_production_nodes_q8": -0.8614222798547462,
+          "independent_qf_radial_reference": -0.8614222734183723,
+          "production_minus_radial_reference": 9.206652995530362e-09,
+          "same_nodes_minus_radial_reference": -6.436373878315749e-09,
+          "same_node_local_derivative_signed_difference": 1.564302687384611e-08,
+          "same_node_local_derivative_abs_weighted_difference": 1.59578244964789e-08,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": -6.436373878315749e-09,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 2.559654863880802e-08,
+          "share_of_net_cell_error": 5.2248551927787274e-08
+        },
+        {
+          "row": 17,
+          "case": "caustic-cross",
+          "u": 0.0,
+          "parameter": "a",
+          "cell": 1,
+          "kind": "arcs",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 256,
+            "subdivisions": 1,
+            "angular_nodes": 128
+          },
+          "reference_radial_sequence": [
+            {
+              "radial_order": 128,
+              "value": 0.3117397809039621,
+              "whole": -2.404689176456273
+            },
+            {
+              "radial_order": 256,
+              "value": 0.31173978050284445,
+              "whole": -2.40468919124671
+            },
+            {
+              "radial_order": 512,
+              "value": 0.31173977946356807,
+              "whole": -2.404689259539445
+            },
+            {
+              "radial_order": 1024,
+              "value": 0.31173977293051036,
+              "whole": -2.404689321473943
+            }
+          ],
+          "production_q8": 0.31173978133004376,
+          "independent_qf_same_production_nodes_q8": 0.3117397808467469,
+          "independent_qf_radial_reference": 0.31173978050284445,
+          "production_minus_radial_reference": 8.27199309050286e-10,
+          "same_nodes_minus_radial_reference": 3.4390246206328356e-10,
+          "same_node_local_derivative_signed_difference": 4.832968469870025e-10,
+          "same_node_local_derivative_abs_weighted_difference": 2.052102535912237e-09,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 3.4390246206328356e-10,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 2.2997985650565196e-09,
+          "share_of_net_cell_error": 4.694427613870753e-09
+        },
+        {
+          "row": 17,
+          "case": "caustic-cross",
+          "u": 0.0,
+          "parameter": "a",
+          "cell": 0,
+          "kind": "empty",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 256,
+            "subdivisions": 1,
+            "angular_nodes": 128
+          },
+          "reference_radial_sequence": [
+            {
+              "radial_order": 128,
+              "value": 0.0,
+              "whole": -2.404689176456273
+            },
+            {
+              "radial_order": 256,
+              "value": 0.0,
+              "whole": -2.40468919124671
+            },
+            {
+              "radial_order": 512,
+              "value": 0.0,
+              "whole": -2.404689259539445
+            },
+            {
+              "radial_order": 1024,
+              "value": 0.0,
+              "whole": -2.404689321473943
+            }
+          ],
+          "production_q8": 0.0,
+          "independent_qf_same_production_nodes_q8": 0.0,
+          "independent_qf_radial_reference": 0.0,
+          "production_minus_radial_reference": 0.0,
+          "same_nodes_minus_radial_reference": 0.0,
+          "same_node_local_derivative_signed_difference": 0.0,
+          "same_node_local_derivative_abs_weighted_difference": 0.0,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 0.0,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.0,
+          "share_of_net_cell_error": 0.0
+        }
+      ],
+      "cells": [
+        {
+          "row": 17,
+          "case": "caustic-cross",
+          "u": 0.0,
+          "parameter": "a",
+          "cell": 0,
+          "kind": "empty",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 256,
+            "subdivisions": 1,
+            "angular_nodes": 128
+          },
+          "reference_radial_sequence": [
+            {
+              "radial_order": 128,
+              "value": 0.0,
+              "whole": -2.404689176456273
+            },
+            {
+              "radial_order": 256,
+              "value": 0.0,
+              "whole": -2.40468919124671
+            },
+            {
+              "radial_order": 512,
+              "value": 0.0,
+              "whole": -2.404689259539445
+            },
+            {
+              "radial_order": 1024,
+              "value": 0.0,
+              "whole": -2.404689321473943
+            }
+          ],
+          "production_q8": 0.0,
+          "independent_qf_same_production_nodes_q8": 0.0,
+          "independent_qf_radial_reference": 0.0,
+          "production_minus_radial_reference": 0.0,
+          "same_nodes_minus_radial_reference": 0.0,
+          "same_node_local_derivative_signed_difference": 0.0,
+          "same_node_local_derivative_abs_weighted_difference": 0.0,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 0.0,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.0,
+          "share_of_net_cell_error": 0.0
+        },
+        {
+          "row": 17,
+          "case": "caustic-cross",
+          "u": 0.0,
+          "parameter": "a",
+          "cell": 1,
+          "kind": "arcs",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 256,
+            "subdivisions": 1,
+            "angular_nodes": 128
+          },
+          "reference_radial_sequence": [
+            {
+              "radial_order": 128,
+              "value": 0.3117397809039621,
+              "whole": -2.404689176456273
+            },
+            {
+              "radial_order": 256,
+              "value": 0.31173978050284445,
+              "whole": -2.40468919124671
+            },
+            {
+              "radial_order": 512,
+              "value": 0.31173977946356807,
+              "whole": -2.404689259539445
+            },
+            {
+              "radial_order": 1024,
+              "value": 0.31173977293051036,
+              "whole": -2.404689321473943
+            }
+          ],
+          "production_q8": 0.31173978133004376,
+          "independent_qf_same_production_nodes_q8": 0.3117397808467469,
+          "independent_qf_radial_reference": 0.31173978050284445,
+          "production_minus_radial_reference": 8.27199309050286e-10,
+          "same_nodes_minus_radial_reference": 3.4390246206328356e-10,
+          "same_node_local_derivative_signed_difference": 4.832968469870025e-10,
+          "same_node_local_derivative_abs_weighted_difference": 2.052102535912237e-09,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 3.4390246206328356e-10,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 2.2997985650565196e-09,
+          "share_of_net_cell_error": 4.694427613870753e-09
+        },
+        {
+          "row": 17,
+          "case": "caustic-cross",
+          "u": 0.0,
+          "parameter": "a",
+          "cell": 2,
+          "kind": "empty",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 256,
+            "subdivisions": 1,
+            "angular_nodes": 128
+          },
+          "reference_radial_sequence": [
+            {
+              "radial_order": 128,
+              "value": 0.0,
+              "whole": -2.404689176456273
+            },
+            {
+              "radial_order": 256,
+              "value": 0.0,
+              "whole": -2.40468919124671
+            },
+            {
+              "radial_order": 512,
+              "value": 0.0,
+              "whole": -2.404689259539445
+            },
+            {
+              "radial_order": 1024,
+              "value": 0.0,
+              "whole": -2.404689321473943
+            }
+          ],
+          "production_q8": 0.0,
+          "independent_qf_same_production_nodes_q8": 0.0,
+          "independent_qf_radial_reference": 0.0,
+          "production_minus_radial_reference": 0.0,
+          "same_nodes_minus_radial_reference": 0.0,
+          "same_node_local_derivative_signed_difference": 0.0,
+          "same_node_local_derivative_abs_weighted_difference": 0.0,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 0.0,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.0,
+          "share_of_net_cell_error": 0.0
+        },
+        {
+          "row": 17,
+          "case": "caustic-cross",
+          "u": 0.0,
+          "parameter": "a",
+          "cell": 3,
+          "kind": "empty",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 256,
+            "subdivisions": 1,
+            "angular_nodes": 128
+          },
+          "reference_radial_sequence": [
+            {
+              "radial_order": 128,
+              "value": 0.0,
+              "whole": -2.404689176456273
+            },
+            {
+              "radial_order": 256,
+              "value": 0.0,
+              "whole": -2.40468919124671
+            },
+            {
+              "radial_order": 512,
+              "value": 0.0,
+              "whole": -2.404689259539445
+            },
+            {
+              "radial_order": 1024,
+              "value": 0.0,
+              "whole": -2.404689321473943
+            }
+          ],
+          "production_q8": 0.0,
+          "independent_qf_same_production_nodes_q8": 0.0,
+          "independent_qf_radial_reference": 0.0,
+          "production_minus_radial_reference": 0.0,
+          "same_nodes_minus_radial_reference": 0.0,
+          "same_node_local_derivative_signed_difference": 0.0,
+          "same_node_local_derivative_abs_weighted_difference": 0.0,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 0.0,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.0,
+          "share_of_net_cell_error": 0.0
+        },
+        {
+          "row": 17,
+          "case": "caustic-cross",
+          "u": 0.0,
+          "parameter": "a",
+          "cell": 4,
+          "kind": "empty",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 256,
+            "subdivisions": 1,
+            "angular_nodes": 128
+          },
+          "reference_radial_sequence": [
+            {
+              "radial_order": 128,
+              "value": 0.0,
+              "whole": -2.404689176456273
+            },
+            {
+              "radial_order": 256,
+              "value": 0.0,
+              "whole": -2.40468919124671
+            },
+            {
+              "radial_order": 512,
+              "value": 0.0,
+              "whole": -2.404689259539445
+            },
+            {
+              "radial_order": 1024,
+              "value": 0.0,
+              "whole": -2.404689321473943
+            }
+          ],
+          "production_q8": 0.0,
+          "independent_qf_same_production_nodes_q8": 0.0,
+          "independent_qf_radial_reference": 0.0,
+          "production_minus_radial_reference": 0.0,
+          "same_nodes_minus_radial_reference": 0.0,
+          "same_node_local_derivative_signed_difference": 0.0,
+          "same_node_local_derivative_abs_weighted_difference": 0.0,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 0.0,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.0,
+          "share_of_net_cell_error": 0.0
+        },
+        {
+          "row": 17,
+          "case": "caustic-cross",
+          "u": 0.0,
+          "parameter": "a",
+          "cell": 5,
+          "kind": "arcs",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 256,
+            "subdivisions": 1,
+            "angular_nodes": 128
+          },
+          "reference_radial_sequence": [
+            {
+              "radial_order": 128,
+              "value": 44.58630264254082,
+              "whole": -2.404689176456273
+            },
+            {
+              "radial_order": 256,
+              "value": 44.586302627504644,
+              "whole": -2.40468919124671
+            },
+            {
+              "radial_order": 512,
+              "value": 44.58630258393638,
+              "whole": -2.404689259539445
+            },
+            {
+              "radial_order": 1024,
+              "value": 44.586302367275536,
+              "whole": -2.404689321473943
+            }
+          ],
+          "production_q8": 44.49456532443819,
+          "independent_qf_same_production_nodes_q8": 44.494565324441076,
+          "independent_qf_radial_reference": 44.586302627504644,
+          "production_minus_radial_reference": -0.09173730306645211,
+          "same_nodes_minus_radial_reference": -0.09173730306356731,
+          "same_node_local_derivative_signed_difference": -2.8848035071860068e-12,
+          "same_node_local_derivative_abs_weighted_difference": 5.954412799811536e-12,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": -0.09173730306356731,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.25505016221133736,
+          "share_of_net_cell_error": -0.520617128212571
+        },
+        {
+          "row": 17,
+          "case": "caustic-cross",
+          "u": 0.0,
+          "parameter": "a",
+          "cell": 6,
+          "kind": "arcs",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 256,
+            "subdivisions": 1,
+            "angular_nodes": 128
+          },
+          "reference_radial_sequence": [
+            {
+              "radial_order": 128,
+              "value": 16.067805719503472,
+              "whole": -2.404689176456273
+            },
+            {
+              "radial_order": 256,
+              "value": 16.067805719503465,
+              "whole": -2.40468919124671
+            },
+            {
+              "radial_order": 512,
+              "value": 16.06780571950346,
+              "whole": -2.404689259539445
+            },
+            {
+              "radial_order": 1024,
+              "value": 16.06780571950346,
+              "whole": -2.404689321473943
+            }
+          ],
+          "production_q8": 16.067805719503465,
+          "independent_qf_same_production_nodes_q8": 16.067805719503465,
+          "independent_qf_radial_reference": 16.067805719503465,
+          "production_minus_radial_reference": 0.0,
+          "same_nodes_minus_radial_reference": 0.0,
+          "same_node_local_derivative_signed_difference": 0.0,
+          "same_node_local_derivative_abs_weighted_difference": 1.3340158314379378e-14,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 0.0,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.0,
+          "share_of_net_cell_error": 0.0
+        },
+        {
+          "row": 17,
+          "case": "caustic-cross",
+          "u": 0.0,
+          "parameter": "a",
+          "cell": 7,
+          "kind": "arcs",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 256,
+            "subdivisions": 1,
+            "angular_nodes": 128
+          },
+          "reference_radial_sequence": [
+            {
+              "radial_order": 128,
+              "value": -62.509115037124175,
+              "whole": -2.404689176456273
+            },
+            {
+              "radial_order": 256,
+              "value": -62.50911504533929,
+              "whole": -2.40468919124671
+            },
+            {
+              "radial_order": 512,
+              "value": -62.50911510303048,
+              "whole": -2.404689259539445
+            },
+            {
+              "radial_order": 1024,
+              "value": -62.50911507900156,
+              "whole": -2.404689321473943
+            }
+          ],
+          "production_q8": -62.24116898372197,
+          "independent_qf_same_production_nodes_q8": -62.241168983276786,
+          "independent_qf_radial_reference": -62.50911504533929,
+          "production_minus_radial_reference": 0.26794606161732304,
+          "same_nodes_minus_radial_reference": 0.2679460620625065,
+          "same_node_local_derivative_signed_difference": -4.4518344566313317e-10,
+          "same_node_local_derivative_abs_weighted_difference": 5.89116308519843e-10,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 0.2679460620625065,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.7449498098923154,
+          "share_of_net_cell_error": 1.5206170712695914
+        },
+        {
+          "row": 17,
+          "case": "caustic-cross",
+          "u": 0.0,
+          "parameter": "a",
+          "cell": 8,
+          "kind": "empty",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 256,
+            "subdivisions": 1,
+            "angular_nodes": 128
+          },
+          "reference_radial_sequence": [
+            {
+              "radial_order": 128,
+              "value": 0.0,
+              "whole": -2.404689176456273
+            },
+            {
+              "radial_order": 256,
+              "value": 0.0,
+              "whole": -2.40468919124671
+            },
+            {
+              "radial_order": 512,
+              "value": 0.0,
+              "whole": -2.404689259539445
+            },
+            {
+              "radial_order": 1024,
+              "value": 0.0,
+              "whole": -2.404689321473943
+            }
+          ],
+          "production_q8": 0.0,
+          "independent_qf_same_production_nodes_q8": 0.0,
+          "independent_qf_radial_reference": 0.0,
+          "production_minus_radial_reference": 0.0,
+          "same_nodes_minus_radial_reference": 0.0,
+          "same_node_local_derivative_signed_difference": 0.0,
+          "same_node_local_derivative_abs_weighted_difference": 0.0,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 0.0,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.0,
+          "share_of_net_cell_error": 0.0
+        },
+        {
+          "row": 17,
+          "case": "caustic-cross",
+          "u": 0.0,
+          "parameter": "a",
+          "cell": 9,
+          "kind": "empty",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 256,
+            "subdivisions": 1,
+            "angular_nodes": 128
+          },
+          "reference_radial_sequence": [
+            {
+              "radial_order": 128,
+              "value": 0.0,
+              "whole": -2.404689176456273
+            },
+            {
+              "radial_order": 256,
+              "value": 0.0,
+              "whole": -2.40468919124671
+            },
+            {
+              "radial_order": 512,
+              "value": 0.0,
+              "whole": -2.404689259539445
+            },
+            {
+              "radial_order": 1024,
+              "value": 0.0,
+              "whole": -2.404689321473943
+            }
+          ],
+          "production_q8": 0.0,
+          "independent_qf_same_production_nodes_q8": 0.0,
+          "independent_qf_radial_reference": 0.0,
+          "production_minus_radial_reference": 0.0,
+          "same_nodes_minus_radial_reference": 0.0,
+          "same_node_local_derivative_signed_difference": 0.0,
+          "same_node_local_derivative_abs_weighted_difference": 0.0,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 0.0,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.0,
+          "share_of_net_cell_error": 0.0
+        },
+        {
+          "row": 17,
+          "case": "caustic-cross",
+          "u": 0.0,
+          "parameter": "a",
+          "cell": 10,
+          "kind": "empty",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 256,
+            "subdivisions": 1,
+            "angular_nodes": 128
+          },
+          "reference_radial_sequence": [
+            {
+              "radial_order": 128,
+              "value": 0.0,
+              "whole": -2.404689176456273
+            },
+            {
+              "radial_order": 256,
+              "value": 0.0,
+              "whole": -2.40468919124671
+            },
+            {
+              "radial_order": 512,
+              "value": 0.0,
+              "whole": -2.404689259539445
+            },
+            {
+              "radial_order": 1024,
+              "value": 0.0,
+              "whole": -2.404689321473943
+            }
+          ],
+          "production_q8": 0.0,
+          "independent_qf_same_production_nodes_q8": 0.0,
+          "independent_qf_radial_reference": 0.0,
+          "production_minus_radial_reference": 0.0,
+          "same_nodes_minus_radial_reference": 0.0,
+          "same_node_local_derivative_signed_difference": 0.0,
+          "same_node_local_derivative_abs_weighted_difference": 0.0,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 0.0,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.0,
+          "share_of_net_cell_error": 0.0
+        },
+        {
+          "row": 17,
+          "case": "caustic-cross",
+          "u": 0.0,
+          "parameter": "a",
+          "cell": 11,
+          "kind": "empty",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 256,
+            "subdivisions": 1,
+            "angular_nodes": 128
+          },
+          "reference_radial_sequence": [
+            {
+              "radial_order": 128,
+              "value": 0.0,
+              "whole": -2.404689176456273
+            },
+            {
+              "radial_order": 256,
+              "value": 0.0,
+              "whole": -2.40468919124671
+            },
+            {
+              "radial_order": 512,
+              "value": 0.0,
+              "whole": -2.404689259539445
+            },
+            {
+              "radial_order": 1024,
+              "value": 0.0,
+              "whole": -2.404689321473943
+            }
+          ],
+          "production_q8": 0.0,
+          "independent_qf_same_production_nodes_q8": 0.0,
+          "independent_qf_radial_reference": 0.0,
+          "production_minus_radial_reference": 0.0,
+          "same_nodes_minus_radial_reference": 0.0,
+          "same_node_local_derivative_signed_difference": 0.0,
+          "same_node_local_derivative_abs_weighted_difference": 0.0,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 0.0,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.0,
+          "share_of_net_cell_error": 0.0
+        },
+        {
+          "row": 17,
+          "case": "caustic-cross",
+          "u": 0.0,
+          "parameter": "a",
+          "cell": 12,
+          "kind": "arcs",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 256,
+            "subdivisions": 1,
+            "angular_nodes": 128
+          },
+          "reference_radial_sequence": [
+            {
+              "radial_order": 128,
+              "value": -0.8614222822803606,
+              "whole": -2.404689176456273
+            },
+            {
+              "radial_order": 256,
+              "value": -0.8614222734183723,
+              "whole": -2.40468919124671
+            },
+            {
+              "radial_order": 512,
+              "value": -0.8614222394123736,
+              "whole": -2.404689259539445
+            },
+            {
+              "radial_order": 1024,
+              "value": -0.8614221021818961,
+              "whole": -2.404689321473943
+            }
+          ],
+          "production_q8": -0.8614222642117193,
+          "independent_qf_same_production_nodes_q8": -0.8614222798547462,
+          "independent_qf_radial_reference": -0.8614222734183723,
+          "production_minus_radial_reference": 9.206652995530362e-09,
+          "same_nodes_minus_radial_reference": -6.436373878315749e-09,
+          "same_node_local_derivative_signed_difference": 1.564302687384611e-08,
+          "same_node_local_derivative_abs_weighted_difference": 1.59578244964789e-08,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": -6.436373878315749e-09,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 2.559654863880802e-08,
+          "share_of_net_cell_error": 5.2248551927787274e-08
+        },
+        {
+          "row": 17,
+          "case": "caustic-cross",
+          "u": 0.0,
+          "parameter": "a",
+          "cell": 13,
+          "kind": "empty",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 256,
+            "subdivisions": 1,
+            "angular_nodes": 128
+          },
+          "reference_radial_sequence": [
+            {
+              "radial_order": 128,
+              "value": 0.0,
+              "whole": -2.404689176456273
+            },
+            {
+              "radial_order": 256,
+              "value": 0.0,
+              "whole": -2.40468919124671
+            },
+            {
+              "radial_order": 512,
+              "value": 0.0,
+              "whole": -2.404689259539445
+            },
+            {
+              "radial_order": 1024,
+              "value": 0.0,
+              "whole": -2.404689321473943
+            }
+          ],
+          "production_q8": 0.0,
+          "independent_qf_same_production_nodes_q8": 0.0,
+          "independent_qf_radial_reference": 0.0,
+          "production_minus_radial_reference": 0.0,
+          "same_nodes_minus_radial_reference": 0.0,
+          "same_node_local_derivative_signed_difference": 0.0,
+          "same_node_local_derivative_abs_weighted_difference": 0.0,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 0.0,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.0,
+          "share_of_net_cell_error": 0.0
+        }
+      ]
+    },
+    {
+      "row": 99,
+      "case": "rand035",
+      "u": 0.0,
+      "parameter": "X",
+      "production_whole_q8_valid_sum": 17.042609893005984,
+      "production_whole_q8_status_complete": false,
+      "independent_qf_same_node_q8_sum": 17.042609897822015,
+      "independent_qf_radial_reference_sum": 17.042609598589046,
+      "independent_value_fd": 17.04260957790129,
+      "fd_observed_spread_not_formal_bound": 8.73523831046441e-09,
+      "production_minus_fd": 3.151046961136217e-07,
+      "qf_radial_reference_minus_fd": 2.0687757285031694e-08,
+      "q8_production_minus_same_node_qf": -4.816030241272529e-09,
+      "cell_abs_sum_over_net_production": 1.0519013395777197,
+      "cell_abs_sum_over_net_reference": 1.051901337750227,
+      "same_node_arc_abs_sum_over_net": 1.0519013389839078,
+      "same_node_arc_cell_interarc_cancellation_ratios": {
+        "2": 1.0,
+        "3": 1.0,
+        "8": 1.0,
+        "11": 1.0
+      },
+      "largest_error_cell_share_of_absolute_cell_error": [
+        {
+          "cell": 3,
+          "share": 0.9110376653515104
+        },
+        {
+          "cell": 2,
+          "share": 0.0681045265785791
+        },
+        {
+          "cell": 8,
+          "share": 0.020857808068445692
+        },
+        {
+          "cell": 11,
+          "share": 1.4647574894785432e-12
+        },
+        {
+          "cell": 0,
+          "share": 0.0
+        }
+      ],
+      "largest_error_cell_share_of_net_cell_error": [
+        {
+          "cell": 3,
+          "share": 1.0546969364340357
+        },
+        {
+          "cell": 2,
+          "share": -0.07884376055078178
+        },
+        {
+          "cell": 8,
+          "share": 0.024146824118441827
+        },
+        {
+          "cell": 11,
+          "share": -1.695731467014332e-12
+        },
+        {
+          "cell": 0,
+          "share": 0.0
+        }
+      ],
+      "reference_resolution_note": "Cell 3 agrees across 112x8, 128x16, and 160x32. Cell 2 has a nonmonotone 160x32 outlier and is referenced at 128x16; cell 8 drifts mildly with resolution. These are observed convergence checks, not formal bounds.",
+      "reference_resolution_sequence": [
+        {
+          "cell": 2,
+          "sequence": [
+            {
+              "radial_order": 112,
+              "subdivisions": 8,
+              "value": -0.44226711263139223
+            },
+            {
+              "radial_order": 128,
+              "subdivisions": 16,
+              "value": -0.44226711846081557
+            },
+            {
+              "radial_order": 160,
+              "subdivisions": 32,
+              "value": -0.44226682275008605
+            }
+          ]
+        },
+        {
+          "cell": 3,
+          "sequence": [
+            {
+              "radial_order": 112,
+              "subdivisions": 8,
+              "value": 8.963572724001617
+            },
+            {
+              "radial_order": 128,
+              "subdivisions": 16,
+              "value": 8.9635727234321
+            },
+            {
+              "radial_order": 160,
+              "subdivisions": 32,
+              "value": 8.963572724357306
+            }
+          ]
+        },
+        {
+          "cell": 8,
+          "sequence": [
+            {
+              "radial_order": 112,
+              "subdivisions": 8,
+              "value": 8.521303997294568
+            },
+            {
+              "radial_order": 128,
+              "subdivisions": 16,
+              "value": 8.52130399361776
+            },
+            {
+              "radial_order": 160,
+              "subdivisions": 32,
+              "value": 8.521303981260031
+            }
+          ]
+        },
+        {
+          "cell": 11,
+          "sequence": []
+        }
+      ],
+      "largest_cell_error_contributors": [
+        {
+          "row": 99,
+          "case": "rand035",
+          "u": 0.0,
+          "parameter": "X",
+          "cell": 3,
+          "kind": "arcs",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 128,
+            "subdivisions": 16,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [
+            {
+              "radial_order": 112,
+              "subdivisions": 8,
+              "value": 8.963572724001617
+            },
+            {
+              "radial_order": 128,
+              "subdivisions": 16,
+              "value": 8.9635727234321
+            },
+            {
+              "radial_order": 160,
+              "subdivisions": 32,
+              "value": 8.963572724357306
+            }
+          ],
+          "production_q8": 8.963573033952745,
+          "independent_qf_same_production_nodes_q8": 8.963573033883955,
+          "independent_qf_radial_reference": 8.9635727234321,
+          "production_minus_radial_reference": 3.1052064564107695e-07,
+          "same_nodes_minus_radial_reference": 3.104518562224712e-07,
+          "same_node_local_derivative_signed_difference": 6.87894186057747e-11,
+          "same_node_local_derivative_abs_weighted_difference": 1.7842043546681634e-10,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 3.104518562224712e-07,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.9110376653515104,
+          "share_of_net_cell_error": 1.0546969364340357
+        },
+        {
+          "row": 99,
+          "case": "rand035",
+          "u": 0.0,
+          "parameter": "X",
+          "cell": 2,
+          "kind": "arcs",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 128,
+            "subdivisions": 16,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [
+            {
+              "radial_order": 112,
+              "subdivisions": 8,
+              "value": -0.44226711263139223
+            },
+            {
+              "radial_order": 128,
+              "subdivisions": 16,
+              "value": -0.44226711846081557
+            },
+            {
+              "radial_order": 160,
+              "subdivisions": 32,
+              "value": -0.44226682275008605
+            }
+          ],
+          "production_q8": -0.44226714167375436,
+          "independent_qf_same_production_nodes_q8": -0.4422671367386818,
+          "independent_qf_radial_reference": -0.44226711846081557,
+          "production_minus_radial_reference": -2.3212938793371052e-08,
+          "same_nodes_minus_radial_reference": -1.827786622055072e-08,
+          "same_node_local_derivative_signed_difference": -4.9350725728203315e-09,
+          "same_node_local_derivative_abs_weighted_difference": 5.86815774269313e-09,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": -1.827786622055072e-08,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.0681045265785791,
+          "share_of_net_cell_error": -0.07884376055078178
+        },
+        {
+          "row": 99,
+          "case": "rand035",
+          "u": 0.0,
+          "parameter": "X",
+          "cell": 8,
+          "kind": "arcs",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 128,
+            "subdivisions": 16,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [
+            {
+              "radial_order": 112,
+              "subdivisions": 8,
+              "value": 8.521303997294568
+            },
+            {
+              "radial_order": 128,
+              "subdivisions": 16,
+              "value": 8.52130399361776
+            },
+            {
+              "radial_order": 160,
+              "subdivisions": 32,
+              "value": 8.521303981260031
+            }
+          ],
+          "production_q8": 8.521304000726994,
+          "independent_qf_same_production_nodes_q8": 8.521304000676741,
+          "independent_qf_radial_reference": 8.52130399361776,
+          "production_minus_radial_reference": 7.109234090307837e-09,
+          "same_nodes_minus_radial_reference": 7.0589809553212035e-09,
+          "same_node_local_derivative_signed_difference": 5.0253134986633086e-11,
+          "same_node_local_derivative_abs_weighted_difference": 7.074433687854926e-10,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 7.0589809553212035e-09,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.020857808068445692,
+          "share_of_net_cell_error": 0.024146824118441827
+        },
+        {
+          "row": 99,
+          "case": "rand035",
+          "u": 0.0,
+          "parameter": "X",
+          "cell": 11,
+          "kind": "arcs",
+          "production_complete": false,
+          "production_valid_nodes": 207,
+          "production_invalid_nodes": 48,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 112,
+            "subdivisions": 8,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [],
+          "production_q8": 1.0573557515568072e-17,
+          "independent_qf_same_production_nodes_q8": 1.1040263809797558e-17,
+          "independent_qf_radial_reference": 1.1072809586737915e-17,
+          "production_minus_radial_reference": -4.992520711698434e-19,
+          "same_nodes_minus_radial_reference": -3.2545776940357215e-20,
+          "same_node_local_derivative_signed_difference": null,
+          "same_node_local_derivative_abs_weighted_difference": 2.537603342407489e-25,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": -3.2545776940357215e-20,
+          "classification": "production incomplete; cell contribution is partial",
+          "share_of_absolute_cell_error": 1.4647574894785432e-12,
+          "share_of_net_cell_error": -1.695731467014332e-12
+        },
+        {
+          "row": 99,
+          "case": "rand035",
+          "u": 0.0,
+          "parameter": "X",
+          "cell": 0,
+          "kind": "empty",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 112,
+            "subdivisions": 8,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [],
+          "production_q8": 0.0,
+          "independent_qf_same_production_nodes_q8": 0.0,
+          "independent_qf_radial_reference": 0.0,
+          "production_minus_radial_reference": 0.0,
+          "same_nodes_minus_radial_reference": 0.0,
+          "same_node_local_derivative_signed_difference": 0.0,
+          "same_node_local_derivative_abs_weighted_difference": 0.0,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 0.0,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.0,
+          "share_of_net_cell_error": 0.0
+        }
+      ],
+      "cells": [
+        {
+          "row": 99,
+          "case": "rand035",
+          "u": 0.0,
+          "parameter": "X",
+          "cell": 0,
+          "kind": "empty",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 112,
+            "subdivisions": 8,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [],
+          "production_q8": 0.0,
+          "independent_qf_same_production_nodes_q8": 0.0,
+          "independent_qf_radial_reference": 0.0,
+          "production_minus_radial_reference": 0.0,
+          "same_nodes_minus_radial_reference": 0.0,
+          "same_node_local_derivative_signed_difference": 0.0,
+          "same_node_local_derivative_abs_weighted_difference": 0.0,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 0.0,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.0,
+          "share_of_net_cell_error": 0.0
+        },
+        {
+          "row": 99,
+          "case": "rand035",
+          "u": 0.0,
+          "parameter": "X",
+          "cell": 1,
+          "kind": "empty",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 112,
+            "subdivisions": 8,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [],
+          "production_q8": 0.0,
+          "independent_qf_same_production_nodes_q8": 0.0,
+          "independent_qf_radial_reference": 0.0,
+          "production_minus_radial_reference": 0.0,
+          "same_nodes_minus_radial_reference": 0.0,
+          "same_node_local_derivative_signed_difference": 0.0,
+          "same_node_local_derivative_abs_weighted_difference": 0.0,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 0.0,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.0,
+          "share_of_net_cell_error": 0.0
+        },
+        {
+          "row": 99,
+          "case": "rand035",
+          "u": 0.0,
+          "parameter": "X",
+          "cell": 2,
+          "kind": "arcs",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 128,
+            "subdivisions": 16,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [
+            {
+              "radial_order": 112,
+              "subdivisions": 8,
+              "value": -0.44226711263139223
+            },
+            {
+              "radial_order": 128,
+              "subdivisions": 16,
+              "value": -0.44226711846081557
+            },
+            {
+              "radial_order": 160,
+              "subdivisions": 32,
+              "value": -0.44226682275008605
+            }
+          ],
+          "production_q8": -0.44226714167375436,
+          "independent_qf_same_production_nodes_q8": -0.4422671367386818,
+          "independent_qf_radial_reference": -0.44226711846081557,
+          "production_minus_radial_reference": -2.3212938793371052e-08,
+          "same_nodes_minus_radial_reference": -1.827786622055072e-08,
+          "same_node_local_derivative_signed_difference": -4.9350725728203315e-09,
+          "same_node_local_derivative_abs_weighted_difference": 5.86815774269313e-09,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": -1.827786622055072e-08,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.0681045265785791,
+          "share_of_net_cell_error": -0.07884376055078178
+        },
+        {
+          "row": 99,
+          "case": "rand035",
+          "u": 0.0,
+          "parameter": "X",
+          "cell": 3,
+          "kind": "arcs",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 128,
+            "subdivisions": 16,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [
+            {
+              "radial_order": 112,
+              "subdivisions": 8,
+              "value": 8.963572724001617
+            },
+            {
+              "radial_order": 128,
+              "subdivisions": 16,
+              "value": 8.9635727234321
+            },
+            {
+              "radial_order": 160,
+              "subdivisions": 32,
+              "value": 8.963572724357306
+            }
+          ],
+          "production_q8": 8.963573033952745,
+          "independent_qf_same_production_nodes_q8": 8.963573033883955,
+          "independent_qf_radial_reference": 8.9635727234321,
+          "production_minus_radial_reference": 3.1052064564107695e-07,
+          "same_nodes_minus_radial_reference": 3.104518562224712e-07,
+          "same_node_local_derivative_signed_difference": 6.87894186057747e-11,
+          "same_node_local_derivative_abs_weighted_difference": 1.7842043546681634e-10,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 3.104518562224712e-07,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.9110376653515104,
+          "share_of_net_cell_error": 1.0546969364340357
+        },
+        {
+          "row": 99,
+          "case": "rand035",
+          "u": 0.0,
+          "parameter": "X",
+          "cell": 4,
+          "kind": "empty",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 112,
+            "subdivisions": 8,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [],
+          "production_q8": 0.0,
+          "independent_qf_same_production_nodes_q8": 0.0,
+          "independent_qf_radial_reference": 0.0,
+          "production_minus_radial_reference": 0.0,
+          "same_nodes_minus_radial_reference": 0.0,
+          "same_node_local_derivative_signed_difference": 0.0,
+          "same_node_local_derivative_abs_weighted_difference": 0.0,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 0.0,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.0,
+          "share_of_net_cell_error": 0.0
+        },
+        {
+          "row": 99,
+          "case": "rand035",
+          "u": 0.0,
+          "parameter": "X",
+          "cell": 5,
+          "kind": "empty",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 112,
+            "subdivisions": 8,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [],
+          "production_q8": 0.0,
+          "independent_qf_same_production_nodes_q8": 0.0,
+          "independent_qf_radial_reference": 0.0,
+          "production_minus_radial_reference": 0.0,
+          "same_nodes_minus_radial_reference": 0.0,
+          "same_node_local_derivative_signed_difference": 0.0,
+          "same_node_local_derivative_abs_weighted_difference": 0.0,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 0.0,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.0,
+          "share_of_net_cell_error": 0.0
+        },
+        {
+          "row": 99,
+          "case": "rand035",
+          "u": 0.0,
+          "parameter": "X",
+          "cell": 6,
+          "kind": "empty",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 112,
+            "subdivisions": 8,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [],
+          "production_q8": 0.0,
+          "independent_qf_same_production_nodes_q8": 0.0,
+          "independent_qf_radial_reference": 0.0,
+          "production_minus_radial_reference": 0.0,
+          "same_nodes_minus_radial_reference": 0.0,
+          "same_node_local_derivative_signed_difference": 0.0,
+          "same_node_local_derivative_abs_weighted_difference": 0.0,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 0.0,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.0,
+          "share_of_net_cell_error": 0.0
+        },
+        {
+          "row": 99,
+          "case": "rand035",
+          "u": 0.0,
+          "parameter": "X",
+          "cell": 7,
+          "kind": "empty",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 112,
+            "subdivisions": 8,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [],
+          "production_q8": 0.0,
+          "independent_qf_same_production_nodes_q8": 0.0,
+          "independent_qf_radial_reference": 0.0,
+          "production_minus_radial_reference": 0.0,
+          "same_nodes_minus_radial_reference": 0.0,
+          "same_node_local_derivative_signed_difference": 0.0,
+          "same_node_local_derivative_abs_weighted_difference": 0.0,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 0.0,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.0,
+          "share_of_net_cell_error": 0.0
+        },
+        {
+          "row": 99,
+          "case": "rand035",
+          "u": 0.0,
+          "parameter": "X",
+          "cell": 8,
+          "kind": "arcs",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 128,
+            "subdivisions": 16,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [
+            {
+              "radial_order": 112,
+              "subdivisions": 8,
+              "value": 8.521303997294568
+            },
+            {
+              "radial_order": 128,
+              "subdivisions": 16,
+              "value": 8.52130399361776
+            },
+            {
+              "radial_order": 160,
+              "subdivisions": 32,
+              "value": 8.521303981260031
+            }
+          ],
+          "production_q8": 8.521304000726994,
+          "independent_qf_same_production_nodes_q8": 8.521304000676741,
+          "independent_qf_radial_reference": 8.52130399361776,
+          "production_minus_radial_reference": 7.109234090307837e-09,
+          "same_nodes_minus_radial_reference": 7.0589809553212035e-09,
+          "same_node_local_derivative_signed_difference": 5.0253134986633086e-11,
+          "same_node_local_derivative_abs_weighted_difference": 7.074433687854926e-10,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 7.0589809553212035e-09,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.020857808068445692,
+          "share_of_net_cell_error": 0.024146824118441827
+        },
+        {
+          "row": 99,
+          "case": "rand035",
+          "u": 0.0,
+          "parameter": "X",
+          "cell": 9,
+          "kind": "empty",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 112,
+            "subdivisions": 8,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [],
+          "production_q8": 0.0,
+          "independent_qf_same_production_nodes_q8": 0.0,
+          "independent_qf_radial_reference": 0.0,
+          "production_minus_radial_reference": 0.0,
+          "same_nodes_minus_radial_reference": 0.0,
+          "same_node_local_derivative_signed_difference": 0.0,
+          "same_node_local_derivative_abs_weighted_difference": 0.0,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 0.0,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.0,
+          "share_of_net_cell_error": 0.0
+        },
+        {
+          "row": 99,
+          "case": "rand035",
+          "u": 0.0,
+          "parameter": "X",
+          "cell": 10,
+          "kind": "empty",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 112,
+            "subdivisions": 8,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [],
+          "production_q8": 0.0,
+          "independent_qf_same_production_nodes_q8": 0.0,
+          "independent_qf_radial_reference": 0.0,
+          "production_minus_radial_reference": 0.0,
+          "same_nodes_minus_radial_reference": 0.0,
+          "same_node_local_derivative_signed_difference": 0.0,
+          "same_node_local_derivative_abs_weighted_difference": 0.0,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 0.0,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.0,
+          "share_of_net_cell_error": 0.0
+        },
+        {
+          "row": 99,
+          "case": "rand035",
+          "u": 0.0,
+          "parameter": "X",
+          "cell": 11,
+          "kind": "arcs",
+          "production_complete": false,
+          "production_valid_nodes": 207,
+          "production_invalid_nodes": 48,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 112,
+            "subdivisions": 8,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [],
+          "production_q8": 1.0573557515568072e-17,
+          "independent_qf_same_production_nodes_q8": 1.1040263809797558e-17,
+          "independent_qf_radial_reference": 1.1072809586737915e-17,
+          "production_minus_radial_reference": -4.992520711698434e-19,
+          "same_nodes_minus_radial_reference": -3.2545776940357215e-20,
+          "same_node_local_derivative_signed_difference": null,
+          "same_node_local_derivative_abs_weighted_difference": 2.537603342407489e-25,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": -3.2545776940357215e-20,
+          "classification": "production incomplete; cell contribution is partial",
+          "share_of_absolute_cell_error": 1.4647574894785432e-12,
+          "share_of_net_cell_error": -1.695731467014332e-12
+        },
+        {
+          "row": 99,
+          "case": "rand035",
+          "u": 0.0,
+          "parameter": "X",
+          "cell": 12,
+          "kind": "empty",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 112,
+            "subdivisions": 8,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [],
+          "production_q8": 0.0,
+          "independent_qf_same_production_nodes_q8": 0.0,
+          "independent_qf_radial_reference": 0.0,
+          "production_minus_radial_reference": 0.0,
+          "same_nodes_minus_radial_reference": 0.0,
+          "same_node_local_derivative_signed_difference": 0.0,
+          "same_node_local_derivative_abs_weighted_difference": 0.0,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 0.0,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.0,
+          "share_of_net_cell_error": 0.0
+        }
+      ]
+    },
+    {
+      "row": 99,
+      "case": "rand035",
+      "u": 0.0,
+      "parameter": "Y",
+      "production_whole_q8_valid_sum": 36.01020711284029,
+      "production_whole_q8_status_complete": false,
+      "independent_qf_same_node_q8_sum": 36.010207123016315,
+      "independent_qf_radial_reference_sum": 36.010206490751614,
+      "independent_value_fd": 36.010206446936074,
+      "fd_observed_spread_not_formal_bound": 4.718003765447065e-11,
+      "production_minus_fd": 6.659042171008878e-07,
+      "qf_radial_reference_minus_fd": 4.3815539640945644e-08,
+      "q8_production_minus_same_node_qf": -1.017602357933356e-08,
+      "cell_abs_sum_over_net_production": 1.0519013363487946,
+      "cell_abs_sum_over_net_reference": 1.0519013345213017,
+      "same_node_arc_abs_sum_over_net": 1.0519013357549827,
+      "same_node_arc_cell_interarc_cancellation_ratios": {
+        "2": 1.0,
+        "3": 1.0,
+        "8": 1.0,
+        "11": 1.0
+      },
+      "largest_error_cell_share_of_absolute_cell_error": [
+        {
+          "cell": 3,
+          "share": 0.9110376557064147
+        },
+        {
+          "cell": 2,
+          "share": 0.06810452509428935
+        },
+        {
+          "cell": 8,
+          "share": 0.020857819199257863
+        },
+        {
+          "cell": 11,
+          "share": 3.809736335834593e-14
+        },
+        {
+          "cell": 0,
+          "share": 0.0
+        }
+      ],
+      "largest_error_cell_share_of_net_cell_error": [
+        {
+          "cell": 3,
+          "share": 1.054696921639881
+        },
+        {
+          "cell": 2,
+          "share": -0.07884375856121624
+        },
+        {
+          "cell": 8,
+          "share": 0.024146836921379276
+        },
+        {
+          "cell": 11,
+          "share": -4.410484199523799e-14
+        },
+        {
+          "cell": 0,
+          "share": 0.0
+        }
+      ],
+      "reference_resolution_note": "Cell 3 agrees across 112x8, 128x16, and 160x32. Cell 2 has a nonmonotone 160x32 outlier and is referenced at 128x16; cell 8 drifts mildly with resolution. These are observed convergence checks, not formal bounds.",
+      "reference_resolution_sequence": [
+        {
+          "cell": 2,
+          "sequence": [
+            {
+              "radial_order": 112,
+              "subdivisions": 8,
+              "value": -0.9344888743115399
+            },
+            {
+              "radial_order": 128,
+              "subdivisions": 16,
+              "value": -0.9344888866288277
+            },
+            {
+              "radial_order": 160,
+              "subdivisions": 32,
+              "value": -0.9344882618064548
+            }
+          ]
+        },
+        {
+          "cell": 3,
+          "sequence": [
+            {
+              "radial_order": 112,
+              "subdivisions": 8,
+              "value": 18.939592521844958
+            },
+            {
+              "radial_order": 128,
+              "subdivisions": 16,
+              "value": 18.939592520641593
+            },
+            {
+              "radial_order": 160,
+              "subdivisions": 32,
+              "value": 18.93959252259651
+            }
+          ]
+        },
+        {
+          "cell": 8,
+          "sequence": [
+            {
+              "radial_order": 112,
+              "subdivisions": 8,
+              "value": 18.00510286450777
+            },
+            {
+              "radial_order": 128,
+              "subdivisions": 16,
+              "value": 18.00510285673885
+            },
+            {
+              "radial_order": 160,
+              "subdivisions": 32,
+              "value": 18.005102830627568
+            }
+          ]
+        },
+        {
+          "cell": 11,
+          "sequence": []
+        }
+      ],
+      "largest_cell_error_contributors": [
+        {
+          "row": 99,
+          "case": "rand035",
+          "u": 0.0,
+          "parameter": "Y",
+          "cell": 3,
+          "kind": "arcs",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 128,
+            "subdivisions": 16,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [
+            {
+              "radial_order": 112,
+              "subdivisions": 8,
+              "value": 18.939592521844958
+            },
+            {
+              "radial_order": 128,
+              "subdivisions": 16,
+              "value": 18.939592520641593
+            },
+            {
+              "radial_order": 160,
+              "subdivisions": 32,
+              "value": 18.93959252259651
+            }
+          ],
+          "production_q8": 18.939593176756606,
+          "independent_qf_same_production_nodes_q8": 18.93959317661125,
+          "independent_qf_radial_reference": 18.939592520641593,
+          "production_minus_radial_reference": 6.56115012986902e-07,
+          "same_nodes_minus_radial_reference": 6.559696572594476e-07,
+          "same_node_local_derivative_signed_difference": 1.453557274544437e-10,
+          "same_node_local_derivative_abs_weighted_difference": 3.769849013844828e-10,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 6.559696572594476e-07,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.9110376557064147,
+          "share_of_net_cell_error": 1.054696921639881
+        },
+        {
+          "row": 99,
+          "case": "rand035",
+          "u": 0.0,
+          "parameter": "Y",
+          "cell": 2,
+          "kind": "arcs",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 128,
+            "subdivisions": 16,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [
+            {
+              "radial_order": 112,
+              "subdivisions": 8,
+              "value": -0.9344888743115399
+            },
+            {
+              "radial_order": 128,
+              "subdivisions": 16,
+              "value": -0.9344888866288277
+            },
+            {
+              "radial_order": 160,
+              "subdivisions": 32,
+              "value": -0.9344882618064548
+            }
+          ],
+          "production_q8": -0.9344889356766372,
+          "independent_qf_same_production_nodes_q8": -0.934488925249069,
+          "independent_qf_radial_reference": -0.9344888866288277,
+          "production_minus_radial_reference": -4.904780948056242e-08,
+          "same_nodes_minus_radial_reference": -3.862024133827191e-08,
+          "same_node_local_derivative_signed_difference": -1.0427568142290511e-08,
+          "same_node_local_derivative_abs_weighted_difference": 1.2399131500113308e-08,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": -3.862024133827191e-08,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.06810452509428935,
+          "share_of_net_cell_error": -0.07884375856121624
+        },
+        {
+          "row": 99,
+          "case": "rand035",
+          "u": 0.0,
+          "parameter": "Y",
+          "cell": 8,
+          "kind": "arcs",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 128,
+            "subdivisions": 16,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [
+            {
+              "radial_order": 112,
+              "subdivisions": 8,
+              "value": 18.00510286450777
+            },
+            {
+              "radial_order": 128,
+              "subdivisions": 16,
+              "value": 18.00510285673885
+            },
+            {
+              "radial_order": 160,
+              "subdivisions": 32,
+              "value": 18.005102830627568
+            }
+          ],
+          "production_q8": 18.005102871760325,
+          "independent_qf_same_production_nodes_q8": 18.005102871654135,
+          "independent_qf_radial_reference": 18.00510285673885,
+          "production_minus_radial_reference": 1.5021473842580235e-08,
+          "same_nodes_minus_radial_reference": 1.4915283230720888e-08,
+          "same_node_local_derivative_signed_difference": 1.0619061185934697e-10,
+          "same_node_local_derivative_abs_weighted_difference": 1.4947748128956156e-09,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 1.4915283230720888e-08,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.020857819199257863,
+          "share_of_net_cell_error": 0.024146836921379276
+        },
+        {
+          "row": 99,
+          "case": "rand035",
+          "u": 0.0,
+          "parameter": "Y",
+          "cell": 11,
+          "kind": "arcs",
+          "production_complete": false,
+          "production_valid_nodes": 207,
+          "production_invalid_nodes": 48,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 112,
+            "subdivisions": 8,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [],
+          "production_q8": 5.669906539892475e-19,
+          "independent_qf_same_production_nodes_q8": 5.906746058694846e-19,
+          "independent_qf_radial_reference": 5.944277768107469e-19,
+          "production_minus_radial_reference": -2.7437122821499485e-20,
+          "same_nodes_minus_radial_reference": -3.753170941262311e-21,
+          "same_node_local_derivative_signed_difference": null,
+          "same_node_local_derivative_abs_weighted_difference": 2.735515477724799e-26,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": -3.753170941262311e-21,
+          "classification": "production incomplete; cell contribution is partial",
+          "share_of_absolute_cell_error": 3.809736335834593e-14,
+          "share_of_net_cell_error": -4.410484199523799e-14
+        },
+        {
+          "row": 99,
+          "case": "rand035",
+          "u": 0.0,
+          "parameter": "Y",
+          "cell": 0,
+          "kind": "empty",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 112,
+            "subdivisions": 8,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [],
+          "production_q8": 0.0,
+          "independent_qf_same_production_nodes_q8": 0.0,
+          "independent_qf_radial_reference": 0.0,
+          "production_minus_radial_reference": 0.0,
+          "same_nodes_minus_radial_reference": 0.0,
+          "same_node_local_derivative_signed_difference": 0.0,
+          "same_node_local_derivative_abs_weighted_difference": 0.0,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 0.0,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.0,
+          "share_of_net_cell_error": 0.0
+        }
+      ],
+      "cells": [
+        {
+          "row": 99,
+          "case": "rand035",
+          "u": 0.0,
+          "parameter": "Y",
+          "cell": 0,
+          "kind": "empty",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 112,
+            "subdivisions": 8,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [],
+          "production_q8": 0.0,
+          "independent_qf_same_production_nodes_q8": 0.0,
+          "independent_qf_radial_reference": 0.0,
+          "production_minus_radial_reference": 0.0,
+          "same_nodes_minus_radial_reference": 0.0,
+          "same_node_local_derivative_signed_difference": 0.0,
+          "same_node_local_derivative_abs_weighted_difference": 0.0,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 0.0,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.0,
+          "share_of_net_cell_error": 0.0
+        },
+        {
+          "row": 99,
+          "case": "rand035",
+          "u": 0.0,
+          "parameter": "Y",
+          "cell": 1,
+          "kind": "empty",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 112,
+            "subdivisions": 8,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [],
+          "production_q8": 0.0,
+          "independent_qf_same_production_nodes_q8": 0.0,
+          "independent_qf_radial_reference": 0.0,
+          "production_minus_radial_reference": 0.0,
+          "same_nodes_minus_radial_reference": 0.0,
+          "same_node_local_derivative_signed_difference": 0.0,
+          "same_node_local_derivative_abs_weighted_difference": 0.0,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 0.0,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.0,
+          "share_of_net_cell_error": 0.0
+        },
+        {
+          "row": 99,
+          "case": "rand035",
+          "u": 0.0,
+          "parameter": "Y",
+          "cell": 2,
+          "kind": "arcs",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 128,
+            "subdivisions": 16,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [
+            {
+              "radial_order": 112,
+              "subdivisions": 8,
+              "value": -0.9344888743115399
+            },
+            {
+              "radial_order": 128,
+              "subdivisions": 16,
+              "value": -0.9344888866288277
+            },
+            {
+              "radial_order": 160,
+              "subdivisions": 32,
+              "value": -0.9344882618064548
+            }
+          ],
+          "production_q8": -0.9344889356766372,
+          "independent_qf_same_production_nodes_q8": -0.934488925249069,
+          "independent_qf_radial_reference": -0.9344888866288277,
+          "production_minus_radial_reference": -4.904780948056242e-08,
+          "same_nodes_minus_radial_reference": -3.862024133827191e-08,
+          "same_node_local_derivative_signed_difference": -1.0427568142290511e-08,
+          "same_node_local_derivative_abs_weighted_difference": 1.2399131500113308e-08,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": -3.862024133827191e-08,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.06810452509428935,
+          "share_of_net_cell_error": -0.07884375856121624
+        },
+        {
+          "row": 99,
+          "case": "rand035",
+          "u": 0.0,
+          "parameter": "Y",
+          "cell": 3,
+          "kind": "arcs",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 128,
+            "subdivisions": 16,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [
+            {
+              "radial_order": 112,
+              "subdivisions": 8,
+              "value": 18.939592521844958
+            },
+            {
+              "radial_order": 128,
+              "subdivisions": 16,
+              "value": 18.939592520641593
+            },
+            {
+              "radial_order": 160,
+              "subdivisions": 32,
+              "value": 18.93959252259651
+            }
+          ],
+          "production_q8": 18.939593176756606,
+          "independent_qf_same_production_nodes_q8": 18.93959317661125,
+          "independent_qf_radial_reference": 18.939592520641593,
+          "production_minus_radial_reference": 6.56115012986902e-07,
+          "same_nodes_minus_radial_reference": 6.559696572594476e-07,
+          "same_node_local_derivative_signed_difference": 1.453557274544437e-10,
+          "same_node_local_derivative_abs_weighted_difference": 3.769849013844828e-10,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 6.559696572594476e-07,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.9110376557064147,
+          "share_of_net_cell_error": 1.054696921639881
+        },
+        {
+          "row": 99,
+          "case": "rand035",
+          "u": 0.0,
+          "parameter": "Y",
+          "cell": 4,
+          "kind": "empty",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 112,
+            "subdivisions": 8,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [],
+          "production_q8": 0.0,
+          "independent_qf_same_production_nodes_q8": 0.0,
+          "independent_qf_radial_reference": 0.0,
+          "production_minus_radial_reference": 0.0,
+          "same_nodes_minus_radial_reference": 0.0,
+          "same_node_local_derivative_signed_difference": 0.0,
+          "same_node_local_derivative_abs_weighted_difference": 0.0,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 0.0,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.0,
+          "share_of_net_cell_error": 0.0
+        },
+        {
+          "row": 99,
+          "case": "rand035",
+          "u": 0.0,
+          "parameter": "Y",
+          "cell": 5,
+          "kind": "empty",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 112,
+            "subdivisions": 8,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [],
+          "production_q8": 0.0,
+          "independent_qf_same_production_nodes_q8": 0.0,
+          "independent_qf_radial_reference": 0.0,
+          "production_minus_radial_reference": 0.0,
+          "same_nodes_minus_radial_reference": 0.0,
+          "same_node_local_derivative_signed_difference": 0.0,
+          "same_node_local_derivative_abs_weighted_difference": 0.0,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 0.0,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.0,
+          "share_of_net_cell_error": 0.0
+        },
+        {
+          "row": 99,
+          "case": "rand035",
+          "u": 0.0,
+          "parameter": "Y",
+          "cell": 6,
+          "kind": "empty",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 112,
+            "subdivisions": 8,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [],
+          "production_q8": 0.0,
+          "independent_qf_same_production_nodes_q8": 0.0,
+          "independent_qf_radial_reference": 0.0,
+          "production_minus_radial_reference": 0.0,
+          "same_nodes_minus_radial_reference": 0.0,
+          "same_node_local_derivative_signed_difference": 0.0,
+          "same_node_local_derivative_abs_weighted_difference": 0.0,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 0.0,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.0,
+          "share_of_net_cell_error": 0.0
+        },
+        {
+          "row": 99,
+          "case": "rand035",
+          "u": 0.0,
+          "parameter": "Y",
+          "cell": 7,
+          "kind": "empty",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 112,
+            "subdivisions": 8,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [],
+          "production_q8": 0.0,
+          "independent_qf_same_production_nodes_q8": 0.0,
+          "independent_qf_radial_reference": 0.0,
+          "production_minus_radial_reference": 0.0,
+          "same_nodes_minus_radial_reference": 0.0,
+          "same_node_local_derivative_signed_difference": 0.0,
+          "same_node_local_derivative_abs_weighted_difference": 0.0,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 0.0,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.0,
+          "share_of_net_cell_error": 0.0
+        },
+        {
+          "row": 99,
+          "case": "rand035",
+          "u": 0.0,
+          "parameter": "Y",
+          "cell": 8,
+          "kind": "arcs",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 128,
+            "subdivisions": 16,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [
+            {
+              "radial_order": 112,
+              "subdivisions": 8,
+              "value": 18.00510286450777
+            },
+            {
+              "radial_order": 128,
+              "subdivisions": 16,
+              "value": 18.00510285673885
+            },
+            {
+              "radial_order": 160,
+              "subdivisions": 32,
+              "value": 18.005102830627568
+            }
+          ],
+          "production_q8": 18.005102871760325,
+          "independent_qf_same_production_nodes_q8": 18.005102871654135,
+          "independent_qf_radial_reference": 18.00510285673885,
+          "production_minus_radial_reference": 1.5021473842580235e-08,
+          "same_nodes_minus_radial_reference": 1.4915283230720888e-08,
+          "same_node_local_derivative_signed_difference": 1.0619061185934697e-10,
+          "same_node_local_derivative_abs_weighted_difference": 1.4947748128956156e-09,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 1.4915283230720888e-08,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.020857819199257863,
+          "share_of_net_cell_error": 0.024146836921379276
+        },
+        {
+          "row": 99,
+          "case": "rand035",
+          "u": 0.0,
+          "parameter": "Y",
+          "cell": 9,
+          "kind": "empty",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 112,
+            "subdivisions": 8,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [],
+          "production_q8": 0.0,
+          "independent_qf_same_production_nodes_q8": 0.0,
+          "independent_qf_radial_reference": 0.0,
+          "production_minus_radial_reference": 0.0,
+          "same_nodes_minus_radial_reference": 0.0,
+          "same_node_local_derivative_signed_difference": 0.0,
+          "same_node_local_derivative_abs_weighted_difference": 0.0,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 0.0,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.0,
+          "share_of_net_cell_error": 0.0
+        },
+        {
+          "row": 99,
+          "case": "rand035",
+          "u": 0.0,
+          "parameter": "Y",
+          "cell": 10,
+          "kind": "empty",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 112,
+            "subdivisions": 8,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [],
+          "production_q8": 0.0,
+          "independent_qf_same_production_nodes_q8": 0.0,
+          "independent_qf_radial_reference": 0.0,
+          "production_minus_radial_reference": 0.0,
+          "same_nodes_minus_radial_reference": 0.0,
+          "same_node_local_derivative_signed_difference": 0.0,
+          "same_node_local_derivative_abs_weighted_difference": 0.0,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 0.0,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.0,
+          "share_of_net_cell_error": 0.0
+        },
+        {
+          "row": 99,
+          "case": "rand035",
+          "u": 0.0,
+          "parameter": "Y",
+          "cell": 11,
+          "kind": "arcs",
+          "production_complete": false,
+          "production_valid_nodes": 207,
+          "production_invalid_nodes": 48,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 112,
+            "subdivisions": 8,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [],
+          "production_q8": 5.669906539892475e-19,
+          "independent_qf_same_production_nodes_q8": 5.906746058694846e-19,
+          "independent_qf_radial_reference": 5.944277768107469e-19,
+          "production_minus_radial_reference": -2.7437122821499485e-20,
+          "same_nodes_minus_radial_reference": -3.753170941262311e-21,
+          "same_node_local_derivative_signed_difference": null,
+          "same_node_local_derivative_abs_weighted_difference": 2.735515477724799e-26,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": -3.753170941262311e-21,
+          "classification": "production incomplete; cell contribution is partial",
+          "share_of_absolute_cell_error": 3.809736335834593e-14,
+          "share_of_net_cell_error": -4.410484199523799e-14
+        },
+        {
+          "row": 99,
+          "case": "rand035",
+          "u": 0.0,
+          "parameter": "Y",
+          "cell": 12,
+          "kind": "empty",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 112,
+            "subdivisions": 8,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [],
+          "production_q8": 0.0,
+          "independent_qf_same_production_nodes_q8": 0.0,
+          "independent_qf_radial_reference": 0.0,
+          "production_minus_radial_reference": 0.0,
+          "same_nodes_minus_radial_reference": 0.0,
+          "same_node_local_derivative_signed_difference": 0.0,
+          "same_node_local_derivative_abs_weighted_difference": 0.0,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 0.0,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.0,
+          "share_of_net_cell_error": 0.0
+        }
+      ]
+    },
+    {
+      "row": 100,
+      "case": "rand035",
+      "u": 0.5,
+      "parameter": "X",
+      "production_whole_q8_valid_sum": 16.918290140177056,
+      "production_whole_q8_status_complete": false,
+      "independent_qf_same_node_q8_sum": 16.918290143067058,
+      "independent_qf_radial_reference_sum": 16.918289963527258,
+      "independent_value_fd": 16.918289951078755,
+      "fd_observed_spread_not_formal_bound": 5.2442850062561774e-09,
+      "production_minus_fd": 1.8909830146185413e-07,
+      "qf_radial_reference_minus_fd": 1.2448502673123585e-08,
+      "q8_production_minus_same_node_qf": -2.890001127298092e-09,
+      "cell_abs_sum_over_net_production": 1.0329033020779914,
+      "cell_abs_sum_over_net_reference": 1.0329033007750292,
+      "same_node_arc_abs_sum_over_net": 1.0329033017222886,
+      "same_node_arc_cell_interarc_cancellation_ratios": {
+        "2": 1.0,
+        "3": 1.0,
+        "8": 1.0,
+        "11": 1.0
+      },
+      "largest_error_cell_share_of_absolute_cell_error": [
+        {
+          "cell": 3,
+          "share": 0.9110360038512783
+        },
+        {
+          "cell": 2,
+          "share": 0.06810617939931031
+        },
+        {
+          "cell": 8,
+          "share": 0.020857816747905898
+        },
+        {
+          "cell": 11,
+          "share": 1.5055201175750436e-12
+        },
+        {
+          "cell": 0,
+          "share": 0.0
+        }
+      ],
+      "largest_error_cell_share_of_net_cell_error": [
+        {
+          "cell": 3,
+          "share": 1.0546990491637045
+        },
+        {
+          "cell": 2,
+          "share": -0.07884597573637868
+        },
+        {
+          "cell": 8,
+          "share": 0.02414692657441705
+        },
+        {
+          "cell": 11,
+          "share": -1.7429285229021955e-12
+        },
+        {
+          "cell": 0,
+          "share": 0.0
+        }
+      ],
+      "reference_resolution_note": "Cell 3 agrees across 112x8, 128x16, and 160x32. Cell 2 has a nonmonotone 160x32 outlier and is referenced at 128x16; cell 8 drifts mildly with resolution. These are observed convergence checks, not formal bounds.",
+      "reference_resolution_sequence": [
+        {
+          "cell": 2,
+          "sequence": [
+            {
+              "radial_order": 112,
+              "subdivisions": 8,
+              "value": -0.27833378813689497
+            },
+            {
+              "radial_order": 128,
+              "subdivisions": 16,
+              "value": -0.27833379163454897
+            },
+            {
+              "radial_order": 160,
+              "subdivisions": 32,
+              "value": -0.27833361420811126
+            }
+          ]
+        },
+        {
+          "cell": 3,
+          "sequence": [
+            {
+              "radial_order": 112,
+              "subdivisions": 8,
+              "value": 8.737479565724968
+            },
+            {
+              "radial_order": 128,
+              "subdivisions": 16,
+              "value": 8.73747956538326
+            },
+            {
+              "radial_order": 160,
+              "subdivisions": 32,
+              "value": 8.737479565938383
+            }
+          ]
+        },
+        {
+          "cell": 8,
+          "sequence": [
+            {
+              "radial_order": 112,
+              "subdivisions": 8,
+              "value": 8.45914419198463
+            },
+            {
+              "radial_order": 128,
+              "subdivisions": 16,
+              "value": 8.459144189778547
+            },
+            {
+              "radial_order": 160,
+              "subdivisions": 32,
+              "value": 8.459144182363907
+            }
+          ]
+        },
+        {
+          "cell": 11,
+          "sequence": []
+        }
+      ],
+      "largest_cell_error_contributors": [
+        {
+          "row": 100,
+          "case": "rand035",
+          "u": 0.5,
+          "parameter": "X",
+          "cell": 3,
+          "kind": "arcs",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 128,
+            "subdivisions": 16,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [
+            {
+              "radial_order": 112,
+              "subdivisions": 8,
+              "value": 8.737479565724968
+            },
+            {
+              "radial_order": 128,
+              "subdivisions": 16,
+              "value": 8.73747956538326
+            },
+            {
+              "radial_order": 160,
+              "subdivisions": 32,
+              "value": 8.737479565938383
+            }
+          ],
+          "production_q8": 8.737479751695634,
+          "independent_qf_same_production_nodes_q8": 8.73747975165436,
+          "independent_qf_radial_reference": 8.73747956538326,
+          "production_minus_radial_reference": 1.8631237352906282e-07,
+          "same_nodes_minus_radial_reference": 1.8627109987789936e-07,
+          "same_node_local_derivative_signed_difference": 4.127365116346482e-11,
+          "same_node_local_derivative_abs_weighted_difference": 1.0707209218168114e-10,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 1.8627109987789936e-07,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.9110360038512783,
+          "share_of_net_cell_error": 1.0546990491637045
+        },
+        {
+          "row": 100,
+          "case": "rand035",
+          "u": 0.5,
+          "parameter": "X",
+          "cell": 2,
+          "kind": "arcs",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 128,
+            "subdivisions": 16,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [
+            {
+              "radial_order": 112,
+              "subdivisions": 8,
+              "value": -0.27833378813689497
+            },
+            {
+              "radial_order": 128,
+              "subdivisions": 16,
+              "value": -0.27833379163454897
+            },
+            {
+              "radial_order": 160,
+              "subdivisions": 32,
+              "value": -0.27833361420811126
+            }
+          ],
+          "production_q8": -0.2783338055626746,
+          "independent_qf_same_production_nodes_q8": -0.2783338026012796,
+          "independent_qf_radial_reference": -0.27833379163454897,
+          "production_minus_radial_reference": -1.3928125652817869e-08,
+          "same_nodes_minus_radial_reference": -1.0966730634720534e-08,
+          "same_node_local_derivative_signed_difference": -2.9613950180973347e-09,
+          "same_node_local_derivative_abs_weighted_difference": 3.5212718684984852e-09,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": -1.0966730634720534e-08,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.06810617939931031,
+          "share_of_net_cell_error": -0.07884597573637868
+        },
+        {
+          "row": 100,
+          "case": "rand035",
+          "u": 0.5,
+          "parameter": "X",
+          "cell": 8,
+          "kind": "arcs",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 128,
+            "subdivisions": 16,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [
+            {
+              "radial_order": 112,
+              "subdivisions": 8,
+              "value": 8.45914419198463
+            },
+            {
+              "radial_order": 128,
+              "subdivisions": 16,
+              "value": 8.459144189778547
+            },
+            {
+              "radial_order": 160,
+              "subdivisions": 32,
+              "value": 8.459144182363907
+            }
+          ],
+          "production_q8": 8.459144194044097,
+          "independent_qf_same_production_nodes_q8": 8.459144194013977,
+          "independent_qf_radial_reference": 8.459144189778547,
+          "production_minus_radial_reference": 4.265549691240267e-09,
+          "same_nodes_minus_radial_reference": 4.235429784671396e-09,
+          "same_node_local_derivative_signed_difference": 3.011990656887065e-11,
+          "same_node_local_derivative_abs_weighted_difference": 4.245945910101336e-10,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 4.235429784671396e-09,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.020857816747905898,
+          "share_of_net_cell_error": 0.02414692657441705
+        },
+        {
+          "row": 100,
+          "case": "rand035",
+          "u": 0.5,
+          "parameter": "X",
+          "cell": 11,
+          "kind": "arcs",
+          "production_complete": false,
+          "production_valid_nodes": 207,
+          "production_invalid_nodes": 48,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 112,
+            "subdivisions": 8,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [],
+          "production_q8": 1.0761729362880645e-17,
+          "independent_qf_same_production_nodes_q8": 1.1050021256465314e-17,
+          "independent_qf_radial_reference": 1.1069617333625377e-17,
+          "production_minus_radial_reference": -3.078879707447322e-19,
+          "same_nodes_minus_radial_reference": -1.959607716006277e-20,
+          "same_node_local_derivative_signed_difference": null,
+          "same_node_local_derivative_abs_weighted_difference": 2.744542375926102e-25,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": -1.959607716006277e-20,
+          "classification": "production incomplete; cell contribution is partial",
+          "share_of_absolute_cell_error": 1.5055201175750436e-12,
+          "share_of_net_cell_error": -1.7429285229021955e-12
+        },
+        {
+          "row": 100,
+          "case": "rand035",
+          "u": 0.5,
+          "parameter": "X",
+          "cell": 0,
+          "kind": "empty",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 112,
+            "subdivisions": 8,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [],
+          "production_q8": 0.0,
+          "independent_qf_same_production_nodes_q8": 0.0,
+          "independent_qf_radial_reference": 0.0,
+          "production_minus_radial_reference": 0.0,
+          "same_nodes_minus_radial_reference": 0.0,
+          "same_node_local_derivative_signed_difference": 0.0,
+          "same_node_local_derivative_abs_weighted_difference": 0.0,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 0.0,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.0,
+          "share_of_net_cell_error": 0.0
+        }
+      ],
+      "cells": [
+        {
+          "row": 100,
+          "case": "rand035",
+          "u": 0.5,
+          "parameter": "X",
+          "cell": 0,
+          "kind": "empty",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 112,
+            "subdivisions": 8,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [],
+          "production_q8": 0.0,
+          "independent_qf_same_production_nodes_q8": 0.0,
+          "independent_qf_radial_reference": 0.0,
+          "production_minus_radial_reference": 0.0,
+          "same_nodes_minus_radial_reference": 0.0,
+          "same_node_local_derivative_signed_difference": 0.0,
+          "same_node_local_derivative_abs_weighted_difference": 0.0,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 0.0,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.0,
+          "share_of_net_cell_error": 0.0
+        },
+        {
+          "row": 100,
+          "case": "rand035",
+          "u": 0.5,
+          "parameter": "X",
+          "cell": 1,
+          "kind": "empty",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 112,
+            "subdivisions": 8,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [],
+          "production_q8": 0.0,
+          "independent_qf_same_production_nodes_q8": 0.0,
+          "independent_qf_radial_reference": 0.0,
+          "production_minus_radial_reference": 0.0,
+          "same_nodes_minus_radial_reference": 0.0,
+          "same_node_local_derivative_signed_difference": 0.0,
+          "same_node_local_derivative_abs_weighted_difference": 0.0,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 0.0,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.0,
+          "share_of_net_cell_error": 0.0
+        },
+        {
+          "row": 100,
+          "case": "rand035",
+          "u": 0.5,
+          "parameter": "X",
+          "cell": 2,
+          "kind": "arcs",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 128,
+            "subdivisions": 16,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [
+            {
+              "radial_order": 112,
+              "subdivisions": 8,
+              "value": -0.27833378813689497
+            },
+            {
+              "radial_order": 128,
+              "subdivisions": 16,
+              "value": -0.27833379163454897
+            },
+            {
+              "radial_order": 160,
+              "subdivisions": 32,
+              "value": -0.27833361420811126
+            }
+          ],
+          "production_q8": -0.2783338055626746,
+          "independent_qf_same_production_nodes_q8": -0.2783338026012796,
+          "independent_qf_radial_reference": -0.27833379163454897,
+          "production_minus_radial_reference": -1.3928125652817869e-08,
+          "same_nodes_minus_radial_reference": -1.0966730634720534e-08,
+          "same_node_local_derivative_signed_difference": -2.9613950180973347e-09,
+          "same_node_local_derivative_abs_weighted_difference": 3.5212718684984852e-09,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": -1.0966730634720534e-08,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.06810617939931031,
+          "share_of_net_cell_error": -0.07884597573637868
+        },
+        {
+          "row": 100,
+          "case": "rand035",
+          "u": 0.5,
+          "parameter": "X",
+          "cell": 3,
+          "kind": "arcs",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 128,
+            "subdivisions": 16,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [
+            {
+              "radial_order": 112,
+              "subdivisions": 8,
+              "value": 8.737479565724968
+            },
+            {
+              "radial_order": 128,
+              "subdivisions": 16,
+              "value": 8.73747956538326
+            },
+            {
+              "radial_order": 160,
+              "subdivisions": 32,
+              "value": 8.737479565938383
+            }
+          ],
+          "production_q8": 8.737479751695634,
+          "independent_qf_same_production_nodes_q8": 8.73747975165436,
+          "independent_qf_radial_reference": 8.73747956538326,
+          "production_minus_radial_reference": 1.8631237352906282e-07,
+          "same_nodes_minus_radial_reference": 1.8627109987789936e-07,
+          "same_node_local_derivative_signed_difference": 4.127365116346482e-11,
+          "same_node_local_derivative_abs_weighted_difference": 1.0707209218168114e-10,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 1.8627109987789936e-07,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.9110360038512783,
+          "share_of_net_cell_error": 1.0546990491637045
+        },
+        {
+          "row": 100,
+          "case": "rand035",
+          "u": 0.5,
+          "parameter": "X",
+          "cell": 4,
+          "kind": "empty",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 112,
+            "subdivisions": 8,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [],
+          "production_q8": 0.0,
+          "independent_qf_same_production_nodes_q8": 0.0,
+          "independent_qf_radial_reference": 0.0,
+          "production_minus_radial_reference": 0.0,
+          "same_nodes_minus_radial_reference": 0.0,
+          "same_node_local_derivative_signed_difference": 0.0,
+          "same_node_local_derivative_abs_weighted_difference": 0.0,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 0.0,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.0,
+          "share_of_net_cell_error": 0.0
+        },
+        {
+          "row": 100,
+          "case": "rand035",
+          "u": 0.5,
+          "parameter": "X",
+          "cell": 5,
+          "kind": "empty",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 112,
+            "subdivisions": 8,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [],
+          "production_q8": 0.0,
+          "independent_qf_same_production_nodes_q8": 0.0,
+          "independent_qf_radial_reference": 0.0,
+          "production_minus_radial_reference": 0.0,
+          "same_nodes_minus_radial_reference": 0.0,
+          "same_node_local_derivative_signed_difference": 0.0,
+          "same_node_local_derivative_abs_weighted_difference": 0.0,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 0.0,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.0,
+          "share_of_net_cell_error": 0.0
+        },
+        {
+          "row": 100,
+          "case": "rand035",
+          "u": 0.5,
+          "parameter": "X",
+          "cell": 6,
+          "kind": "empty",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 112,
+            "subdivisions": 8,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [],
+          "production_q8": 0.0,
+          "independent_qf_same_production_nodes_q8": 0.0,
+          "independent_qf_radial_reference": 0.0,
+          "production_minus_radial_reference": 0.0,
+          "same_nodes_minus_radial_reference": 0.0,
+          "same_node_local_derivative_signed_difference": 0.0,
+          "same_node_local_derivative_abs_weighted_difference": 0.0,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 0.0,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.0,
+          "share_of_net_cell_error": 0.0
+        },
+        {
+          "row": 100,
+          "case": "rand035",
+          "u": 0.5,
+          "parameter": "X",
+          "cell": 7,
+          "kind": "empty",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 112,
+            "subdivisions": 8,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [],
+          "production_q8": 0.0,
+          "independent_qf_same_production_nodes_q8": 0.0,
+          "independent_qf_radial_reference": 0.0,
+          "production_minus_radial_reference": 0.0,
+          "same_nodes_minus_radial_reference": 0.0,
+          "same_node_local_derivative_signed_difference": 0.0,
+          "same_node_local_derivative_abs_weighted_difference": 0.0,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 0.0,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.0,
+          "share_of_net_cell_error": 0.0
+        },
+        {
+          "row": 100,
+          "case": "rand035",
+          "u": 0.5,
+          "parameter": "X",
+          "cell": 8,
+          "kind": "arcs",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 128,
+            "subdivisions": 16,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [
+            {
+              "radial_order": 112,
+              "subdivisions": 8,
+              "value": 8.45914419198463
+            },
+            {
+              "radial_order": 128,
+              "subdivisions": 16,
+              "value": 8.459144189778547
+            },
+            {
+              "radial_order": 160,
+              "subdivisions": 32,
+              "value": 8.459144182363907
+            }
+          ],
+          "production_q8": 8.459144194044097,
+          "independent_qf_same_production_nodes_q8": 8.459144194013977,
+          "independent_qf_radial_reference": 8.459144189778547,
+          "production_minus_radial_reference": 4.265549691240267e-09,
+          "same_nodes_minus_radial_reference": 4.235429784671396e-09,
+          "same_node_local_derivative_signed_difference": 3.011990656887065e-11,
+          "same_node_local_derivative_abs_weighted_difference": 4.245945910101336e-10,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 4.235429784671396e-09,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.020857816747905898,
+          "share_of_net_cell_error": 0.02414692657441705
+        },
+        {
+          "row": 100,
+          "case": "rand035",
+          "u": 0.5,
+          "parameter": "X",
+          "cell": 9,
+          "kind": "empty",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 112,
+            "subdivisions": 8,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [],
+          "production_q8": 0.0,
+          "independent_qf_same_production_nodes_q8": 0.0,
+          "independent_qf_radial_reference": 0.0,
+          "production_minus_radial_reference": 0.0,
+          "same_nodes_minus_radial_reference": 0.0,
+          "same_node_local_derivative_signed_difference": 0.0,
+          "same_node_local_derivative_abs_weighted_difference": 0.0,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 0.0,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.0,
+          "share_of_net_cell_error": 0.0
+        },
+        {
+          "row": 100,
+          "case": "rand035",
+          "u": 0.5,
+          "parameter": "X",
+          "cell": 10,
+          "kind": "empty",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 112,
+            "subdivisions": 8,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [],
+          "production_q8": 0.0,
+          "independent_qf_same_production_nodes_q8": 0.0,
+          "independent_qf_radial_reference": 0.0,
+          "production_minus_radial_reference": 0.0,
+          "same_nodes_minus_radial_reference": 0.0,
+          "same_node_local_derivative_signed_difference": 0.0,
+          "same_node_local_derivative_abs_weighted_difference": 0.0,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 0.0,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.0,
+          "share_of_net_cell_error": 0.0
+        },
+        {
+          "row": 100,
+          "case": "rand035",
+          "u": 0.5,
+          "parameter": "X",
+          "cell": 11,
+          "kind": "arcs",
+          "production_complete": false,
+          "production_valid_nodes": 207,
+          "production_invalid_nodes": 48,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 112,
+            "subdivisions": 8,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [],
+          "production_q8": 1.0761729362880645e-17,
+          "independent_qf_same_production_nodes_q8": 1.1050021256465314e-17,
+          "independent_qf_radial_reference": 1.1069617333625377e-17,
+          "production_minus_radial_reference": -3.078879707447322e-19,
+          "same_nodes_minus_radial_reference": -1.959607716006277e-20,
+          "same_node_local_derivative_signed_difference": null,
+          "same_node_local_derivative_abs_weighted_difference": 2.744542375926102e-25,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": -1.959607716006277e-20,
+          "classification": "production incomplete; cell contribution is partial",
+          "share_of_absolute_cell_error": 1.5055201175750436e-12,
+          "share_of_net_cell_error": -1.7429285229021955e-12
+        },
+        {
+          "row": 100,
+          "case": "rand035",
+          "u": 0.5,
+          "parameter": "X",
+          "cell": 12,
+          "kind": "empty",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 112,
+            "subdivisions": 8,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [],
+          "production_q8": 0.0,
+          "independent_qf_same_production_nodes_q8": 0.0,
+          "independent_qf_radial_reference": 0.0,
+          "production_minus_radial_reference": 0.0,
+          "same_nodes_minus_radial_reference": 0.0,
+          "same_node_local_derivative_signed_difference": 0.0,
+          "same_node_local_derivative_abs_weighted_difference": 0.0,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 0.0,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.0,
+          "share_of_net_cell_error": 0.0
+        }
+      ]
+    },
+    {
+      "row": 100,
+      "case": "rand035",
+      "u": 0.5,
+      "parameter": "Y",
+      "production_whole_q8_valid_sum": 35.74752553608084,
+      "production_whole_q8_status_complete": false,
+      "independent_qf_same_node_q8_sum": 35.747525542187184,
+      "independent_qf_radial_reference_sum": 35.74752516282833,
+      "independent_value_fd": 35.747525136525304,
+      "fd_observed_spread_not_formal_bound": 5.896794164073071e-11,
+      "production_minus_fd": 3.9955553887693895e-07,
+      "qf_radial_reference_minus_fd": 2.6303027311769256e-08,
+      "q8_production_minus_same_node_qf": -6.106340322276083e-09,
+      "cell_abs_sum_over_net_production": 1.032903300008911,
+      "cell_abs_sum_over_net_reference": 1.0329032987059492,
+      "same_node_arc_abs_sum_over_net": 1.0329032996532082,
+      "same_node_arc_cell_interarc_cancellation_ratios": {
+        "2": 1.0,
+        "3": 1.0,
+        "8": 1.0,
+        "11": 1.0
+      },
+      "largest_error_cell_share_of_absolute_cell_error": [
+        {
+          "cell": 3,
+          "share": 0.911035811880945
+        },
+        {
+          "cell": 2,
+          "share": 0.06810616573651976
+        },
+        {
+          "cell": 8,
+          "share": 0.020858022382497142
+        },
+        {
+          "cell": 11,
+          "share": 3.812206967106118e-14
+        },
+        {
+          "cell": 0,
+          "share": 0.0
+        }
+      ],
+      "largest_error_cell_share_of_net_cell_error": [
+        {
+          "cell": 3,
+          "share": 1.0546987935526313
+        },
+        {
+          "cell": 2,
+          "share": -0.07884595742454736
+        },
+        {
+          "cell": 8,
+          "share": 0.024147163871960236
+        },
+        {
+          "cell": 11,
+          "share": -4.4133611835504784e-14
+        },
+        {
+          "cell": 0,
+          "share": 0.0
+        }
+      ],
+      "reference_resolution_note": "Cell 3 agrees across 112x8, 128x16, and 160x32. Cell 2 has a nonmonotone 160x32 outlier and is referenced at 128x16; cell 8 drifts mildly with resolution. These are observed convergence checks, not formal bounds.",
+      "reference_resolution_sequence": [
+        {
+          "cell": 2,
+          "sequence": [
+            {
+              "radial_order": 112,
+              "subdivisions": 8,
+              "value": -0.5881057418251122
+            },
+            {
+              "radial_order": 128,
+              "subdivisions": 16,
+              "value": -0.5881057492154849
+            },
+            {
+              "radial_order": 160,
+              "subdivisions": 32,
+              "value": -0.5881053743220611
+            }
+          ]
+        },
+        {
+          "cell": 3,
+          "sequence": [
+            {
+              "radial_order": 112,
+              "subdivisions": 8,
+              "value": 18.461868707207095
+            },
+            {
+              "radial_order": 128,
+              "subdivisions": 16,
+              "value": 18.461868706485085
+            },
+            {
+              "radial_order": 160,
+              "subdivisions": 32,
+              "value": 18.46186870765803
+            }
+          ]
+        },
+        {
+          "cell": 8,
+          "sequence": [
+            {
+              "radial_order": 112,
+              "subdivisions": 8,
+              "value": 17.87376221022008
+            },
+            {
+              "radial_order": 128,
+              "subdivisions": 16,
+              "value": 17.873762205558734
+            },
+            {
+              "radial_order": 160,
+              "subdivisions": 32,
+              "value": 17.87376218989196
+            }
+          ]
+        },
+        {
+          "cell": 11,
+          "sequence": []
+        }
+      ],
+      "largest_cell_error_contributors": [
+        {
+          "row": 100,
+          "case": "rand035",
+          "u": 0.5,
+          "parameter": "Y",
+          "cell": 3,
+          "kind": "arcs",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 128,
+            "subdivisions": 16,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [
+            {
+              "radial_order": 112,
+              "subdivisions": 8,
+              "value": 18.461868707207095
+            },
+            {
+              "radial_order": 128,
+              "subdivisions": 16,
+              "value": 18.461868706485085
+            },
+            {
+              "radial_order": 160,
+              "subdivisions": 32,
+              "value": 18.46186870765803
+            }
+          ],
+          "production_q8": 18.461869100154054,
+          "independent_qf_same_production_nodes_q8": 18.461869100066846,
+          "independent_qf_radial_reference": 18.461868706485085,
+          "production_minus_radial_reference": 3.9366896942283347e-07,
+          "same_nodes_minus_radial_reference": 3.9358176096015995e-07,
+          "same_node_local_derivative_signed_difference": 8.72084626735159e-11,
+          "same_node_local_derivative_abs_weighted_difference": 2.26211310436691e-10,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 3.9358176096015995e-07,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.911035811880945,
+          "share_of_net_cell_error": 1.0546987935526313
+        },
+        {
+          "row": 100,
+          "case": "rand035",
+          "u": 0.5,
+          "parameter": "Y",
+          "cell": 2,
+          "kind": "arcs",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 128,
+            "subdivisions": 16,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [
+            {
+              "radial_order": 112,
+              "subdivisions": 8,
+              "value": -0.5881057418251122
+            },
+            {
+              "radial_order": 128,
+              "subdivisions": 16,
+              "value": -0.5881057492154849
+            },
+            {
+              "radial_order": 160,
+              "subdivisions": 32,
+              "value": -0.5881053743220611
+            }
+          ],
+          "production_q8": -0.5881057786449362,
+          "independent_qf_same_production_nodes_q8": -0.5881057723876526,
+          "independent_qf_radial_reference": -0.5881057492154849,
+          "production_minus_radial_reference": -2.9429451320339695e-08,
+          "same_nodes_minus_radial_reference": -2.3172167740170835e-08,
+          "same_node_local_derivative_signed_difference": -6.25728358016886e-09,
+          "same_node_local_derivative_abs_weighted_difference": 7.440276025559819e-09,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": -2.3172167740170835e-08,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.06810616573651976,
+          "share_of_net_cell_error": -0.07884595742454736
+        },
+        {
+          "row": 100,
+          "case": "rand035",
+          "u": 0.5,
+          "parameter": "Y",
+          "cell": 8,
+          "kind": "arcs",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 128,
+            "subdivisions": 16,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [
+            {
+              "radial_order": 112,
+              "subdivisions": 8,
+              "value": 17.87376221022008
+            },
+            {
+              "radial_order": 128,
+              "subdivisions": 16,
+              "value": 17.873762205558734
+            },
+            {
+              "radial_order": 160,
+              "subdivisions": 32,
+              "value": 17.87376218989196
+            }
+          ],
+          "production_q8": 17.873762214571723,
+          "independent_qf_same_production_nodes_q8": 17.87376221450799,
+          "independent_qf_radial_reference": 17.873762205558734,
+          "production_minus_radial_reference": 9.012989465873034e-09,
+          "same_nodes_minus_radial_reference": 8.949257335189031e-09,
+          "same_node_local_derivative_signed_difference": 6.373213068400219e-11,
+          "same_node_local_derivative_abs_weighted_difference": 8.970071602998308e-10,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 8.949257335189031e-09,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.020858022382497142,
+          "share_of_net_cell_error": 0.024147163871960236
+        },
+        {
+          "row": 100,
+          "case": "rand035",
+          "u": 0.5,
+          "parameter": "Y",
+          "cell": 11,
+          "kind": "arcs",
+          "production_complete": false,
+          "production_valid_nodes": 207,
+          "production_invalid_nodes": 48,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 112,
+            "subdivisions": 8,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [],
+          "production_q8": 5.77513316527908e-19,
+          "independent_qf_same_production_nodes_q8": 5.917268391356195e-19,
+          "independent_qf_radial_reference": 5.939862978135584e-19,
+          "production_minus_radial_reference": -1.6472981285650385e-20,
+          "same_nodes_minus_radial_reference": -2.2594586779389182e-21,
+          "same_node_local_derivative_signed_difference": null,
+          "same_node_local_derivative_abs_weighted_difference": 4.271858048990042e-26,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": -2.2594586779389182e-21,
+          "classification": "production incomplete; cell contribution is partial",
+          "share_of_absolute_cell_error": 3.812206967106118e-14,
+          "share_of_net_cell_error": -4.4133611835504784e-14
+        },
+        {
+          "row": 100,
+          "case": "rand035",
+          "u": 0.5,
+          "parameter": "Y",
+          "cell": 0,
+          "kind": "empty",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 112,
+            "subdivisions": 8,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [],
+          "production_q8": 0.0,
+          "independent_qf_same_production_nodes_q8": 0.0,
+          "independent_qf_radial_reference": 0.0,
+          "production_minus_radial_reference": 0.0,
+          "same_nodes_minus_radial_reference": 0.0,
+          "same_node_local_derivative_signed_difference": 0.0,
+          "same_node_local_derivative_abs_weighted_difference": 0.0,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 0.0,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.0,
+          "share_of_net_cell_error": 0.0
+        }
+      ],
+      "cells": [
+        {
+          "row": 100,
+          "case": "rand035",
+          "u": 0.5,
+          "parameter": "Y",
+          "cell": 0,
+          "kind": "empty",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 112,
+            "subdivisions": 8,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [],
+          "production_q8": 0.0,
+          "independent_qf_same_production_nodes_q8": 0.0,
+          "independent_qf_radial_reference": 0.0,
+          "production_minus_radial_reference": 0.0,
+          "same_nodes_minus_radial_reference": 0.0,
+          "same_node_local_derivative_signed_difference": 0.0,
+          "same_node_local_derivative_abs_weighted_difference": 0.0,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 0.0,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.0,
+          "share_of_net_cell_error": 0.0
+        },
+        {
+          "row": 100,
+          "case": "rand035",
+          "u": 0.5,
+          "parameter": "Y",
+          "cell": 1,
+          "kind": "empty",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 112,
+            "subdivisions": 8,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [],
+          "production_q8": 0.0,
+          "independent_qf_same_production_nodes_q8": 0.0,
+          "independent_qf_radial_reference": 0.0,
+          "production_minus_radial_reference": 0.0,
+          "same_nodes_minus_radial_reference": 0.0,
+          "same_node_local_derivative_signed_difference": 0.0,
+          "same_node_local_derivative_abs_weighted_difference": 0.0,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 0.0,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.0,
+          "share_of_net_cell_error": 0.0
+        },
+        {
+          "row": 100,
+          "case": "rand035",
+          "u": 0.5,
+          "parameter": "Y",
+          "cell": 2,
+          "kind": "arcs",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 128,
+            "subdivisions": 16,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [
+            {
+              "radial_order": 112,
+              "subdivisions": 8,
+              "value": -0.5881057418251122
+            },
+            {
+              "radial_order": 128,
+              "subdivisions": 16,
+              "value": -0.5881057492154849
+            },
+            {
+              "radial_order": 160,
+              "subdivisions": 32,
+              "value": -0.5881053743220611
+            }
+          ],
+          "production_q8": -0.5881057786449362,
+          "independent_qf_same_production_nodes_q8": -0.5881057723876526,
+          "independent_qf_radial_reference": -0.5881057492154849,
+          "production_minus_radial_reference": -2.9429451320339695e-08,
+          "same_nodes_minus_radial_reference": -2.3172167740170835e-08,
+          "same_node_local_derivative_signed_difference": -6.25728358016886e-09,
+          "same_node_local_derivative_abs_weighted_difference": 7.440276025559819e-09,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": -2.3172167740170835e-08,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.06810616573651976,
+          "share_of_net_cell_error": -0.07884595742454736
+        },
+        {
+          "row": 100,
+          "case": "rand035",
+          "u": 0.5,
+          "parameter": "Y",
+          "cell": 3,
+          "kind": "arcs",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 128,
+            "subdivisions": 16,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [
+            {
+              "radial_order": 112,
+              "subdivisions": 8,
+              "value": 18.461868707207095
+            },
+            {
+              "radial_order": 128,
+              "subdivisions": 16,
+              "value": 18.461868706485085
+            },
+            {
+              "radial_order": 160,
+              "subdivisions": 32,
+              "value": 18.46186870765803
+            }
+          ],
+          "production_q8": 18.461869100154054,
+          "independent_qf_same_production_nodes_q8": 18.461869100066846,
+          "independent_qf_radial_reference": 18.461868706485085,
+          "production_minus_radial_reference": 3.9366896942283347e-07,
+          "same_nodes_minus_radial_reference": 3.9358176096015995e-07,
+          "same_node_local_derivative_signed_difference": 8.72084626735159e-11,
+          "same_node_local_derivative_abs_weighted_difference": 2.26211310436691e-10,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 3.9358176096015995e-07,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.911035811880945,
+          "share_of_net_cell_error": 1.0546987935526313
+        },
+        {
+          "row": 100,
+          "case": "rand035",
+          "u": 0.5,
+          "parameter": "Y",
+          "cell": 4,
+          "kind": "empty",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 112,
+            "subdivisions": 8,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [],
+          "production_q8": 0.0,
+          "independent_qf_same_production_nodes_q8": 0.0,
+          "independent_qf_radial_reference": 0.0,
+          "production_minus_radial_reference": 0.0,
+          "same_nodes_minus_radial_reference": 0.0,
+          "same_node_local_derivative_signed_difference": 0.0,
+          "same_node_local_derivative_abs_weighted_difference": 0.0,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 0.0,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.0,
+          "share_of_net_cell_error": 0.0
+        },
+        {
+          "row": 100,
+          "case": "rand035",
+          "u": 0.5,
+          "parameter": "Y",
+          "cell": 5,
+          "kind": "empty",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 112,
+            "subdivisions": 8,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [],
+          "production_q8": 0.0,
+          "independent_qf_same_production_nodes_q8": 0.0,
+          "independent_qf_radial_reference": 0.0,
+          "production_minus_radial_reference": 0.0,
+          "same_nodes_minus_radial_reference": 0.0,
+          "same_node_local_derivative_signed_difference": 0.0,
+          "same_node_local_derivative_abs_weighted_difference": 0.0,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 0.0,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.0,
+          "share_of_net_cell_error": 0.0
+        },
+        {
+          "row": 100,
+          "case": "rand035",
+          "u": 0.5,
+          "parameter": "Y",
+          "cell": 6,
+          "kind": "empty",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 112,
+            "subdivisions": 8,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [],
+          "production_q8": 0.0,
+          "independent_qf_same_production_nodes_q8": 0.0,
+          "independent_qf_radial_reference": 0.0,
+          "production_minus_radial_reference": 0.0,
+          "same_nodes_minus_radial_reference": 0.0,
+          "same_node_local_derivative_signed_difference": 0.0,
+          "same_node_local_derivative_abs_weighted_difference": 0.0,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 0.0,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.0,
+          "share_of_net_cell_error": 0.0
+        },
+        {
+          "row": 100,
+          "case": "rand035",
+          "u": 0.5,
+          "parameter": "Y",
+          "cell": 7,
+          "kind": "empty",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 112,
+            "subdivisions": 8,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [],
+          "production_q8": 0.0,
+          "independent_qf_same_production_nodes_q8": 0.0,
+          "independent_qf_radial_reference": 0.0,
+          "production_minus_radial_reference": 0.0,
+          "same_nodes_minus_radial_reference": 0.0,
+          "same_node_local_derivative_signed_difference": 0.0,
+          "same_node_local_derivative_abs_weighted_difference": 0.0,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 0.0,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.0,
+          "share_of_net_cell_error": 0.0
+        },
+        {
+          "row": 100,
+          "case": "rand035",
+          "u": 0.5,
+          "parameter": "Y",
+          "cell": 8,
+          "kind": "arcs",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 128,
+            "subdivisions": 16,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [
+            {
+              "radial_order": 112,
+              "subdivisions": 8,
+              "value": 17.87376221022008
+            },
+            {
+              "radial_order": 128,
+              "subdivisions": 16,
+              "value": 17.873762205558734
+            },
+            {
+              "radial_order": 160,
+              "subdivisions": 32,
+              "value": 17.87376218989196
+            }
+          ],
+          "production_q8": 17.873762214571723,
+          "independent_qf_same_production_nodes_q8": 17.87376221450799,
+          "independent_qf_radial_reference": 17.873762205558734,
+          "production_minus_radial_reference": 9.012989465873034e-09,
+          "same_nodes_minus_radial_reference": 8.949257335189031e-09,
+          "same_node_local_derivative_signed_difference": 6.373213068400219e-11,
+          "same_node_local_derivative_abs_weighted_difference": 8.970071602998308e-10,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 8.949257335189031e-09,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.020858022382497142,
+          "share_of_net_cell_error": 0.024147163871960236
+        },
+        {
+          "row": 100,
+          "case": "rand035",
+          "u": 0.5,
+          "parameter": "Y",
+          "cell": 9,
+          "kind": "empty",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 112,
+            "subdivisions": 8,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [],
+          "production_q8": 0.0,
+          "independent_qf_same_production_nodes_q8": 0.0,
+          "independent_qf_radial_reference": 0.0,
+          "production_minus_radial_reference": 0.0,
+          "same_nodes_minus_radial_reference": 0.0,
+          "same_node_local_derivative_signed_difference": 0.0,
+          "same_node_local_derivative_abs_weighted_difference": 0.0,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 0.0,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.0,
+          "share_of_net_cell_error": 0.0
+        },
+        {
+          "row": 100,
+          "case": "rand035",
+          "u": 0.5,
+          "parameter": "Y",
+          "cell": 10,
+          "kind": "empty",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 112,
+            "subdivisions": 8,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [],
+          "production_q8": 0.0,
+          "independent_qf_same_production_nodes_q8": 0.0,
+          "independent_qf_radial_reference": 0.0,
+          "production_minus_radial_reference": 0.0,
+          "same_nodes_minus_radial_reference": 0.0,
+          "same_node_local_derivative_signed_difference": 0.0,
+          "same_node_local_derivative_abs_weighted_difference": 0.0,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 0.0,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.0,
+          "share_of_net_cell_error": 0.0
+        },
+        {
+          "row": 100,
+          "case": "rand035",
+          "u": 0.5,
+          "parameter": "Y",
+          "cell": 11,
+          "kind": "arcs",
+          "production_complete": false,
+          "production_valid_nodes": 207,
+          "production_invalid_nodes": 48,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 112,
+            "subdivisions": 8,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [],
+          "production_q8": 5.77513316527908e-19,
+          "independent_qf_same_production_nodes_q8": 5.917268391356195e-19,
+          "independent_qf_radial_reference": 5.939862978135584e-19,
+          "production_minus_radial_reference": -1.6472981285650385e-20,
+          "same_nodes_minus_radial_reference": -2.2594586779389182e-21,
+          "same_node_local_derivative_signed_difference": null,
+          "same_node_local_derivative_abs_weighted_difference": 4.271858048990042e-26,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": -2.2594586779389182e-21,
+          "classification": "production incomplete; cell contribution is partial",
+          "share_of_absolute_cell_error": 3.812206967106118e-14,
+          "share_of_net_cell_error": -4.4133611835504784e-14
+        },
+        {
+          "row": 100,
+          "case": "rand035",
+          "u": 0.5,
+          "parameter": "Y",
+          "cell": 12,
+          "kind": "empty",
+          "production_complete": true,
+          "production_valid_nodes": 255,
+          "production_invalid_nodes": 0,
+          "independent_qf_method": "direct QF fixed-R derivative + radial Gauss-Legendre",
+          "reference_radial": {
+            "order": 112,
+            "subdivisions": 8,
+            "angular_nodes": 1024
+          },
+          "reference_radial_sequence": [],
+          "production_q8": 0.0,
+          "independent_qf_same_production_nodes_q8": 0.0,
+          "independent_qf_radial_reference": 0.0,
+          "production_minus_radial_reference": 0.0,
+          "same_nodes_minus_radial_reference": 0.0,
+          "same_node_local_derivative_signed_difference": 0.0,
+          "same_node_local_derivative_abs_weighted_difference": 0.0,
+          "radial_quadrature_delta_same_nodes_minus_high_gl": 0.0,
+          "classification": "complete",
+          "share_of_absolute_cell_error": 0.0,
+          "share_of_net_cell_error": 0.0
+        }
+      ]
+    }
+  ],
+  "limb_darkening_term_decomposition": [
+    {
+      "parameter": "X",
+      "u": 0.5,
+      "included_cells": [
+        2,
+        3,
+        8
+      ],
+      "cell11_status": "not decomposed: 48 source-invalid nodes and 207 K-rule rejections; direct fixed-R whole-cell contribution is O(1e-17)",
+      "uniform_sum": 10.22556593535793,
+      "LD_dvK_sum": -22.492296289227774,
+      "LD_v_dK_sum": 25.83865808283567,
+      "LD_sum": 6.692724204992347,
+      "combined_uniform_plus_LD": 16.918290140350276,
+      "uniform_cross_cell_cancellation_ratio": 1.0519013396915697,
+      "LD_cross_cell_cancellation_ratio": 1.003876902601144,
+      "dvK_cross_cell_cancellation_ratio": 1.5764741052129674,
+      "v_dK_cross_cell_cancellation_ratio": 1.371302194490799,
+      "dvK_vs_v_dK_cancellation_after_radial": 7.221417302092267,
+      "source_invalid_nodes": 48,
+      "K_rule_rejections": 209,
+      "max_pointwise_algebra_identity_residual": 4.884981308350689e-15,
+      "cells": [
+        {
+          "row": "100",
+          "case": "rand035",
+          "u": "0.5",
+          "parameter": "X",
+          "cell": "2",
+          "k_nodes": "255",
+          "accepted_K_nodes": "253",
+          "rejected_K_nodes": "2",
+          "sample_rejected_nodes": "0",
+          "source_invalid_nodes": "0",
+          "uniform_contribution": "-0.26536028557477831",
+          "dvK_contribution": "-0.012956758639384459",
+          "v_dK_contribution": "-1.6761300152207946e-05",
+          "LD_total": "-0.012973519939536668",
+          "dvK_abs_sum": "0.012956758639384452",
+          "v_dK_abs_sum": "1.6761300152231419e-05",
+          "term_abs_sum": "0.012973519939536684",
+          "radial_cancel_dvK": "0.99999999999999944",
+          "radial_cancel_v_dK": "1.0000000000014004",
+          "term_cancel_after_radial": "0.99999999999999989",
+          "max_pointwise_residual": "2.6645352591003757e-15",
+          "dvK_v_dK_cancellation_after_radial": 0.9999999999999999
+        },
+        {
+          "row": "100",
+          "case": "rand035",
+          "u": "0.5",
+          "parameter": "X",
+          "cell": "3",
+          "k_nodes": "255",
+          "accepted_K_nodes": "255",
+          "rejected_K_nodes": "0",
+          "sample_rejected_nodes": "0",
+          "source_invalid_nodes": "0",
+          "uniform_contribution": "5.3781438200999228",
+          "dvK_contribution": "12.953269618878142",
+          "v_dK_contribution": "-9.5939336875541574",
+          "LD_total": "3.3593359313239861",
+          "dvK_abs_sum": "15.827300248301446",
+          "v_dK_abs_sum": "9.5939336875541557",
+          "term_abs_sum": "25.421233935855604",
+          "radial_cancel_dvK": "1.221876847621135",
+          "radial_cancel_v_dK": "0.99999999999999978",
+          "term_cancel_after_radial": "6.7118036919713377",
+          "max_pointwise_residual": "3.5527136788005009e-15",
+          "dvK_v_dK_cancellation_after_radial": 6.711803691971338
+        },
+        {
+          "row": "100",
+          "case": "rand035",
+          "u": "0.5",
+          "parameter": "X",
+          "cell": "8",
+          "k_nodes": "255",
+          "accepted_K_nodes": "255",
+          "rejected_K_nodes": "0",
+          "sample_rejected_nodes": "0",
+          "source_invalid_nodes": "0",
+          "uniform_contribution": "5.1127824008327849",
+          "dvK_contribution": "-22.492296289227774",
+          "v_dK_contribution": "25.838658082835671",
+          "LD_total": "3.346361793607898",
+          "dvK_abs_sum": "27.801463865063514",
+          "v_dK_abs_sum": "25.838658082835678",
+          "term_abs_sum": "53.640121947899189",
+          "radial_cancel_dvK": "1.2360438217408001",
+          "radial_cancel_v_dK": "1.0000000000000002",
+          "term_cancel_after_radial": "14.442835937340524",
+          "max_pointwise_residual": "4.8849813083506888e-15",
+          "dvK_v_dK_cancellation_after_radial": 14.442835937340524
+        },
+        {
+          "row": "100",
+          "case": "rand035",
+          "u": "0.5",
+          "parameter": "X",
+          "cell": "11",
+          "k_nodes": "255",
+          "accepted_K_nodes": "0",
+          "rejected_K_nodes": "207",
+          "sample_rejected_nodes": "0",
+          "source_invalid_nodes": "48",
+          "uniform_contribution": "6.3441345063388365e-18",
+          "dvK_contribution": "0",
+          "v_dK_contribution": "0",
+          "LD_total": "0",
+          "dvK_abs_sum": "0",
+          "v_dK_abs_sum": "0",
+          "term_abs_sum": "0",
+          "radial_cancel_dvK": "inf",
+          "radial_cancel_v_dK": "inf",
+          "term_cancel_after_radial": "inf",
+          "max_pointwise_residual": "0",
+          "dvK_v_dK_cancellation_after_radial": null
+        }
+      ]
+    },
+    {
+      "parameter": "Y",
+      "u": 0.5,
+      "included_cells": [
+        2,
+        3,
+        8
+      ],
+      "cell11_status": "not decomposed: 48 source-invalid nodes and 207 K-rule rejections; direct fixed-R whole-cell contribution is O(1e-17)",
+      "uniform_sum": 21.606124266762514,
+      "LD_dvK_sum": 29.558757687452516,
+      "LD_v_dK_sum": -22.488057195936985,
+      "LD_sum": 14.141401269684344,
+      "combined_uniform_plus_LD": 35.74752553644686,
+      "uniform_cross_cell_cancellation_ratio": 1.0519013364626448,
+      "LD_cross_cell_cancellation_ratio": 1.003876902353382,
+      "dvK_cross_cell_cancellation_ratio": 1.2438041807879896,
+      "v_dK_cross_cell_cancellation_ratio": 1.0036029387671301,
+      "dvK_vs_v_dK_cancellation_after_radial": 3.680456688190085,
+      "source_invalid_nodes": 48,
+      "K_rule_rejections": 209,
+      "max_pointwise_algebra_identity_residual": 1.0658141036401503e-14,
+      "cells": [
+        {
+          "row": "100",
+          "case": "rand035",
+          "u": "0.5",
+          "parameter": "Y",
+          "cell": "2",
+          "k_nodes": "255",
+          "accepted_K_nodes": "253",
+          "rejected_K_nodes": "2",
+          "sample_rejected_nodes": "0",
+          "source_invalid_nodes": "0",
+          "uniform_contribution": "-0.56069336261147529",
+          "dvK_contribution": "-0.027416816967218031",
+          "v_dK_contribution": "4.4010359387035147e-06",
+          "LD_total": "-0.027412415931279327",
+          "dvK_abs_sum": "0.027416816967218025",
+          "v_dK_abs_sum": "4.4010359387110372e-06",
+          "term_abs_sum": "0.027421218003156736",
+          "radial_cancel_dvK": "0.99999999999999978",
+          "radial_cancel_v_dK": "1.0000000000017093",
+          "term_cancel_after_radial": "1.0003210979980559",
+          "max_pointwise_residual": "5.3290705182007514e-15",
+          "dvK_v_dK_cancellation_after_radial": 1.000321097998056
+        },
+        {
+          "row": "100",
+          "case": "rand035",
+          "u": "0.5",
+          "parameter": "Y",
+          "cell": "3",
+          "k_nodes": "255",
+          "accepted_K_nodes": "255",
+          "rejected_K_nodes": "0",
+          "sample_rejected_nodes": "0",
+          "source_invalid_nodes": "0",
+          "uniform_contribution": "11.363755905479822",
+          "dvK_contribution": "7.1791318861328328",
+          "v_dK_contribution": "-0.081018692032740647",
+          "LD_total": "7.0981131941000921",
+          "dvK_abs_sum": "21.159197943435238",
+          "v_dK_abs_sum": "1.0379642140274339",
+          "term_abs_sum": "22.197162157462671",
+          "radial_cancel_dvK": "2.9473198541325329",
+          "radial_cancel_v_dK": "12.811416575424099",
+          "term_cancel_after_radial": "1.0228282333113772",
+          "max_pointwise_residual": "1.0658141036401503e-14",
+          "dvK_v_dK_cancellation_after_radial": 1.0228282333113772
+        },
+        {
+          "row": "100",
+          "case": "rand035",
+          "u": "0.5",
+          "parameter": "Y",
+          "cell": "8",
+          "k_nodes": "255",
+          "accepted_K_nodes": "255",
+          "rejected_K_nodes": "0",
+          "sample_rejected_nodes": "0",
+          "source_invalid_nodes": "0",
+          "uniform_contribution": "10.803061723894169",
+          "dvK_contribution": "29.558757687452516",
+          "v_dK_contribution": "-22.488057195936985",
+          "LD_total": "7.0707004915155318",
+          "dvK_abs_sum": "42.758073891367069",
+          "v_dK_abs_sum": "22.488057195936982",
+          "term_abs_sum": "65.24613108730405",
+          "radial_cancel_dvK": "1.4465450254534062",
+          "radial_cancel_v_dK": "0.99999999999999989",
+          "term_cancel_after_radial": "7.3609135255895701",
+          "max_pointwise_residual": "1.0658141036401503e-14",
+          "dvK_v_dK_cancellation_after_radial": 7.36091352558957
+        },
+        {
+          "row": "100",
+          "case": "rand035",
+          "u": "0.5",
+          "parameter": "Y",
+          "cell": "11",
+          "k_nodes": "255",
+          "accepted_K_nodes": "0",
+          "rejected_K_nodes": "207",
+          "sample_rejected_nodes": "0",
+          "source_invalid_nodes": "48",
+          "uniform_contribution": "3.4019439208802117e-19",
+          "dvK_contribution": "0",
+          "v_dK_contribution": "0",
+          "LD_total": "0",
+          "dvK_abs_sum": "0",
+          "v_dK_abs_sum": "0",
+          "term_abs_sum": "0",
+          "radial_cancel_dvK": "inf",
+          "radial_cancel_v_dK": "inf",
+          "term_cancel_after_radial": "inf",
+          "max_pointwise_residual": "0",
+          "dvK_v_dK_cancellation_after_radial": null
+        }
+      ]
+    }
+  ],
+  "interpretation": {
+    "caustic_cross": "The Q8 production derivative agrees with independent QF fixed-R derivatives on the exact same radial nodes (whole difference about 1.6e-8), so the 0.1762 whole discrepancy is not a local derivative evaluation error. It is concentrated in cells 5/7: production is low by 0.0917 in cell 5 and high by 0.2679 in cell 7. QF audit proves both chart_p4 radii are ordinary theta=pi tangencies (phi=0, phi_theta=0, nonzero phi_R and phi_thetatheta), while Phase72 cell plans have no fold map on cell 5's left endpoint and only the other endpoint map on cell 7. The classifier reports coincident chart_p4 and physical_complex events; its finite-t stationary-root path does not provide the projective t=infinity fold endpoint to the adaptive fold-map gate. Forcing the endpoint map only in the independent radial diagnostic changes the unregularized N=256 result from -2.27643 to -2.40468919, consistent with independent whole FD -2.40468916. This refines Phase72: moving-map cancellation was locally correct, but the particular two dominant projective folds were not mapped. Caustic cell contributions also cancel strongly across cells (sum absolute / net about 55.6); the two arcs in cell 7 have the same sign, so inter-arc cancellation there is not the cause.",
+    "rand035": "On the exact same nodes, production and independent QF fixed-R derivatives agree closely (whole valid-only differences are about 3e-9 to 1e-8). The production-vs-FD mismatch is concentrated in radial integration, especially cell 3, whose independent direct-QF GL values are stable across 112x8, 128x16, and 160x32. Cell 3 is about 105% of the signed net production-minus-selected-QF-radial-reference cell difference (smaller opposite-sign cell errors offset it), about 91.1% of summed absolute cellwise discrepancies, and about 98.5% of the production-minus-FD whole mismatch. These ratios have different denominators; the FD-vs-QF reference discrepancy is about 1e-8 to 4e-8. Cross-cell cancellation is modest (absolute cell sum / net about 1.03-1.05). For u=0.5, dvK+v*dK has strong cell-local cancellation after radial integration in X cells 3/8 (ratios 6.71/14.44) and Y cell 8 (7.36); however, the pointwise sum matches the production K derivative to <=1.1e-14. This indicates conditioning, not a demonstrated algebra error. Cell 11 is not production-complete.",
+    "cell11": "The production audit remains incomplete at the 4.18e-10-wide cell 11: 48/255 source nodes are invalid and 207 of the remainder reject the K rule. The independent fixed-R reference finds an O(1e-17) contribution, which is numerically tiny here but does not retroactively certify production completeness."
+  },
+  "files": [
+    "cell_ranking.tsv",
+    "endpoint_audit.tsv",
+    "same_node_nodes.tsv",
+    "same_node_cells.tsv",
+    "same_node_arcs.tsv",
+    "ld_nodes.tsv",
+    "ld_cells.tsv",
+    "caustic_unregularized_direct.tsv",
+    "caustic_fold_map_diagnostic.tsv",
+    "rand_direct.tsv",
+    "rand_cell2_direct_high.tsv",
+    "rand_cell3_direct_high.tsv",
+    "rand_cell8_direct_high.tsv"
+  ]
+}

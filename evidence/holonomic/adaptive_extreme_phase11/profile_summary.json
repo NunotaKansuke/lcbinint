@@ -1,0 +1,33 @@
+{
+  "rows": 7216,
+  "mu_max_absolute_difference": 2.816022970364429e-10,
+  "coverage_baseline": 7216,
+  "coverage_candidate": 7216,
+  "node_mismatches": 0,
+  "profile_medians": {
+    "whole": {
+      "baseline": 0.592843,
+      "candidate": 0.5646484999999999
+    },
+    "presearch": {
+      "baseline": 0.20956249999999998,
+      "candidate": 0.18434749999999994
+    },
+    "real": {
+      "baseline": 0.02337349999999995,
+      "candidate": 0.0234925
+    },
+    "qf": {
+      "baseline": 0.0,
+      "candidate": 0.0
+    },
+    "physics": {
+      "baseline": 0.11014999999999994,
+      "candidate": 0.1106105
+    },
+    "residual": {
+      "baseline": 0.0293899999999999,
+      "candidate": 0.02937949999999995
+    }
+  }
+}

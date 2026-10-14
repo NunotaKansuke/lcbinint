@@ -1,0 +1,22 @@
+{
+  "before": {
+    "uniform": {
+      "cold": 6.0,
+      "warm": 18.0
+    },
+    "linear": {
+      "cold": 9.0,
+      "warm": 41.0
+    }
+  },
+  "after": {
+    "uniform": {
+      "cold": 1.0,
+      "warm": 21.0
+    },
+    "linear": {
+      "cold": 9.0,
+      "warm": 41.0
+    }
+  }
+}

@@ -1,0 +1,15 @@
+-- Python extension disabled
+-- Configuring done (0.0s)
+CMake Warning at CMakeLists.txt:122 (add_executable):
+  Cannot generate a safe runtime search path for target benchmark_point_hex
+  because files in some directories may conflict with libraries in implicit
+  directories:
+
+    runtime library [libgomp.so.1] in /usr/lib/gcc/x86_64-redhat-linux/11 may be hidden by files in:
+      /home/nunota/.miniconda3/envs/myenv/lib
+
+  Some of these libraries may not be found correctly.
+
+
+-- Generating done (0.0s)
+-- Build files have been written to: /rogue1_8/nunota/lcbinint/experiments/seeded-boundary-events/build-standard-current

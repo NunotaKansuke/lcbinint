@@ -1,0 +1,10 @@
+{
+  "evidence/holonomic/v2_adaptive_best_trajectory_20260913/input_snapshot.tsv": "6646492658ed416e75cb8c6c821ee853f79cdf7761fc41441186aa67b81fa05b",
+  "evidence/holonomic/v2_vbm_pure_kernel_20260911/input_snapshot.tsv": "6646492658ed416e75cb8c6c821ee853f79cdf7761fc41441186aa67b81fa05b",
+  "evidence/holonomic/adaptive_estimator_phase10_20260913/runner_hybrid.cpp": "204b7edd39ae6f536941f5d87331dd6adbda1011f985f6a29ef89554da4ac1b2",
+  "/tmp/p64_final_whole": "3b1f19b8f2bc1fd7a4233c057bec3ca5dad98f2d24108e9cb62752f8abd4a9c7",
+  "/rogue1_8/nunota/lcbinint/evidence/holonomic/phase64_final_benchmark/results.tsv": "aa95ca4de3fee37ce3cabd0ebee2b95c115233ecade0413fe238b703f45bb0ef",
+  "/tmp/lcbinint_pure_kernel_confirm_full_20260909/merged_final/results.json": "7233f909e2539dd5331acc5d412efc94a04238f5c9f3dbc7c031c88a5ade6027",
+  "head": "4e23537b8e706f61edfbad9da06956b1540679d8",
+  "compiler": "c++ (GCC) 11.5.0 20240719 (Red Hat 11.5.0-5)"
+}

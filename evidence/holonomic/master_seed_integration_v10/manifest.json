@@ -1,0 +1,10 @@
+{
+  "source_hashes": {
+    "src/lcbinint/magnification/holonomic/adaptive_radial.hpp": "319cec47ac95fcbff6a0b3977643d9223df6e79d1a7baa33bee107e597c3763e",
+    "src/lcbinint/magnification/holonomic/radius_terms.hpp": "066ad17012063b60f633c785b722d57383b8d1d857de23b9c08c1a0475cd32f6"
+  },
+  "threads": 1,
+  "reps_normal": 5,
+  "reps_holdout": 3,
+  "reference": "existing D14 tolerance-matched path; not independent truth"
+}

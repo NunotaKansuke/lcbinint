@@ -1,0 +1,564 @@
+{
+  "raw": {
+    "rows": 72,
+    "value_converged": 72,
+    "tolerance_met": 0,
+    "invalid": 0,
+    "selected_64_round_1percent": [
+      {
+        "name": "caustic-cross",
+        "u": 0.0,
+        "max_level": 4,
+        "nodes": 529,
+        "grad": -2.4025688990349927,
+        "absolute_error": 0.0021195209085753675,
+        "relative_error": 0.0008814118665008198,
+        "error": 0.740866633877894,
+        "quality": 2
+      },
+      {
+        "name": "caustic-cross",
+        "u": 0.0,
+        "max_level": 5,
+        "nodes": 721,
+        "grad": -2.5967801017815,
+        "absolute_error": 0.1920916818379319,
+        "relative_error": 0.07988215032134592,
+        "error": 1.3316951648673696,
+        "quality": 2
+      },
+      {
+        "name": "caustic-cross",
+        "u": 0.0,
+        "max_level": 6,
+        "nodes": 1010,
+        "grad": -2.4294366075845746,
+        "absolute_error": 0.024748187641006503,
+        "relative_error": 0.010291640046067706,
+        "error": 1.4340990852424498,
+        "quality": 2
+      },
+      {
+        "name": "caustic-cross",
+        "u": 0.0,
+        "max_level": 8,
+        "nodes": 2650,
+        "grad": -2.417061492648955,
+        "absolute_error": 0.01237307270538679,
+        "relative_error": 0.005145395387930198,
+        "error": 1.40319034374008,
+        "quality": 2
+      },
+      {
+        "name": "caustic-cross",
+        "u": 0.5,
+        "max_level": 4,
+        "nodes": 581,
+        "grad": 77.57757476048161,
+        "absolute_error": 0.12448023581065115,
+        "relative_error": 0.001607169301298875,
+        "error": 8.127141001046873,
+        "quality": 2
+      },
+      {
+        "name": "caustic-cross",
+        "u": 0.5,
+        "max_level": 5,
+        "nodes": 738,
+        "grad": 77.4142775196133,
+        "absolute_error": 0.038817005057666165,
+        "relative_error": 0.0005011679042120373,
+        "error": 10.561548598615063,
+        "quality": 2
+      },
+      {
+        "name": "caustic-cross",
+        "u": 0.5,
+        "max_level": 6,
+        "nodes": 1011,
+        "grad": 77.66395884938595,
+        "absolute_error": 0.21086432471498995,
+        "relative_error": 0.0027224777267979114,
+        "error": 15.597694251855344,
+        "quality": 2
+      },
+      {
+        "name": "caustic-cross",
+        "u": 0.5,
+        "max_level": 8,
+        "nodes": 2651,
+        "grad": 77.73421255098614,
+        "absolute_error": 0.281118026315184,
+        "relative_error": 0.003629526076916657,
+        "error": 15.383128953052578,
+        "quality": 2
+      },
+      {
+        "name": "rand030",
+        "u": 0.0,
+        "max_level": 4,
+        "nodes": 495,
+        "grad": 0.0129986869043449,
+        "absolute_error": 2.8810850599345073e-08,
+        "relative_error": 2.2164480665711655e-06,
+        "error": 0.0011304887026877,
+        "quality": 2
+      },
+      {
+        "name": "rand030",
+        "u": 0.0,
+        "max_level": 5,
+        "nodes": 445,
+        "grad": 0.0129986902380528,
+        "absolute_error": 3.214455849935571e-08,
+        "relative_error": 2.4729136090935224e-06,
+        "error": 0.0008979493992496,
+        "quality": 2
+      },
+      {
+        "name": "rand030",
+        "u": 0.0,
+        "max_level": 6,
+        "nodes": 421,
+        "grad": 0.0129986901994562,
+        "absolute_error": 3.210596189948123e-08,
+        "relative_error": 2.469944333373146e-06,
+        "error": 0.0007127479890535,
+        "quality": 2
+      },
+      {
+        "name": "rand030",
+        "u": 0.0,
+        "max_level": 8,
+        "nodes": 203,
+        "grad": 0.0129986901930755,
+        "absolute_error": 3.209958119969325e-08,
+        "relative_error": 2.4694534596427897e-06,
+        "error": 0.0004570955709956,
+        "quality": 2
+      }
+    ]
+  },
+  "gradient_only": {
+    "rows": 72,
+    "value_converged": 72,
+    "tolerance_met": 0,
+    "invalid": 0,
+    "selected_64_round_1percent": [
+      {
+        "name": "caustic-cross",
+        "u": 0.0,
+        "max_level": 4,
+        "nodes": 577,
+        "grad": -2.402568899035352,
+        "absolute_error": 0.0021195209082160993,
+        "relative_error": 0.0008814118663514165,
+        "error": 0.7408666338798364,
+        "quality": 2
+      },
+      {
+        "name": "caustic-cross",
+        "u": 0.0,
+        "max_level": 5,
+        "nodes": 715,
+        "grad": -2.228877834623212,
+        "absolute_error": 0.17581058532035598,
+        "relative_error": 0.0731115864584576,
+        "error": 1.4901896355000717,
+        "quality": 2
+      },
+      {
+        "name": "caustic-cross",
+        "u": 0.0,
+        "max_level": 6,
+        "nodes": 1010,
+        "grad": -2.4294366075845746,
+        "absolute_error": 0.024748187641006503,
+        "relative_error": 0.010291640046067706,
+        "error": 1.4340990852424498,
+        "quality": 2
+      },
+      {
+        "name": "caustic-cross",
+        "u": 0.0,
+        "max_level": 8,
+        "nodes": 2650,
+        "grad": -2.417061492648955,
+        "absolute_error": 0.01237307270538679,
+        "relative_error": 0.005145395387930198,
+        "error": 1.40319034374008,
+        "quality": 2
+      },
+      {
+        "name": "caustic-cross",
+        "u": 0.5,
+        "max_level": 4,
+        "nodes": 577,
+        "grad": 77.83694789936848,
+        "absolute_error": 0.383853374697523,
+        "relative_error": 0.004955946267263151,
+        "error": 11.726800049873454,
+        "quality": 2
+      },
+      {
+        "name": "caustic-cross",
+        "u": 0.5,
+        "max_level": 5,
+        "nodes": 725,
+        "grad": 77.58727061654515,
+        "absolute_error": 0.13417609187419544,
+        "relative_error": 0.0017323528865777807,
+        "error": 11.507669802234751,
+        "quality": 2
+      },
+      {
+        "name": "caustic-cross",
+        "u": 0.5,
+        "max_level": 6,
+        "nodes": 1011,
+        "grad": 77.66395884938595,
+        "absolute_error": 0.21086432471498995,
+        "relative_error": 0.0027224777267979114,
+        "error": 15.597694251855344,
+        "quality": 2
+      },
+      {
+        "name": "caustic-cross",
+        "u": 0.5,
+        "max_level": 8,
+        "nodes": 2651,
+        "grad": 77.73421255098614,
+        "absolute_error": 0.281118026315184,
+        "relative_error": 0.003629526076916657,
+        "error": 15.383128953052578,
+        "quality": 2
+      },
+      {
+        "name": "rand030",
+        "u": 0.0,
+        "max_level": 4,
+        "nodes": 511,
+        "grad": 0.0129986869043449,
+        "absolute_error": 2.8810850599345073e-08,
+        "relative_error": 2.2164480665711655e-06,
+        "error": 0.0011304887026877,
+        "quality": 2
+      },
+      {
+        "name": "rand030",
+        "u": 0.0,
+        "max_level": 5,
+        "nodes": 445,
+        "grad": 0.0129986902380528,
+        "absolute_error": 3.214455849935571e-08,
+        "relative_error": 2.4729136090935224e-06,
+        "error": 0.0008979493992496,
+        "quality": 2
+      },
+      {
+        "name": "rand030",
+        "u": 0.0,
+        "max_level": 6,
+        "nodes": 421,
+        "grad": 0.0129986901994562,
+        "absolute_error": 3.210596189948123e-08,
+        "relative_error": 2.469944333373146e-06,
+        "error": 0.0007127479890535,
+        "quality": 2
+      },
+      {
+        "name": "rand030",
+        "u": 0.0,
+        "max_level": 8,
+        "nodes": 203,
+        "grad": 0.0129986901930755,
+        "absolute_error": 3.209958119969325e-08,
+        "relative_error": 2.4694534596427897e-06,
+        "error": 0.0004570955709956,
+        "quality": 2
+      }
+    ]
+  },
+  "frozen_priority": {
+    "rows": 72,
+    "value_converged": 72,
+    "tolerance_met": 0,
+    "invalid": 0,
+    "selected_64_round_1percent": [
+      {
+        "name": "caustic-cross",
+        "u": 0.0,
+        "max_level": 4,
+        "nodes": 577,
+        "grad": -2.402568899035352,
+        "absolute_error": 0.0021195209082160993,
+        "relative_error": 0.0008814118663514165,
+        "error": 0.7408666338798364,
+        "quality": 2
+      },
+      {
+        "name": "caustic-cross",
+        "u": 0.0,
+        "max_level": 5,
+        "nodes": 715,
+        "grad": -2.228877834623212,
+        "absolute_error": 0.17581058532035598,
+        "relative_error": 0.0731115864584576,
+        "error": 1.4901896355000717,
+        "quality": 2
+      },
+      {
+        "name": "caustic-cross",
+        "u": 0.0,
+        "max_level": 6,
+        "nodes": 1010,
+        "grad": -2.4294366075845746,
+        "absolute_error": 0.024748187641006503,
+        "relative_error": 0.010291640046067706,
+        "error": 1.4340990852424498,
+        "quality": 2
+      },
+      {
+        "name": "caustic-cross",
+        "u": 0.0,
+        "max_level": 8,
+        "nodes": 2650,
+        "grad": -2.417061492648955,
+        "absolute_error": 0.01237307270538679,
+        "relative_error": 0.005145395387930198,
+        "error": 1.40319034374008,
+        "quality": 2
+      },
+      {
+        "name": "caustic-cross",
+        "u": 0.5,
+        "max_level": 4,
+        "nodes": 577,
+        "grad": 77.83694789936848,
+        "absolute_error": 0.383853374697523,
+        "relative_error": 0.004955946267263151,
+        "error": 11.726800049873454,
+        "quality": 2
+      },
+      {
+        "name": "caustic-cross",
+        "u": 0.5,
+        "max_level": 5,
+        "nodes": 725,
+        "grad": 77.58727061654515,
+        "absolute_error": 0.13417609187419544,
+        "relative_error": 0.0017323528865777807,
+        "error": 11.507669802234751,
+        "quality": 2
+      },
+      {
+        "name": "caustic-cross",
+        "u": 0.5,
+        "max_level": 6,
+        "nodes": 1011,
+        "grad": 77.66395884938595,
+        "absolute_error": 0.21086432471498995,
+        "relative_error": 0.0027224777267979114,
+        "error": 15.597694251855344,
+        "quality": 2
+      },
+      {
+        "name": "caustic-cross",
+        "u": 0.5,
+        "max_level": 8,
+        "nodes": 2651,
+        "grad": 77.73421255098614,
+        "absolute_error": 0.281118026315184,
+        "relative_error": 0.003629526076916657,
+        "error": 15.383128953052578,
+        "quality": 2
+      },
+      {
+        "name": "rand030",
+        "u": 0.0,
+        "max_level": 4,
+        "nodes": 511,
+        "grad": 0.0129986869043449,
+        "absolute_error": 2.8810850599345073e-08,
+        "relative_error": 2.2164480665711655e-06,
+        "error": 0.0011304887026877,
+        "quality": 2
+      },
+      {
+        "name": "rand030",
+        "u": 0.0,
+        "max_level": 5,
+        "nodes": 445,
+        "grad": 0.0129986902380528,
+        "absolute_error": 3.214455849935571e-08,
+        "relative_error": 2.4729136090935224e-06,
+        "error": 0.0008979493992496,
+        "quality": 2
+      },
+      {
+        "name": "rand030",
+        "u": 0.0,
+        "max_level": 6,
+        "nodes": 421,
+        "grad": 0.0129986901994562,
+        "absolute_error": 3.210596189948123e-08,
+        "relative_error": 2.469944333373146e-06,
+        "error": 0.0007127479890535,
+        "quality": 2
+      },
+      {
+        "name": "rand030",
+        "u": 0.0,
+        "max_level": 8,
+        "nodes": 203,
+        "grad": 0.0129986901930755,
+        "absolute_error": 3.209958119969325e-08,
+        "relative_error": 2.4694534596427897e-06,
+        "error": 0.0004570955709956,
+        "quality": 2
+      }
+    ]
+  },
+  "hybrid_gradient": {
+    "rows": 72,
+    "value_converged": 72,
+    "tolerance_met": 0,
+    "invalid": 0,
+    "selected_64_round_1percent": [
+      {
+        "name": "caustic-cross",
+        "u": 0.0,
+        "max_level": 4,
+        "nodes": 569,
+        "grad": -2.4025597533531284,
+        "absolute_error": 0.002128666590439643,
+        "relative_error": 0.0008852151375559904,
+        "error": 0.4222359324210449,
+        "quality": 2
+      },
+      {
+        "name": "caustic-cross",
+        "u": 0.0,
+        "max_level": 5,
+        "nodes": 715,
+        "grad": -2.36248498083694,
+        "absolute_error": 0.04220343910662816,
+        "relative_error": 0.01755048128339994,
+        "error": 0.6085065157984298,
+        "quality": 2
+      },
+      {
+        "name": "caustic-cross",
+        "u": 0.0,
+        "max_level": 6,
+        "nodes": 1009,
+        "grad": -2.85582520873722,
+        "absolute_error": 0.4511367887936517,
+        "relative_error": 0.18760716983210604,
+        "error": 1.3177083240008802,
+        "quality": 2
+      },
+      {
+        "name": "caustic-cross",
+        "u": 0.0,
+        "max_level": 8,
+        "nodes": 2650,
+        "grad": -2.417061492648955,
+        "absolute_error": 0.01237307270538679,
+        "relative_error": 0.005145395387930198,
+        "error": 0.1871681224311153,
+        "quality": 2
+      },
+      {
+        "name": "caustic-cross",
+        "u": 0.5,
+        "max_level": 4,
+        "nodes": 577,
+        "grad": 77.90896138957149,
+        "absolute_error": 0.4558668649005284,
+        "relative_error": 0.005885715318389534,
+        "error": 4.418652081906288,
+        "quality": 2
+      },
+      {
+        "name": "caustic-cross",
+        "u": 0.5,
+        "max_level": 5,
+        "nodes": 725,
+        "grad": 77.58727061654515,
+        "absolute_error": 0.13417609187419544,
+        "relative_error": 0.0017323528865777807,
+        "error": 3.422555979659669,
+        "quality": 2
+      },
+      {
+        "name": "caustic-cross",
+        "u": 0.5,
+        "max_level": 6,
+        "nodes": 995,
+        "grad": 77.83231590724182,
+        "absolute_error": 0.37922138257086146,
+        "relative_error": 0.0048961424317277465,
+        "error": 3.9073785397921097,
+        "quality": 2
+      },
+      {
+        "name": "caustic-cross",
+        "u": 0.5,
+        "max_level": 8,
+        "nodes": 2507,
+        "grad": 78.07539196366606,
+        "absolute_error": 0.6222974389951048,
+        "relative_error": 0.008034507114456038,
+        "error": 2.9242829741497287,
+        "quality": 2
+      },
+      {
+        "name": "rand030",
+        "u": 0.0,
+        "max_level": 4,
+        "nodes": 511,
+        "grad": 0.0129986869043449,
+        "absolute_error": 2.8810850599345073e-08,
+        "relative_error": 2.2164480665711655e-06,
+        "error": 0.0004972662858044,
+        "quality": 2
+      },
+      {
+        "name": "rand030",
+        "u": 0.0,
+        "max_level": 5,
+        "nodes": 445,
+        "grad": 0.0129986902380528,
+        "absolute_error": 3.214455849935571e-08,
+        "relative_error": 2.4729136090935224e-06,
+        "error": 0.0004682041994257,
+        "quality": 2
+      },
+      {
+        "name": "rand030",
+        "u": 0.0,
+        "max_level": 6,
+        "nodes": 421,
+        "grad": 0.0129986901994562,
+        "absolute_error": 3.210596189948123e-08,
+        "relative_error": 2.469944333373146e-06,
+        "error": 0.0004450540272192,
+        "quality": 2
+      },
+      {
+        "name": "rand030",
+        "u": 0.0,
+        "max_level": 8,
+        "nodes": 203,
+        "grad": 0.0129986901930755,
+        "absolute_error": 3.209958119969325e-08,
+        "relative_error": 2.4694534596427897e-06,
+        "error": 0.0004130974704157,
+        "quality": 2
+      }
+    ]
+  },
+  "reference_provenance": "Phase66 independent GL128/256 direct-angular value finite differences with h-halving; selected component only, not a five-Jacobian certificate.",
+  "base_commit": "e941b91"
+}

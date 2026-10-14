@@ -1,0 +1,10 @@
+{
+  "date": "2026-10-13",
+  "host": "rogue1",
+  "machine": "x86_64",
+  "branch": "experiment/seeded-boundary-events",
+  "head": "f3547723b79828d9c501182746028e99f7bad116",
+  "compiler": "g++ (GCC) 11.5.0 20240719 (Red Hat 11.5.0-5)",
+  "timing": "one thread; fresh seed; caustic construction excluded; 5 repetitions; both orders",
+  "working_tree": "dirty prior research preserved; uncommitted sources included in hashes"
+}

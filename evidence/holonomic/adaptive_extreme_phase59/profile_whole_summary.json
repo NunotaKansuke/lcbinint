@@ -1,0 +1,22 @@
+{
+  "0.0001/linear": {
+    "warm_baseline_p50_ms": 0.35489149999999997,
+    "warm_candidate_p50_ms": 0.34019699999999997,
+    "paired_warm_speedup_median": 1.031019547739532
+  },
+  "0.0001/uniform": {
+    "warm_baseline_p50_ms": 0.298569,
+    "warm_candidate_p50_ms": 0.2833405,
+    "paired_warm_speedup_median": 1.0327661673144113
+  },
+  "0.001/linear": {
+    "warm_baseline_p50_ms": 0.3046525,
+    "warm_candidate_p50_ms": 0.2944754999999999,
+    "paired_warm_speedup_median": 1.026971791216427
+  },
+  "0.001/uniform": {
+    "warm_baseline_p50_ms": 0.2546045,
+    "warm_candidate_p50_ms": 0.243821,
+    "paired_warm_speedup_median": 1.027156740103983
+  }
+}

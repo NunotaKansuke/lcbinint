@@ -1,0 +1,229 @@
+{
+  "schema": 1,
+  "base_commit": "64a291a7cccc2d0793cb8ddbf7e0ba86a3bb3092",
+  "candidate": "research-only one-step pair viability probe; production route unchanged",
+  "pair_probe": {
+    "attempts": 24,
+    "v2_accepted": 2,
+    "probe_viable": 2,
+    "probe_accepted": 2,
+    "finite_accepted_probe_steps": 17,
+    "accepted_overlap": 2,
+    "false_positive_probes": 0,
+    "false_negative_probes": 0,
+    "v2_pair_iterations": 59,
+    "probe_pair_iterations": 18,
+    "v2_backtracks": 201,
+    "probe_backtracks": 23,
+    "v2_global_verifier_sweeps": 4,
+    "probe_global_verifier_sweeps": 2,
+    "reject_reasons": {
+      "no-residual-decrease-within-3-backtracks": 7,
+      "pair-external-correction-above-1e-20": 5,
+      "residual-not-halved": 7,
+      "passed": 2,
+      "post-probe-global-correction-above-1e-20": 3
+    },
+    "gate": {
+      "max_first_probe_backtracks": 3,
+      "accepted_pair_residual_ratio_at_most": 0.5,
+      "outer_step_threshold": 1e-20,
+      "driver_stable_rule": "if pair remains the driver, all 12 outside roots must have max correction <= 1e-20; if the driver pair changes, the full post-probe maximum correction must be <= 1e-20",
+      "certificate_note": "A viable probe is only permission to continue or perform the unchanged global verifier; it is never a root-set certificate."
+    }
+  },
+  "rootwork": {
+    "rows": 32,
+    "topology_certificate_mismatches": 0,
+    "no_pair_qf_cold_calls": 24,
+    "v2_qf_cold_calls": 22,
+    "probe_qf_cold_calls": 22,
+    "qf_cold_avoided_against_no_pair": [
+      {
+        "case_id": "149",
+        "configuration_id": "149",
+        "profile": "uniform",
+        "d_bin_index": "1",
+        "epoch_index": "15",
+        "rep": "0",
+        "lane": "warm"
+      },
+      {
+        "case_id": "9",
+        "configuration_id": "9",
+        "profile": "uniform",
+        "d_bin_index": "2",
+        "epoch_index": "7",
+        "rep": "0",
+        "lane": "warm"
+      }
+    ],
+    "accepted_rootset_checks": [
+      {
+        "case_id": "149",
+        "configuration_id": "149",
+        "profile": "uniform",
+        "d_bin_index": "1",
+        "epoch_index": "15",
+        "rep": "0",
+        "lane": "warm",
+        "count_match": true,
+        "max_abs_root_delta": 1.2042572040036374e-16,
+        "max_scaled_root_delta": 1.2042572040036374e-16,
+        "role_mismatches": 0,
+        "base_completeness_fails": "0",
+        "probe_completeness_fails": "0",
+        "base_root_count_bad": "0",
+        "probe_root_count_bad": "0",
+        "base_conjugacy_bad": "0",
+        "probe_conjugacy_bad": "0",
+        "base_vieta_bad": "0",
+        "probe_vieta_bad": "0"
+      },
+      {
+        "case_id": "9",
+        "configuration_id": "9",
+        "profile": "uniform",
+        "d_bin_index": "2",
+        "epoch_index": "7",
+        "rep": "0",
+        "lane": "warm",
+        "count_match": true,
+        "max_abs_root_delta": 5.717540156602308e-16,
+        "max_scaled_root_delta": 5.717540156602308e-16,
+        "role_mismatches": 0,
+        "base_completeness_fails": "0",
+        "probe_completeness_fails": "0",
+        "base_root_count_bad": "0",
+        "probe_root_count_bad": "0",
+        "base_conjugacy_bad": "0",
+        "probe_conjugacy_bad": "0",
+        "base_vieta_bad": "0",
+        "probe_vieta_bad": "0"
+      }
+    ]
+  },
+  "whole_epoch": {
+    "lanes": {
+      "cold": {
+        "rows": 16,
+        "v2_ms_percentiles": {
+          "0.5": 2.3518522500000003,
+          "0.9": 55.70966675,
+          "0.95": 56.65832175,
+          "0.99": 56.71929555,
+          "1.0": 56.734539
+        },
+        "probe_ms_percentiles": {
+          "0.5": 2.366061,
+          "0.9": 55.5376035,
+          "0.95": 56.469529,
+          "0.99": 56.5550458,
+          "1.0": 56.576425
+        },
+        "v2_sum_ms": 344.002868,
+        "probe_sum_ms": 343.13129850000007,
+        "sum_delta_ms": -0.8715694999999073
+      },
+      "warm": {
+        "rows": 16,
+        "v2_ms_percentiles": {
+          "0.5": 4.755463499999999,
+          "0.9": 55.4134465,
+          "0.95": 56.392489874999995,
+          "0.99": 56.534427975,
+          "1.0": 56.5699125
+        },
+        "probe_ms_percentiles": {
+          "0.5": 4.89000575,
+          "0.9": 55.24890524999999,
+          "0.95": 56.270593125,
+          "0.99": 56.365049025000005,
+          "1.0": 56.388663
+        },
+        "v2_sum_ms": 353.21435750000006,
+        "probe_sum_ms": 352.631254,
+        "sum_delta_ms": -0.5831035000000497
+      },
+      "radial": {
+        "rows": 16,
+        "v2_ms_percentiles": {
+          "0.5": 0.2886705,
+          "0.9": 0.43787075,
+          "0.95": 0.513238,
+          "0.99": 0.6108123999999999,
+          "1.0": 0.6352059999999999
+        },
+        "probe_ms_percentiles": {
+          "0.5": 0.29461525,
+          "0.9": 0.43936549999999996,
+          "0.95": 0.5155965,
+          "0.99": 0.6113865,
+          "1.0": 0.6353340000000001
+        },
+        "v2_sum_ms": 5.207413,
+        "probe_sum_ms": 5.2688475,
+        "sum_delta_ms": 0.061434499999999836
+      }
+    },
+    "parity": {
+      "cold": {
+        "checked_field_mismatches": 0,
+        "max_scaled_mu_delta": 0.0,
+        "max_abs_value_error_delta": 0.0
+      },
+      "warm": {
+        "checked_field_mismatches": 0,
+        "max_scaled_mu_delta": 0.0,
+        "max_abs_value_error_delta": 0.0
+      },
+      "radial": {
+        "checked_field_mismatches": 0,
+        "max_scaled_mu_delta": 0.0,
+        "max_abs_value_error_delta": 0.0
+      }
+    },
+    "status_and_convergence": {
+      "cold": {
+        "v2": {
+          "OK": 16
+        },
+        "probe": {
+          "OK": 16
+        },
+        "v2_value_converged": 16,
+        "probe_value_converged": 16
+      },
+      "warm": {
+        "v2": {
+          "OK": 16
+        },
+        "probe": {
+          "OK": 16
+        },
+        "v2_value_converged": 16,
+        "probe_value_converged": 16
+      },
+      "radial": {
+        "v2": {
+          "OK": 16
+        },
+        "probe": {
+          "OK": 16
+        },
+        "v2_value_converged": 16,
+        "probe_value_converged": 16
+      }
+    },
+    "input_trajectories": 2,
+    "epochs_per_trajectory": 4,
+    "targets": [
+      0.001,
+      0.0001
+    ],
+    "rows_per_lane": 16,
+    "repeat_policy": "Each process reports the median of 3 repeats per row; two process medians are combined by median.",
+    "scope_note": "Tail-selected value-only subset; full cold/warm include D14 and topology, radial-only reuses topology. Not a population-wide speed claim."
+  },
+  "precision_note": "All D14 pair equations and certificates use __float128, with the incumbent residual/completeness/topology gates unchanged."
+}

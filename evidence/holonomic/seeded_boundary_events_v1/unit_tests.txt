@@ -1,0 +1,9 @@
+test_holonomic_m7
+fixture: evidence/holonomic/m7_reference.tsv
+loaded 7 cases, 245 samples, 92 evs, 77 rts, 14 epochs
+
+10397 checks, 0 failures
+exit=0
+test_seeded_root_pair
+58 checks, 0 failures
+exit=0

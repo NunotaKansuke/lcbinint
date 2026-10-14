@@ -1,0 +1,13 @@
+date=2026-09-13
+host=rogue1
+cpu=Intel Xeon Gold 6530
+compiler=g++ GCC 11.5.0 20240719 (Red Hat 11.5.0-5)
+cpu_affinity=taskset -c 0
+input=evidence/holonomic/d14_overflow_whole_epoch_tail_20260912/input_snapshot.tsv
+input_sha256=6646492658ed416e75cb8c6c821ee853f79cdf7761fc41441186aa67b81fa05b
+compile_flags=-O3 -DNDEBUG -std=gnu++17 -DHOLO_D14_EVENT_CONTRACT_RESEARCH=1 -Isrc -march=native -funroll-loops -ffp-contract=fast -fno-math-errno -lquadmath
+baseline_env=HOLO_D14_LOCAL_PAIRS=1 HOLO_D14_ACTIVE_PRESEARCH=1 HOLO_D14_ACTIVE_TOL=1e-12 HOLO_D14_ACTIVE_PATIENCE=2
+candidate_env=baseline plus HOLO_D14_EVENT_CONTRACT_ACCEPT=1
+whole_rows=14432
+whole_repeats=3
+source_d14_rouche_sha256=2b774d8d657ffb7b3e06a01e5e265f0cb2d8da99d39df92c9d7f7471f6ec9d95

@@ -1,0 +1,7 @@
+FAIL all converged gradients stop at initial rule
+FAIL gradient convergence records first successful mesh
+FAIL interrupted split retains full domain coverage
+FAIL interrupted split retains full domain coverage
+FAIL budget interruption preserves complete primal and derivative
+FAIL budget interruption preserves complete primal and derivative
+FAIL interrupted split retains full domain coverage

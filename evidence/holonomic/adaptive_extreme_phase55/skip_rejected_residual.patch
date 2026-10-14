@@ -1,0 +1,28 @@
+diff --git a/src/lcbinint/magnification/holonomic/radial_events.hpp b/src/lcbinint/magnification/holonomic/radial_events.hpp
+index 20700ea..89c7b59 100644
+--- a/src/lcbinint/magnification/holonomic/radial_events.hpp
++++ b/src/lcbinint/magnification/holonomic/radial_events.hpp
+@@ -1725,12 +1725,23 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
+                         : -1.0;
+                 }
+             }
++#if defined(HOLO_D14_SKIP_REJECTED_RESIDUAL) && !defined(HOLO_D14_EVENT_CONTRACT_RESEARCH)
++            // Nonconvergence forces qf warm regardless of this residual.
++            // Candidate-capture research retains the incumbent observation.
++            if(!real.converged) {
++                out.worst_res=HUGE_VALQ;
++                out.worst_res_is_upper_bound=false;
++            } else {
++#endif
+ #if defined(HOLO_D14_NATIVE_RESIDUAL_SCREEN) && !defined(HOLO_D14_EVENT_CONTRACT_RESEARCH)
+             if(real.converged)
+                 out.worst_res=d14_screened_residual(desc,deg,out.roots,dscale,out.worst_res_is_upper_bound);
+             else
+ #endif
+             {out.worst_res = d14_worst_res(desc, deg, out.roots, dscale); out.worst_res_is_upper_bound=false;}
++#if defined(HOLO_D14_SKIP_REJECTED_RESIDUAL) && !defined(HOLO_D14_EVENT_CONTRACT_RESEARCH)
++            }
++#endif
+             out.tier = 0;
+             used_real = true;
+ #if defined(HOLO_D14_EVENT_CONTRACT_RESEARCH)

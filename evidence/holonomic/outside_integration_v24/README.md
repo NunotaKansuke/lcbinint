@@ -1,0 +1,9 @@
+# Whole-path diagnosis after v23
+
+Read-only diagnosis; no algorithm changes. Reanalyse accepted v23 matched data rather than claim new measurements.87 normal conditions, tol1e-4,5 repetitions, fresh magnifiers/geometry/workspaces, one thread. Means of per-condition medians; stage medians do not necessarily sum to whole median. See summary.json and original v23 artifacts for provenance.
+
+Dominant outside-integral stages: caustic construction/distance~1.366ms; master seed generation~0.101ms; radial support/event planning~0.110ms. Integration~0.222ms. Full time including caustic~1.8ms, whereas previously reported~0.437ms explicitly excludes it. Geometry reuse is not assumed. No matched Cartesian/D14 speedup is newly claimed.
+
+Source confirms master cached_binary_image_seeds unconditionally requests binary_caustic_branches. Removing the preliminary distance query merely moves construction into seed generation; it does not eliminate the cost. build_binary_critical_curves calls critical_curve_points_at_phase at each of1400 phases; roots are associated afterward. A candidate is within-construction predictor/corrector continuation with same phase nodes, residual/distinct-root gates and per-phase fallback. This needs independent branch/topology checks and speed measurement; no speedup is yet measured.
+
+If the real caller already supplies caustics for integrator routing, attribute the cost once to shared preparation. In that boundary, the next substantial target is0.110ms radial planning: about213 quartic count probes and109 retained seed radii. Seed radii already inside a found radial band still contribute count witnesses, used to find interior topology changes. Blindly dropping those probes would change the discovery contract. Decompose march/bisection, count certificates and local-fold solves before choosing a replacement. Root-center solve~0.00155ms is a poor target.

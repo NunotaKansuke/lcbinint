@@ -1,0 +1,11 @@
+Build: cmake --build build-holonomic-global -j2
+Relevant rebuild after final source adjustment:
+  cmake --build build-holonomic-global --target test_d14_positive test_d14_root_scheduling -j2
+Tests:
+  ctest --test-dir build-holonomic-global --output-on-failure -j2
+Result: 18/18 passed, 0 failed; total CTest time 8.62 s.
+
+The pair-probe-specific rootwork and whole-epoch binaries were separately
+compiled with HOLO_D14_QF_PAIR_POLISH_RESEARCH=1; the rootwork binary also
+used HOLO_D14_TRACE_QF_ITERATIONS=1. Both commands are recorded in
+run_commands.txt and their SHA256 values are in binary_hashes.txt.

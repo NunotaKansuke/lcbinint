@@ -1,0 +1,10 @@
+{
+  "uniform": {
+    "cold": 1.0,
+    "warm": 21.0
+  },
+  "linear": {
+    "cold": 1.0,
+    "warm": 53.0
+  }
+}

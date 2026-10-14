@@ -1,0 +1,32 @@
+--- evidence/holonomic/ld_split_radial_v43/source/adaptive_epoch_before.hpp	2026-10-14 03:00:17.530469753 +0900
++++ src/lcbinint/magnification/holonomic/adaptive_epoch.hpp	2026-10-14 03:01:54.451527742 +0900
+@@ -1871,6 +1871,9 @@
+     }
+     out.angular_nested_attempted=nested_angular_attempted;
+     out.value[0]=scale*((1-u)*f0+u*fh);
++    if(adaptive_cfg && adaptive_cfg->split_ld_radial) {
++        out.ld_radial_value=scale*u*fh;out.uniform_radial_value=scale*(1-u)*f0;
++    }
+     if(radial_hermite_requested) {
+         hermite_jet_out->elapsed_ms=radial_jet_elapsed;
+         if(radial_jet_ok) {
+@@ -2062,8 +2065,9 @@
+         bool weighted_candidate=cfg.weighted_radial_spans==nullptr;
+         if(cfg.weighted_radial_spans)for(const auto& interval:*cfg.weighted_radial_spans)
+             if(interval.first==c.r_lo && interval.second==c.r_hi)weighted_candidate=true;
+-        if(cfg.weighted_radial && u==0 && weighted_candidate && policy==GradientPolicy::None &&
++        if(cfg.weighted_radial && (u==0 || cfg.split_ld_radial) && weighted_candidate && policy==GradientPolicy::None &&
+            panel.map.left && panel.map.right && empty_left && empty_right) {
++            panel.split_ld=u!=0 && cfg.split_ld_radial;
+             panel.weighted=true;panel.map.left=panel.map.right=false;
+         }
+         bool reused=false;
+@@ -2078,7 +2082,7 @@
+             // can accidentally keep one half and discard the other.
+             if(ancestor.map.a!=panel.map.a || ancestor.map.b!=panel.map.b ||
+                ancestor.map.left!=panel.map.left || ancestor.map.right!=panel.map.right ||
+-               ancestor.weighted!=panel.weighted ||
++               ancestor.weighted!=panel.weighted || ancestor.split_ld!=panel.split_ld ||
+                ancestor.left_radius_lo!=panel.left_radius_lo ||
+                ancestor.right_radius_lo!=panel.right_radius_lo)continue;
+             old.cell=panel.cell;old.cell_end=panel.cell_end;old.evaluator_cell=panel.evaluator_cell;

@@ -1,0 +1,100 @@
+ATPT holonomic solver -- benchmark harness audit (2026-09-09)
+============================================================
+
+Trigger: user skepticism that "polar is too fast" -- recollection that the
+normal polar inverse-ray route used to be ~5x slower than the pre-optimization
+algebraic route, yet current E2E benches show holo COLD 1.8-2.9x SLOWER than
+"calibrated polar" (median t_polar/t_holo = 0.181x, checkpoint sec.32).
+
+Scope: bench_holonomic_3solver.cpp, bench_holonomic_trajectory.cpp,
+scratchpad/bench_holo_e2e2.py, scratchpad/bench_holo_traj.py, the method-3
+preplanned dispatch chain, _binary_resolution_hint /
+calibrated_binary_resolution, the thread_local FiniteSourceMagnifier pool.
+
+
+FINDING 1 -- the benched "polar" is the warmup one-shot, not the auto route
+--------------------------------------------------------------------------
+_evaluate_preplanned_xy(...,[3],[res]) -> magnification_source ->
+binary_mag_preplanned(inverse_ray_polar) -> fixed_inverse_ray_binary ->
+evaluate_polar_to_tolerance with automatic_source_bins=false,
+finite_source_tol=0, finite_source_reltol=0, source_bins=polar_source_bins=
+max_source_bins=<res>. With automatic=false AND no explicit tolerance,
+evaluate_polar_to_tolerance returns after ONE inverse_ray_polar_core call
+(fsm.cpp:2727-2730): no half-grid check, no retry, no regrid.
+
+This path never enters binary_mag()'s grazing/tangent gate -- the ~380 ms
+tensor GL chord quadrature commit d4fc7ee removed from the algebraic_backend
+auto route lives in binary_mag(), which binary_mag_preplanned does not call.
+The "5x slower polar" the user remembers is the AUTO route (adaptive ladder +
+safety eval + hex/point early-outs + grazing quadrature). The benched route is
+the post-warmup pre-calibrated single-shot fixed grid -- a different function.
+
+
+FINDING 2 -- polar resolution is pinned at 106 bins for the ENTIRE sweep
+----------------------------------------------------------------------
+res_polar = _binary_resolution_hint(3, mu_ps, 1e-4, 1e-3, 6000). In
+calibrated_binary_resolution, finite_mode=2:
+  relative: 105.29723705815378 * (1e-3/1e-3)^-0.5952070961585817 = 105.3 -> 106
+  absolute: 396.475 * (1e-4/1e-3)^-0.5337641762 * max(a,1)^0.2458 ~ 1356*a^0.246
+  required = min(...) = 106, magnification-INDEPENDENT.
+reltol 1e-3 == kEmpiricalResolutionBaselineTolerance, the loosest supported
+tolerance -> the coarsest grid the calibration ever emits, every case.
+bench_clean.txt: res_p = 106 for all 108 cases.
+Polar grid: dr = rho/106, phi_bins = ceil(2*pi*max_image_radius/(dr*4.0))
+(polar_grid_ratio 0 -> grid_ratio 4.0); ~2.1e4 angular for rho=8e-3. Boundary
+flood-fill so cost ~ mu, not radial*angular. Adequate for 1e-3: measured polar
+rel-err vs VBM median 6.0e-5, p90 3.0e-4, max 7.4e-4.
+
+
+FINDING 3 -- the comparison is not iso-accuracy
+----------------------------------------------
+  polar (106 bins): rel-err vs VBM median 6.0e-5  p90 3.0e-4  max 7.4e-4
+  holo  (n_r = 64) : rel-err vs VBM median 6.1e-7  p90 5.7e-5  max 1.4e-2*
+  (* 1 case, pre-existing tiny-rho caustic-straddle gap)
+Holo is ~100x more accurate on the median while being timed. Matched to holo's
+~6e-7 median, polar would need ~10^4 bins and be far slower. The bench measures
+"cheapest adequate polar for 1e-3" vs "holo at fixed n_r=64" -- correct for a
+1e-3 science requirement, NOT "polar beats holo" in general.
+
+
+FINDING 4 -- cross-rep cache asymmetry in bench_holo_e2e2 (NOT in _traj)
+--------------------------------------------------------------------
+lens_model.cpp:146 cached_finite_source_magnifier() keeps a thread_local pool
+(<=4) keyed by settings. Each _evaluate_preplanned_xy builds a fresh LensModel
+but reuses the same FiniteSourceMagnifier shared_ptr, so caustic_cache_
+(geometry-keyed, fsm.cpp:6791), the image-seed cache, and result_cache_ persist
+across calls. bench_holo_e2e2: REPS=25 at ONE position, median+min of 25 ->
+reps 2-25 see all three caches warm; holo reuse=False pays full D14 each rep.
+=> e2e2 over-credits polar steady state vs holo-cold.
+bench_holo_traj is clean: N=2600 distinct positions, position-keyed caches do
+not carry epoch->epoch; only caustic_cache_ carries (legitimate per-light-curve
+amortization). traj is the trustworthy E2E number: holo W (method 6 reuse=True)
+vs polar calibrated -> t_P/t_W ~ 0.98-0.99x, NO whole-trajectory speed win.
+
+
+FINDING 5 -- the C++ V0/V1/V2 benches are sound as RELATIVE measurements
+--------------------------------------------------------------------
+bench_holonomic_3solver / _trajectory never involve polar; they toggle
+holo_*_transport_override() in-process and time epoch_jacobian /
+flux_jacobian_integrate for V0/V1/V2 identically. Reading caveats: best-of-N
+(min over reps) = warm-cache floor not a typical epoch; classify_cells (D14) is
+hoisted out of "radial pass only" but inside "whole epoch"; percentiles are
+over CASES not reps (geometry tails, which is what decision-20 wants).
+
+
+IMPLICATIONS FOR THE D14 WORK
+----------------------------
+1. Do NOT use the polar E2E ratio as a D14 success metric (accuracy-mismatched;
+   in e2e2 also cache-asymmetric).
+2. Judge D14 changes by, in order:
+   a. root parity vs current solve_d14 (14 roots incl. complex soft-boundary,
+      1-to-1, |dv| + residual), status parity, fallback-tier parity -- hard gate.
+   b. solve_d14 isolated: many reps, median + p90 + p99 (not min-only), cold and
+      warm-seeded, full bench_cases set.
+   c. radial_events isolated: same.
+   d. epoch_jacobian whole, both transports OFF (== V0), cold: median + tails.
+   All on build-holonomic-m7, taskset-pinned, load logged BEFORE the run.
+3. A neutral iso-accuracy holo-vs-polar comparison is a separate exercise; it
+   must not gate the D14 speedup.
+4. Honest status stays sec.32's: holo's value is ACCURACY not speed; D14 cold
+   cost is the thing to cut, isolated numbers are how we measure it.

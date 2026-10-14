@@ -1,0 +1,32 @@
+{
+  "rows": 5,
+  "status": "summarized",
+  "moving_map_to_old_detail_ratios": {
+    "caustic-cross/u0.0/a": 1.0001927798781995,
+    "rand035/u0.0/X": 1.0016421195851268,
+    "rand035/u0.0/Y": 1.0016421195852983,
+    "rand035/u0.5/X": 1.0016421208790145,
+    "rand035/u0.5/Y": 1.0016421208793784
+  },
+  "old_valid_only_to_fd_level8": {
+    "caustic-cross/u0.0/a": 0.17620874157509148,
+    "rand035/u0.0/X": 3.151046961136217e-07,
+    "rand035/u0.0/Y": 6.659042171008878e-07,
+    "rand035/u0.5/X": 1.8909830146185413e-07,
+    "rand035/u0.5/Y": 3.9955553887693895e-07
+  },
+  "moving_valid_only_to_fd_level8": {
+    "caustic-cross/u0.0/a": 0.17621732848483296,
+    "rand035/u0.0/X": 3.102200629712115e-07,
+    "rand035/u0.0/Y": 6.555832214871771e-07,
+    "rand035/u0.5/X": 1.8616787755831865e-07,
+    "rand035/u0.5/Y": 3.933636918418415e-07
+  },
+  "whole_domain_complete": {
+    "caustic-cross/u0.0/a": true,
+    "rand035/u0.0/X": false,
+    "rand035/u0.0/Y": false,
+    "rand035/u0.5/X": false,
+    "rand035/u0.5/Y": false
+  }
+}

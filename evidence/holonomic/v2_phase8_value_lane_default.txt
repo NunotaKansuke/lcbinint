@@ -1,0 +1,32 @@
+loaded 108 cases, reps=8, N=16 epochs/track, n_r=64
+HOLO_HOLONOMIC_TRANSPORT=0  HOLO_MV_TRANSPORT_LEGACY=0
+
+-- COLD  u = 0 (uniform)  (108 epochs) --
+   VF fused       median   1.2081  p90   1.9882  p95   2.3178  p99   2.5302  max   2.5371 ms
+   VD value lane  median   0.8937  p90   1.3908  p95   1.4418  p99   1.5855  max   1.5891 ms
+   speedup VF/VD  median 1.352x  p90 1.429x  p95 1.608x  p99 1.596x
+   mu parity  |dmu|/|mu|  median 0.000e+00  p99 0.000e+00  max 0.000e+00
+   status-change VD vs VF (must be 0): 0
+
+-- COLD  u = case  (108 epochs) --
+   VF fused       median   1.2107  p90   1.9950  p95   2.3174  p99   2.5250  max   2.5492 ms
+   VD value lane  median   1.0147  p90   1.6704  p95   1.8489  p99   2.0866  max   2.1644 ms
+   speedup VF/VD  median 1.193x  p90 1.194x  p95 1.253x  p99 1.210x
+   mu parity  |dmu|/|mu|  median 0.000e+00  p99 0.000e+00  max 0.000e+00
+   status-change VD vs VF (must be 0): 0
+
+-- PREPARED (L2 warm-D14)  u = 0 (uniform)  (1728 epochs) --
+   VF fused       median   1.0740  p90   1.7705  p95   2.0929  p99   3.0339  max  10.4861 ms
+   VD value lane  median   0.8110  p90   1.2565  p95   1.4142  p99   1.5471  max   9.4250 ms
+   speedup VF/VD  median 1.324x  p90 1.409x  p95 1.480x  p99 1.961x
+   mu parity  |dmu|/|mu|  median 0.000e+00  p99 0.000e+00  max 0.000e+00
+   status-change VD vs VF (must be 0): 0
+
+-- PREPARED (L2 warm-D14)  u = case  (1728 epochs) --
+   VF fused       median   1.0744  p90   1.7774  p95   2.0830  p99   3.0283  max  10.5082 ms
+   VD value lane  median   0.9136  p90   1.4598  p95   1.6204  p99   2.1950  max  10.1777 ms
+   speedup VF/VD  median 1.176x  p90 1.218x  p95 1.285x  p99 1.380x
+   mu parity  |dmu|/|mu|  median 0.000e+00  p99 0.000e+00  max 0.000e+00
+   status-change VD vs VF (must be 0): 0
+
+checksum 301236.760982

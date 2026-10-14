@@ -1071,6 +1071,26 @@ int main()
     const auto triple_mapped =
         lcbinint::model::triple_lens_equation(triple_geometry, {0.8, 0.3});
     lcbinint::magnification::PointSourceMagnifier point_magnifier;
+    // Retained roots/physical masks must survive source jumps, mass swaps
+    // and evolving geometry. Compare to independent cold starts; subsequent
+    // scalar requests at the same centre also exercise cache reuse.
+    for (const double q : {0.01, 100.0, 0.3, 1.0/0.3}) {
+        for (int i = 0; i < 80; ++i) {
+            const double separation = 0.7+0.008*i;
+            const lcbinint::SourcePosition source {
+                (i%2 == 0 ? 1.0 : -1.0)*(0.5-0.01*i), 0.04+0.001*i};
+            lcbinint::magnification::PointSourceMagnifier cold;
+            const auto expected = cold.binary_safety_diagnostic_cached(separation, q, source);
+            const auto retained = point_magnifier.binary_safety_diagnostic_cached(separation, q, source);
+            if (expected.image_count != retained.image_count ||
+                expected.ghost_count != retained.ghost_count ||
+                !close_relative(retained.magnification, expected.magnification, 1e-10)) return 150;
+            const auto scalar = point_magnifier.binary_mag0_cached(separation, q, source);
+            const auto after_scalar = point_magnifier.binary_safety_diagnostic_cached(separation, q, source);
+            if (scalar.image_count != expected.image_count ||
+                !close_relative(after_scalar.magnification, expected.magnification, 1e-10)) return 151;
+        }
+    }
     const auto triple_images = point_magnifier.triple_images(triple_geometry, triple_mapped);
     if (triple_images.empty() || triple_images.size() > 10) {
         return 39;

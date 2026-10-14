@@ -1,0 +1,975 @@
+{
+  "schema": 1,
+  "task": "Whole-epoch matched A/B of D14 binary64 complex-division overflow fix",
+  "provenance": {
+    "base_commit": "56d1be6ce857ee623bb32550befcfac9a4c46ac4",
+    "input_sha256": "6646492658ed416e75cb8c6c821ee853f79cdf7761fc41441186aa67b81fa05b",
+    "input_trajectory_count": 1804,
+    "input_epoch_rows": 7216,
+    "targets": [
+      0.001,
+      0.0001
+    ],
+    "value_only": true,
+    "gradient_policy": "None",
+    "value_atol": 1e-16,
+    "fold_maps": true,
+    "reuse_samples": true,
+    "repeats_per_row": 3,
+    "reported_timing": "median of 3 repeats per row",
+    "machine": "Intel Xeon Gold 6530",
+    "cpu_affinity": "taskset -c 0-7",
+    "compiler": "GCC 11.5.0",
+    "compile_flags": "-O3 -march=native -funroll-loops -ffp-contract=fast -fno-math-errno -DNDEBUG -std=gnu++17",
+    "runner_source_sha256": "c32f57e9167aa3e6584b37203f979fb80ff186cdf7cbf81490d2f1e0b022b11f",
+    "safe_binary_sha256": "1940df8532e2718ee1267576784a44374f200eab0c3dd80883882fbb2704c5e5",
+    "legacy_binary_sha256": "9757e809a012737145123e32f374a642ab8c7fdff9127919186c5213c0db164a",
+    "legacy_delta": "compile-time HOLO_D14_FORCE_LEGACY_DOUBLE_DIV=1; restores only the old binary64 complex quotient",
+    "environment": {
+      "HOLO_D14_LOCAL_PAIRS": "1",
+      "HOLO_D14_ACTIVE_PRESEARCH": "1",
+      "HOLO_D14_ACTIVE_TOL": "1e-12",
+      "HOLO_D14_ACTIVE_PATIENCE": "2"
+    }
+  },
+  "rows": 14432,
+  "row_key": [
+    "case_id",
+    "configuration_id",
+    "profile",
+    "d_bin_index",
+    "epoch_index",
+    "target"
+  ],
+  "lanes": {
+    "cold": {
+      "whole_epoch_ms": {
+        "overflow_safe": {
+          "n": 14432,
+          "p50": 0.5677220000000001,
+          "p90": 0.9369795999999999,
+          "p95": 1.130881299999999,
+          "p99": 3.53016488,
+          "max": 56.526821
+        },
+        "legacy_double_division": {
+          "n": 14432,
+          "p50": 0.5339265,
+          "p90": 9.934215999999997,
+          "p95": 12.824461449999983,
+          "p99": 19.240756410000003,
+          "max": 57.625095
+        },
+        "paired_delta_safe_minus_legacy": {
+          "n": 14432,
+          "p50": 0.04612849999999999,
+          "p90": 0.09753430000000034,
+          "p95": 0.1572809,
+          "p99": 0.31927431,
+          "max": 19.102332
+        }
+      },
+      "topology_ms": {
+        "overflow_safe": {
+          "n": 14432,
+          "p50": 0.371708,
+          "p90": 0.6223468999999999,
+          "p95": 0.7010568499999996,
+          "p99": 3.253718010000003,
+          "max": 56.174075
+        },
+        "legacy_double_division": {
+          "n": 14432,
+          "p50": 0.3259565,
+          "p90": 9.706211099999999,
+          "p95": 12.548838599999995,
+          "p99": 19.03404951000005,
+          "max": 56.970299
+        },
+        "paired_delta_safe_minus_legacy": {
+          "n": 14432,
+          "p50": 0.042465,
+          "p90": 0.08617529999999997,
+          "p95": 0.14579114999999995,
+          "p99": 0.2828857400000005,
+          "max": 19.022225000000002
+        }
+      },
+      "adaptive_integration_ms": {
+        "overflow_safe": {
+          "n": 14432,
+          "p50": 0.17072250000000003,
+          "p90": 0.355703,
+          "p95": 0.4489791499999996,
+          "p99": 0.7200532500000012,
+          "max": 2.235304
+        },
+        "legacy_double_division": {
+          "n": 14432,
+          "p50": 0.1703484999999999,
+          "p90": 0.3575763999999999,
+          "p95": 0.4582875499999991,
+          "p99": 0.7255803900000009,
+          "max": 2.115781
+        },
+        "paired_delta_safe_minus_legacy": {
+          "n": 14432,
+          "p50": 0.003161999999999998,
+          "p90": 0.013674499999999755,
+          "p95": 0.020439049999999914,
+          "p99": 0.06083056000000016,
+          "max": 0.293366
+        }
+      },
+      "topology_events": {
+        "overflow_safe": {
+          "n": 14432,
+          "p50": 12.0,
+          "p90": 14.0,
+          "p95": 15.0,
+          "p99": 16.0,
+          "max": 18.0
+        },
+        "legacy_double_division": {
+          "n": 14432,
+          "p50": 12.0,
+          "p90": 14.0,
+          "p95": 15.0,
+          "p99": 16.0,
+          "max": 18.0
+        }
+      },
+      "topology_cells": {
+        "overflow_safe": {
+          "n": 14432,
+          "p50": 13.0,
+          "p90": 15.0,
+          "p95": 16.0,
+          "p99": 17.0,
+          "max": 19.0
+        },
+        "legacy_double_division": {
+          "n": 14432,
+          "p50": 13.0,
+          "p90": 15.0,
+          "p95": 16.0,
+          "p99": 17.0,
+          "max": 19.0
+        }
+      },
+      "mu_difference_on_both_converged_rows": {
+        "rows": 14432,
+        "abs": {
+          "n": 14432,
+          "p50": 1.7763568394002505e-15,
+          "p90": 4.4749093319751355e-12,
+          "p95": 2.715978553169382e-11,
+          "p99": 6.858260803710443e-10,
+          "max": 5.423953552963212e-08
+        },
+        "scaled_by_max_1_or_abs_legacy_mu": {
+          "n": 14432,
+          "p50": 2.795849210516079e-16,
+          "p90": 6.627187267752406e-14,
+          "p95": 2.0710709015694563e-13,
+          "p99": 1.1053861139425761e-12,
+          "max": 9.89141087697762e-12
+        },
+        "max_row": {
+          "key": [
+            "149",
+            "149",
+            "linear",
+            "2",
+            "23",
+            "0.0001"
+          ],
+          "safe_mu": 9.279377369852849,
+          "legacy_mu": 9.279377369944635,
+          "scaled_abs_difference": 9.89141087697762e-12
+        }
+      },
+      "rows_not_both_value_converged": [],
+      "overflow_safe": {
+        "value_converged": 14432,
+        "statuses": {
+          "OK": 14432
+        },
+        "stops": {
+          "Converged": 14432
+        }
+      },
+      "legacy_double_division": {
+        "value_converged": 14432,
+        "statuses": {
+          "OK": 14432
+        },
+        "stops": {
+          "Converged": 14432
+        }
+      }
+    },
+    "warm": {
+      "whole_epoch_ms": {
+        "overflow_safe": {
+          "n": 14432,
+          "p50": 0.5219145000000001,
+          "p90": 0.8871155,
+          "p95": 1.0700602499999998,
+          "p99": 2.0021453000000062,
+          "max": 56.217999
+        },
+        "legacy_double_division": {
+          "n": 14432,
+          "p50": 0.49165800000000004,
+          "p90": 0.8965702999999999,
+          "p95": 1.2032719999999997,
+          "p99": 14.15006469000001,
+          "max": 55.036982
+        },
+        "paired_delta_safe_minus_legacy": {
+          "n": 14432,
+          "p50": 0.023778500000000508,
+          "p90": 0.08683650000000004,
+          "p95": 0.14239215,
+          "p99": 0.2915315100000003,
+          "max": 54.399168
+        }
+      },
+      "topology_ms": {
+        "overflow_safe": {
+          "n": 14432,
+          "p50": 0.25202250000000004,
+          "p90": 0.49765509999999996,
+          "p95": 0.59642525,
+          "p99": 0.9181441000000037,
+          "max": 55.676046
+        },
+        "legacy_double_division": {
+          "n": 14432,
+          "p50": 0.23315750000000002,
+          "p90": 0.48801289999999986,
+          "p95": 0.6227208499999997,
+          "p99": 13.838847390000005,
+          "max": 54.376052
+        },
+        "paired_delta_safe_minus_legacy": {
+          "n": 14432,
+          "p50": 0.013197499999999987,
+          "p90": 0.0679196,
+          "p95": 0.11813609999999997,
+          "p99": 0.23889597000000007,
+          "max": 54.277369
+        }
+      },
+      "adaptive_integration_ms": {
+        "overflow_safe": {
+          "n": 14432,
+          "p50": 0.22811850000000006,
+          "p90": 0.46469549999999993,
+          "p95": 0.564446049999999,
+          "p99": 0.8677188800000006,
+          "max": 2.247483
+        },
+        "legacy_double_division": {
+          "n": 14432,
+          "p50": 0.2203635,
+          "p90": 0.4464294999999998,
+          "p95": 0.5391811499999997,
+          "p99": 0.8298442100000001,
+          "max": 2.1490299999999998
+        },
+        "paired_delta_safe_minus_legacy": {
+          "n": 14432,
+          "p50": 0.006913500000000017,
+          "p90": 0.030279600000000018,
+          "p95": 0.04162554999999999,
+          "p99": 0.08440919,
+          "max": 0.399776
+        }
+      },
+      "topology_events": {
+        "overflow_safe": {
+          "n": 14432,
+          "p50": 12.0,
+          "p90": 14.0,
+          "p95": 15.0,
+          "p99": 16.0,
+          "max": 18.0
+        },
+        "legacy_double_division": {
+          "n": 14432,
+          "p50": 12.0,
+          "p90": 14.0,
+          "p95": 15.0,
+          "p99": 16.0,
+          "max": 18.0
+        }
+      },
+      "topology_cells": {
+        "overflow_safe": {
+          "n": 14432,
+          "p50": 13.0,
+          "p90": 15.0,
+          "p95": 16.0,
+          "p99": 17.0,
+          "max": 19.0
+        },
+        "legacy_double_division": {
+          "n": 14432,
+          "p50": 13.0,
+          "p90": 15.0,
+          "p95": 16.0,
+          "p99": 17.0,
+          "max": 19.0
+        }
+      },
+      "mu_difference_on_both_converged_rows": {
+        "rows": 14428,
+        "abs": {
+          "n": 14428,
+          "p50": 1.7763568394002505e-15,
+          "p90": 4.544986609289485e-12,
+          "p95": 2.637534635141492e-11,
+          "p99": 6.508435035357174e-10,
+          "max": 5.423953552963212e-08
+        },
+        "scaled_by_max_1_or_abs_legacy_mu": {
+          "n": 14428,
+          "p50": 2.7908591903106346e-16,
+          "p90": 6.523382327601659e-14,
+          "p95": 2.0575078428386168e-13,
+          "p99": 1.1477935508543612e-12,
+          "max": 9.89141087697762e-12
+        },
+        "max_row": {
+          "key": [
+            "149",
+            "149",
+            "linear",
+            "2",
+            "23",
+            "0.0001"
+          ],
+          "safe_mu": 9.279377369852849,
+          "legacy_mu": 9.279377369944635,
+          "scaled_abs_difference": 9.89141087697762e-12
+        }
+      },
+      "rows_not_both_value_converged": [
+        {
+          "key": [
+            "45",
+            "45",
+            "linear",
+            "1",
+            "15",
+            "0.001"
+          ],
+          "safe_converged": true,
+          "legacy_converged": false,
+          "safe_status": "OK",
+          "legacy_status": "GRADIENT_UNRELIABLE",
+          "safe_stop": "Converged",
+          "legacy_stop": "EventLocationLimited",
+          "safe_mu": 4812.480223876916,
+          "legacy_mu": 0.0
+        },
+        {
+          "key": [
+            "45",
+            "45",
+            "linear",
+            "1",
+            "15",
+            "0.0001"
+          ],
+          "safe_converged": true,
+          "legacy_converged": false,
+          "safe_status": "OK",
+          "legacy_status": "GRADIENT_UNRELIABLE",
+          "safe_stop": "Converged",
+          "legacy_stop": "EventLocationLimited",
+          "safe_mu": 4812.480221179112,
+          "legacy_mu": 0.0
+        },
+        {
+          "key": [
+            "45",
+            "45",
+            "uniform",
+            "1",
+            "15",
+            "0.001"
+          ],
+          "safe_converged": true,
+          "legacy_converged": false,
+          "safe_status": "OK",
+          "legacy_status": "GRADIENT_UNRELIABLE",
+          "safe_stop": "Converged",
+          "legacy_stop": "EventLocationLimited",
+          "safe_mu": 5065.972329648777,
+          "legacy_mu": 0.0
+        },
+        {
+          "key": [
+            "45",
+            "45",
+            "uniform",
+            "1",
+            "15",
+            "0.0001"
+          ],
+          "safe_converged": true,
+          "legacy_converged": false,
+          "safe_status": "OK",
+          "legacy_status": "GRADIENT_UNRELIABLE",
+          "safe_stop": "Converged",
+          "legacy_stop": "EventLocationLimited",
+          "safe_mu": 5065.972322761017,
+          "legacy_mu": 0.0
+        }
+      ],
+      "overflow_safe": {
+        "value_converged": 14432,
+        "statuses": {
+          "OK": 14432
+        },
+        "stops": {
+          "Converged": 14432
+        }
+      },
+      "legacy_double_division": {
+        "value_converged": 14428,
+        "statuses": {
+          "OK": 14428,
+          "GRADIENT_UNRELIABLE": 4
+        },
+        "stops": {
+          "Converged": 14428,
+          "EventLocationLimited": 4
+        }
+      }
+    },
+    "radial": {
+      "whole_epoch_ms": {
+        "overflow_safe": {
+          "n": 14432,
+          "p50": 0.167545,
+          "p90": 0.3485723,
+          "p95": 0.43883099999999997,
+          "p99": 0.7155233000000012,
+          "max": 2.258118
+        },
+        "legacy_double_division": {
+          "n": 14432,
+          "p50": 0.16385450000000001,
+          "p90": 0.3392003999999999,
+          "p95": 0.42643215,
+          "p99": 0.6945310700000003,
+          "max": 2.14454
+        },
+        "paired_delta_safe_minus_legacy": {
+          "n": 14432,
+          "p50": 0.003813999999999998,
+          "p90": 0.01357789999999995,
+          "p95": 0.02055469999999996,
+          "p99": 0.05721405000000038,
+          "max": 0.2817869999999999
+        }
+      },
+      "topology_ms": {
+        "overflow_safe": {
+          "n": 14432,
+          "p50": 0.0,
+          "p90": 0.0,
+          "p95": 0.0,
+          "p99": 0.0,
+          "max": 0.0
+        },
+        "legacy_double_division": {
+          "n": 14432,
+          "p50": 0.0,
+          "p90": 0.0,
+          "p95": 0.0,
+          "p99": 0.0,
+          "max": 0.0
+        },
+        "paired_delta_safe_minus_legacy": {
+          "n": 14432,
+          "p50": 0.0,
+          "p90": 0.0,
+          "p95": 0.0,
+          "p99": 0.0,
+          "max": 0.0
+        }
+      },
+      "adaptive_integration_ms": {
+        "overflow_safe": {
+          "n": 14432,
+          "p50": 0.167545,
+          "p90": 0.3485723,
+          "p95": 0.43883099999999997,
+          "p99": 0.7155233000000012,
+          "max": 2.258118
+        },
+        "legacy_double_division": {
+          "n": 14432,
+          "p50": 0.16385450000000001,
+          "p90": 0.3392003999999999,
+          "p95": 0.42643215,
+          "p99": 0.6945310700000003,
+          "max": 2.14454
+        },
+        "paired_delta_safe_minus_legacy": {
+          "n": 14432,
+          "p50": 0.003813999999999998,
+          "p90": 0.01357789999999995,
+          "p95": 0.02055469999999996,
+          "p99": 0.05721405000000038,
+          "max": 0.2817869999999999
+        }
+      },
+      "topology_events": {
+        "overflow_safe": {
+          "n": 14432,
+          "p50": 12.0,
+          "p90": 14.0,
+          "p95": 15.0,
+          "p99": 16.0,
+          "max": 18.0
+        },
+        "legacy_double_division": {
+          "n": 14432,
+          "p50": 12.0,
+          "p90": 14.0,
+          "p95": 15.0,
+          "p99": 16.0,
+          "max": 18.0
+        }
+      },
+      "topology_cells": {
+        "overflow_safe": {
+          "n": 14432,
+          "p50": 13.0,
+          "p90": 15.0,
+          "p95": 16.0,
+          "p99": 17.0,
+          "max": 19.0
+        },
+        "legacy_double_division": {
+          "n": 14432,
+          "p50": 13.0,
+          "p90": 15.0,
+          "p95": 16.0,
+          "p99": 17.0,
+          "max": 19.0
+        }
+      },
+      "mu_difference_on_both_converged_rows": {
+        "rows": 14432,
+        "abs": {
+          "n": 14432,
+          "p50": 1.7763568394002505e-15,
+          "p90": 4.4749093319751355e-12,
+          "p95": 2.715978553169382e-11,
+          "p99": 6.858260803710443e-10,
+          "max": 5.423953552963212e-08
+        },
+        "scaled_by_max_1_or_abs_legacy_mu": {
+          "n": 14432,
+          "p50": 2.795849210516079e-16,
+          "p90": 6.627187267752406e-14,
+          "p95": 2.0710709015694563e-13,
+          "p99": 1.1053861139425761e-12,
+          "max": 9.89141087697762e-12
+        },
+        "max_row": {
+          "key": [
+            "149",
+            "149",
+            "linear",
+            "2",
+            "23",
+            "0.0001"
+          ],
+          "safe_mu": 9.279377369852849,
+          "legacy_mu": 9.279377369944635,
+          "scaled_abs_difference": 9.89141087697762e-12
+        }
+      },
+      "rows_not_both_value_converged": [],
+      "overflow_safe": {
+        "value_converged": 14432,
+        "statuses": {
+          "OK": 14432
+        },
+        "stops": {
+          "Converged": 14432
+        }
+      },
+      "legacy_double_division": {
+        "value_converged": 14432,
+        "statuses": {
+          "OK": 14432
+        },
+        "stops": {
+          "Converged": 14432
+        }
+      }
+    }
+  },
+  "by_profile_and_tolerance": {
+    "linear_rtol_0.0001": {
+      "cold": {
+        "overflow_safe_ms": {
+          "n": 3608,
+          "p50": 0.629811,
+          "p90": 1.0369545,
+          "p95": 1.2841898999999994,
+          "p99": 3.5288009799999984,
+          "max": 56.133854
+        },
+        "legacy_double_division_ms": {
+          "n": 3608,
+          "p50": 0.5968635,
+          "p90": 9.969815400000002,
+          "p95": 12.837707899999984,
+          "p99": 19.293318859999996,
+          "max": 56.224544
+        },
+        "safe_value_converged": 3608,
+        "legacy_value_converged": 3608,
+        "status_mismatches": 0
+      },
+      "warm": {
+        "overflow_safe_ms": {
+          "n": 3608,
+          "p50": 0.5981805,
+          "p90": 1.0069935,
+          "p95": 1.2156231499999999,
+          "p99": 2.2379234799999983,
+          "max": 56.181485
+        },
+        "legacy_double_division_ms": {
+          "n": 3608,
+          "p50": 0.5709815,
+          "p90": 1.0306730000000002,
+          "p95": 1.3964342499999995,
+          "p99": 14.154552929999998,
+          "max": 54.454383
+        },
+        "safe_value_converged": 3608,
+        "legacy_value_converged": 3607,
+        "status_mismatches": 1
+      },
+      "radial": {
+        "overflow_safe_ms": {
+          "n": 3608,
+          "p50": 0.21975299999999998,
+          "p90": 0.4675330000000001,
+          "p95": 0.5903160499999995,
+          "p99": 0.8898843099999996,
+          "max": 1.781448
+        },
+        "legacy_double_division_ms": {
+          "n": 3608,
+          "p50": 0.21622049999999998,
+          "p90": 0.45568660000000005,
+          "p95": 0.5631835999999999,
+          "p99": 0.8762702299999998,
+          "max": 1.708768
+        },
+        "safe_value_converged": 3608,
+        "legacy_value_converged": 3608,
+        "status_mismatches": 0
+      }
+    },
+    "uniform_rtol_0.0001": {
+      "cold": {
+        "overflow_safe_ms": {
+          "n": 3608,
+          "p50": 0.561804,
+          "p90": 0.9164857000000003,
+          "p95": 1.1378362499999997,
+          "p99": 3.7757079299999656,
+          "max": 55.959375
+        },
+        "legacy_double_division_ms": {
+          "n": 3608,
+          "p50": 0.5255399999999999,
+          "p90": 9.901854700000005,
+          "p95": 12.853877299999995,
+          "p99": 19.212828789999953,
+          "max": 57.625095
+        },
+        "safe_value_converged": 3608,
+        "legacy_value_converged": 3608,
+        "status_mismatches": 0
+      },
+      "warm": {
+        "overflow_safe_ms": {
+          "n": 3608,
+          "p50": 0.523922,
+          "p90": 0.8871907,
+          "p95": 1.074436399999999,
+          "p99": 2.1967468299999835,
+          "max": 56.217999
+        },
+        "legacy_double_division_ms": {
+          "n": 3608,
+          "p50": 0.495007,
+          "p90": 0.8932478000000008,
+          "p95": 1.195992,
+          "p99": 14.129731949999993,
+          "max": 55.036982
+        },
+        "safe_value_converged": 3608,
+        "legacy_value_converged": 3607,
+        "status_mismatches": 1
+      },
+      "radial": {
+        "overflow_safe_ms": {
+          "n": 3608,
+          "p50": 0.169215,
+          "p90": 0.3165887,
+          "p95": 0.4004772999999997,
+          "p99": 0.6741819199999982,
+          "max": 2.258118
+        },
+        "legacy_double_division_ms": {
+          "n": 3608,
+          "p50": 0.1647055,
+          "p90": 0.30772560000000004,
+          "p95": 0.3821072499999998,
+          "p99": 0.6388585299999995,
+          "max": 2.14454
+        },
+        "safe_value_converged": 3608,
+        "legacy_value_converged": 3608,
+        "status_mismatches": 0
+      }
+    },
+    "linear_rtol_0.001": {
+      "cold": {
+        "overflow_safe_ms": {
+          "n": 3608,
+          "p50": 0.5752165,
+          "p90": 0.9155796,
+          "p95": 1.086246099999999,
+          "p99": 3.493469379999998,
+          "max": 56.526821
+        },
+        "legacy_double_division_ms": {
+          "n": 3608,
+          "p50": 0.538941,
+          "p90": 9.91208270000001,
+          "p95": 12.816120899999998,
+          "p99": 19.207985239999957,
+          "max": 56.180197
+        },
+        "safe_value_converged": 3608,
+        "legacy_value_converged": 3608,
+        "status_mismatches": 0
+      },
+      "warm": {
+        "overflow_safe_ms": {
+          "n": 3608,
+          "p50": 0.5268965,
+          "p90": 0.8542161000000001,
+          "p95": 1.0277927499999997,
+          "p99": 1.5816170899999993,
+          "max": 55.85062
+        },
+        "legacy_double_division_ms": {
+          "n": 3608,
+          "p50": 0.496226,
+          "p90": 0.8589353000000002,
+          "p95": 1.1156004999999984,
+          "p99": 14.284492449999972,
+          "max": 54.575053
+        },
+        "safe_value_converged": 3608,
+        "legacy_value_converged": 3607,
+        "status_mismatches": 1
+      },
+      "radial": {
+        "overflow_safe_ms": {
+          "n": 3608,
+          "p50": 0.177406,
+          "p90": 0.34377080000000015,
+          "p95": 0.40724824999999876,
+          "p99": 0.5479492299999991,
+          "max": 0.927511
+        },
+        "legacy_double_division_ms": {
+          "n": 3608,
+          "p50": 0.1734685,
+          "p90": 0.3359062,
+          "p95": 0.38966245,
+          "p99": 0.52284517,
+          "max": 0.886566
+        },
+        "safe_value_converged": 3608,
+        "legacy_value_converged": 3608,
+        "status_mismatches": 0
+      }
+    },
+    "uniform_rtol_0.001": {
+      "cold": {
+        "overflow_safe_ms": {
+          "n": 3608,
+          "p50": 0.5183485000000001,
+          "p90": 0.8405039000000001,
+          "p95": 1.0093965,
+          "p99": 3.361387919999995,
+          "max": 56.379403
+        },
+        "legacy_double_division_ms": {
+          "n": 3608,
+          "p50": 0.4766295,
+          "p90": 9.878542700000002,
+          "p95": 12.721731899999975,
+          "p99": 19.077278579999966,
+          "max": 56.186333
+        },
+        "safe_value_converged": 3608,
+        "legacy_value_converged": 3608,
+        "status_mismatches": 0
+      },
+      "warm": {
+        "overflow_safe_ms": {
+          "n": 3608,
+          "p50": 0.46013800000000005,
+          "p90": 0.7801193000000001,
+          "p95": 0.9380853999999997,
+          "p99": 1.3483699699999994,
+          "max": 55.94559
+        },
+        "legacy_double_division_ms": {
+          "n": 3608,
+          "p50": 0.428793,
+          "p90": 0.7781828000000001,
+          "p95": 1.0072087999999986,
+          "p99": 14.046428949999996,
+          "max": 54.31962
+        },
+        "safe_value_converged": 3608,
+        "legacy_value_converged": 3607,
+        "status_mismatches": 1
+      },
+      "radial": {
+        "overflow_safe_ms": {
+          "n": 3608,
+          "p50": 0.13147,
+          "p90": 0.23549680000000006,
+          "p95": 0.2897590499999999,
+          "p99": 0.4132035299999988,
+          "max": 0.681948
+        },
+        "legacy_double_division_ms": {
+          "n": 3608,
+          "p50": 0.1272905,
+          "p90": 0.2269784,
+          "p95": 0.27275499999999975,
+          "p99": 0.38459634,
+          "max": 0.862326
+        },
+        "safe_value_converged": 3608,
+        "legacy_value_converged": 3608,
+        "status_mismatches": 0
+      }
+    }
+  },
+  "parity_mismatches": {
+    "rows": 14432,
+    "topology_status": 0,
+    "topology_cells": 0,
+    "topology_events": 0,
+    "value_converged": {
+      "cold": 0,
+      "warm": 4,
+      "radial": 0
+    },
+    "status": {
+      "cold": 0,
+      "warm": 4,
+      "radial": 0
+    },
+    "stop": {
+      "cold": 0,
+      "warm": 4,
+      "radial": 0
+    }
+  },
+  "status_mismatch_rows": {
+    "cold": [],
+    "warm": [
+      {
+        "key": [
+          "45",
+          "45",
+          "linear",
+          "1",
+          "15",
+          "0.001"
+        ],
+        "safe_status": "OK",
+        "legacy_status": "GRADIENT_UNRELIABLE",
+        "safe_stop": "Converged",
+        "legacy_stop": "EventLocationLimited",
+        "safe_converged": true,
+        "legacy_converged": false
+      },
+      {
+        "key": [
+          "45",
+          "45",
+          "linear",
+          "1",
+          "15",
+          "0.0001"
+        ],
+        "safe_status": "OK",
+        "legacy_status": "GRADIENT_UNRELIABLE",
+        "safe_stop": "Converged",
+        "legacy_stop": "EventLocationLimited",
+        "safe_converged": true,
+        "legacy_converged": false
+      },
+      {
+        "key": [
+          "45",
+          "45",
+          "uniform",
+          "1",
+          "15",
+          "0.001"
+        ],
+        "safe_status": "OK",
+        "legacy_status": "GRADIENT_UNRELIABLE",
+        "safe_stop": "Converged",
+        "legacy_stop": "EventLocationLimited",
+        "safe_converged": true,
+        "legacy_converged": false
+      },
+      {
+        "key": [
+          "45",
+          "45",
+          "uniform",
+          "1",
+          "15",
+          "0.0001"
+        ],
+        "safe_status": "OK",
+        "legacy_status": "GRADIENT_UNRELIABLE",
+        "safe_stop": "Converged",
+        "legacy_stop": "EventLocationLimited",
+        "safe_converged": true,
+        "legacy_converged": false
+      }
+    ],
+    "radial": []
+  }
+}

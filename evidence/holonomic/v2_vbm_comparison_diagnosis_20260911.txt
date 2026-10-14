@@ -1,0 +1,68 @@
+report=v2_vbm_comparison_diagnosis_20260911
+date=2026-09-11
+branch=dev/holonomic
+head=cb45434cfd416394575944933686da0d69b5e534
+scope=isolated holonomic report only; no production source/router change
+preexisting_untracked=.claude/ (untouched)
+
+[comparison_boundary]
+v2_timer=epoch_value(p,u,64,false)
+v2_timer_includes=D14,topology,radial_geometry,root_pair,F0,K_rule
+v2_timer_excludes=LensParams construction,input parsing,output formatting
+vbm_benchmark=tests/diagnostics/recal2026/bench_grid_vs_vbm_pure_kernel.py
+vbm_timing_mode=pure_kernel_cache_warm_direct_xy
+vbm_timing_excludes=D14,topology,cell_plan,root_search,F0_geometry
+conclusion=old V2/VBM wall ratio is not an apples-to-apples comparison
+
+[mapping]
+wrong_runner=LensParams{-time,y,rho,q,s,true}
+correct_runner=LensParams{time,y,rho,1.0/q,s,true}
+representative_s=0.2310772011499552
+representative_q=0.5633224083213993
+representative_rho=0.00017266345397718498
+representative_y=-4.0472265932659397
+representative_time=1.1409565850100225
+vbm_uniform=6.8139830013407305
+vbm_linear=7.037894384544265
+v2_stock_correct_mapping_uniform_approx=5.81186
+v2_stock_correct_mapping_linear_approx=6.03582
+radial_resolution_test=nr=16,32,...,1024 did not remove the discrepancy
+
+[thin_arc]
+outer_image_radius=4.4729290649084206
+physical_real_event_lo=4.4727647394129066
+physical_real_event_hi=4.4730933909894857
+cell_width_approx=3.2865e-4
+quartic_mid_arc_theta_lo=5.0189217002724167
+quartic_mid_arc_theta_hi=5.0190030316414118
+quartic_arc_width_approx=8.1e-5
+grid_points=3072
+grid_spacing_approx=2.045e-3
+failure=3072-grid misses arc and overwrites quartic arcs with empty
+
+[candidate]
+candidate=preserve certified-looking quartic arc on grid disagreement
+representative_linear_nr64=7.0384116282041269
+representative_linear_nr1024=7.0379193480
+legacy_head_m7=10397 checks, 0 failures
+candidate_m7=18 failures
+decision=reverted; not safe for production
+
+[verification]
+tests=test_holonomic_m7,test_gm_coverage,test_holonomic_transport
+test_holonomic_m7=pass on reverted HEAD
+source_diff_after_revert=none
+production_router_changed=no
+
+[artifacts]
+diagnostic_tsv=/tmp/v2_correct_fixed.tsv
+diagnostic_tsv_sha256=613513d707b23e40036783ca86e181dab4d73bfedd25cde0efc5ca2982168016
+arc_diagnostic=/tmp/v2_arc_diag_fixed.out
+arc_diagnostic_sha256=3c23ffa5165738e19792954471d670939d959fb1595ac816c52bb8de1011ef63
+runner=/tmp/v2_correct_runner.cpp
+note=temporary files are diagnostic only; candidate-patch output is not a production benchmark
+
+[next_root_fix]
+requirement=certified quartic arc intervals plus sign/event/chart/branch consistency
+avoid=unconditional heavier fallback, fixed-grid-only resolution increase, threshold relaxation
+benchmark_after_fix=shared LD evaluator plus D14-inclusive cold/warm whole epoch

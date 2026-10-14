@@ -1,0 +1,51 @@
+{
+  "rows": 7216,
+  "candidates": {
+    "interleaved": {
+      "baseline_p50_ms": {
+        "whole": 0.5596474999999999,
+        "presearch": 0.184454,
+        "real": 0.023242,
+        "qf": 0.0,
+        "residual": 0.0294139999999999,
+        "physics": 0.106248
+      },
+      "candidate_p50_ms": {
+        "whole": 0.5456725,
+        "presearch": 0.17085899999999998,
+        "real": 0.0232195,
+        "qf": 0.0,
+        "residual": 0.02940649999999995,
+        "physics": 0.1066554999999999
+      },
+      "max_mu_absolute_difference": 0.0,
+      "convergence_mismatches": 0,
+      "node_mismatches": 0,
+      "baseline_converged": 7216,
+      "candidate_converged": 7216
+    },
+    "maxnorm": {
+      "baseline_p50_ms": {
+        "whole": 0.5596474999999999,
+        "presearch": 0.184454,
+        "real": 0.023242,
+        "qf": 0.0,
+        "residual": 0.0294139999999999,
+        "physics": 0.106248
+      },
+      "candidate_p50_ms": {
+        "whole": 0.5609019999999999,
+        "presearch": 0.1842705,
+        "real": 0.02304149999999995,
+        "qf": 0.0,
+        "residual": 0.0264789999999999,
+        "physics": 0.10666049999999999
+      },
+      "max_mu_absolute_difference": 0.0,
+      "convergence_mismatches": 0,
+      "node_mismatches": 0,
+      "baseline_converged": 7216,
+      "candidate_converged": 7216
+    }
+  }
+}

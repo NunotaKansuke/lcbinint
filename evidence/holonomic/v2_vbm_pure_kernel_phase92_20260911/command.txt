@@ -1,0 +1,8 @@
+base: 8a9f701217003e49ec95ec13ab97b15b7fd95886
+compile: /usr/bin/c++ -O3 -DNDEBUG -std=gnu++17 -I/rogue1_8/nunota/lcbinint/src -march=native -funroll-loops -ffp-contract=fast -fno-math-errno evidence/holonomic/v2_vbm_pure_kernel_phase92_20260911/v2_pure_kernel_runner.cpp -o /tmp/v2_pure_kernel_phase92_runner -lquadmath
+run: /tmp/v2_pure_kernel_phase92_runner evidence/holonomic/v2_vbm_pure_kernel_phase92_20260911/input_snapshot.tsv /tmp/v2_pure_kernel_phase92_results.tsv
+copy: cp /tmp/v2_pure_kernel_phase92_results.tsv evidence/holonomic/v2_vbm_pure_kernel_phase92_20260911/v2_results.tsv
+figures: python3 evidence/holonomic/v2_vbm_pure_kernel_phase92_20260911/make_figures.py
+vbm_speed_source: /tmp/lcbinint_pure_kernel_confirm_full_20260909/merged_final/results.json
+vbm_reference_source: /tmp/lcbinint_pure_kernel_reference_all_1e-6_20260909/plot_parts_vbm_reltol_1e-6_reference
+conditions: value-only; LD off/on; VBM RelTol=1e-3/1e-4 for speed; existing VBM RelTol=1e-6 for error

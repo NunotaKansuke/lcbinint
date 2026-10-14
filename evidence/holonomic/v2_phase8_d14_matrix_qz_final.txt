@@ -1,0 +1,5 @@
+cases=108 reps=5
+qz_ms_p50=0.052218 qz_ms_p90=0.061740 qz_ms_p99=0.070136 qz_ms_max=0.260009
+finite_count_min=14 finite_count_max=14
+matrix_identity_worst=3.748e-16 failures=0
+production_router=unchanged

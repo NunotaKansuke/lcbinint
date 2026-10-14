@@ -1,0 +1,7 @@
+{
+  "compiler": "c++ (GCC) 11.5.0 20240719 (Red Hat 11.5.0-5)",
+  "perf": "perf version 5.14.0-570.23.1.el9_6.x86_64",
+  "kernel": "Linux 5.14.0-570.23.1.el9_6.x86_64",
+  "binary_sha256": "f47220d1121eee4d0602b3179262baa51c607293847a04244dd4b5142affbeb2",
+  "input_sha256": "f69c119b8bc9d64ae0b1b1e35e711651ff58f82d14a938b6d80520172923f868"
+}

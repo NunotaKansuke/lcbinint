@@ -1,0 +1,2 @@
+rogue1
+model name	: INTEL(R) XEON(R) GOLD 6530

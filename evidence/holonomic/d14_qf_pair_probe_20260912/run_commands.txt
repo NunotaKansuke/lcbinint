@@ -1,0 +1,94 @@
+# D14 qf-warm one-step pair viability probe A/B
+# Repository: NunotaKansuke/lcbinint
+# Branch/base: dev/holonomic @ 64a291a7cccc2d0793cb8ddbf7e0ba86a3bb3092
+# Host: Intel Xeon Gold 6530, GCC 11.5.0, taskset core 0
+# All solver flags and trajectory inputs match the prior qf-warm pair-polish
+# experiment. The only runtime difference between v2 and v3 is
+# HOLO_D14_QF_PAIR_PROBE=1 in v3.
+
+cd /rogue1_8/nunota/lcbinint
+
+# Rebuild the v2 full-pair baseline from the parent commit if needed.
+git worktree add --detach /tmp/lcbinint-d14-pair-v2 64a291a7cccc2d0793cb8ddbf7e0ba86a3bb3092
+cd /tmp/lcbinint-d14-pair-v2
+/usr/bin/c++ -O3 -DNDEBUG -std=gnu++17 \
+  -DHOLO_D14_QF_PAIR_POLISH_RESEARCH=1 \
+  -I/tmp/lcbinint-d14-pair-v2/src -march=native -funroll-loops \
+  -ffp-contract=fast -fno-math-errno \
+  evidence/holonomic/d14_overflow_whole_epoch_tail_20260912/whole_epoch_runner.cpp \
+  -o /tmp/d14_qf_pair_candidate_v2 -lquadmath
+/usr/bin/c++ -O3 -DNDEBUG -std=gnu++17 \
+  -DHOLO_D14_TRACE_QF_ITERATIONS=1 \
+  -DHOLO_D14_QF_PAIR_POLISH_RESEARCH=1 \
+  -I/tmp/lcbinint-d14-pair-v2/src -march=native -funroll-loops \
+  -ffp-contract=fast -fno-math-errno \
+  benchmarks/holonomic/bench_d14_root_work_detail.cpp \
+  -o /tmp/bench_d14_qf_pair_v2 -lquadmath
+
+# Build the probe candidate from the current checkout.
+cd /rogue1_8/nunota/lcbinint
+/usr/bin/c++ -O3 -DNDEBUG -std=gnu++17 \
+  -DHOLO_D14_QF_PAIR_POLISH_RESEARCH=1 \
+  -I/rogue1_8/nunota/lcbinint/src -march=native -funroll-loops \
+  -ffp-contract=fast -fno-math-errno \
+  evidence/holonomic/d14_overflow_whole_epoch_tail_20260912/whole_epoch_runner.cpp \
+  -o /tmp/d14_qf_pair_probe_v3 -lquadmath
+/usr/bin/c++ -O3 -DNDEBUG -std=gnu++17 \
+  -DHOLO_D14_TRACE_QF_ITERATIONS=1 \
+  -DHOLO_D14_QF_PAIR_POLISH_RESEARCH=1 \
+  -I/rogue1_8/nunota/lcbinint/src -march=native -funroll-loops \
+  -ffp-contract=fast -fno-math-errno \
+  benchmarks/holonomic/bench_d14_root_work_detail.cpp \
+  -o /tmp/bench_d14_qf_pair_probe_candidate -lquadmath
+
+# Root-work probe traces. This is four cases x four epochs x cold/warm lanes.
+while read case_id dbin profile; do
+  taskset -c 0 env HOLO_D14_LOCAL_PAIRS=1 HOLO_D14_ACTIVE_PRESEARCH=1 \
+    HOLO_D14_ACTIVE_TOL=1e-12 HOLO_D14_ACTIVE_PATIENCE=2 \
+    HOLO_D14_QF_TRACE=1 HOLO_D14_QF_TRACE_ROOTWISE=1 \
+    HOLO_D14_QF_PAIR_POLISH_RESEARCH=1 HOLO_D14_QF_PAIR_PROBE=1 \
+    /tmp/bench_d14_qf_pair_probe_candidate \
+    evidence/holonomic/d14_root_scheduling_phase2_20260912/input_snapshot.tsv \
+    evidence/holonomic/d14_qf_pair_probe_20260912/case${case_id}_probe_roots.tsv \
+    evidence/holonomic/d14_qf_pair_probe_20260912/case${case_id}_probe_timing.tsv \
+    1 both "${case_id}" "${dbin}" "${profile}" \
+    2> evidence/holonomic/d14_qf_pair_probe_20260912/case${case_id}_probe_trace.log
+done <<'CASES'
+149 1 uniform
+0 0 linear
+64 0 linear
+9 2 uniform
+CASES
+
+# Whole-epoch input is the retained two-trajectory, four-epoch subset.
+# Each invocation takes 3 repeats per row. Run order was v2, v3, v3, v2.
+taskset -c 0 env HOLO_D14_LOCAL_PAIRS=1 HOLO_D14_ACTIVE_PRESEARCH=1 \
+  HOLO_D14_ACTIVE_TOL=1e-12 HOLO_D14_ACTIVE_PATIENCE=2 \
+  HOLO_D14_QF_PAIR_POLISH_RESEARCH=1 /tmp/d14_qf_pair_candidate_v2 \
+  evidence/holonomic/d14_qf_pair_probe_20260912/pair_whole_epoch_input.tsv \
+  evidence/holonomic/d14_qf_pair_probe_20260912/whole_v2_a.tsv 3
+taskset -c 0 env HOLO_D14_LOCAL_PAIRS=1 HOLO_D14_ACTIVE_PRESEARCH=1 \
+  HOLO_D14_ACTIVE_TOL=1e-12 HOLO_D14_ACTIVE_PATIENCE=2 \
+  HOLO_D14_QF_PAIR_POLISH_RESEARCH=1 HOLO_D14_QF_PAIR_PROBE=1 \
+  /tmp/d14_qf_pair_probe_v3 \
+  evidence/holonomic/d14_qf_pair_probe_20260912/pair_whole_epoch_input.tsv \
+  evidence/holonomic/d14_qf_pair_probe_20260912/whole_v3_a.tsv 3
+taskset -c 0 env HOLO_D14_LOCAL_PAIRS=1 HOLO_D14_ACTIVE_PRESEARCH=1 \
+  HOLO_D14_ACTIVE_TOL=1e-12 HOLO_D14_ACTIVE_PATIENCE=2 \
+  HOLO_D14_QF_PAIR_POLISH_RESEARCH=1 HOLO_D14_QF_PAIR_PROBE=1 \
+  /tmp/d14_qf_pair_probe_v3 \
+  evidence/holonomic/d14_qf_pair_probe_20260912/pair_whole_epoch_input.tsv \
+  evidence/holonomic/d14_qf_pair_probe_20260912/whole_v3_b.tsv 3
+taskset -c 0 env HOLO_D14_LOCAL_PAIRS=1 HOLO_D14_ACTIVE_PRESEARCH=1 \
+  HOLO_D14_ACTIVE_TOL=1e-12 HOLO_D14_ACTIVE_PATIENCE=2 \
+  HOLO_D14_QF_PAIR_POLISH_RESEARCH=1 /tmp/d14_qf_pair_candidate_v2 \
+  evidence/holonomic/d14_qf_pair_probe_20260912/pair_whole_epoch_input.tsv \
+  evidence/holonomic/d14_qf_pair_probe_20260912/whole_v2_b.tsv 3
+
+# Rebuild all machine-readable summaries and row-level A/B tables.
+gzip -9 -f evidence/holonomic/d14_qf_pair_probe_20260912/case*_probe_trace.log
+python3 evidence/holonomic/d14_qf_pair_probe_20260912/summarize_probe.py
+
+# Verification.
+cmake --build build-holonomic-global --target test_d14_positive test_d14_root_scheduling -j2
+ctest --test-dir build-holonomic-global --output-on-failure -j2

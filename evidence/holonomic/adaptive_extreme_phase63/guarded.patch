@@ -1,0 +1,25 @@
+diff --git a/src/lcbinint/magnification/holonomic/poly_roots.hpp b/src/lcbinint/magnification/holonomic/poly_roots.hpp
+index 458107a..c00a893 100644
+--- a/src/lcbinint/magnification/holonomic/poly_roots.hpp
++++ b/src/lcbinint/magnification/holonomic/poly_roots.hpp
+@@ -177,6 +177,20 @@ inline std::vector<Cplx<R>> aberth(const R* coeffs, int deg, int max_iter = 200,
+             if (v > bound - R(1)) bound = R(1) + v;
+         }
+     }
++#ifdef HOLO_QUARTIC_FUJIWARA_SEED
++    if constexpr (std::is_same<R,double>::value) {
++        if(!seed && deg==4) {
++            const double an=std::fabs(coeffs[0]);
++            if(2.0*(std::fabs(coeffs[1])/an)<bound) {
++            const double f=2.0*std::max({std::fabs(coeffs[1])/an,
++                std::sqrt(std::fabs(coeffs[2])/an),
++                std::cbrt(std::fabs(coeffs[3])/an),
++                std::sqrt(std::sqrt(std::fabs(coeffs[4])/an))});
++            if(std::isfinite(f) && f>0.0 && f<bound)bound=f;
++            }
++        }
++    }
++#endif
+     const R pi = R(3.14159265358979323846264338327950288L);
+     for (int i = 0; i < deg; ++i) {
+         if (seed) {

@@ -1,0 +1,7 @@
+cmake --build build-holonomic-m7 -j2: PASS
+ctest --test-dir build-holonomic-m7 --output-on-failure: PASS
+19/19 tests passed, 0 failed; total test time 15.99 s.
+
+Dedicated holonomic_d14_event_contract:
+- interval-certified known candidate avoids qf-cold and preserves event/value parity
+- historical case 49 wrong-topology candidate is rejected and uses qf-cold

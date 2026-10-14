@@ -1,0 +1,71 @@
+{
+  "normal": {
+    "before": {
+      "candidate_integration_ms": 0.3024373103448276,
+      "candidate_no_caustic_ms": 0.5177231149425288,
+      "planning_ms": 0.11205617241379312,
+      "seed_ms": 0.1002244482758621
+    },
+    "flat": {
+      "candidate_integration_ms": 0.2835074022988504,
+      "candidate_no_caustic_ms": 0.4976163448275863,
+      "planning_ms": 0.10983813793103449,
+      "seed_ms": 0.1008382528735632
+    },
+    "after": {
+      "candidate_integration_ms": 0.2757233563218392,
+      "candidate_no_caustic_ms": 0.48796719540229866,
+      "planning_ms": 0.10919812643678166,
+      "seed_ms": 0.10019878160919538
+    },
+    "before_reverse": {
+      "candidate_integration_ms": 0.303563827586207,
+      "candidate_no_caustic_ms": 0.5212899655172412,
+      "planning_ms": 0.11276173563218397,
+      "seed_ms": 0.10190209195402299
+    },
+    "after_reverse": {
+      "candidate_integration_ms": 0.2773846896551723,
+      "candidate_no_caustic_ms": 0.491985183908046,
+      "planning_ms": 0.11044402298850577,
+      "seed_ms": 0.10112248275862071
+    },
+    "reduction": {
+      "candidate_integration_ms": 0.08832889696225044,
+      "candidate_no_caustic_ms": 0.05747458184001164,
+      "planning_ms": 0.025505475650707266,
+      "seed_ms": 0.00025609187287400914
+    },
+    "reduction_reverse": {
+      "candidate_integration_ms": 0.08623931955002195,
+      "candidate_no_caustic_ms": 0.05621589431539886,
+      "planning_ms": 0.020554070320789708,
+      "seed_ms": 0.007650571057501221
+    }
+  },
+  "validation": {
+    "conditions": 896,
+    "resolved_reference": 754,
+    "unresolved_reference": 142,
+    "candidate_failures_on_resolved_reference": 0,
+    "maximum_relative_change": 0.0,
+    "node_count_changes": 0,
+    "maximum_discrepancy_over_tolerance": 0.24896766374184262
+  },
+  "profile": {
+    "before": {
+      "physical": 0.2241726590038314,
+      "integral": 0.35543013409961693,
+      "header": 0.022736812260536397,
+      "node_loop": 0.27522033716475075,
+      "allocation": 0.021582306513409952
+    },
+    "after": {
+      "physical": 0.1999303754789273,
+      "integral": 0.3286831762452109,
+      "header": 0.004567222222222224,
+      "node_loop": 0.24991488888888894,
+      "allocation": 0.021025735632183896
+    }
+  }
+}

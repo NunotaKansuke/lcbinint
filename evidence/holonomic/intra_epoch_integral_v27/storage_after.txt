@@ -1,0 +1,1 @@
+sample_bytes 640 panel_bytes 1472

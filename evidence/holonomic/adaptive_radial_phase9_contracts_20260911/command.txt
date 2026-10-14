@@ -1,0 +1,9 @@
+Latest raw run:
+
+  bash checks/holonomic/run_adaptive_radial.sh evidence/holonomic/adaptive_radial_phase9_contracts_20260911 1
+
+Summary regeneration:
+
+  python checks/holonomic/summarize_adaptive_radial.py evidence/holonomic/adaptive_radial_phase9_contracts_20260911 > evidence/holonomic/adaptive_radial_phase9_contracts_20260911/summary.txt
+
+The raw directory is separate from the pre-existing V2/VBM benchmark evidence.

@@ -1,0 +1,48 @@
+{
+  "rows": 7216,
+  "mu_max_difference": 0.0,
+  "ok_mismatches": 0,
+  "nodes_mismatches": 0,
+  "profiles": {
+    "linear": {
+      "rows": 2706,
+      "counts": {
+        "rootpair_calls": 195940,
+        "rootpair_success": 148540,
+        "rootpair_cold": 47400,
+        "predictor_reject": 11182,
+        "newton_reject": 10748,
+        "branch_reject": 21961,
+        "tmax_reject": 254,
+        "vfloor_reject": 9746,
+        "newton_iterations": 600209,
+        "newton_pairs_accepted": 167900,
+        "quartic_cold": 15037,
+        "quartic_warm": 49295
+      },
+      "transport_success_fraction": 0.758089210982954,
+      "arc_median_ms": 0.08071049999999999,
+      "rootpair_median_ms": 0.06172699999999999
+    },
+    "uniform": {
+      "rows": 2706,
+      "counts": {
+        "rootpair_calls": 172682,
+        "rootpair_success": 128842,
+        "rootpair_cold": 43840,
+        "predictor_reject": 9607,
+        "newton_reject": 8973,
+        "branch_reject": 18611,
+        "tmax_reject": 255,
+        "vfloor_reject": 7974,
+        "newton_iterations": 542028,
+        "newton_pairs_accepted": 148055,
+        "quartic_cold": 15037,
+        "quartic_warm": 45545
+      },
+      "transport_success_fraction": 0.7461229311682747,
+      "arc_median_ms": 0.06999550000000002,
+      "rootpair_median_ms": 0.053109500000000004
+    }
+  }
+}

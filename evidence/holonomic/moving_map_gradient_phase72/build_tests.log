@@ -1,0 +1,4 @@
+[100%] Built target test_adaptive_radial
+[100%] Built target test_quartic_local_bracket
+[100%] Built target test_quartic_sturm
+[100%] Built target test_root_pair

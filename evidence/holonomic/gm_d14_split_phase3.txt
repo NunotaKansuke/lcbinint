@@ -1,0 +1,7 @@
+The pre-existing bench_d14_split was inspected and run with 108 cases / 10 repeats.
+Its standalone qpol timing was 0.6516 ms while radial_events was 0.6345 ms:
+the legacy sub-operations do not represent the current structured DD production
+path, so summing their percentages would be misleading. Do not use that split
+as the cost decomposition of the current epoch. The current solve_d14 A/B run
+is in gm_d14_current_phase3.txt; paired cold/warm topology cost is recorded
+inside gm_cold_warm_value_phase3.csv and gm_cold_warm_jac_local_gate_phase3.csv.

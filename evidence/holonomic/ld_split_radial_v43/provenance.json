@@ -1,0 +1,15 @@
+{
+  "host": "rogue1",
+  "checkout": "/rogue1_8/nunota/lcbinint/experiments/seeded-boundary-events",
+  "branch": "experiment/seeded-boundary-events",
+  "head": "f3547723b79828d9c501182746028e99f7bad116",
+  "baseline": "v42 saved binaries and source/*_before.hpp",
+  "precision": "binary64 nodes and kernels; existing DD/QF event refinement retained",
+  "threads": 1,
+  "repetitions": 5,
+  "input": "evidence/holonomic/seeded_paper_qrho_20261013/input_snapshot.tsv",
+  "reference": "saved independent VBM RelTol=1e-6",
+  "coverage_certified": false,
+  "production_promoted": false,
+  "initial_timing": "exploratory measurements before final ledger envelope; retained separately, not final evidence"
+}

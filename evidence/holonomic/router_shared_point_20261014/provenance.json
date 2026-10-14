@@ -1,0 +1,193 @@
+{
+  "checkout": "/rogue1_8/nunota/lcbinint/experiments/seeded-boundary-events",
+  "branch": "experiment/seeded-boundary-events",
+  "head": "7aaef4eb0636f1f2e6116f8b6f399de12d74b69c",
+  "cpu": "INTEL(R) XEON(R) GOLD 6530",
+  "build_flags": {
+    "CMAKE_BUILD_TYPE": "Release",
+    "LCBININT_ENABLE_OPENMP": false,
+    "LCBININT_ENABLE_JAX_FFI": false,
+    "LCBININT_BUILD_TESTS": true
+  },
+  "source_sha256": {
+    "src/lcbinint/magnification/point_source_magnifier.cpp": "2f9a6480a12234384d65bebe11021f49e94ea6d39c4261d591d4f8d811a91be5",
+    "src/lcbinint/magnification/point_source_magnifier.hpp": "5b70a37da6dddb8abcf0677d71d42f25fd388b346f8b45936f7e4b5f53c10031",
+    "src/lcbinint/magnification/finite_source_magnifier.cpp": "6555bef3d71b3a63f605b952972990d16af06e605881d0cb43eb6b94a85e72bd",
+    "src/lcbinint/magnification/finite_source_magnifier.hpp": "1e28af9a626279bfe25ca055857a79b0729950ed1f97908ab42f5d8840a567c9",
+    "src/lcbinint/magnification/binary_caustic_enclosure.hpp": "050fd75809277770173ac1f3aac9d97514fba2afebbe4a761ac31875c88395d8",
+    "src/lcbinint/magnification/holonomic/seeded_radial_frontier_value.hpp": "72081d7065ed080aec8bfa8caeabc882edd2606ed82d607db745bc73c5748aa2",
+    "src/lcbinint/model/lens_model.cpp": "2669c6fdb42e0210a757f7d78429c6eff57ff357648fb498cb8c819004b7f4de",
+    "python/bind_lc.cpp": "a83a570de83d9ec7890219ca5797fc6a9393d30fb9755a82314fb5e9f77e978c",
+    "python/lcbinint/__init__.py": "88828f393a7f4620632052dcde7a9444fd7f8fcf630d1cc841027f729041798f",
+    "python/lcbinint/holonomic_fused.py": "591b887553e1d279917452aa59902d6ca091d7471ebbcb1ca3f18b03b409da15",
+    "benchmarks/holonomic/bench_router_shared_point.py": "253d195442598c77c00595bdf3c90a3b2e33daa0c15961c6d91fb46b5f951e86"
+  },
+  "preexisting_diff_sha256": "582cfa3d10f924cee5bb1173fff9036de454c6cbaa61c7f92dada1ac4cc8b35f",
+  "baseline_native_sha256": "304115afd6d81580b1af767958aa5495c3861642031c99e8dc941bb2a32702a8",
+  "optimized_native_sha256": "7171064fa5ba654736b9dd86fd66ce851fa382e7e2069a99949ecded97b2cbb5",
+  "current_build_matches_measured_native": true,
+  "max_relative_value_change": 1.1658117788324349e-12,
+  "all_route_and_status_masks_identical": true,
+  "rows": [
+    {
+      "case": "ordinary",
+      "ld": 0.0,
+      "atol": 0.001,
+      "rtol": 0.001,
+      "before_ms": 1.6962579684332013,
+      "after_ms": 0.2587459748610854,
+      "speedup": 6.55568833232626,
+      "max_relative_value_change": 3.2350235114928428e-15
+    },
+    {
+      "case": "ordinary",
+      "ld": 0.0,
+      "atol": 0.0001,
+      "rtol": 0.0001,
+      "before_ms": 3.758587990887463,
+      "after_ms": 3.546261927112937,
+      "speedup": 1.0598732039929672,
+      "max_relative_value_change": 1.9039396587430862e-15
+    },
+    {
+      "case": "ordinary",
+      "ld": 0.5,
+      "atol": 0.001,
+      "rtol": 0.001,
+      "before_ms": 1.7002320382744074,
+      "after_ms": 0.2586760092526674,
+      "speedup": 6.572824604749753,
+      "max_relative_value_change": 3.2350235114928428e-15
+    },
+    {
+      "case": "ordinary",
+      "ld": 0.5,
+      "atol": 0.0001,
+      "rtol": 0.0001,
+      "before_ms": 3.7719180108979344,
+      "after_ms": 3.5307949874550104,
+      "speedup": 1.0682914256703204,
+      "max_relative_value_change": 1.9039396587430862e-15
+    },
+    {
+      "case": "wide_planetary",
+      "ld": 0.0,
+      "atol": 0.001,
+      "rtol": 0.001,
+      "before_ms": 6.034291000105441,
+      "after_ms": 5.729413009248674,
+      "speedup": 1.0532127794530817,
+      "max_relative_value_change": 7.641618926041283e-13
+    },
+    {
+      "case": "wide_planetary",
+      "ld": 0.0,
+      "atol": 0.0001,
+      "rtol": 0.0001,
+      "before_ms": 7.43607000913471,
+      "after_ms": 6.9304099306464195,
+      "speedup": 1.0729625063377926,
+      "max_relative_value_change": 7.641618926041283e-13
+    },
+    {
+      "case": "wide_planetary",
+      "ld": 0.5,
+      "atol": 0.001,
+      "rtol": 0.001,
+      "before_ms": 6.179229938425124,
+      "after_ms": 5.869570071808994,
+      "speedup": 1.0527568225317554,
+      "max_relative_value_change": 9.342381299822494e-13
+    },
+    {
+      "case": "wide_planetary",
+      "ld": 0.5,
+      "atol": 0.0001,
+      "rtol": 0.0001,
+      "before_ms": 7.629519910551608,
+      "after_ms": 7.137258071452379,
+      "speedup": 1.0689707215531659,
+      "max_relative_value_change": 9.342381299822494e-13
+    },
+    {
+      "case": "resonant",
+      "ld": 0.0,
+      "atol": 0.001,
+      "rtol": 0.001,
+      "before_ms": 5.954154999926686,
+      "after_ms": 5.52159792277962,
+      "speedup": 1.0783391118289385,
+      "max_relative_value_change": 5.801156363396678e-13
+    },
+    {
+      "case": "resonant",
+      "ld": 0.0,
+      "atol": 0.0001,
+      "rtol": 0.0001,
+      "before_ms": 7.819638936780393,
+      "after_ms": 6.975830998271704,
+      "speedup": 1.1209616372182392,
+      "max_relative_value_change": 2.790419129364429e-13
+    },
+    {
+      "case": "resonant",
+      "ld": 0.5,
+      "atol": 0.001,
+      "rtol": 0.001,
+      "before_ms": 6.091112038120627,
+      "after_ms": 5.6541969534009695,
+      "speedup": 1.0772727035015743,
+      "max_relative_value_change": 3.9738799108989493e-13
+    },
+    {
+      "case": "resonant",
+      "ld": 0.5,
+      "atol": 0.0001,
+      "rtol": 0.0001,
+      "before_ms": 7.996250060386956,
+      "after_ms": 7.164268987253308,
+      "speedup": 1.1161292344849014,
+      "max_relative_value_change": 3.9738711251516575e-13
+    },
+    {
+      "case": "close",
+      "ld": 0.0,
+      "atol": 0.001,
+      "rtol": 0.001,
+      "before_ms": 7.260327925905585,
+      "after_ms": 6.761839031241834,
+      "speedup": 1.0737209052686074,
+      "max_relative_value_change": 4.2488987107290395e-15
+    },
+    {
+      "case": "close",
+      "ld": 0.0,
+      "atol": 0.0001,
+      "rtol": 0.0001,
+      "before_ms": 11.813111021183431,
+      "after_ms": 11.019553989171982,
+      "speedup": 1.0720135345578607,
+      "max_relative_value_change": 9.784838554769174e-13
+    },
+    {
+      "case": "close",
+      "ld": 0.5,
+      "atol": 0.001,
+      "rtol": 0.001,
+      "before_ms": 7.457820000126958,
+      "after_ms": 6.960754049941897,
+      "speedup": 1.0714097850058657,
+      "max_relative_value_change": 4.401723275369234e-15
+    },
+    {
+      "case": "close",
+      "ld": 0.5,
+      "atol": 0.0001,
+      "rtol": 0.0001,
+      "before_ms": 12.006556964479387,
+      "after_ms": 11.229978990741074,
+      "speedup": 1.0691522196416028,
+      "max_relative_value_change": 1.1658117788324349e-12
+    }
+  ]
+}

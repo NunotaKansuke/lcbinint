@@ -1,0 +1,11 @@
+{
+  "client_date": "2026-10-13",
+  "host": "rogue1",
+  "branch": "experiment/seeded-boundary-events",
+  "head": "f3547723b79828d9c501182746028e99f7bad116",
+  "compiler": "g++ (GCC) 11.5.0 20240719 (Red Hat 11.5.0-5)",
+  "baseline": "accepted dirty v41 source/binaries",
+  "scope": "value-only experimental frontier; LD reuse of prepared fold when original predictor width gate rejects; uniform later continuation unchanged; no gradient/default/master promotion",
+  "timing": "serial one-thread; fresh seed included, caustic excluded; 5 reps both orders; all builds/tests/profile finished first; additional7-rep normal check recorded separately",
+  "status": "new tolerance violations/failures0 across14432; old3 violations/6 failures; all node counts unchanged;2269 checks passed; coverage_certified=false; normal87 benefit not established; no commit/push"
+}

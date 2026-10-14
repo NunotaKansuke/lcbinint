@@ -1,0 +1,94 @@
+{
+  "forward": {
+    "uniform": {
+      "baseline": {
+        "full_us": 62.244,
+        "integration_us": 25.026,
+        "paired_reduction_percent": 0.0
+      },
+      "pair": {
+        "full_us": 61.99,
+        "integration_us": 23.217000000000002,
+        "paired_reduction_percent": 0.5598140015527275
+      },
+      "count": {
+        "full_us": 56.4795,
+        "integration_us": 22.523,
+        "paired_reduction_percent": 4.5287318679886335
+      },
+      "both": {
+        "full_us": 56.0965,
+        "integration_us": 20.863,
+        "paired_reduction_percent": 5.387012586009698
+      }
+    },
+    "linear": {
+      "baseline": {
+        "full_us": 76.45700000000001,
+        "integration_us": 48.412,
+        "paired_reduction_percent": 0.0
+      },
+      "pair": {
+        "full_us": 78.059,
+        "integration_us": 48.853,
+        "paired_reduction_percent": -0.7324354346015083
+      },
+      "count": {
+        "full_us": 70.885,
+        "integration_us": 43.708999999999996,
+        "paired_reduction_percent": 6.453095619472126
+      },
+      "both": {
+        "full_us": 71.264,
+        "integration_us": 43.397,
+        "paired_reduction_percent": 5.027932960893833
+      }
+    }
+  },
+  "reverse": {
+    "uniform": {
+      "baseline": {
+        "full_us": 62.98950000000001,
+        "integration_us": 24.313499999999998,
+        "paired_reduction_percent": 0.0
+      },
+      "pair": {
+        "full_us": 61.682,
+        "integration_us": 23.0665,
+        "paired_reduction_percent": 0.9660483068779646
+      },
+      "count": {
+        "full_us": 57.171,
+        "integration_us": 22.866999999999997,
+        "paired_reduction_percent": 2.7458976351156017
+      },
+      "both": {
+        "full_us": 55.589,
+        "integration_us": 20.5295,
+        "paired_reduction_percent": 6.290742426454687
+      }
+    },
+    "linear": {
+      "baseline": {
+        "full_us": 76.72,
+        "integration_us": 48.739,
+        "paired_reduction_percent": 0.0
+      },
+      "pair": {
+        "full_us": 77.273,
+        "integration_us": 49.095,
+        "paired_reduction_percent": -0.07248286768581913
+      },
+      "count": {
+        "full_us": 71.62599999999999,
+        "integration_us": 44.272,
+        "paired_reduction_percent": 5.186022253129352
+      },
+      "both": {
+        "full_us": 71.20899999999999,
+        "integration_us": 43.492999999999995,
+        "paired_reduction_percent": 5.640241876536667
+      }
+    }
+  }
+}

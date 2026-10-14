@@ -1,0 +1,40 @@
+{
+  "sources": {
+    "whole": {
+      "path": "evidence/holonomic/adaptive_extreme_phase54/whole_candidate.tsv",
+      "sha256": "eb3b38f8f81156551414f63dddb5b8dfe208e4191c9c2783c332cb06f15fef0d"
+    },
+    "profile": {
+      "path": "evidence/holonomic/adaptive_extreme_phase54/cache1.tsv",
+      "sha256": "5269cb4ffa0ca3f9b9e4b5246d8bbdcbb94dee164e1969f7b4aecdd82876b7ca"
+    },
+    "input": {
+      "path": "evidence/holonomic/v2_adaptive_best_trajectory_20260913/input_snapshot.tsv",
+      "sha256": "6646492658ed416e75cb8c6c821ee853f79cdf7761fc41441186aa67b81fa05b"
+    }
+  },
+  "central_band_rows": 542,
+  "band_warm_ms": [
+    0.193466,
+    0.245418
+  ],
+  "selected_trajectories_per_profile": 32,
+  "selected_input_rows": 256,
+  "central_band_profile_medians_ms": {
+    "topology": 0.09048,
+    "setup": 0.0117065,
+    "physics": 0.120889,
+    "estimator": 0.0036115,
+    "scheduler": 0.001046,
+    "arc": 0.08060850000000003,
+    "endpoint": 0.026388499999999995,
+    "presearch": 0.0080665,
+    "real": 0.0215945,
+    "residual": 0.011616,
+    "metadata": 0.014233999999999998,
+    "classification": 0.0009685,
+    "soft": 0.0008805,
+    "probes": 0.00351
+  },
+  "scope": "Diagnostic subset only. Stages include parent/child overlap; do not sum. Historical profile time is not the uninstrumented whole time."
+}

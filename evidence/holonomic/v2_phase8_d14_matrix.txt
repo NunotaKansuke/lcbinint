@@ -1,0 +1,8 @@
+D14 matrix/pencil research cases=108 reps=20
+  matrix build   p50 0.003546 p90 0.004412 p99 0.006496 max 0.007723 ms
+  pencil build   p50 0.000024 p90 0.000044 p99 0.000773 max 0.001032 ms
+  scalar seed    p50 0.152553 p90 0.486250 p99 0.620202 max 0.621744 ms
+identity worst 3.843e-37 failures 0/108
+degree-14 determinant failures 0/108
+QZ solve: not run; this isolated image only measures exact identity, pencil assembly, and scalar seed cost
+checksum -330358.2440654065

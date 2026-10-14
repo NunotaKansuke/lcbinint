@@ -1,0 +1,73 @@
+Phase72 moving-map gradient-integrand diagnostic
+Date: 2026-09-14 (Asia/Tokyo)
+Repository: /rogue1_8/nunota/lcbinint
+Branch: dev/holonomic
+Base HEAD before this evidence-only change: dfe09dee62a99bbd18f3ce01246c84c6e130464b
+
+Scope:
+  Shadow-only diagnostic under evidence/holonomic/moving_map_gradient_phase72.
+  No production solver, value path, tolerance, error ledger/gate, scheduler,
+  router/default, or Hermite code was changed. The shadow uses existing
+  adaptive mapped-radius samples and same-node root/quartic state. Fold event
+  sensitivity performs a local DD correction from existing event seeds; it
+  does not run a new global root solve.
+
+Host/runtime:
+  Linux x86_64, Intel Xeon Gold 6530, pinned to CPU 0 with taskset.
+  Compiler: GCC 11.5.0 (Red Hat 11.5.0-5).
+  Shadow flags are recorded literally in run_shadow.sh and
+  rand035_reference/run_reference.sh. Caustic reference flags are in
+  run_reference_fd.sh. Current source files are built from this base HEAD.
+
+Input:
+  evidence/holonomic/adaptive_radial_20260911/reference_cases.tsv
+  SHA256 5d625cbc9f4dc16de2a81754bbff131f1cb1ba9780fccdff4ddb210417347548
+  Selected rows: 17 caustic-cross (uniform, u=0, derivative w.r.t. a),
+  and 99 rand035 (u=0), 100 rand035 (u=0.5), same non-barycentric lens:
+    xs=-0.07045642231021985, ys=-0.14887100926364968,
+    rho=0.07530925479707781, q=2.1433640368724767, a=3.035303804422572.
+
+Shadow construction:
+  One cold classify_cells result and one restored CellPlan set per case.
+  Each cell uses the same Fejer-II nested nodes, 7/15/31/63/127/255.
+  At nodes, old and moving integrands share the same topology and sample:
+    old = J*F_p/D
+    moving = (J*F_p + J*F_R*R_p + F*J_p)/D.
+  Event derivatives start from physical RadialEvent radius/radius_lo and
+  fold_t_seed, locally corrected by DD P=P_t=0; then use Rp=-Pp/PR and
+  tp=-(Ptr*Rp+Ptp)/Ptt. Nonphysical subdivision cuts are held fixed.
+  Empty cells are certified by the fixed topology and contribute exactly zero.
+  For LD, F_R uses the existing 16-node vK evaluator and its current quality
+  handling; no packet, fit, Hermite rule, or fixed-V2 substitute is added.
+
+Independent reference:
+  rand035 raw comes from the completed Phase72 independent direct-phi,
+  direct angular-boundary value/FD campaign at base f83e30f398fa1a7918f28de0afa30165f47a5cdc.
+  It is snapshotted under rand035_reference/ with the source, input-derived
+  outputs, summary, and provenance. `git diff f83e30f..dfe09dee --
+  src/lcbinint/magnification/holonomic tests/holonomic_cpp` is empty, so the
+  reference evaluator/topology implementation is unchanged at this base.
+  The full source is also included with only its relative include path
+  adjusted; set REBUILD_RAND_REFERENCE=1 when running run_all.sh to regenerate
+  all 144 direct-integral rows on the current checkout (this is intentionally
+  a long reference run). The completed raw audit has 32/32 fresh cold
+  topologies OK and 144/144 finite direct integrals. X uses 160 radial GL
+  order x 32 radial subdivisions and 1024 angular points; Y uses 128 x 16
+  and 1024. The observed resolution/step spread is diagnostic, not an
+  interval certificate.
+  The uniform caustic a reference independently evaluates direct arc flux,
+  regenerates cold topology for +/-a, and uses central value FD at radial GL
+  orders 128/256/512/1024 with h=rho*{1e-2,3e-3,1e-3,3e-4,1e-4}.
+
+Reproduction from repo root:
+  bash evidence/holonomic/moving_map_gradient_phase72/run_all.sh
+
+Equivalent stages:
+  bash evidence/holonomic/moving_map_gradient_phase72/rand035_reference/run_reference.sh
+  bash evidence/holonomic/moving_map_gradient_phase72/run_reference_fd.sh
+  bash evidence/holonomic/moving_map_gradient_phase72/run_shadow.sh
+  ctest --test-dir build-holonomic-m7 --output-on-failure \
+    -R '^(holonomic_adaptive_radial|holonomic_quartic_local_bracket|holonomic_quartic_sturm|holonomic_root_pair)$'
+
+The primary raw TSVs, generated summaries, and run logs are in this directory.
+SHA256SUMS covers all evidence files other than itself.
