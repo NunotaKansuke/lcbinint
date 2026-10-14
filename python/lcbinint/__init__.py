@@ -30,6 +30,14 @@ def _normalize_t_lim(value):
     return (lower, upper)
 
 
+def _normalize_finite_source_backend(value):
+    if not isinstance(value, str) or value not in ("default", "holonomic"):
+        raise ValueError(
+            "finite_source_backend must be 'default' or 'holonomic'"
+        )
+    return value
+
+
 def _ephemeris_t_lim(t_lim):
     if t_lim is None:
         return None
@@ -44,23 +52,41 @@ class Options:
 
     ``jax`` and ``t_lim`` deliberately live outside ``lcbi_options`` so these
     controls do not change the layout of the public C ABI structure.
+    ``finite_source_backend='holonomic'`` opts a binary LightCurve into the
+    seeded radial route; the default keeps the standard router.
     """
 
-    __slots__ = ("_native", "_jax", "_t_lim", "_t_lim_locked")
+    __slots__ = (
+        "_native", "_jax", "_t_lim", "_t_lim_locked",
+        "_finite_source_backend",
+    )
 
-    def __init__(self, *args, jax=False, t_lim=None, **kwargs):
+    def __init__(
+        self, *args, jax=False, t_lim=None, finite_source_backend="default",
+        **kwargs,
+    ):
         self._native = _NativeOptions(*args, **kwargs)
         self._jax = bool(jax)
         self._t_lim = _normalize_t_lim(t_lim)
         self._t_lim_locked = False
+        self._finite_source_backend = _normalize_finite_source_backend(
+            finite_source_backend
+        )
 
     @classmethod
-    def _from_native(cls, native, *, jax=False, t_lim=None):
+    def _from_native(
+        cls, native, *, jax=False, t_lim=None, finite_source_backend="default"
+    ):
         result = cls.__new__(cls)
         object.__setattr__(result, "_native", native)
         object.__setattr__(result, "_jax", bool(jax))
         object.__setattr__(result, "_t_lim", _normalize_t_lim(t_lim))
         object.__setattr__(result, "_t_lim_locked", True)
+        object.__setattr__(
+            result,
+            "_finite_source_backend",
+            _normalize_finite_source_backend(finite_source_backend),
+        )
         return result
 
     @property
@@ -70,6 +96,10 @@ class Options:
     @property
     def t_lim(self):
         return self._t_lim
+
+    @property
+    def finite_source_backend(self):
+        return self._finite_source_backend
 
     def __getattr__(self, name):
         native = object.__getattribute__(self, "_native")
@@ -84,6 +114,11 @@ class Options:
                     "LightCurve.options.t_lim is fixed at construction"
                 )
             object.__setattr__(self, "_t_lim", _normalize_t_lim(value))
+        elif name == "finite_source_backend":
+            object.__setattr__(
+                self, "_finite_source_backend",
+                _normalize_finite_source_backend(value),
+            )
         elif name in self.__slots__:
             object.__setattr__(self, name, value)
         else:
@@ -99,6 +134,10 @@ class Options:
             f"<lc.Options backend='{'jax' if self.jax else 'native'}' ",
             1,
         )
+        if self.finite_source_backend != "default":
+            rendered = rendered[:-1] + (
+                f" finite_source_backend={self.finite_source_backend!r}>"
+            )
         if self.t_lim is not None:
             rendered = rendered[:-1] + f" t_lim={self.t_lim}>"
         return rendered
@@ -178,18 +217,21 @@ class LightCurve:
             kwargs["orbital_motion"] = _orbital_motion_name(orbital_motion_mode)
         jax_argument = kwargs.pop("jax", None)
         jax = bool(jax_argument) if jax_argument is not None else False
+        finite_source_backend = "default"
         t_lim = None
         positional = list(args)
         if positional and isinstance(positional[0], Options):
             options = positional[0]
             positional[0] = options._native
             t_lim = options.t_lim
+            finite_source_backend = options.finite_source_backend
             if jax_argument is None:
                 jax = options.jax
         elif isinstance(kwargs.get("options"), Options):
             options = kwargs["options"]
             kwargs["options"] = options._native
             t_lim = options.t_lim
+            finite_source_backend = options.finite_source_backend
             if jax_argument is None:
                 jax = options.jax
         if t_lim is not None:
@@ -212,8 +254,12 @@ class LightCurve:
         self._native = _NativeLightCurve(*positional, **kwargs)
         self.limb_darkening = LimbDarkening(self._native.ld_c, self._native.ld_d)
         self._options = Options._from_native(
-            self._native.options, jax=jax, t_lim=t_lim
+            self._native.options,
+            jax=jax,
+            t_lim=t_lim,
+            finite_source_backend=finite_source_backend,
         )
+        self._validate_backend_combination()
         self._warmup_profile = None
         self._warmup_methods = None
         self._warmup_jax_function = None
@@ -295,6 +341,7 @@ class LightCurve:
             float(options.hexadecapole_threshold),
             float(options.adaptive_hex_threshold),
             bool(options.jax),
+            options.finite_source_backend,
             model.orbital_motion,
             model.xallarap,
             model.source_orbit_coordinates,
@@ -331,6 +378,10 @@ class LightCurve:
         and a generic certification/refinement pass is run if the two
         discretisations do not yet agree.
         """
+        if self._options.finite_source_backend == "holonomic":
+            raise NotImplementedError(
+                "warmup is not implemented for finite_source_backend='holonomic'"
+            )
         grid_timing_repeats = kwargs.pop("grid_timing_repeats", 1)
         self._validate_time_limit(times)
         merged = self._merge_params(params, **kwargs)
@@ -425,7 +476,25 @@ class LightCurve:
             self._warmup_drift_warned = True
         return report
 
+    def _validate_backend_combination(self):
+        if self._options.finite_source_backend == "holonomic" and self._options.jax:
+            raise ValueError(
+                "finite_source_backend='holonomic' currently requires the native backend"
+            )
+
     def __call__(self, times, params=None, **kwargs):
+        self._validate_backend_combination()
+        if self._options.finite_source_backend == "holonomic":
+            merged = self._merge_params(params, **kwargs)
+            value = self.holonomic_info(times, merged)["mu"]
+            try:
+                import numpy as np
+
+                if np.ndim(value) == 0:
+                    return float(value)
+            except (ImportError, TypeError):
+                pass
+            return value
         self._validate_time_limit(times)
         merged = self._merge_params(params, **kwargs)
         if self._options.jax:
@@ -450,10 +519,22 @@ class LightCurve:
         return self.__call__(times, params, **kwargs)
 
     def holonomic_magnification(self, times, params=None, **kwargs):
-        """Scalar-only opt-in seeded radial values with the main selector."""
+        """Strict seeded radial values; uncertified support raises an error."""
         from .holonomic_fused import lightcurve_magnification
 
         return lightcurve_magnification(self, times, params, **kwargs)
+
+    def holonomic_info(self, times, params=None, **kwargs):
+        """Return seeded-route values and convergence/support diagnostics.
+
+        Last iterates are retained when the radial frontier has not proved full
+        support. This method never falls back to the ordinary integrator.
+        """
+        self._validate_time_limit(times)
+        self._validate_backend_combination()
+        from .holonomic_fused import lightcurve_value
+
+        return lightcurve_value(self, times, self._merge_params(params, **kwargs))
 
     def holonomic_gradient(self, times, params=None, **kwargs):
         """Return optional forward gradients for a static binary trajectory.
@@ -472,6 +553,10 @@ class LightCurve:
         the same row-major result shape and composes the public differentiable
         callable for each statically supplied parameter mapping.
         """
+        if self._options.finite_source_backend == "holonomic":
+            raise NotImplementedError(
+                "magnification_batch is not implemented for finite_source_backend='holonomic'"
+            )
         self._validate_time_limit(times)
         merged = [self._merge_params(params) for params in parameter_rows]
         if self._options.jax:
@@ -484,7 +569,7 @@ class LightCurve:
 
     @property
     def supports_fused_light_curve_likelihood(self):
-        return True
+        return self._options.finite_source_backend == "default"
 
     def light_curve_log_likelihood_batch(
         self,
@@ -499,6 +584,10 @@ class LightCurve:
         blend_flux=None,
     ):
         """Evaluate the selected backend's fused/batched likelihood path."""
+        if self._options.finite_source_backend == "holonomic":
+            raise NotImplementedError(
+                "batched likelihood is not implemented for finite_source_backend='holonomic'"
+            )
         self._validate_time_limit(times)
         merged = [self._merge_params(params) for params in parameter_rows]
         if self._options.jax:
@@ -530,6 +619,9 @@ class LightCurve:
         )
 
     def info(self, times, params=None, **kwargs):
+        self._validate_backend_combination()
+        if self._options.finite_source_backend == "holonomic":
+            return self.holonomic_info(times, params, **kwargs)
         self._validate_time_limit(times)
         if self._options.jax:
             from .jax_backend import info
@@ -663,6 +755,10 @@ def binary_ray_shooting(
     if options is None:
         options = Options()
     if isinstance(options, Options):
+        if options.finite_source_backend != "default":
+            raise NotImplementedError(
+                "finite_source_backend is only supported by LightCurve"
+            )
         use_jax = options.jax if jax is None else bool(jax)
         native_options = options._native
     elif isinstance(options, _NativeOptions):

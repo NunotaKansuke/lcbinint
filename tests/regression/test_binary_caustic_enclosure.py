@@ -89,6 +89,44 @@ def test_scalar_holonomic_api_shares_selector_and_rejects_uncertified_support():
         curve.holonomic_magnification(crossing_times, crossing)
 
 
+def test_lightcurve_api_exposes_holonomic_values_and_support_diagnostics():
+    lcbinint = pytest.importorskip("lcbinint")
+    options = lcbinint.Options(
+        param_type="vbm",
+        nbin="auto",
+        finite_source_tol=1e-3,
+        finite_source_reltol=1e-3,
+        finite_source_backend="holonomic",
+    )
+    curve = lcbinint.LightCurve(lens="binary", options=options)
+    assert curve.options.finite_source_backend == "holonomic"
+    assert not curve.supports_fused_light_curve_likelihood
+
+    params = dict(t0=0., u0=.03, tE=1., alpha=-.08, rho=.003, q=.01, s=1.2)
+    times = np.linspace(-.2, .8, 201)
+    info = curve.info(times, params)
+    values = curve(times, params)
+
+    assert isinstance(info, dict)
+    assert np.any(info["integrator_used"])
+    assert np.any(~info["fully_converged"])
+    assert np.any(~info["support_certified"])
+    assert np.all(np.isfinite(values))
+    np.testing.assert_allclose(values, info["mu"], rtol=2e-12, atol=2e-12)
+    with pytest.raises(NotImplementedError, match="magnification_batch"):
+        curve.magnification_batch(times[:2], [params])
+
+
+def test_holonomic_backend_rejects_jax_and_unknown_selector():
+    lcbinint = pytest.importorskip("lcbinint")
+    with pytest.raises(ValueError, match="finite_source_backend"):
+        lcbinint.Options(finite_source_backend="algebraic_boundary")
+    with pytest.raises(ValueError, match="requires the native backend"):
+        lcbinint.LightCurve(options=lcbinint.Options(
+            jax=True, finite_source_backend="holonomic"
+        ))
+
+
 @pytest.mark.parametrize("ordering", ["forward", "reverse", "interleaved"])
 def test_point_strip_route_handles_reversed_and_jumping_trajectories(ordering):
     lcbinint = pytest.importorskip("lcbinint")
