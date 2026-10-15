@@ -1,0 +1,113 @@
+{
+  "accuracy": "absolute relative difference from saved RelTol=1e-6 reference with three adjudications; empirical, not a formal error bound",
+  "certified": false,
+  "complete_error_model": false,
+  "groups": [
+    {
+      "accepted": 3607,
+      "conditions": 3608,
+      "false_accepts": 8,
+      "false_accepts_by_method": {
+        "inverse_ray_cartesian": 8
+      },
+      "faster_than_vbm": 0,
+      "finite_conditions": 3608,
+      "max_relative_reference_error": 0.0016235147484345847,
+      "median_auto_ms_per_epoch": 0.25255574999999997,
+      "median_vbm_ms": 0.061524999999999996,
+      "median_vbm_over_auto": 0.26672667640169195,
+      "methods": {
+        "inverse_ray_cartesian": 1756,
+        "inverse_ray_polar": 1849,
+        "point_source": 3
+      },
+      "p95_relative_reference_error": 0.0003153970289713204,
+      "profile": "uniform",
+      "reference_failures_by_method": {
+        "inverse_ray_cartesian": 9
+      },
+      "reference_pass": 3599,
+      "target": 0.001
+    },
+    {
+      "accepted": 3598,
+      "conditions": 3608,
+      "false_accepts": 6,
+      "false_accepts_by_method": {
+        "inverse_ray_cartesian": 6
+      },
+      "faster_than_vbm": 164,
+      "finite_conditions": 3608,
+      "max_relative_reference_error": 0.0016235147484345847,
+      "median_auto_ms_per_epoch": 0.33820950000000005,
+      "median_vbm_ms": 0.1078655,
+      "median_vbm_over_auto": 0.3765805719156715,
+      "methods": {
+        "inverse_ray_cartesian": 1674,
+        "inverse_ray_polar": 1934
+      },
+      "p95_relative_reference_error": 3.203551795061266e-05,
+      "profile": "uniform",
+      "reference_failures_by_method": {
+        "inverse_ray_cartesian": 7
+      },
+      "reference_pass": 3601,
+      "target": 0.0001
+    },
+    {
+      "accepted": 3607,
+      "conditions": 3608,
+      "false_accepts": 3,
+      "false_accepts_by_method": {
+        "inverse_ray_cartesian": 3
+      },
+      "faster_than_vbm": 1928,
+      "finite_conditions": 3608,
+      "max_relative_reference_error": 0.0011750495177039744,
+      "median_auto_ms_per_epoch": 0.28836775000000003,
+      "median_vbm_ms": 0.3081425,
+      "median_vbm_over_auto": 1.0852062210006364,
+      "methods": {
+        "inverse_ray_cartesian": 1655,
+        "inverse_ray_polar": 1950,
+        "point_source": 3
+      },
+      "p95_relative_reference_error": 0.00026521980679872215,
+      "profile": "linear",
+      "reference_failures_by_method": {
+        "inverse_ray_cartesian": 4
+      },
+      "reference_pass": 3604,
+      "target": 0.001
+    },
+    {
+      "accepted": 3599,
+      "conditions": 3608,
+      "false_accepts": 5,
+      "false_accepts_by_method": {
+        "inverse_ray_cartesian": 5
+      },
+      "faster_than_vbm": 3141,
+      "finite_conditions": 3608,
+      "max_relative_reference_error": 0.0011042908501200932,
+      "median_auto_ms_per_epoch": 0.375802125,
+      "median_vbm_ms": 1.328217,
+      "median_vbm_over_auto": 3.83404159575392,
+      "methods": {
+        "inverse_ray_cartesian": 1577,
+        "inverse_ray_polar": 2031
+      },
+      "p95_relative_reference_error": 3.063194075314524e-05,
+      "profile": "linear",
+      "reference_failures_by_method": {
+        "inverse_ray_cartesian": 6
+      },
+      "reference_pass": 3602,
+      "target": 0.0001
+    }
+  ],
+  "input_geometries": 7216,
+  "reference_certified": false,
+  "rows": 14432,
+  "speed_ratio": "retimed matched direct VBM binding time / amortized public LightCurve.info batch time per epoch; values above 1 favor LightCurve auto"
+}
