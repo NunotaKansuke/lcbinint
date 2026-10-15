@@ -1,0 +1,44 @@
+{
+  "case": "ordinary_401_epoch_gradient_control",
+  "inputs": {
+    "s": 1.2,
+    "q": 0.01,
+    "rho": 0.003,
+    "t0": 0.0,
+    "tE": 10.0,
+    "u0": 0.3,
+    "alpha": 0.0,
+    "limb_darkening_linear": 0.5,
+    "times": "linspace(-10, 10, 401)",
+    "tol": 0.001,
+    "reltol": 0.001
+  },
+  "method": "Separate fresh Python processes; one warm-up call followed by five timed holonomic_gradient calls; pinned to one allowed CPU; same native extension in both builds.",
+  "native_extension_sha256": "b6ba4c1a395452784ac1a287986a2cc8dcd9372b32c13405775fc7a02499258d",
+  "before": {
+    "gradient_extension_sha256": "3c601620063d7061c69c88cd4a8021d170f79d5ed853aff552cf7fc5f05a8a54",
+    "samples_ms": [
+      54.910410079173744,
+      54.94235595688224,
+      54.91180100943893,
+      54.97655994258821,
+      54.852511966601014
+    ],
+    "median_ms": 54.91180100943893,
+    "finite_gradient_components": 2807
+  },
+  "after": {
+    "gradient_extension_sha256": "d610da31602364566a2870e0f7dd60031eb994eae1d1006a9f3f09b45e5c8d2a",
+    "samples_ms": [
+      54.95046603027731,
+      54.82326296623796,
+      54.88647997844964,
+      54.769920068793,
+      54.7210139920935
+    ],
+    "median_ms": 54.82326296623796,
+    "finite_gradient_components": 2807
+  },
+  "median_change_percent": -0.16123682263808892,
+  "interpretation": "No slowdown was measured in this run; the sub-percent timing difference is within measurement noise and is not evidence of a speedup."
+}

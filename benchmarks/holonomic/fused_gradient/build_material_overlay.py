@@ -214,7 +214,14 @@ s=replace(s,'    });\n    result.stats.setup_ms=setup_total_ms;', '''    };
     auto result=adaptive_detail::integrate(workspace,radial_cfg,evaluate);
     bool deferred_children=false;
     for(const auto& panel:workspace.panels)deferred_children|=panel.active && panel.depth>0;
-    if(cfg.fused_value_mesh && with_jacobian && result.value_converged && deferred_children) {
+    const bool geometry_special=geometry_experiment::active &&
+        !geometry_experiment::active->empty();
+    // A value-converged mesh may have no deferred children even when a
+    // close-root geometry screen found a gradient-sensitive epoch. Replay
+    // its tangents on the existing fixed Gaussian rules in that case too;
+    // the trigger is geometric and does not estimate derivative error.
+    if(cfg.fused_value_mesh && with_jacobian && result.value_converged &&
+       (deferred_children || geometry_special)) {
         const auto tangent=fused_gradient::gaussian_replay(workspace,radial_cfg,evaluate,result.stats.node_evaluations);
         result.grad_mu=tangent.grad_mu;result.grad_quality=tangent.grad_quality;result.grad_reason=tangent.grad_reason;
         result.grad_converged.fill(false);result.gradient_stop_reason=tangent.stop==AdaptiveStop::Converged?AdaptiveStop::BudgetExceeded:tangent.stop;

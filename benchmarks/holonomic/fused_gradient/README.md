@@ -174,3 +174,13 @@ Restart a running Python/Jupyter kernel to load the rebuilt extension.
 Accuracy, timing limits and reproduction inputs are recorded in
 `evidence/holonomic/gradient_refine_20261015/README.md`; default adoption is
 recorded in `evidence/holonomic/gradient_default_20261015/README.md`.
+
+## Close-root geometry on unsplit value meshes
+
+When the close-root detector marks an epoch but the requested value tolerance
+leaves every panel at depth zero, the gradient API still replays tangents over
+the existing panels with its fixed Gaussian rules. This is gated by the
+geometric close-root result; it does not estimate gradient error, refine from
+gradient differences, or change the value tolerance. The replay replaces only
+the gradient accumulation. Ordinary epochs with no detected special geometry
+keep the previous path.

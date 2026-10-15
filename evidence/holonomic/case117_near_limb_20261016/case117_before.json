@@ -1,0 +1,25 @@
+{
+  "case": "case_117",
+  "variant": "before_geometry_replay_gate",
+  "comparison_method": "separate Python process; reconstructed extension from the same generated API headers with only the geometry-special replay condition reverted",
+  "native_sha256": "b6ba4c1a395452784ac1a287986a2cc8dcd9372b32c13405775fc7a02499258d",
+  "gradient_extension_sha256": "3c601620063d7061c69c88cd4a8021d170f79d5ed853aff552cf7fc5f05a8a54",
+  "tol": 0.001,
+  "gradient": {
+    "t0": -18.481774648253097,
+    "rho": 140.99008516184267,
+    "q": 33.97349834378293
+  },
+  "node_evaluations": 136,
+  "ordinary_401_gradient_ms": {
+    "warm_samples": [
+      54.910410079173744,
+      54.94235595688224,
+      54.91180100943893,
+      54.97655994258821,
+      54.852511966601014
+    ],
+    "median": 54.91180100943893,
+    "finite_components": 2807
+  }
+}
