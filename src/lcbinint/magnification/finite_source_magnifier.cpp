@@ -1,7 +1,10 @@
 #include "lcbinint/magnification/finite_source_magnifier.hpp"
 #include "lcbinint/magnification/cartesian_run_fill.hpp"
 #include "lcbinint/magnification/adaptive_cartesian_run_fill.hpp"
+#include "lcbinint/magnification/adaptive_refinement_work.hpp"
 #include "lcbinint/magnification/adaptive_bennett_integration.hpp"
+#include "lcbinint/magnification/adaptive_polar_polynomial.hpp"
+#include "lcbinint/magnification/adaptive_polar_roots.hpp"
 #include "lcbinint/magnification/component_certificate.hpp"
 #include "lcbinint/magnification/polar_run_walker.hpp"
 #include "lcbinint/magnification/binary_caustic_enclosure.hpp"
@@ -26,12 +29,14 @@
 #include <deque>
 #include <iterator>
 #include <limits>
+#include <map>
 #include <optional>
 #include <memory>
 #include <numeric>
 #include <queue>
 #include <set>
 #include <string>
+#include <type_traits>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -246,6 +251,17 @@ struct BinaryLensMapper {
     double source_origin_shift = 0.0;
 };
 
+struct AdaptivePolarMapper {
+    const BinaryLensMapper& lens;
+    AdaptivePolarRequest& work;
+};
+
+void count_adaptive_polar_map(AdaptivePolarRequest& work)
+{
+    if (work.maps >= work.budget) throw AdaptiveFluxBudgetExhausted();
+    ++work.maps;
+}
+
 struct TripleLensMapper {
     std::array<double, 3> lens_x {};
     std::array<double, 3> lens_y {};
@@ -427,6 +443,14 @@ double boundary_root_residual(
     double source_radius2)
 {
     return mapped_triple_lens_distance2(mapper, x, y, source) - source_radius2;
+}
+
+double boundary_root_residual(
+    const AdaptivePolarMapper& mapper, double x, double y,
+    SourcePosition source, double source_radius2)
+{
+    count_adaptive_polar_map(mapper.work);
+    return boundary_root_residual(mapper.lens, x, y, source, source_radius2);
 }
 
 // Locate a source-limb crossing within a known inside/outside image-plane
@@ -933,6 +957,12 @@ SourcePosition map_lens_real(const BinaryLensMapper& mapper, double x, double y)
     return map_binary_lens_real(mapper, x, y);
 }
 
+SourcePosition map_lens_real(const AdaptivePolarMapper& mapper, double x, double y)
+{
+    count_adaptive_polar_map(mapper.work);
+    return map_binary_lens_real(mapper.lens, x, y);
+}
+
 SourcePosition map_lens_real(const TripleLensMapper& mapper, double x, double y)
 {
     return map_triple_lens_real(mapper, x, y);
@@ -1112,6 +1142,8 @@ double source_surface_brightness(double normalized_radius2, const FiniteSourceSe
 {
     const double bounded_radius2 = std::clamp(normalized_radius2, 0.0, 1.0);
     const double mu = std::sqrt(std::max(0.0, 1.0 - bounded_radius2));
+    if(settings.limb_darkening_d==0.0)
+        return 1.0-settings.limb_darkening_c*(1.0-mu);
     return 1.0 - settings.limb_darkening_c * (1.0 - mu) -
            settings.limb_darkening_d * (1.0 - std::sqrt(mu));
 }
@@ -2205,6 +2237,11 @@ private:
 
 struct PolarAreaDiagnostics {
     double estimated_error = std::numeric_limits<double>::infinity();
+    struct Run { int iphi, left, right; };
+    bool collect_support = false;
+    int phi_bins = 0;
+    double dr = 0.0, dphi = 0.0;
+    std::vector<Run> support_runs;
 };
 
 struct LegacyImageAreaScratch {
@@ -2523,6 +2560,8 @@ bool find_polar_inside_start(
     double* start_radius,
     double* start_phi);
 
+#include "lcbinint/magnification/adaptive_polar_impl.inc"
+
 template <typename ImageMap>
 double inverse_ray_polar_core(
     const ImageMap& mapper,
@@ -2537,6 +2576,88 @@ double inverse_ray_polar_core(
         return std::nan("");
     }
 
+    if constexpr (std::is_same_v<ImageMap, BinaryLensMapper>) {
+        if (auto* work = adaptive_polar_request(); work && !work->discovering) {
+            if (!std::isfinite(work->initial_angular_ratio) || work->initial_angular_ratio<1.0 ||
+                work->initial_angular_ratio>256.0 || work->max_angular_depth<0 || work->max_angular_depth>20 ||
+                work->max_radial_depth<0 || work->max_radial_depth>16 || work->budget==0 ||
+                !std::isfinite(work->absolute_tolerance) || work->absolute_tolerance<=0.0 ||
+                !std::isfinite(work->relative_tolerance) || work->relative_tolerance<0.0)
+                throw std::invalid_argument("adaptive polar request has unsupported tolerance, lattice or depth limits");
+            if (!std::isfinite(source.x) || !std::isfinite(source.y) ||
+                !std::isfinite(source_radius) || source_radius<=0.0 ||
+                !std::isfinite(settings.limb_darkening_c) ||
+                settings.limb_darkening_c<0.0 || settings.limb_darkening_c>1.0 ||
+                settings.limb_darkening_d!=0.0)
+                throw std::invalid_argument("adaptive polar requires a finite source and linear LD 0<=c<=1, d=0");
+            const double normalization=source_flux(source_radius,settings);
+            if (!(normalization>0.0) || !std::isfinite(normalization))
+                throw std::invalid_argument("adaptive polar source flux is outside the representable range");
+            // Binary lenses on the real axis have exact reflection symmetry.
+            // Canonicalise before discovery so contact brackets and angular
+            // witnesses use the same lattice on both sides of the axis.
+            if (source.y<0.0) {
+                auto reflected=image_positions;
+                for (auto& image:reflected) image.y=-image.y;
+                work->reflection_normalized=true;
+                return inverse_ray_polar_core(mapper,reflected,{source.x,-source.y},
+                    source_radius,settings,finite_magnifier,diagnostics);
+            }
+            PolarAreaDiagnostics support;
+            support.collect_support = true;
+            auto coarse_settings = settings;
+            // Wide angular jumps can disconnect a coarse radial flood fill.
+            // Discover at the existing ratio, then coarsen angular panels
+            // independently while retaining the discovered radial support.
+            coarse_settings.polar_grid_ratio = std::min(4.0, work->initial_angular_ratio);
+            struct DiscoveryScope {
+                AdaptivePolarRequest& work;
+                std::size_t saved_budget;
+                explicit DiscoveryScope(AdaptivePolarRequest& w, std::size_t limit)
+                    : work(w), saved_budget(w.budget) { work.discovering = true; work.budget=limit; }
+                ~DiscoveryScope() { work.discovering = false; work.budget=saved_budget; }
+            };
+            double coarse;
+            const int discovery_bins=active_polar_source_bins(coarse_settings);
+            const bool can_retry=discovery_bins>2;
+            for(int attempt=0;;++attempt) {
+                // Reserve room for a coarser flood fill and integration.
+                // A thin image can be connected on one lattice but almost
+                // absent on another; the retained integrator must validate
+                // the result using its independent seed/footprint witnesses.
+                const std::size_t limit=attempt==0 && can_retry
+                    ? std::min(work->budget,work->maps+std::max<std::size_t>(1,
+                        (work->budget-std::min(work->maps,work->budget))/4))
+                    : work->budget;
+                work->discovery_source_bins=active_polar_source_bins(coarse_settings);
+                try {
+                    DiscoveryScope scope(*work,limit);
+                    const AdaptivePolarMapper counted{mapper, *work};
+                    coarse = inverse_ray_polar_core(counted, image_positions, source,
+                        source_radius, coarse_settings, finite_magnifier, &support);
+                    break;
+                } catch (const AdaptiveFluxBudgetExhausted&) {
+                    if(attempt==0 && can_retry && work->maps<work->budget) {
+                        ++work->discovery_retries;
+                        coarse_settings.source_bins=coarse_settings.polar_source_bins=2;
+                        support=PolarAreaDiagnostics{};support.collect_support=true;
+                        continue;
+                    }
+                    work->executed = true;
+                    work->stop_reason = "discovery_map_budget";
+                    work->discovery_maps=work->maps;
+                    work->angular_error=work->radial_error=work->error_indicator=
+                        std::numeric_limits<double>::infinity();
+                    return std::nan("");
+                }
+            }
+            const double result = adaptive_polar_from_support(mapper, source,
+                source_radius, settings, support, image_positions, coarse, *work);
+            if (diagnostics) diagnostics->estimated_error = work->error_indicator;
+            return result;
+        }
+    }
+
     const int source_bins = active_polar_source_bins(settings);
     const double polar_grid_ratio = active_polar_grid_ratio(settings);
     const double dr = source_radius / static_cast<double>(source_bins);
@@ -2549,11 +2670,18 @@ double inverse_ray_polar_core(
     // Choose angular resolution from the tangential cell size at the outermost
     // relevant image.  Using dphi ~ dr alone undersamples low-magnification
     // images far from the origin.
-    const int phi_bins = std::max(
-        16,
-        static_cast<int>(std::ceil(2.0 * kPi * max_image_radius /
-                                   (dr * polar_grid_ratio))));
+    const double requested_phi_bins=std::ceil(2.0*kPi*max_image_radius/(dr*polar_grid_ratio));
+    if constexpr (std::is_same_v<ImageMap,AdaptivePolarMapper>) {
+        if (!std::isfinite(requested_phi_bins) || requested_phi_bins>std::numeric_limits<int>::max())
+            throw std::invalid_argument("adaptive polar discovery lattice exceeds the supported integer range");
+    }
+    const int phi_bins=std::max(16,static_cast<int>(requested_phi_bins));
     const double dphi = 2.0 * kPi / static_cast<double>(phi_bins);
+    if (diagnostics && diagnostics->collect_support) {
+        diagnostics->phi_bins = phi_bins;
+        diagnostics->dr = dr;
+        diagnostics->dphi = dphi;
+    }
     const bool uniform_source = settings.limb_darkening_c == 0.0 && settings.limb_darkening_d == 0.0;
     const bool linear_source = settings.limb_darkening_d == 0.0;
     if (!uniform_source && !linear_source && finite_magnifier != nullptr) {
@@ -2739,7 +2867,12 @@ double inverse_ray_polar_core(
     std::vector<PolarIntegratedRun> integrated_runs;
     const bool bennett_outer_complex_diagnostic =
         std::getenv("LCBININT_ENABLE_BENNETT_OUTER_SEGMENTS") != nullptr;
+    // The adaptive controller needs this pass's support and rough scale, not
+    // a second boundary-corrected answer. Its final radial columns solve the
+    // actual limb roots. Avoid polishing every coarse edge twice.
+    const bool support_only = diagnostics != nullptr && diagnostics->collect_support;
     const bool bennett_outer_enabled =
+        !support_only &&
         std::getenv("LCBININT_DISABLE_BENNETT_OUTER") == nullptr &&
         (std::getenv("LCBININT_ENABLE_BENNETT_OUTER") != nullptr ||
          bennett_outer_complex_diagnostic ||
@@ -2794,6 +2927,8 @@ double inverse_ray_polar_core(
             }
 
             add_visited_run(iphi, left, right);
+            if (diagnostics && diagnostics->collect_support)
+                diagnostics->support_runs.push_back({iphi, left, right});
             const double left_inside_dz2 = left_inside_distances.empty()
                 ? start_dz2
                 : left_inside_distances.back();
@@ -2819,7 +2954,7 @@ double inverse_ray_polar_core(
             const int next_phi = iphi + 1 == phi_bins ? 0 : iphi + 1;
             enqueue_run_normalized(left, right, previous_phi);
             enqueue_run_normalized(left, right, next_phi);
-            if (left_outside_dz2 >= 0.0) {
+            if (left_outside_dz2 >= 0.0 && !support_only) {
                 const double correction = radial_edge_correction(
                     left_inside_dz2,
                     left_outside_dz2,
@@ -2829,7 +2964,7 @@ double inverse_ray_polar_core(
                     &absolute_radial_geometry);
                 radial_integral += correction;
             }
-            if (right_outside_dz2 >= 0.0) {
+            if (right_outside_dz2 >= 0.0 && !support_only) {
                 const double correction = radial_edge_correction(
                     right_inside_dz2,
                     right_outside_dz2,
@@ -3276,7 +3411,20 @@ PolarToleranceEvaluation evaluate_polar_to_tolerance(
         return {fine, std::numeric_limits<double>::infinity(), 0, false};
     }
     if (!support_proven) {
-        return {fine, std::numeric_limits<double>::infinity(), 0, false};
+        int refinement_level = 0;
+        if (auto* work = adaptive_polar_request()) {
+            work->met = false;
+            work->stop_reason = "unresolved_support";
+            work->angular_error = work->radial_error = work->error_indicator =
+                std::numeric_limits<double>::infinity();
+            refinement_level = work->largest_angular_depth;
+        }
+        return {fine, std::numeric_limits<double>::infinity(), refinement_level, false};
+    }
+    if (auto* work = adaptive_polar_request(); work && work->executed) {
+        // The retained polar controller already owns both coordinate budgets.
+        // Do not add a second global coarse/fine ladder around its result.
+        return {fine, work->error_indicator, work->largest_angular_depth, work->met};
     }
 
     // Polar diagnostics use the embedded boundary-error estimate from the fine
@@ -4150,6 +4298,8 @@ bool append_certified_component_seeds(
                                    : std::chrono::steady_clock::time_point {};
         const auto probe_images =
             selected_point_images(point_magnifier, separation, mass_ratio, probe);
+        if (adaptive_polar_request() && probe_images.size() != 3 && probe_images.size() != 5)
+            return -1;
         if (stats) {
             auto& counters = probe_counters();
             counters.certified_solves += 1;
@@ -6753,9 +6903,17 @@ double inverse_ray_cartesian_binary_mag(
         std::numeric_limits<double>::quiet_NaN(),
     detail::CartesianRunFillTrace* trace = nullptr)
 {
+    // The retained linear-LD kernel evaluates sqrt analytically, including
+    // the limb value. Avoid constructing a 20,001-entry table on a fresh
+    // adaptive call. Legacy diagnostic walkers still use their table.
     if ((settings.limb_darkening_c != 0.0 || settings.limb_darkening_d != 0.0) &&
         finite_magnifier != nullptr) {
-        finite_magnifier->ensure_limb_darkening_table();
+        const char* fill_selector = std::getenv("LCBININT_CARTESIAN_FILL");
+        const bool analytic_adaptive_ld = adaptive_flux_request() != nullptr &&
+            settings.limb_darkening_d == 0.0 &&
+            (fill_selector == nullptr || std::strcmp(fill_selector, "run") == 0) &&
+            std::getenv("LCBININT_DIAGNOSTIC_UNSORTED_SEEDS") == nullptr;
+        if (!analytic_adaptive_ld) finite_magnifier->ensure_limb_darkening_table();
     }
 
     const auto mapper = make_binary_lens_mapper(separation, mass_ratio);
@@ -6865,6 +7023,47 @@ FiniteSourceResult fixed_inverse_ray_binary(
             nullptr,
             &support_proven);
     if (decision.method == FiniteSourceMethod::inverse_ray_polar) {
+        if (auto* work = adaptive_polar_request(); work && !support_proven) {
+            // A large source disk can contain a caustic far narrower than
+            // the usual 0.001*disk-room probe offset. Extend the same four
+            // certified directions first; then refine unresolved geometry.
+            auto finer_settings = settings;
+            for (int attempt = 0; attempt < 3 && !support_proven; ++attempt) {
+                if (attempt > 0) {
+                    if (finer_settings.caustic_bins >= 11200) break;
+                    finer_settings.caustic_bins = std::min(11200,
+                        std::max(1400, finer_settings.caustic_bins * 2));
+                }
+                FiniteSourceMagnifier finer(finer_settings);
+                const auto& branches = attempt == 0 && finite_magnifier
+                    ? finite_magnifier->binary_caustic_branches(separation, mass_ratio)
+                    : finer.binary_caustic_branches(separation, mass_ratio);
+                auto descriptor = certify_disk_support(branches, source, source_radius);
+                std::vector<DiskProbe> smallest(kProbeDirections * descriptor.extrema.size());
+                for (auto& p : smallest) p.offset = std::numeric_limits<double>::infinity();
+                for (const auto& p : descriptor.probes) {
+                    if (p.extremum < 0 || !descriptor.extrema[p.extremum].inside_disk) continue;
+                    auto& kept = smallest[kProbeDirections*p.extremum + static_cast<int>(p.direction)];
+                    if (p.offset < kept.offset) kept = p;
+                }
+                for (const auto& p : smallest) {
+                    if (!std::isfinite(p.offset)) continue;
+                    const auto origin = descriptor.extrema[p.extremum].position;
+                    for (double scale : {0.1, 0.01, 0.001, 0.0001, 0.00001}) {
+                        const SourcePosition probe{origin.x + scale*(p.position.x-origin.x),
+                            origin.y + scale*(p.position.y-origin.y)};
+                        if (probe.x == origin.x && probe.y == origin.y) continue;
+                        descriptor.probes.push_back({probe, p.extremum, p.direction, scale*p.offset});
+                        ++work->support_probe_extensions;
+                    }
+                }
+                support_proven = append_certified_component_seeds(point_magnifier,
+                    make_binary_lens_mapper(separation, mass_ratio), separation,
+                    mass_ratio, source, source_radius, descriptor, seeds);
+                ++work->support_refinement_attempts;
+                work->support_caustic_bins = finer_settings.caustic_bins;
+            }
+        }
         const auto evaluation = evaluate_polar_to_tolerance(
             settings,
             support_proven,
@@ -6882,8 +7081,8 @@ FiniteSourceResult fixed_inverse_ray_binary(
             0,
             decision,
             evaluation.error_estimate,
-            0,
-            settings.automatic_source_bins
+            evaluation.refinement_level,
+            adaptive_polar_request() ? evaluation.converged : settings.automatic_source_bins
                 ? support_proven
                 : evaluation.converged,
         };
@@ -8505,9 +8704,9 @@ FiniteSourceResult FiniteSourceMagnifier::inverse_ray_polar_binary_mag(
         separation, mass_ratio, source, source_radius);
     const double polar_fallback_distance =
         std::max(settings_.hex_threshold, 1.0) * source_radius;
-    if (seeds.size() > centre_image_count ||
+    if (!adaptive_polar_request() && (seeds.size() > centre_image_count ||
         (std::isfinite(sampled_caustic_distance) && sampled_caustic_distance < polar_fallback_distance) ||
-        (std::isfinite(caustic_distance) && caustic_distance < polar_fallback_distance)) {
+        (std::isfinite(caustic_distance) && caustic_distance < polar_fallback_distance))) {
         LegacyAreaDiagnostics diagnostics;
         const double magnification = inverse_ray_cartesian_binary_mag(
             point_magnifier, separation, mass_ratio, source, source_radius,
@@ -9418,7 +9617,7 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
         separation, mass_ratio, source, adaptive_bbox_margin,
         caustic_reuse_tolerance);
     bool reused_caustic_geometry = caustic_cache_separation_ != separation;
-    if (point_safety.point_source_safe() &&
+    if (!adaptive_polar_request() && point_safety.point_source_safe() &&
         !reused_caustic_geometry &&
         (source.x < caustic_cache_min_x_ - adaptive_bbox_margin ||
         source.x > caustic_cache_max_x_ + adaptive_bbox_margin ||
@@ -9732,6 +9931,12 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
             if (result.error_estimate < error_floor) {
                 result.error_estimate = error_floor;
                 result.converged = false;
+                if (auto* work = adaptive_polar_request(); work && work->executed) {
+                    work->angular_error += std::max(0.0, error_floor - work->error_indicator);
+                    work->error_indicator = work->angular_error + work->radial_error;
+                    work->met = false;
+                    work->stop_reason = "unresolved_tangent_support";
+                }
             }
         }
         return result;

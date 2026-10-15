@@ -8,6 +8,7 @@ adjudicated high-accuracy reference; the reference does not choose the winner.
 
 from __future__ import annotations
 
+import argparse
 import csv
 import hashlib
 import json
@@ -111,6 +112,13 @@ def method_measurement(rows: list[dict[str, str]]) -> tuple[float, dict[str, str
 
 
 def main() -> None:
+    global CAMPAIGN, VBM_JOINED, OUTPUT
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--campaign", type=Path, default=CAMPAIGN)
+    parser.add_argument("--output", type=Path, default=OUTPUT)
+    parser.add_argument("--vbm-joined", type=Path, default=VBM_JOINED)
+    args = parser.parse_args()
+    CAMPAIGN, VBM_JOINED, OUTPUT = args.campaign.resolve(), args.vbm_joined.resolve(), args.output.resolve()
     output = OUTPUT
     output.mkdir(parents=True, exist_ok=True)
     os_cache = output / "matplotlib-cache"
@@ -158,8 +166,6 @@ def main() -> None:
         for (sample_id, _target, _method), rows in raw_by_key.items()
         if any(row["warm_met"] == "exception" for row in rows)
     }
-    if len(exception_ids) != 312:
-        raise RuntimeError(f"expected 312 budget-exhaustion inputs from this run, found {len(exception_ids)}")
 
     best_rows: list[dict] = []
     exclusions: list[dict] = []
@@ -232,8 +238,9 @@ def main() -> None:
             best_rows.append(record)
             groups[group_key].append(record)
 
-    if len(best_rows) != 2 * (len(inputs) - len(exception_ids)):
-        raise RuntimeError("valid winner count differs from exception-excluded campaign size")
+    if len(best_rows) + len(exclusions) != 2 * len(inputs):
+        raise RuntimeError("winner plus exclusion count differs from campaign size")
+    excluded_ids = {row["geom_id"] for row in exclusions}
     write_tsv(output / "best_of.tsv", best_rows, BEST_FIELDS)
     write_tsv(output / "exclusions.tsv", exclusions, EXCLUSION_FIELDS)
 
@@ -315,7 +322,8 @@ def main() -> None:
         "reference_certified": False,
         "production_selector": False,
         "input_geometries": len(inputs),
-        "excluded_geometry_count": len(exception_ids),
+        "excluded_geometry_count": len(excluded_ids),
+        "any_method_exception_geometry_count": len(exception_ids),
         "valid_conditions": len(best_rows),
         "excluded_conditions": len(exclusions),
         "groups": summaries,
@@ -337,8 +345,9 @@ def main() -> None:
         "against the saved RelTol=1e-6 reference with the three adjudications applied.",
         "",
         f"The source corpus has {len(inputs)} geometries and {2 * len(inputs)} target conditions. "
-        f"{len(exception_ids)} geometries ({len(exclusions)} target conditions) raised adaptive lattice "
-        "evaluation-budget exceptions and have no usable timing result; they are listed in `exclusions.tsv`. "
+        f"{len(exception_ids)} geometries had an exception in at least one method. "
+        f"{len(excluded_ids)} geometries ({len(exclusions)} target conditions) had no usable result from either method; "
+        "these are listed in `exclusions.tsv`. "
         "All remaining finite winner rows are retained, including estimator rejections and actual-error failures.",
         "",
         "| profile | target | valid / total | excluded | Cartesian wins | Polar wins | faster than VBM | median VBM / best | median best (ms) | reference pass | accepted | false accepts | p95 error |",
@@ -361,7 +370,7 @@ def main() -> None:
         "Per-cell maps mask cells with fewer than eight finite conditions. The data, exclusions, summary, "
         "and provenance are saved alongside the figures. Reproduce with:",
         "",
-        f"`/home/nunota/.miniconda3/envs/myenv/bin/python {Path(__file__).relative_to(ROOT)}`",
+        f"`python {Path(__file__).relative_to(ROOT)} --campaign {CAMPAIGN} --output {OUTPUT} --vbm-joined {VBM_JOINED}`",
         "",
     ]
     (output / "REPORT.md").write_text("\n".join(lines), encoding="utf-8")

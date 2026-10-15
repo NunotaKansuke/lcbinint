@@ -105,6 +105,8 @@ def valid_shard(path: Path, ids: list[str]) -> bool:
     if not path.exists():
         return False
     rows = read_tsv(path)
+    if any(None in row or any(value is None for value in row.values()) for row in rows):
+        return False
     expected = {(sample_id, method, f"{target:.17g}", repeat)
                 for sample_id in ids for method in METHODS
                 for target in TARGETS for repeat in range(3)}
@@ -185,6 +187,7 @@ def summarize(
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--pilot", type=int, help="run a deterministic, profile-stratified subset")
+    parser.add_argument("--output", type=Path, help="new artifact directory for a changed runner or build")
     args = parser.parse_args()
     rows = read_tsv(INPUTS)
     if len(rows) != 7216:
@@ -196,7 +199,30 @@ def main() -> None:
         for row in read_tsv(adjudications):
             if row["geom_id"] in reference_by_id:
                 reference_by_id[row["geom_id"]] = float(row["adjudicated_reference"])
-    output = RUN / (f"pilot-{len(selected)}" if args.pilot is not None else "full")
+    output = (args.output or RUN / (f"pilot-{len(selected)}" if args.pilot is not None else "full")).resolve()
+    source_identity = {
+        str(path.relative_to(ROOT)): sha256(path) for path in (
+            RUNNER_SOURCE,
+            ROOT / "src/lcbinint/magnification/finite_source_magnifier.cpp",
+            ROOT / "src/lcbinint/magnification/finite_source_magnifier.hpp",
+            ROOT / "src/lcbinint/magnification/probe_diagnostics.hpp",
+            ROOT / "src/lcbinint/magnification/adaptive_polar_impl.inc",
+            ROOT / "src/lcbinint/magnification/adaptive_cartesian_impl.inc",
+            ROOT / "src/lcbinint/magnification/adaptive_cartesian_run_fill.hpp",
+            ROOT / "src/lcbinint/magnification/adaptive_outer_endpoint_model.hpp",
+            ROOT / "src/lcbinint/magnification/adaptive_same_grid_flux_error.hpp",
+            BUILD / "liblcbinint_magnification.a",
+            BUILD / "liblcbinint_lightcurve.a",
+        )
+    }
+    selection_hash = hashlib.sha256("\n".join(row["geom_id"] for row in selected).encode()).hexdigest()
+    saved_manifest = output / "manifest.json"
+    if saved_manifest.exists():
+        previous = json.loads(saved_manifest.read_text())
+        if (previous.get("source_sha256") != source_identity or
+                previous.get("inputs_sha256") != sha256(INPUTS) or
+                previous.get("selected_ids_sha256") != selection_hash):
+            raise RuntimeError("saved campaign identity differs; use --output with a new directory")
     output.mkdir(parents=True, exist_ok=True)
     (output / "shards").mkdir(exist_ok=True)
 
@@ -218,25 +244,17 @@ def main() -> None:
     manifest = {
         "git_head": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip(),
         "inputs_sha256": sha256(INPUTS),
-        "selected_ids_sha256": hashlib.sha256(
-            "\n".join(row["geom_id"] for row in selected).encode()).hexdigest(),
+        "selected_ids_sha256": selection_hash,
         "selected_rows": len(selected),
         "runner_sha256": sha256(output / "runner"),
-        "source_sha256": {
-            str(path.relative_to(ROOT)): sha256(path) for path in (
-                RUNNER_SOURCE,
-                ROOT / "src/lcbinint/magnification/finite_source_magnifier.cpp",
-                ROOT / "src/lcbinint/magnification/finite_source_magnifier.hpp",
-                ROOT / "src/lcbinint/magnification/adaptive_polar_impl.inc",
-                ROOT / "src/lcbinint/magnification/adaptive_cartesian_impl.inc",
-                BUILD / "liblcbinint_magnification.a",
-                BUILD / "liblcbinint_lightcurve.a",
-            )
-        },
+        "source_sha256": source_identity,
         "command": command,
         "host": platform.node(),
         "cpu": cpu,
         "threads": 1,
+        "cartesian_initial_bins": 16,
+        "cartesian_initial_row_bins": 16,
+        "polar_initial_bins": 2,
         "targets": list(TARGETS),
         "timing": "center roots and caustic geometry separately timed; seed cache miss or hit plus adaptive kernel in each call; caustic geometry remains warm",
         "seed_provider": "cached_binary_image_seeds via fixed_inverse_ray_binary for both methods",

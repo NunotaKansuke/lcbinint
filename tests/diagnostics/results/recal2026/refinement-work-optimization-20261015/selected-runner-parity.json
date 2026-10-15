@@ -1,0 +1,26 @@
+{
+  "selected": "37da98394bbafce07794e5d9e127f7c5cf8322051594ac0a1ce29f7e57465b98",
+  "timed": "37da98394bbafce07794e5d9e127f7c5cf8322051594ac0a1ce29f7e57465b98",
+  "command": [
+    "/usr/bin/c++",
+    "-O3",
+    "-DNDEBUG",
+    "-std=gnu++17",
+    "-fopenmp",
+    "-I/rogue1_8/nunota/lcbinint/include",
+    "-I/rogue1_8/nunota/lcbinint/src",
+    "/rogue1_8/nunota/lcbinint/tests/diagnostics/recal2026/seed_inclusive_cart_polar_runner.cpp",
+    "-o",
+    "tests/diagnostics/results/recal2026/refinement-work-optimization-20261015/selected-runner/runner",
+    "-Wl,--start-group",
+    "/rogue1_8/nunota/lcbinint/build-adaptive-production/liblcbinint_lightcurve.a",
+    "/rogue1_8/nunota/lcbinint/build-adaptive-production/liblcbinint_magnification.a",
+    "-Wl,--end-group",
+    "-Wl,-rpath,/home/nunota/.miniconda3/envs/myenv/lib",
+    "/home/nunota/.miniconda3/envs/myenv/lib/libgsl.so",
+    "/home/nunota/.miniconda3/envs/myenv/lib/libgslcblas.so",
+    "-lquadmath",
+    "-lm"
+  ],
+  "identical": true
+}

@@ -62,6 +62,11 @@ bool discriminant_diagnostics_enabled()
     return enabled;
 }
 
+AdaptivePolarRequest*& adaptive_polar_request() {
+    static thread_local AdaptivePolarRequest* request = nullptr;
+    return request;
+}
+
 AdaptiveFluxRequest*& adaptive_flux_request() {
  static thread_local AdaptiveFluxRequest* request=nullptr;return request;
 }

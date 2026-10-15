@@ -1,0 +1,102 @@
+{
+  "groups": [
+    {
+      "method": "cartesian",
+      "profile": "uniform",
+      "target": 0.001,
+      "accepted_conditions": 59,
+      "initial_fill_s_fraction_median": 0.7890102993835137,
+      "all_fill_s_fraction_median": 0.8686149699944562,
+      "aggregation_s_fraction_median": 0.0779779842918483,
+      "controller_s_fraction_median": 0.005029508196721312,
+      "refinement_s_fraction_median": 0.0,
+      "seed_fraction_median": 0.010916246364314455
+    },
+    {
+      "method": "cartesian",
+      "profile": "uniform",
+      "target": 0.0001,
+      "accepted_conditions": 57,
+      "initial_fill_s_fraction_median": 0.7346115647759875,
+      "all_fill_s_fraction_median": 0.8217448613914404,
+      "aggregation_s_fraction_median": 0.07905389383828461,
+      "controller_s_fraction_median": 0.008258845821147588,
+      "refinement_s_fraction_median": 0.0,
+      "seed_fraction_median": 0.009954776486574784
+    },
+    {
+      "method": "cartesian",
+      "profile": "linear",
+      "target": 0.001,
+      "accepted_conditions": 57,
+      "initial_fill_s_fraction_median": 0.7510463129396622,
+      "all_fill_s_fraction_median": 0.8119546294608226,
+      "aggregation_s_fraction_median": 0.06163188814435276,
+      "controller_s_fraction_median": 0.0033519553072625698,
+      "refinement_s_fraction_median": 0.0,
+      "seed_fraction_median": 0.009170827334824029
+    },
+    {
+      "method": "cartesian",
+      "profile": "linear",
+      "target": 0.0001,
+      "accepted_conditions": 57,
+      "initial_fill_s_fraction_median": 0.6765991760567958,
+      "all_fill_s_fraction_median": 0.804056086115225,
+      "aggregation_s_fraction_median": 0.06816343572086166,
+      "controller_s_fraction_median": 0.03381559639807025,
+      "refinement_s_fraction_median": 0.022680716567647773,
+      "seed_fraction_median": 0.006012336068028025
+    },
+    {
+      "method": "polar",
+      "profile": "uniform",
+      "target": 0.001,
+      "accepted_conditions": 64,
+      "initial_fill_s_fraction_median": 0.0,
+      "all_fill_s_fraction_median": 0.0,
+      "aggregation_s_fraction_median": 0.0,
+      "controller_s_fraction_median": 0.0,
+      "refinement_s_fraction_median": 0.6693456672458717,
+      "seed_fraction_median": 0.012595416772338186
+    },
+    {
+      "method": "polar",
+      "profile": "uniform",
+      "target": 0.0001,
+      "accepted_conditions": 64,
+      "initial_fill_s_fraction_median": 0.0,
+      "all_fill_s_fraction_median": 0.0,
+      "aggregation_s_fraction_median": 0.0,
+      "controller_s_fraction_median": 0.0,
+      "refinement_s_fraction_median": 0.6940981254832597,
+      "seed_fraction_median": 0.01180682412709108
+    },
+    {
+      "method": "polar",
+      "profile": "linear",
+      "target": 0.001,
+      "accepted_conditions": 64,
+      "initial_fill_s_fraction_median": 0.0,
+      "all_fill_s_fraction_median": 0.0,
+      "aggregation_s_fraction_median": 0.0,
+      "controller_s_fraction_median": 0.0,
+      "refinement_s_fraction_median": 0.4330329574229506,
+      "seed_fraction_median": 0.02509542749595598
+    },
+    {
+      "method": "polar",
+      "profile": "linear",
+      "target": 0.0001,
+      "accepted_conditions": 64,
+      "initial_fill_s_fraction_median": 0.0,
+      "all_fill_s_fraction_median": 0.0,
+      "aggregation_s_fraction_median": 0.0,
+      "controller_s_fraction_median": 0.0,
+      "refinement_s_fraction_median": 0.48232280372052677,
+      "seed_fraction_median": 0.022788094182591232
+    }
+  ],
+  "scope": "CPU0, one thread, native preplanned call boundary identical to paired timing; diagnostics enabled; repeat2 stage counters from same cold call. Profiling ratios, not optimized latency claims.",
+  "rows": 486
+}

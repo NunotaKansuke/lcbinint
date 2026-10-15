@@ -72,7 +72,8 @@ Evaluation evaluate_cartesian(
     const std::vector<SourcePosition>& center_seeds,
     const PointSourceMagnifier& point_magnifier,
     double target,
-    double source_flux)
+    double source_flux,
+    int initial_bins)
 {
     AdaptiveFluxRequest request;
     request.target = target * source_flux;
@@ -89,7 +90,7 @@ Evaluation evaluate_cartesian(
         rho,
         point_magnification,
         FiniteSourceMethod::inverse_ray_cartesian,
-        16,
+        initial_bins,
         &center_seeds,
         &point_magnifier);
     if (!request.executed || !std::isfinite(result.magnification)) {
@@ -117,11 +118,11 @@ Evaluation evaluate_polar(
     const std::vector<SourcePosition>& center_seeds,
     const PointSourceMagnifier& point_magnifier,
     double target,
-    double source_flux)
+    int initial_bins)
 {
     AdaptivePolarRequest request;
     request.relative_tolerance = target;
-    request.absolute_tolerance = target * source_flux;
+    request.absolute_tolerance = target;
     request.initial_angular_ratio = 256.0;
     request.budget = 1000000;
     PolarScope scope(request);
@@ -132,7 +133,7 @@ Evaluation evaluate_polar(
         rho,
         point_magnification,
         FiniteSourceMethod::inverse_ray_polar,
-        4,
+        initial_bins,
         &center_seeds,
         &point_magnifier);
     if (!request.executed || !std::isfinite(result.magnification)) {
@@ -143,7 +144,9 @@ Evaluation evaluate_polar(
     }
     return {
         result.magnification,
-        request.error_indicator / source_flux,
+        // Polar already reports absolute magnification error. Cartesian's
+        // admission indicator above is an unnormalized image flux instead.
+        request.error_indicator,
         request.met,
         request.maps,
         request.angular_refinements + request.radial_refinements,
@@ -165,16 +168,14 @@ bool same_evaluation(const Evaluation& a, const Evaluation& b)
         a.subdivisions == b.subdivisions && a.stop_reason == b.stop_reason;
 }
 
-void write_failure(std::ofstream& output, int id, const std::string& message)
+void write_failure(std::ofstream& output, int id, const char* method,
+                   double target, const std::string& message)
 {
-    for (const char* method : {"cartesian", "polar"}) {
-        for (double target : {1.0e-3, 1.0e-4}) {
-            for (int repeat = 0; repeat < 3; ++repeat) {
-                output << id << '\t' << method << '\t' << target << '\t' << repeat
-                       << "\tnan\tnan\tnan\t0\t0\tnan\tnan\tnan\tnan\t0\t0\t0"
-                       << '\t' << message << '\n';
-            }
-        }
+    for (int repeat = 0; repeat < 3; ++repeat) {
+        output << id << '\t' << method << '\t' << target << '\t' << repeat
+               << "\tnan\tnan\tnan\t0\t0\tnan\tnan\tnan\tnan\tinf\tinf"
+               << "\t0\texception\t0\t0\t0\t0\t0"
+               << '\t' << message << '\n';
     }
 }
 
@@ -182,8 +183,16 @@ void write_failure(std::ofstream& output, int id, const std::string& message)
 
 int main(int argc, char** argv)
 {
-    if (argc != 3) {
-        std::cerr << "usage: seed_inclusive_cart_polar_runner INPUT.tsv OUTPUT.tsv\n";
+    if (argc != 3 && argc != 5) {
+        std::cerr << "usage: seed_inclusive_cart_polar_runner INPUT.tsv OUTPUT.tsv"
+                     " [CARTESIAN_INITIAL_BINS POLAR_INITIAL_BINS]\n";
+        return 2;
+    }
+    const int cartesian_bins = argc == 5 ? std::atoi(argv[3]) : 16;
+    const int polar_bins = argc == 5 ? std::atoi(argv[4]) : 2;
+    if ((cartesian_bins != 8 && cartesian_bins != 16) ||
+        (polar_bins != 2 && polar_bins != 4)) {
+        std::cerr << "diagnostic grid comparison requires Cartesian8/16 and Polar2/4\n";
         return 2;
     }
 
@@ -235,9 +244,9 @@ int main(int argc, char** argv)
                 std::chrono::steady_clock::now() - root_start).count();
 
             FiniteSourceSettings settings;
-            settings.source_bins = 16;
-            settings.polar_source_bins = 4;
-            settings.max_source_bins = 16;
+            settings.source_bins = cartesian_bins;
+            settings.polar_source_bins = polar_bins;
+            settings.max_source_bins = cartesian_bins;
             settings.caustic_bins = 1400;
             settings.grid_ratio = 4.0;
             settings.polar_grid_ratio = 4.0;
@@ -289,14 +298,15 @@ int main(int argc, char** argv)
                 const char* name = method == FiniteSourceMethod::inverse_ray_cartesian
                     ? "cartesian" : "polar";
                 for (double target : {1.0e-3, 1.0e-4}) {
+                    try {
                     auto evaluate = [&](const FiniteSourceMagnifier& current) {
                         return method == FiniteSourceMethod::inverse_ray_cartesian
                             ? evaluate_cartesian(current, separation, 1.0 / q, source, rho,
                                 point_magnification, center_seeds, point_magnifier,
-                                target, source_flux)
+                                target, source_flux, cartesian_bins)
                             : evaluate_polar(current, separation, 1.0 / q, source, rho,
                                 point_magnification, center_seeds, point_magnifier,
-                                target, source_flux);
+                                target, polar_bins);
                     };
 
                     // Warm the target path and allocator before timings. The
@@ -350,11 +360,19 @@ int main(int argc, char** argv)
                                << '\t' << cold_result.stop_reason << '\n';
                     }
                     output.flush();
+                    } catch (const std::exception& error) {
+                        std::cerr << sample_id << ' ' << name << ' ' << target
+                                  << ' ' << error.what() << '\n';
+                        write_failure(output, sample_id, name, target, "exception");
+                        output.flush();
+                    }
                 }
             }
         } catch (const std::exception& error) {
             std::cerr << sample_id << ' ' << error.what() << '\n';
-            write_failure(output, sample_id, "exception");
+            for (const char* method : {"cartesian", "polar"})
+                for (double target : {1.0e-3, 1.0e-4})
+                    write_failure(output, sample_id, method, target, "exception");
             output.flush();
         }
     }

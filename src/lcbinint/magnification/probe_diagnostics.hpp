@@ -13,6 +13,42 @@
 
 namespace lcbinint::magnification {
 
+// One-call polar integration context; no state survives a source evaluation.
+struct AdaptivePolarRequest {
+    double absolute_tolerance = 1e-4, relative_tolerance = 0.0;
+    double initial_angular_ratio = 256.0, effective_angular_ratio = 256.0;
+    std::string angular_error_model = "not_executed", radial_quadrature = "not_executed";
+    std::size_t discovery_maps = 0;
+    std::size_t discovery_retries = 0;
+    int discovery_source_bins = 0;
+    std::size_t budget = 1000000, maps = 0, columns = 0;
+    std::size_t angular_refinements = 0, radial_refinements = 0;
+    std::size_t reused_columns = 0, boundary_runs = 0, radial_limit_hits = 0;
+    std::size_t stationary_continuations = 0, stationary_full_solves = 0;
+    std::size_t limb_partition_checks = 0, limb_partition_accepts = 0, lazy_stationary_solves = 0;
+    std::size_t boundary_predictions = 0, boundary_bracket_checks = 0, boundary_bracket_retries = 0;
+    std::size_t coverage_witness_checks = 0;
+    std::size_t coverage_branch_guards = 0;
+    std::size_t contact_attempts = 0, contact_geometry_columns = 0, contact_fallbacks = 0;
+    double coverage_angular_error = 0.0;
+    std::size_t unresolved_seed_panels = 0;
+    std::size_t angular_cap_panels = 0, corrected_error_checks = 0, corrected_error_reductions = 0;
+    double smooth_angular_error = 0.0, topology_angular_error = 0.0, seed_angular_error = 0.0, cap_angular_error = 0.0;
+    int max_angular_depth = 18, max_radial_depth = 10;
+    int support_refinement_attempts = 0, support_caustic_bins = 0;
+    std::size_t angular_limit_hits = 0;
+    std::size_t support_probe_extensions = 0;
+    double unrefinable_error = 0.0;
+    int initial_phi_bins = 0, largest_angular_depth = 0;
+    int largest_radial_depth = 0;
+    double initial_magnification = 0.0, angular_error = 0.0, radial_error = 0.0;
+    double error_indicator = 0.0;
+    bool discovering = false, executed = false, met = false;
+    bool reflection_normalized = false;
+    std::string stop_reason = "not_executed";
+};
+AdaptivePolarRequest*& adaptive_polar_request();
+
 // Calibration instrumentation for the certificate seeding stage.
 //
 // The production cached-binary path uses the source-centre images followed by

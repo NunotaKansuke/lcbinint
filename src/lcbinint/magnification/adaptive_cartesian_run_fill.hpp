@@ -1598,7 +1598,7 @@ inline SameGridOuterError same_grid_internal_error(const CartesianRunFillResult&
  return same_grid_internal_error(same_grid_error_nodes(fill,component,weights),limb_brightness);
 }
 inline SameGridOuterError same_grid_outer_error(const CartesianRunFillResult& fill,
-    std::size_t component=std::numeric_limits<std::size_t>::max(),const std::vector<double>* weights=nullptr,double limb_brightness=1,const std::vector<std::size_t>* ordered_runs=nullptr,bool collect_table_density=true,unsigned endpoint_mask=3,bool include_interior=true,double row_flux_correction_scale=0,bool guard_missing_caps=false,bool coarse_shape_check=false) {
+    std::size_t component=std::numeric_limits<std::size_t>::max(),const std::vector<double>* weights=nullptr,double limb_brightness=1,const std::vector<std::size_t>* ordered_runs=nullptr,bool collect_table_density=true,unsigned endpoint_mask=3,bool include_interior=true,double row_flux_correction_scale=0,bool guard_missing_caps=false,bool coarse_shape_check=false,const std::array<double,2>* physical_phases=nullptr) {
     // Keep only row aggregates on the ordinary path. Full interval nodes
     // are materialized from the same ordered index only for a junction.
     std::vector<std::size_t> owned_indices;
@@ -1679,9 +1679,12 @@ inline SameGridOuterError same_grid_outer_error(const CartesianRunFillResult& fi
             const double width=rows[end?rows.size()-1-k:k].width;
             ld_values[k]=values[k]-limb_brightness*width;values[k]=width;
         }
-        const auto quadratic=outer_endpoint_quadratic_model(values,1,1,1,false,
+        const bool physical_phase=physical_phases && std::isfinite((*physical_phases)[end]);
+        const auto quadratic=physical_phase?OuterEndpointModel{}:outer_endpoint_quadratic_model(values,1,1,1,false,
             guard_missing_caps?std::numeric_limits<double>::infinity():1.5);
-        const auto cubic=std::getenv("LCBININT_DIAGNOSTIC_LEGACY_CAP_MODEL")?OuterEndpointModel{}:outer_endpoint_cubic_model(values,phase_limit);
+        const auto cubic=physical_phase?outer_endpoint_fixed_phase_model(values,(*physical_phases)[end]):
+            (std::getenv("LCBININT_DIAGNOSTIC_LEGACY_CAP_MODEL")?OuterEndpointModel{}:outer_endpoint_cubic_model(values,phase_limit));
+        if(physical_phase && !cubic.resolved)return fallback();
         const auto model=!cubic.resolved?quadratic:cubic;
         const double endpoint_signed_before=result.signed_residual;
         if(guard_missing_caps && model.resolved && model.eta>phase_limit && model.leading_coefficient>0) {
@@ -1716,7 +1719,9 @@ inline SameGridOuterError same_grid_outer_error(const CartesianRunFillResult& fi
         const double extent=model.eta+3;
         // The fitted sqrt(a*t+b*t^2) expansion must remain inside its
         // convergence range over the retained four-row footprint.
-        const double expansion=2*std::abs(model.next_coefficient)*extent/model.leading_coefficient;
+        const double expansion=2*std::abs(model.next_coefficient)*extent/model.leading_coefficient+
+            std::abs(model.squared_cubic_coefficient)*extent*extent/
+                (model.leading_coefficient*model.leading_coefficient);
         if(!std::isfinite(expansion)||expansion>.5)return fallback();
         const double cubic_term=cubic.resolved?model.squared_cubic_coefficient/(2*model.leading_coefficient):0;
         const double next2=cubic_term-model.next_coefficient*model.next_coefficient/(2*model.leading_coefficient);
@@ -1770,9 +1775,9 @@ inline SameGridOuterError same_grid_outer_error(const CartesianRunFillResult& fi
         const double scale=*std::max_element(values.begin(),values.end()),t=model.eta+3;
         // The held-out fourth row estimates the next t^(5/2) term. Heuristic
         // remainder factor; never a proof or calibration coverage constant.
-        result.uncertainty+=4*amplitude*quadratic.fourth_relative_defect*scale/(t*t*std::sqrt(t))*
+        result.uncertainty+=4*amplitude*(physical_phase?cubic.fourth_relative_defect:quadratic.fourth_relative_defect)*scale/(t*t*std::sqrt(t))*
             std::abs(power_endpoint_quadrature_defect(model.eta,1,1,2));
-        if(cubic.resolved&&quadratic.eta>=0&&quadratic.eta<=phase_limit) {
+        if(!physical_phase&&cubic.resolved&&quadratic.eta>=0&&quadratic.eta<=phase_limit) {
             const auto qm=power_endpoint_quadrature_defects(quadratic.eta,w0,w1);
             double alternative=amplitude*(quadratic.leading_coefficient*qm[0]+quadratic.next_coefficient*qm[1]-quadratic.next_coefficient*quadratic.next_coefficient/(2*quadratic.leading_coefficient)*qm[2]);
             if(split_ld&&quadratic.eta>1e-12) {
@@ -1784,13 +1789,16 @@ inline SameGridOuterError same_grid_outer_error(const CartesianRunFillResult& fi
             // This represents shape sensitivity, not a certified error bound.
             result.signed_residual+=.5*change;result.uncertainty+=.5*std::abs(change);
         }
-        if(coarse_shape_check) {
+        if(coarse_shape_check && !physical_phase) {
             // Shift the retained stencil by one row; transport its root back
             // to the same physical cap. This detects coarse-fit sensitivity
             // without another image-plane evaluation or a convergence ladder.
             const double current=result.signed_residual-endpoint_signed_before;
             const auto alternative=shifted_cap_defect(end,w0,w1);
-            result.uncertainty+=alternative?std::abs(*alternative-current):std::abs(current);
+            // An unresolved shifted stencil provides no phase validation.
+            // A nearly zero correction is not a bound on this shape error.
+            if(!alternative)return fallback();
+            result.uncertainty+=std::abs(*alternative-current);
         }
     }
     result.cap_signed=result.signed_residual;result.cap_remainder=result.uncertainty;
@@ -1910,7 +1918,7 @@ inline SameGridOuterError same_grid_outer_error(const CartesianRunFillResult& fi
 
     }
     std::size_t modeled_position=0;
-    long double smooth_defect=0;
+    long double smooth_defect=0,rough_defect=0;
     for(std::size_t i=4;i+4<rows.size();++i) {
         const double second=rows[i-1].second-2*rows[i].second+rows[i+1].second;
         const double fourth=rows[i-2].second-4*rows[i-1].second+6*rows[i].second-4*rows[i+1].second+rows[i+2].second;
@@ -1925,10 +1933,22 @@ inline SameGridOuterError same_grid_outer_error(const CartesianRunFillResult& fi
             while(modeled_position<internal.modeled_second.size()&&internal.modeled_second[modeled_position].first==rows[i].first)modeled+=internal.modeled_second[modeled_position++].second;
             result.uncertainty+=std::abs(second-modeled-(saddle_second.empty()?0:saddle_second[i]))/24;
         }
-        else smooth_defect+=fourth;
+        else {
+            const double before=rows[i-2].second-2*rows[i-1].second+rows[i].second;
+            const double after=rows[i].second-2*rows[i+1].second+rows[i+2].second;
+            // Equal run counts do not prove smoothness: two unresolved
+            // branches can appear and disappear between adjacent rows.
+            // Do not telescope the fourth difference through such a stencil.
+            const double variation=std::abs(before)+std::abs(second)+std::abs(after);
+            const double round=256*std::numeric_limits<double>::epsilon()*
+                (std::abs(rows[i-2].second)+4*std::abs(rows[i-1].second)+
+                 6*std::abs(rows[i].second)+4*std::abs(rows[i+1].second)+std::abs(rows[i+2].second));
+            if(std::abs(fourth)>.5*variation+round)rough_defect+=std::abs(fourth);
+            else smooth_defect+=fourth;
+        }
     }
-    result.smooth_remainder=7*std::abs(static_cast<double>(smooth_defect))/5760;
-    result.uncertainty+=7*std::abs(static_cast<double>(smooth_defect))/5760;
+    result.smooth_remainder=7*std::abs(static_cast<double>(smooth_defect))/5760+static_cast<double>(rough_defect);
+    result.uncertainty+=result.smooth_remainder;
     result.signed_residual+=internal.signed_residual;result.uncertainty+=internal.uncertainty;result.resolved=result.resolved&&internal.resolved;
     if(row_flux_correction_scale!=0 && include_interior && (limb_brightness>0 || guard_missing_caps)) {
         // Gap graphs need not form a closed cap: one of the two image arms

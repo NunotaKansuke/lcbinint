@@ -399,6 +399,8 @@ def make_figure(
     profile: str,
     target: float,
     minimum_count: int,
+    speed_ratio_label: str = r"median $R=t_{\rm VBM}/t_{\rm lcbinint}$",
+    error_label: str = "cell p95 cross-code relative difference",
 ) -> None:
     q_edges = _log_edges(records, "q", 1.0e-4, 1.0)
     rho_edges = _log_edges(records, "rho", 3.0e-5, 1.0)
@@ -452,14 +454,14 @@ def make_figure(
         top_cbar_axis,
         SPEED_COLOURS,
         SPEED_LABELS,
-        r"median $R=t_{\rm VBM}/t_{\rm lcbinint}$",
+        speed_ratio_label,
     )
     _add_colourbar(
         figure,
         bottom_cbar_axis,
         ERROR_COLOURS,
         ERROR_LABELS,
-        r"cell p95 cross-code relative difference",
+        error_label,
     )
 
     profile_title = (

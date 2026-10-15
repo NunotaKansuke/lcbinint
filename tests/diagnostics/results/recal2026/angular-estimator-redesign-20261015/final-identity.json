@@ -1,0 +1,26 @@
+{
+  "selected": "v43; v47/v48 additional optimizations not retained because no measured benefit",
+  "branch": "feature/boundary-error-and-discriminant-support",
+  "head": "ee4d1c4e70a89e7cb034b893cb09e190dc71f3a7",
+  "hashes": {
+    "src/lcbinint/magnification/adaptive_polar_impl.inc": "1d6718f290510e9d9c1ca1820a5e281499713297a5ce2e8b4e8b1c5ef44825c2",
+    "src/lcbinint/magnification/adaptive_polar_roots.hpp": "8b4b86424e8930d37e6c87d6b93fdeda64e82ca3cc64107497938c5539894fda",
+    "src/lcbinint/magnification/adaptive_polar_polynomial.hpp": "ffce88cfda98a4b215b5b124ca7e31d5e7777452724c4952e4d5c2a0a2cc05de",
+    "src/lcbinint/magnification/finite_source_magnifier.cpp": "30ba6c6e1424adf200f50ed768a97cf27d4c55f2acc6c745c7bb56d71e544939",
+    "src/lcbinint/magnification/probe_diagnostics.hpp": "96d9112aca56b3ac6c88f71c3e6b04f3edeaa4a80a42cd578dc504d13894c318",
+    "python/bind_lc.cpp": "fd84176ce93f2003820052d7dbfccede01b4a542ea638a6c9445caa8d0d07a0f",
+    "tests/diagnostics/recal2026/seed_inclusive_cart_polar_runner.cpp": "cc6aac0cdd81c3f7246a137a5274a83f78293b0d69f0e83858ae775f4b1a318d",
+    "build-adaptive-production/_lcbinint.cpython-310-x86_64-linux-gnu.so": "7cc97d0e14110fbde37867f2e35ea7c0ec493316d6670bdee776423f9c21017a",
+    "build-adaptive-production/liblcbinint_magnification.a": "62ec718f07232d13f8f515966e475f6d666fc2dafa22a6c6658ffea83c3a66dd",
+    "tests/diagnostics/results/recal2026/angular-estimator-redesign-20261015/before.inc": "9f313f9b1742c7937c8e00dd5628d9a4dba25f03231b29e562436d9b063c8b6e",
+    "tests/diagnostics/results/recal2026/angular-estimator-redesign-20261015/before.a": "2ed2030b2722feb44a76a708c40af75ee4dc49a6876283f9b07be4e1a4fbe8cc",
+    "figures/recal2026/adaptive-vbm-six-panel-20261014/inputs.tsv": "e79599e1365020aa4911f079bbafd4951bb2056dc21730b049fec2a6c241ec09"
+  },
+  "paired": "../optimization-implementation-20261015/selected-redesign-final-paired256/summary.json",
+  "vbm": "selected-current-vbm-ld128/summary.json",
+  "full": "v43-full-shadow/adjudicated-summary.json",
+  "independent": "../optimization-implementation-20261015/wide-coefficient-v43/validation.json",
+  "contracts": "selected-final-contracts.json",
+  "fresh": "../polar-quadrature-rework/estimator-redesign-selected-final-holdout/validation.json",
+  "status": "dirty, uncommitted; original staged files preserved"
+}

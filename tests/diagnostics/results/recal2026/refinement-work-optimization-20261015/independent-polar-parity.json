@@ -1,0 +1,12 @@
+{
+  "conditions": 882,
+  "changed": [],
+  "known_unmet": [
+    [
+      "fresh-1-0.0",
+      1e-05
+    ]
+  ],
+  "baseline_and_current_exitcode": 1,
+  "exit_reason": "known unmet compared against older dataset; not a new rejection relative to this-task baseline"
+}

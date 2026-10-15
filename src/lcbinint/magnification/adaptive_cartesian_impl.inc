@@ -10,6 +10,51 @@ struct AdaptiveStageTimer {
     }
 };
 
+// Solve F=0 and F_x=0 for the actual image tip. This is a boundary
+// geometry solve, not an approximation to the image flux.
+template<class Mapper>
+std::optional<double> adaptive_cartesian_tip_phase(const Mapper& mapper,SourcePosition source,
+    double rho2,double x0,double y0,double hx,double hy,double width,int direction) {
+ if constexpr(!std::is_same_v<Mapper,BinaryLensMapper>)return std::nullopt;
+ else {
+  const double extent=std::max(4*hx,2*width);
+  double x=x0,y=y0+direction*.5*hy;
+  const auto evaluate=[&](double xx,double yy) {
+   const Complex z(xx,yy),a=std::conj(z)-mapper.separation,b=std::conj(z);
+   const Complex ia=1./a,ib=1./b;
+   const Complex w=z-mapper.m1*ia-mapper.m2*ib-Complex(mapper.source_origin_shift+source.x,source.y);
+   const Complex q=mapper.m1*ia*ia+mapper.m2*ib*ib,t=mapper.m1*ia*ia*ia+mapper.m2*ib*ib*ib;
+   const Complex wx=1.+q,wy=Complex(0,1)*(1.-q),wxx=-2.*t,wxy=Complex(0,2)*t;
+   return std::array<double,5>{std::norm(w)-rho2,2*std::real(std::conj(w)*wx),
+       2*std::real(std::conj(w)*wy),2*(std::norm(wx)+std::real(std::conj(w)*wxx)),
+       2*std::real(std::conj(wy)*wx+std::conj(w)*wxy)};
+  };
+  auto v=evaluate(x,y);
+  for(int k=0;k<8;++k) {
+   const double norm=std::max(std::abs(v[0]),std::abs(v[1])*hx)/rho2;
+   if(!std::isfinite(norm)||!(v[3]>0))return std::nullopt;
+   if(norm<1e-7) {
+    const double eta=direction*(y-y0)/hy;
+    if(eta>0 && eta<=1.5 && direction*v[2]>0 &&
+       evaluate(.5*(x+x0),.5*(y+y0))[0]<=0)return eta;
+    return std::nullopt;
+   }
+   const double det=v[1]*v[4]-v[2]*v[3];
+   if(!std::isfinite(det)||det==0)return std::nullopt;
+   const double dx=(-v[0]*v[4]+v[2]*v[1])/det,dy=(-v[1]*v[1]+v[0]*v[3])/det;
+   double step=1;bool moved=false;
+   for(int back=0;back<6;++back,step*=.5) {
+    const double nx=x+step*dx,ny=y+step*dy,eta=direction*(ny-y0)/hy;
+    if(std::abs(nx-x0)>extent || eta<-.1 || eta>1.6)continue;
+    const auto trial=evaluate(nx,ny);
+    if(std::max(std::abs(trial[0]),std::abs(trial[1])*hx)<norm*rho2){x=nx;y=ny;v=trial;moved=true;break;}
+   }
+   if(!moved)return std::nullopt;
+  }
+  return std::nullopt;
+ }
+}
+
 struct AdaptiveBoundaryBracketDiagnostic {
     double lower=0,upper=1;
     bool rounded_zero=false;
@@ -94,7 +139,7 @@ double refine_adaptive_boundary_crossing_fraction(
             convergence_probed = true;
             // The current Newton evaluation already supplies one bracket sign.
             // Probe only the other side before paying for a two-sided check.
-            if (std::getenv("LCBININT_DIAGNOSTIC_ONE_SIDED_BOUNDARY")) {
+            {
                 const bool inside = evaluation.residual <= 0.0;
                 const double other = inside
                     ? std::min(outside_fraction, fraction + maximum_boundary_bracket)
@@ -205,7 +250,7 @@ adaptive_detail::CartesianRunFillResult fill_adaptive_cartesian_run_union(
     const bool use_limb_darkening =
         settings.limb_darkening_c != 0.0 || settings.limb_darkening_d != 0.0;
     const double edge_brightness = use_limb_darkening
-        ? (finite_magnifier != nullptr
+        ? (finite_magnifier != nullptr && settings.limb_darkening_d != 0.0
               ? finite_magnifier->limb_darkening_table_brightness(1.0)
               : source_surface_brightness(1.0, settings))
         : 1.0;
@@ -218,7 +263,8 @@ adaptive_detail::CartesianRunFillResult fill_adaptive_cartesian_run_union(
         const double normalized2 = std::clamp(
             distance2 * inverse_source_radius2, 0.0, 1.0);
         if (settings.limb_darkening_d == 0.0) {
-            return source_surface_brightness(normalized2, settings);
+            const double mu=std::sqrt(std::max(0.0,1.0-normalized2));
+            return 1.0-settings.limb_darkening_c*(1.0-mu);
         }
         return finite_magnifier != nullptr
             ? finite_magnifier->limb_darkening_table_brightness(normalized2)
@@ -857,6 +903,26 @@ struct RetainedAdaptiveComponent {
     adaptive_detail::CartesianRunFillResult cap_rows;
 };
 
+// A shared occupied lattice point identifies a duplicate retained image,
+// even when the two components currently use different dyadic spacings.
+inline bool adaptive_cartesian_retained_overlap(const RetainedAdaptiveComponent& a,const RetainedAdaptiveComponent& b) {
+ if(a.fill.runs.empty()||b.fill.runs.empty())return false;
+ std::vector<std::size_t> order(b.fill.runs.size());std::iota(order.begin(),order.end(),0);
+ std::sort(order.begin(),order.end(),[&](auto i,auto j){return b.fill.runs[i].run.iy<b.fill.runs[j].run.iy;});
+ const long double coarse_x=std::min(a.bins,b.bins);
+ for(const auto& record:a.fill.runs) {
+  const auto& x=record.run;const long double y=static_cast<long double>(x.iy)*b.row_bins/a.row_bins;
+  auto it=std::lower_bound(order.begin(),order.end(),y,[&](auto j,long double yy){return b.fill.runs[j].run.iy<yy;});
+  for(;it!=order.end() && b.fill.runs[*it].run.iy==y;++it) {
+   const auto& z=b.fill.runs[*it].run;
+   const long double lo=std::max(x.lo*coarse_x/a.bins,z.lo*coarse_x/b.bins);
+   const long double hi=std::min(x.hi*coarse_x/a.bins,z.hi*coarse_x/b.bins);
+   if(std::ceil(lo)<=std::floor(hi))return true;
+  }
+ }
+ return false;
+}
+
 template <typename ImageMap>
 double fill_all_adaptive_cartesian_components_multirun(
     const ImageMap& mapper,
@@ -879,6 +945,8 @@ double fill_all_adaptive_cartesian_components_multirun(
 {
     if(row_spacing==0)row_spacing=incr;
     auto* adaptive=adaptive_flux_request();
+    auto& refinement_work=adaptive_detail::refinement_work_trace();
+    if(adaptive && adaptive->depth==0)refinement_work.reset();
     if(adaptive && adaptive->depth==0)adaptive->initial_bins=settings.source_bins;
     if(adaptive && adaptive->depth==0 &&
        (settings.limb_darkening_d!=0 || settings.limb_darkening_c<0 || settings.limb_darkening_c>1))
@@ -1078,7 +1146,11 @@ double fill_all_adaptive_cartesian_components_multirun(
     const char* seed_mode=std::getenv("LCBININT_REPRESENTATIVE_PROBES");
     const bool geometry_outer_guard=std::getenv("LCBININT_CARTESIAN_GEOMETRY_OUTER_GUARD")!=nullptr
         || (seed_mode && std::string(seed_mode)=="critical-seeds");
+    // Adaptive defect correction integrates the raw row rule directly.
+    // Legacy outer weights at internal segment ends cannot be represented
+    // by one component-wide endpoint phase; avoid mixing the two rules.
     const bool bennett_outer_enabled =cap_weight_mode>=0 &&
+        !(adaptive && adaptive->defect_correction) &&
         std::getenv("LCBININT_DISABLE_BENNETT_OUTER") == nullptr &&
         !(geometry_outer_guard && source_has_critical) &&
         (std::getenv("LCBININT_ENABLE_BENNETT_OUTER") != nullptr ||
@@ -1527,13 +1599,24 @@ double fill_all_adaptive_cartesian_components_multirun(
             }
         }
         if(lightweight_flux_error_mode() && !error_used_refined && component.first_run_index!=missing_component) {
+            std::array<double,2> physical_phases{std::numeric_limits<double>::quiet_NaN(),std::numeric_limits<double>::quiet_NaN()};
+            if(adaptive && adaptive->defect_correction) {
+                const auto& indices=component_error_runs[run_fill.runs[component.first_run_index].component];
+                for(int end:{0,1}) {
+                    if(!(physical_tip_mask&(1U<<end)) || indices.size()<4)continue;
+                    const auto j=end?indices.back():indices.front();const auto& r=run_fill.runs[j].run;
+                    const auto& fractions=run_fill.run_error_fractions[j];
+                    const double left=double(r.lo)-fractions[0],right=double(r.hi)+fractions[1];
+                    if(const auto phase=adaptive_cartesian_tip_phase(mapper,source,source_radius2,
+                        .5*(left+right)*incr,double(r.iy)*row_spacing,incr,row_spacing,(right-left)*incr,end?1:-1))physical_phases[end]=*phase;
+                }
+            }
             const auto outer_error=adaptive_detail::same_grid_outer_error(run_fill,
                 run_fill.runs[component.first_run_index].component,&traced_outer_weights,1-settings.limb_darkening_c,
                 &component_error_runs[run_fill.runs[component.first_run_index].component],settings.limb_darkening_d!=0,physical_tip_mask,row_clip==nullptr,
                 adaptive && adaptive->defect_correction?1/(incr*row_spacing):0,
                 adaptive && adaptive->guard_missing_caps,
-                adaptive && adaptive->initial_bins==8 && settings.limb_darkening_d==0 &&
-                    int(std::llround(source_radius/row_spacing))==8);
+                adaptive && adaptive->defect_correction && settings.limb_darkening_d==0,&physical_phases);
             auto& c=probe_counters();
             c.boundary_outer_curvature_flux_indicator+=(std::abs(outer_error.signed_residual)+outer_error.uncertainty)*incr*row_spacing;
             c.boundary_outer_signed_flux_residual+=outer_error.signed_residual*incr*row_spacing;
@@ -1565,7 +1648,7 @@ double fill_all_adaptive_cartesian_components_multirun(
             RetainedAdaptiveComponent state;
             state.flux=contribution*incr*row_spacing;state.bins=settings.source_bins;state.row_bins=int(std::llround(source_radius/row_spacing));
             state.original_owner=run_fill.runs[component.first_run_index].component;state.outer_parts=adaptive_outer_parts;
-            if(settings.source_bins==8)state.original_owners={state.original_owner};
+            state.original_owners={state.original_owner};
             state.missing_cap_rows=adaptive_missing_caps;
             state.signed_error=error_component_signed+adaptive_outer_signed;
             state.remainder=error_component_remainder+adaptive_outer_remainder;
@@ -1694,8 +1777,21 @@ double fill_all_adaptive_cartesian_components_multirun(
                     catch(...){--adaptive->depth;probe_counters()=before;throw;}
                     --adaptive->depth;probe_counters()=before;
                     for(auto& c:found) {
+                        bool duplicate=false,overlap=false;
+                        for(const auto& prior:retained) {
+                            if(prior.original_owner<run_fill.component_roots.size() ||
+                               !adaptive_cartesian_retained_overlap(c,prior))continue;
+                            overlap=true;
+                            if(c.bins==prior.bins && c.row_bins==prior.row_bins && c.fill.runs.size()==prior.fill.runs.size()) {
+                                duplicate=std::equal(c.fill.runs.begin(),c.fill.runs.end(),prior.fill.runs.begin(),
+                                    [](const auto& a,const auto& b){return a.run.iy==b.run.iy && a.run.lo==b.run.lo && a.run.hi==b.run.hi;});
+                                if(duplicate)break;
+                            }
+                        }
+                        if(duplicate)continue;
+                        if(overlap){c.short_guard=std::max(c.short_guard,std::abs(c.flux));c.remainder=std::max(c.remainder,std::abs(c.flux));}
                         c.original_owner=run_fill.component_roots.size()+retained.size();
-                        if(settings.source_bins==8)c.original_owners={c.original_owner};
+                        c.original_owners={c.original_owner};
                         if(refined_run_footprint_is_private(c.fill,bins/settings.source_bins,run_fill,c.original_owner)) {
                             retained.push_back(std::move(c));++adaptive->small_image_repairs;
                         }
@@ -1748,16 +1844,21 @@ double fill_all_adaptive_cartesian_components_multirun(
         for(const auto& c:retained)adaptive->largest_bins=std::max({adaptive->largest_bins,c.bins,c.row_bins});
         adaptive->history.push_back({double(settings.source_bins),current[1],double(adaptive->new_maps),double(adaptive->reused_maps),0});
         record_cost(current[0]);
+        refinement_work.initial(double(adaptive->new_maps),current[1],current[0]);
         while(std::isfinite(current[1]) && current[1]>adaptive->target) {
             adaptive->mapped.materialize();
             std::size_t selected=retained.size();double priority=-1,total_priority=0,best_efficiency=-1;
             for(std::size_t i=0;i<retained.size();++i) {
                 const auto& c=retained[i];const double score=std::abs(c.signed_error-correction_for(c))+c.remainder;
                 total_priority+=score;
-                const double efficiency=score*(1-std::pow(.5,c.order))/std::max(1.,c.work_estimate);
+                const double efficiency=score*(c.order==1?.5:.75)/std::max(1.,c.work_estimate);
                 if(!c.blocked && (c.bins<=adaptive->max_bins/2 || c.row_bins<=adaptive->max_bins/2) && efficiency>best_efficiency){selected=i;priority=score;best_efficiency=efficiency;}
             }
             if(selected==retained.size())break;
+            adaptive_detail::RefinementWorkTrial refinement_trial(refinement_work,[&]() {
+                return std::array<double,3>{double(adaptive->new_maps),current[1],current[0]};
+            });
+            refinement_trial.kind=1;
             auto& previous=retained[selected];
             const auto trial_start=adaptive->cost_trace?std::chrono::steady_clock::now():std::chrono::steady_clock::time_point{};
             const auto trial_maps=adaptive->new_maps,trial_hits=adaptive->reused_maps;
@@ -1802,9 +1903,14 @@ double fill_all_adaptive_cartesian_components_multirun(
             // A coarse-start continuation can refine x in those bands too;
             // the retained interior and its error remain at their old spacing.
             // Failed candidates retain mapped work for ordinary refinement.
+            const double retained_smooth=std::max(0.,previous.outer_parts[2]);
+            const double retained_junction_remainder=std::max(0.,previous.outer_parts[4]);
+            const double retained_junction_signed=previous.outer_parts[3];
+            const double retained_outer_uncertainty=retained_smooth+retained_junction_remainder;
             if(adaptive->local_vertical_caps && previous.retained_cap_bins==0 && (factor_x==1 || previous.coarse_start_axis==3) && factor_y==2 &&
                settings.limb_darkening_d==0 && previous.fill.runs.size()>=25 &&
-               (correction_for(previous)!=0?0:std::abs(previous.inner_signed))+previous.inner_remainder<=local_target/2) {
+               (correction_for(previous)!=0?0:std::abs(previous.inner_signed))+previous.inner_remainder+
+               std::abs(retained_junction_signed)+retained_outer_uncertainty<=local_target/2) {
                 const auto try_caps=[&]()->bool {
                     const auto& old=previous.fill;const auto n=old.runs.size();
                     for(std::size_t j=0;j<n;++j) {
@@ -1834,7 +1940,10 @@ double fill_all_adaptive_cartesian_components_multirun(
                         (h2*h2-f2*f2)*(dl[3]+du[3]+derivative_uncertainty3)/720+h2*h2*h2*(std::abs(dl[4])+std::abs(du[4]))/30240;
                     if(!std::isfinite(interface_remainder)||interface_remainder>local_target/4)return false;
                     ++adaptive->cap_trials;
-                    double flux=0,inner=0,inner_rem=0,outer=interface_signed,outer_rem=interface_remainder;
+                    // The coarse interior was not re-evaluated. Its smooth and
+                    // junction errors survive a cap-only replacement.
+                    double flux=0,inner=0,inner_rem=0,outer=interface_signed+retained_junction_signed,
+                        outer_rem=interface_remainder+retained_outer_uncertainty;
                     for(auto j=a;j<=b;++j) {
                         const double w=j==a||j==b?.5:1;
                         flux+=w*hx*hy*old.run_areas[j];inner+=w*old.run_flux_errors[j][0];inner_rem+=w*old.run_flux_errors[j][3];
@@ -1882,12 +1991,15 @@ double fill_all_adaptive_cartesian_components_multirun(
                         }
                         if(!found)return false;
                     }
-                    const double indicator=std::abs(adaptive->defect_correction?interface_signed:inner+outer)+inner_rem+outer_rem;
+                    const double indicator=std::abs(adaptive->defect_correction?interface_signed+retained_junction_signed:inner+outer)+inner_rem+outer_rem;
                     if(!(std::isfinite(flux)&&flux>0&&std::isfinite(indicator)&&inner_rem>=0&&outer_rem>=0&&indicator<=local_target))return false;
                     previous.flux=flux;previous.inner_signed=inner;previous.inner_remainder=inner_rem;
                     previous.outer_signed=outer;previous.outer_remainder=outer_rem;
                     previous.signed_error=inner+outer;previous.remainder=inner_rem+outer_rem;
-                    previous.outer_parts={outer-interface_signed,outer_rem-interface_remainder,interface_remainder,interface_signed,0,1};
+                    previous.outer_parts={outer-interface_signed-retained_junction_signed,
+                        outer_rem-interface_remainder-retained_outer_uncertainty,
+                        interface_remainder+retained_smooth,interface_signed+retained_junction_signed,
+                        retained_junction_remainder,1};
                     previous.retained_cap_bins=previous.row_bins*2;previous.retained_cap_x_bins=previous.bins*cap_x_factor;previous.cap_rows=std::move(failed_cap_rows);
                     previous.blocked=false;previous.short_guard=0;previous.coarse_start_axis=0;
                     return true;
@@ -1966,14 +2078,37 @@ double fill_all_adaptive_cartesian_components_multirun(
             std::vector<std::size_t> merge_donors,allowed_owners=previous.original_owners;
             double previous_priority=priority;
             bool merge_failed=false,merge_budget=false;
-            if(settings.source_bins==8 && !children.empty()) {
+            const auto has_repair_owner=[&](const RetainedAdaptiveComponent& c) {
+                const auto synthetic=[&](std::size_t owner){return owner>=run_fill.component_roots.size();};
+                return synthetic(c.original_owner) || std::any_of(c.original_owners.begin(),c.original_owners.end(),synthetic);
+            };
+            bool repair_merge=has_repair_owner(previous);
+            if(!repair_merge)for(std::size_t i=0;i<retained.size();++i)
+                if(i!=selected && !retained[i].retired && has_repair_owner(retained[i])){repair_merge=true;break;}
+            // Ordinary initial-16 refinement already checks privacy once
+            // below. Owner closure is needed only for coarse-start stitching
+            // or separately repaired images, not every smooth refinement.
+            if((settings.source_bins==8 || repair_merge) && !children.empty()) {
                 // Disconnected coarse runs may belong to one connected fine
                 // image. Close the owner set incrementally; exact completed
                 // fine rows and all mapped rays survive every expansion.
                 for(std::size_t attempt=0;attempt<retained.size();++attempt) {
                     std::vector<std::size_t> collided;
-                    if(refined_run_footprint_is_private(next.fill,next_bins/settings.source_bins,run_fill,
-                        previous.original_owner,next_row_bins/settings.source_bins,&allowed_owners,&collided))break;
+                    refined_run_footprint_is_private(next.fill,next_bins/settings.source_bins,run_fill,
+                        previous.original_owner,next_row_bins/settings.source_bins,&allowed_owners,&collided);
+                    // Repaired subcell images have no owner in the original
+                    // coarse fill. Include their current occupied footprint:
+                    // two initially separate repairs can join on a finer grid.
+                    for(std::size_t donor=0;donor<retained.size();++donor) {
+                        const auto& c=retained[donor];
+                        if(donor==selected || c.retired ||
+                           std::find(merge_donors.begin(),merge_donors.end(),donor)!=merge_donors.end())continue;
+                        const auto synthetic=[&](std::size_t owner){return owner>=run_fill.component_roots.size();};
+                        if(!synthetic(c.original_owner) &&
+                           !std::any_of(c.original_owners.begin(),c.original_owners.end(),synthetic))continue;
+                        if(adaptive_cartesian_retained_overlap(next,c))collided.push_back(c.original_owner);
+                    }
+                    if(collided.empty())break;
                     std::vector<std::size_t> added;
                     for(const auto owner:collided) {
                         std::size_t donor=retained.size();
@@ -2013,6 +2148,7 @@ double fill_all_adaptive_cartesian_components_multirun(
             if(merge_failed || children.empty() || !(std::isfinite(next.flux)&&next.flux>0&&std::isfinite(next.signed_error)&&std::isfinite(next.remainder)&&next.remainder>=0)
                 || !refined_run_footprint_is_private(next.fill,next_bins/settings.source_bins,run_fill,previous.original_owner,next_row_bins/settings.source_bins,&next.original_owners)) {
                 if(merge_budget){record_trial(false);break;}
+                if(merge_failed){previous.remainder=std::max(previous.remainder,std::abs(previous.flux));previous.short_guard=std::max(previous.short_guard,std::abs(previous.flux));current=totals();}
                 previous.blocked=true;adaptive->stop_reason="unresolved_component";record_trial(false);continue;
             }
             const double next_priority=std::abs(next.signed_error-correction_for(next))+next.remainder;

@@ -1,0 +1,22 @@
+{
+  "conditions": 14432,
+  "changed": [],
+  "new_identity": {
+    "method": "polar",
+    "blocks": false,
+    "audit_blocks": false,
+    "audit_source_sha256": "9ac3231983d141390e8d02bedbc9779f9e522beadc0ffaa8c8c80918b86ccb0b",
+    "input_sha256": "e79599e1365020aa4911f079bbafd4951bb2056dc21730b049fec2a6c241ec09",
+    "native_sha256": "127f31962354a866d10fc8d6946266deb80b6d65b275c1bcfe6035630cb3ce11",
+    "limit": null,
+    "relative_tolerances": [
+      0.001,
+      0.0001
+    ],
+    "initial_bins": 2,
+    "initial_row_ratio": 1,
+    "reference_adjudications_sha256": "15edcc514d0583be54c275c55b260f2485bcd95d749854730b61c620e3185df7",
+    "reference_scope": "saved VBM RelTol=1e-6 agreement; disagreements require independent adjudication"
+  },
+  "old_native_sha256": "cbb4f10d7725786de0656e57bcccc64c1e041ddd0e474d2a1b2a662c088fd278"
+}

@@ -67,11 +67,30 @@ inline OuterEndpointModel outer_endpoint_cubic_model(const std::array<double,4>&
  const double a=(3*d*r+2*b)*r+c,curvature=b+3*d*r;
  if(!(a>0)||std::abs(((d*r+b)*r+c)*r+v[0])>1e-10)return {};
  const double eta=-r,L=scale*std::sqrt(a),N=scale*curvature/(2*std::sqrt(a));
- const double expansion=2*std::abs(N)*(eta+3)/L;
+ const double extent=eta+3;
+ const double expansion=2*std::abs(N)*extent/L+std::abs(scale*scale*d)*extent*extent/(L*L);
  if(!std::isfinite(expansion)||expansion>.5)return {};
  // Retain the quadratic held-row defect as a shape diagnostic. The cubic
  // squared-width coefficient supplies the additional t^(5/2) term.
  return {true,eta,0,initial.fourth_relative_defect,L,N,scale*scale*d};
+}
+
+// Known physical tip phase: fit squared width / distance, rather than
+// extrapolating a root from the same four quadrature rows. Row four is held out.
+inline OuterEndpointModel outer_endpoint_fixed_phase_model(const std::array<double,4>& widths,double eta) {
+ if(!(eta>1e-10 && eta<=1.5))return {};
+ const double scale=*std::max_element(widths.begin(),widths.end());
+ if(!(scale>0))return {};
+ std::array<double,3> u;
+ for(int k=0;k<3;++k)u[k]=std::pow(widths[k]/scale,2)/(eta+k);
+ const double c=.5*(u[2]-2*u[1]+u[0]);
+ const double b=u[1]-u[0]-c*(2*eta+1),a=u[0]-b*eta-c*eta*eta;
+ if(!(a>0))return {};
+ const double extent=eta+3,expansion=(std::abs(b)*extent+std::abs(c)*extent*extent)/a;
+ if(!std::isfinite(expansion)||expansion>.5)return {};
+ const double predicted=scale*std::sqrt(std::max(0.,extent*(a+b*extent+c*extent*extent)));
+ return {true,eta,0,std::abs(predicted-widths[3])/scale,
+     scale*std::sqrt(a),scale*b/(2*std::sqrt(a)),scale*scale*c};
 }
 
 struct ClosedShortRowCap {

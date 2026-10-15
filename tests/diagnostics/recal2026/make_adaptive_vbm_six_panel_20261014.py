@@ -156,7 +156,15 @@ def run_campaign(limit=None):
     return inputs, all_rows
 
 
-def plot_and_report(inputs=None, raw_rows=None):
+def plot_and_report(
+    inputs=None,
+    raw_rows=None,
+    algorithm_name="ordinary adaptive C++ kernel",
+    speed_ratio_label=r"median $R=t_{\rm VBM}/t_{\rm lcbinint}$",
+    error_label="cell p95 cross-code relative difference",
+    algorithm_details="The initial Cartesian nbin16 grid and relative normalization are handled in that request. A separate scale call is not timed or added.",
+    error_boundaries=None,
+):
     os.environ.setdefault("MPLCONFIGDIR", str(RUN / "matplotlib-cache"))
     import sys
     sys.path.insert(0, str(ROOT / "tests/diagnostics/recal2026"))
@@ -327,7 +335,13 @@ def plot_and_report(inputs=None, raw_rows=None):
             style.SPEED_BOUNDARIES = np.asarray(boundaries)
             style.SPEED_LABELS = tuple([f"$<{boundaries[0]:g}\\times$"] +
                 [f"${x:g}\\times$" for x in boundaries[:-1]] + [f"$\\geq{boundaries[-1]:g}\\times$"])
-            eb = (1e-5, 2e-5, 5e-5, 1e-4, 2e-4, 5e-4, 1e-3) if target == 1e-4 else (1e-4, 2e-4, 5e-4, 1e-3, 2e-3, 5e-3, 1e-2)
+            eb = (
+                tuple(error_boundaries)
+                if error_boundaries is not None
+                else ((1e-5, 2e-5, 5e-5, 1e-4, 2e-4, 5e-4, 1e-3)
+                      if target == 1e-4
+                      else (1e-4, 2e-4, 5e-4, 1e-3, 2e-3, 5e-3, 1e-2))
+            )
             style.ERROR_BOUNDARIES = np.asarray(eb)
             style.ERROR_LABELS = tuple([f"$\\leq{eb[0]:g}$"] + [f"${x:g}$" for x in eb[1:]] + [f"$\\geq{eb[-1]:g}$"])
             tag = f"{target:.0e}".replace("-0", "-")
@@ -335,20 +349,22 @@ def plot_and_report(inputs=None, raw_rows=None):
                 [dict(r, ratio=float(r["ratio"]) if math.isfinite(r["ratio"]) else math.nan,
                       error=float(r["error"]) if math.isfinite(r["error"]) else math.nan)
                  for r in selected],
-                ["VBM direct kernel and saved RelTol=1e-6 reference; ordinary adaptive C++ kernel"],
+                [f"VBM direct kernel and saved RelTol=1e-6 reference; {algorithm_name}"],
                 ARTIFACT / f"{profile}_{tag}", profile, target, minimum_per_cell,
+                speed_ratio_label=speed_ratio_label,
+                error_label=error_label,
             )
     summary = dict(groups=groups, rows=len(joined), minimum_per_cell=minimum_per_cell,
         speed_ratio="saved VBM direct-kernel time / current native adaptive integration time; values above1 favor lcbinint",
         accuracy="absolute relative difference from saved independent VBM RelTol=1e-6 reference; p95 by cell in figures",
-        timing="ordinary production build, initial nbin16, single-call relative target, timed native kernel only; one untimed warm call; centre roots and caustic construction outside the timed region",
+        timing=f"single-call relative target, {algorithm_name}; centre roots and caustic construction outside the timed region",
         certified=False, complete_error_model=False)
     (ARTIFACT / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
-    lines = ["# Ordinary adaptive kernel vs saved VBM: six-panel comparison", "",
-        "The four six-panel figures compare the ordinary production build at relative targets 1e-3 and 1e-4, starting from nbin16, against the saved direct VBM kernel timings and independent RelTol=1e-6 values. Each panel is regenerated from the 7,216-row input and 14,432 native results in this directory.", "",
-        "The current side uses one relative-tolerance request per timed evaluation. Its initial grid and relative normalization are handled in that request. A separate nbin16 scale call is not timed or added. Center image roots are computed before timing; caustic and seed geometry is built in an untimed warm call; three measured native calls provide each median. VBM times are retained from the previously measured warmed direct BinaryMag/BinaryMagDark calls and were not retimed here. The current C++ timer excludes Python and model setup; any binding-call overhead in the saved VBM times is retained.", "",
+    lines = [f"# {algorithm_name} vs saved VBM: six-panel comparison", "",
+        f"The four six-panel figures compare {algorithm_name} at relative targets 1e-3 and 1e-4 against the saved direct VBM kernel timings and independent RelTol=1e-6 values. Each panel is regenerated from the 7,216-row input and 14,432 native results in this directory.", "",
+        f"Each timed evaluation uses one relative-tolerance request. {algorithm_details} Center image roots are computed before timing; caustic and seed geometry is built in an untimed warm call; three measured native calls provide each median. VBM times are retained from the previously measured warmed direct BinaryMag/BinaryMagDark calls and were not retimed here. The current C++ timer excludes Python and model setup; any binding-call overhead in the saved VBM times is retained.", "",
         "The lower panels show actual relative difference from the saved VBM RelTol=1e-6 magnification, summarized as cell p95. They are not a mathematical error certificate. Rejected, inaccurate, and exceptional rows remain in joined.tsv and summary counts.", "",
-        "| profile | target | finite / rows | estimated accepted | actual pass | false accepts | median VBM / adaptive | p95 relative error | median adaptive ms |", "|---|---:|---:|---:|---:|---:|---:|---:|---:|"]
+        "| profile | target | finite / rows | estimated accepted | actual pass | false accepts | median VBM / current | p95 relative error | median current ms |", "|---|---:|---:|---:|---:|---:|---:|---:|---:|"]
     for g in groups:
         lines.append(f"|{g['profile']}|{g['target']:g}|{g['finite']}/{g['rows']}|{g['accepted']}|{g['actual_pass']}|{g['false_accept']}|{g['median_vbm_over_adaptive']:.4g}|{g['p95_actual_relative_error']:.4g}|{g['median_adaptive_ms']:.4g}|")
     lines += ["", "The input cohort is a q-rho coverage corpus rather than an iid speed sample. The error estimator remains an empirical estimate, not a general mathematical guarantee.", "", "Reproduce the native build with `cmake -S . -B build-adaptive-production -DCMAKE_BUILD_TYPE=Release -DLCBININT_BOUNDARY_SUPPORT_EXPERIMENTS=OFF -DLCBININT_BUILD_TESTS=OFF -DLCBININT_BUILD_PYTHON=ON -DLCBININT_ENABLE_JAX_FFI=OFF -DCMAKE_PREFIX_PATH=/home/nunota/.miniconda3/envs/myenv`, then `cmake --build build-adaptive-production -j2` and `python tests/diagnostics/recal2026/make_adaptive_vbm_six_panel_20261014.py`. The script resumes complete 32-input shards, reruns incomplete shards, and renders from the committed inputs and native measurements."]

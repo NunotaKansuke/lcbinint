@@ -5,6 +5,7 @@
 #include "lcbinint/magnification/finite_source_magnifier.hpp"
 #include "lcbinint/magnification/point_source_magnifier.hpp"
 #include "lcbinint/magnification/probe_diagnostics.hpp"
+#include "lcbinint/magnification/adaptive_refinement_work.hpp"
 #include "lcbinint/obs/coordinates.hpp"
 #include "lcbinint/model/lens_parameters.hpp"
 #include "lcbinint/model/orbital_motion.hpp"
@@ -2299,10 +2300,10 @@ Cartesian or polar grid and its resolution.)");
         [](double x,double y,double s,double q,double rho,
            const PyLimbDarkening& limb_darkening,lcbi_options options) {
             using namespace lcbinint::magnification;
-            if(!adaptive_flux_request())throw std::logic_error("internal adaptive pass requires a request context");
-            if(options.mode!=1 || limb_darkening.d!=0 || !std::isfinite(limb_darkening.c) ||
+            if(!adaptive_flux_request() && !adaptive_polar_request())throw std::logic_error("internal adaptive pass requires a request context");
+            if((options.mode!=1 && !(options.mode==2 && adaptive_polar_request())) || limb_darkening.d!=0 || !std::isfinite(limb_darkening.c) ||
                limb_darkening.c<0 || limb_darkening.c>1)
-                throw std::invalid_argument("adaptive Cartesian integration requires mode=1 and linear LD 0<=c<=1");
+                throw std::invalid_argument("adaptive integration requires a requested Cartesian/polar mode and linear LD 0<=c<=1");
             struct Scope {
                 ProbeCounters saved=probe_counters();bool prior=lightweight_flux_error_mode();
                 Scope(){lightweight_flux_error_mode()=true;}
@@ -2350,6 +2351,109 @@ Cartesian or polar grid and its resolution.)");
 
 
     const py::object shared_flux_entry=lc.attr("_binary_adaptive_initial_pass");
+    lc.def("binary_adaptive_polar_flux", [shared_flux_entry](double x, double y, double s, double q, double rho,
+        const PyLimbDarkening& ld, int initial_bins, double angular_ratio, int angular_depth,
+        int radial_depth, double tolerance, std::size_t budget, double relative_tolerance) {
+        using namespace lcbinint::magnification;
+        if (initial_bins < 2 || initial_bins > 64 || !std::isfinite(angular_ratio) || angular_ratio < 1 || angular_ratio > 256 ||
+            angular_depth < 0 || angular_depth > 20 || radial_depth < 0 || radial_depth > 16 ||
+            !std::isfinite(tolerance) || tolerance <= 0 || !std::isfinite(relative_tolerance) || relative_tolerance < 0 || budget == 0)
+            throw std::invalid_argument("polar adaptive integration requires initial_bins=2..64, angular_ratio=1..256, positive tolerance/budget and bounded refinement depths");
+        if(!std::isfinite(ld.c) || !std::isfinite(ld.d) || ld.c<0.0 || ld.c>1.0 || ld.d!=0.0)
+            throw std::invalid_argument("adaptive polar requires linear LD 0<=c<=1, d=0");
+        const double normalization=3.141592653589793*rho*rho*(1.0-ld.c/3.0);
+        if (!(normalization>0.0) || !std::isfinite(normalization))
+            throw std::invalid_argument("adaptive polar source flux is outside the representable range");
+        AdaptivePolarRequest work;
+        work.absolute_tolerance = tolerance; work.relative_tolerance = relative_tolerance;
+        work.initial_angular_ratio = angular_ratio; work.max_angular_depth = angular_depth;
+        work.max_radial_depth = radial_depth; work.budget = budget;
+        struct Scope {
+            AdaptivePolarRequest* saved;
+            explicit Scope(AdaptivePolarRequest& w) : saved(adaptive_polar_request()) { adaptive_polar_request() = &w; }
+            ~Scope() { adaptive_polar_request() = saved; }
+        } scope(work);
+        auto opts = kDefaultOpts; opts.mode = 2; opts.source_bins = initial_bins;
+        opts.polar_source_bins = initial_bins; opts.max_source_bins = initial_bins; opts.automatic_source_bins = 0;
+        opts.point_source_threshold = 0; opts.hexadecapole_threshold = 0; opts.adaptive_hex_threshold = 0;
+        work.reflection_normalized=y<0.0;
+        double magnification;
+        try {
+            magnification = shared_flux_entry(x, std::abs(y), py::arg("s")=s, py::arg("q")=q, py::arg("rho")=rho,
+                py::arg("limb_darkening")=ld, py::arg("options")=opts).cast<double>();
+        } catch (const std::runtime_error&) {
+            if(work.stop_reason=="discovery_map_budget")
+                throw std::runtime_error("adaptive polar discovery map budget exhausted before a flux estimate was available");
+            throw;
+        }
+        if (!work.executed) {
+            // An upstream shortcut may bypass the explicitly requested
+            // integrator. Return a failed error contract, never an accepted
+            // point value with a fabricated polar error estimate.
+            work.met=false; work.stop_reason="route_not_executed";
+            work.angular_error=work.error_indicator=std::numeric_limits<double>::infinity();
+            work.radial_error=0.0;
+        }
+        py::dict out;
+        out["magnification"] = magnification; out["error_indicator"] = work.error_indicator;
+        out["angular_error_indicator"] = work.angular_error; out["radial_error_indicator"] = work.radial_error;
+        out["estimated_target_met"] = work.met; out["stop_reason"] = work.stop_reason;
+        out["initial_magnification_scale"] = work.initial_magnification;
+        out["initial_bins"] = initial_bins; out["initial_phi_bins"] = work.initial_phi_bins;
+        out["unresolved_seed_panels"] = work.unresolved_seed_panels;
+        out["angular_cap_panels"] = work.angular_cap_panels;
+        out["corrected_error_checks"] = work.corrected_error_checks;
+        out["corrected_error_reductions"] = work.corrected_error_reductions;
+        out["smooth_angular_error"] = work.smooth_angular_error;
+        out["topology_angular_error"] = work.topology_angular_error;
+        out["seed_angular_error"] = work.seed_angular_error;
+        out["cap_angular_error"] = work.cap_angular_error;
+        out["effective_angular_ratio"] = work.effective_angular_ratio;
+        out["angular_error_model"] = work.angular_error_model;
+        out["radial_quadrature"] = work.radial_quadrature;
+        out["discovery_lattice_maps"] = work.discovery_maps;
+        out["discovery_retries"] = work.discovery_retries;
+        out["discovery_source_bins"] = work.discovery_source_bins;
+        out["stationary_continuations"] = work.stationary_continuations;
+        out["stationary_full_solves"] = work.stationary_full_solves;
+        out["limb_partition_checks"] = work.limb_partition_checks;
+        out["limb_partition_accepts"] = work.limb_partition_accepts;
+        out["lazy_stationary_solves"] = work.lazy_stationary_solves;
+        out["boundary_predictions"] = work.boundary_predictions;
+        out["boundary_bracket_checks"] = work.boundary_bracket_checks;
+        out["boundary_bracket_retries"] = work.boundary_bracket_retries;
+        out["coverage_witness_checks"] = work.coverage_witness_checks;
+        out["coverage_branch_guards"] = work.coverage_branch_guards;
+        out["coverage_angular_error"] = work.coverage_angular_error;
+        out["contact_attempts"] = work.contact_attempts;
+        out["contact_geometry_columns"] = work.contact_geometry_columns;
+        out["contact_fallbacks"] = work.contact_fallbacks;
+        out["reflection_normalized"] = work.reflection_normalized;
+        out["initial_angular_ratio"] = angular_ratio; out["largest_angular_depth"] = work.largest_angular_depth;
+        out["new_lattice_maps"] = work.maps; out["evaluated_columns"] = work.columns;
+        out["reused_columns"] = work.reused_columns; out["boundary_runs"] = work.boundary_runs;
+        out["largest_radial_depth"] = work.largest_radial_depth; out["radial_limit_hits"] = work.radial_limit_hits;
+        out["angular_refinements"] = work.angular_refinements; out["radial_refinements"] = work.radial_refinements;
+        out["relative_tolerance"] = relative_tolerance; out["certified"] = false; out["complete_error_model"] = false;
+        out["requested_error_budget"] = relative_tolerance > 0 ? relative_tolerance * std::abs(magnification) : tolerance;
+        out["support_refinement_attempts"] = work.support_refinement_attempts;
+        out["support_caustic_bins"] = work.support_caustic_bins;
+        out["support_probe_extensions"] = work.support_probe_extensions;
+        out["angular_limit_hits"] = work.angular_limit_hits;
+        out["unrefinable_error_indicator"] = work.unrefinable_error;
+        out["error_estimator"] = "retained_polar_angular_and_radial_quadrature";
+        if(adaptive_detail::refinement_work_trace().enabled) {
+            auto rows=adaptive_detail::refinement_work_trace().rows;
+            for(auto& row:rows)for(int j:{4,5,6,7})row[j]/=normalization;
+            out["refinement_work_trace"]=rows;
+        }
+        return out;
+    }, py::arg("x"), py::arg("y"), py::kw_only(), py::arg("s"), py::arg("q"), py::arg("rho"),
+       py::arg("limb_darkening"), py::arg("initial_bins")=2, py::arg("initial_angular_ratio")=256.,
+       py::arg("max_angular_depth")=18, py::arg("max_radial_depth")=10,
+       py::arg("absolute_tolerance")=1e-4, py::arg("max_lattice_maps")=1000000,
+       py::arg("relative_tolerance")=0.,
+       "Polar adaptive flux with retained angular columns, source-limb root corrections and independent radial LD refinement. Estimated, not certified, tolerance.");
     lc.def("binary_adaptive_flux",[shared_flux_entry](double x,double y,double s,double q,double rho,
         const PyLimbDarkening& ld,int initial_bins,int max_bins,double tolerance,std::size_t budget,double relative_tolerance) {
         using namespace lcbinint::magnification;
@@ -2406,11 +2510,17 @@ Cartesian or polar grid and its resolution.)");
         for(auto& row:work.components)for(int j=1;j<=3;++j)row[j]/=norm;
         if(work.row_panel_trace){out["row_panel_rows"]=work.row_panel_rows;out["row_panel_errors"]=work.row_panel_errors;}
         if(work.cost_trace){for(auto& flux:work.history_flux)flux/=norm;
+            out["initial_fill_seconds"]=work.initial_fill_seconds;
             for(auto& row:work.cost_components)for(int j=3;j<=8;++j)row[j]/=norm;
             out["history_magnification"]=work.history_flux;out["cost_components"]=work.cost_components;out["cost_trials"]=work.cost_trials;out["cache_entries"]=work.mapped.size;out["cache_capacity"]=work.mapped.slots.size();out["cache_pending_records"]=work.mapped.pending.size();out["cache_materialized"]=!work.mapped.deferred;out["phase_seconds"]=std::array<double,3>{work.run_fill_seconds,work.error_aggregation_seconds,work.adaptive_control_seconds};}
         out["component_grid_bins"]=work.component_grid_bins;out["refinement_grid_bins"]=work.refinement_grid_bins;
         out["components"]=work.components;
         out["history"]=work.history;out["certified"]=false;out["complete_error_model"]=false;
+        if(adaptive_detail::refinement_work_trace().enabled) {
+            auto rows=adaptive_detail::refinement_work_trace().rows;
+            for(auto& row:rows)for(int j:{4,5,6,7})row[j]/=norm;
+            out["refinement_work_trace"]=rows;
+        }
         out["error_estimator"]="same_grid_component_adaptive_flux";
         return out;
     },py::arg("x"),py::arg("y"),py::kw_only(),py::arg("s"),py::arg("q"),py::arg("rho"),
