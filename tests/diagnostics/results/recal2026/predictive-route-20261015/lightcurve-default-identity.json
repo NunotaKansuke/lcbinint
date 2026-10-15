@@ -1,0 +1,41 @@
+{
+  "base_head": "d5c442d4d0d1e0263911102eee063e26d627909f",
+  "source_sha256": {
+    "include/lcbinint/lcbinint.h": "554bc96f19562acdaf8e26eb17f73cdeffd618f247ad930aae45193e678b1723",
+    "python/bind_lc.cpp": "09e8f3af82d57309e52471d572cd9d291fabce61a38a4e4e293ed5aa5da41a7f",
+    "src/lcbinint/lcbinint.cpp": "e606eb31a3c321cd695d040cd8260b0006846c00d6944416a8749f1813f41cce",
+    "src/lcbinint/magnification/finite_source_magnifier.cpp": "2a198c7dd953d3bc51f752c2d018de911e2c818725af33f491453e8818959a62",
+    "docs/design/predictive-adaptive-route.md": "57e19f0dba5a90651b6443caba9382f407c1abfdfed6c58b49ab94fdcd3a98c5",
+    "src/lcbinint/magnification/adaptive_route_model.hpp": "cf16d8949c578bc21d302e2953bda6dafa589ef34da180ae5329aa23a80f19ff",
+    "src/lcbinint/magnification/adaptive_route_features.hpp": "405af77fdc4418e4fc458ec0e04bff1316c4035bd252640bd48eaf90e4be9535",
+    "src/lcbinint/magnification/adaptive_route_selector.hpp": "1a962075505f944c0f55f38d01b538eb4dc17ddd011ce637af92e0e62ba71b21",
+    "tests/diagnostics/recal2026/adaptive_route_features.cpp": "c8231ea72817c1f1526b0ac7fea7217d9bb686305d7087249512b24657fced71",
+    "tests/diagnostics/recal2026/predictive_route_campaign.py": "61cb402dc8de8761403d7dc81fd63d9e2feadb10b452649e84d8dfca5eb2308d",
+    "tests/diagnostics/recal2026/train_adaptive_route.py": "4f6bce93a5627d2d760f6fa4b4c4d43c3bf9893545ab52700297894cf0a4caf4",
+    "tests/diagnostics/recal2026/predictive_route_runner.cpp": "c40e4502830522f25bdbc6067cfb274d31a44d4be105a1a098c5f1c5871069d7",
+    "tests/diagnostics/recal2026/validate_predictive_route.py": "65efb88357138becf7a6eefdd72cdc97182cd89754eca717317692193a6aa9ae",
+    "tests/diagnostics/recal2026/check_predictive_route_api.py": "307d40ef1728bf008fdbaf48844843d51dd7d1211f07bd8154dbe59033d7ba83",
+    "tests/diagnostics/recal2026/replay_predictive_route_accuracy.py": "7fa9e838c9e8a0f0fe04d9b3585d839699a168076ec1e4408dd7a58cc4bd9a70",
+    "tests/diagnostics/recal2026/test_adaptive_route_features.cpp": "465b79e3151361f7d42463f81cdb6a5c0f1ee398640b0b96852b995ff35ada34",
+    "tests/diagnostics/recal2026/check_lightcurve_predictive_auto.py": "c7dc6967d761107c3955aaa50669d0f32ec0dbd8e25a493143bc254df6062b01",
+    "tests/diagnostics/recal2026/HANDOFF_predictive_route_20261015.md": "bafbab7ffbad1874f7c6c83bb879a47824c5b3489955ac4418e6f47fae858439",
+    "tests/diagnostics/recal2026/polar_local_adaptive_check.py": "94345076f6918beb6b691112c54353ea9a685ab035fe0ac660da9988d0c6133d"
+  },
+  "native_sha256": "fc313060fdd9c95d8bfdd5f7f0e09b6a84238b6b18ec02290747c8650c8fb1d3",
+  "validation_sha256": {
+    "lightcurve-auto-validation.json": "bc99cb7429a2d522b43c7cd519f057d5913e535ed72c84cabedc5f66381eee2e",
+    "lightcurve-default-caustic-validation.json": "9fe072cab10675283381f2843a0986b9663208f500d4e6c50af5ff7c39b8952f",
+    "default-cartesian-contracts.json": "2d94ea2b632d6fe426e1a1f2237acaa0a3ec067a0b53d121677b2cc02766da5b",
+    "default-polar-contracts.json": "b4e6b48d8f57238acb8ca535ee0994fd20d16749c25f7c8afd57b06cf90440b1",
+    "model.json": "8b6736ef8a70878a5f3cf6bb04919edb55d67aa36fce140e878d2d530de0e17f",
+    "paired-timing-raw.tsv": "f9974e82f5fea0c3dba42f1967390df4d10dfbdc540b24e852a1768453fb54a9",
+    "automatic-raw.tsv": "b220d2a2113dab57a10956cf657784cabb51f787af42ba3755b472d319e64c06",
+    "REPORT.md": "01939676d46a9f212e63014587c64338cbdd27d7bb98e6e5553a84639faafed3"
+  },
+  "default_configuration": {
+    "mode": 4,
+    "automatic_source_bins": 1,
+    "max_source_bins": 512
+  },
+  "status": "verified; source and artifacts ready for scoped commit"
+}

@@ -92,7 +92,7 @@ typedef struct lcbi_options {
     int center_of_mass;
     int caustic_bins;
     int source_bins;
-    int mode;                        /* internal finite-source method: 1 = cartesian, 2 = polar, 4 = auto (default) */
+    int mode;                        /* 1 = cartesian, 2 = polar, 4 = auto (default; empirical adaptive Cartesian/polar choice for binary linear LD) */
     int vbm_compatible;             /* 0 = original lcbinint convention, 1 = VBM convention */
     lcbi_xallarap_param_type xallarap_param_type;
     double grid_ratio;
@@ -101,7 +101,7 @@ typedef struct lcbi_options {
     double point_source_threshold;   /* bbox margin for fast PS exit (in units of rho) */
     double hexadecapole_threshold;   /* caustic-distance threshold; unused when adaptive_hex_threshold > 0 */
     double adaptive_hex_threshold;   /* VBM-style hex tolerance: |a4 correction|/mag > this => IR mode */
-    int automatic_source_bins;       /* 0 = fixed source_bins, 1 = calibrated one-shot auto nbin (default) */
+    int automatic_source_bins;       /* 0 = fixed source_bins; 1 = auto (default), retained adaptive integration for mode=4 binary linear LD */
     int max_source_bins;             /* maximum nbin selected by automatic mode */
     double finite_source_tol;        /* absolute term in tol + reltol*max(|A|,1); 0 means no abs term */
     double finite_source_reltol;     /* relative term; both terms 0 selects the calibrated default */

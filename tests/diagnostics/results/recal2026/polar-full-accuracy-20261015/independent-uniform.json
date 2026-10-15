@@ -1,0 +1,143 @@
+[
+  {
+    "id": 1361,
+    "input": {
+      "geom_id": "1361",
+      "case_id": "10",
+      "profile": "uniform",
+      "d_bin_index": "1",
+      "epoch_index": "7",
+      "s": "1.6869965260211353",
+      "q": "0.00017213162835819022",
+      "rho": "8.113326486148208e-05",
+      "x": "0.00028383060944670843",
+      "y": "4.367881376738899e-05",
+      "time": "0.0002774810495879837",
+      "c": "0.0",
+      "reference": "12366.749802686156",
+      "vbm_ms_1e3": "0.5694910068996251",
+      "vbm_ms_1e4": "1.0379590094089508",
+      "actual_d_over_rho": "0.680047504685379"
+    },
+    "result": {
+      "values": [
+        {
+          "tolerance": 1e-07,
+          "value": 12363.401308291033,
+          "quadrature_indicator": 0.005390269272024094,
+          "warnings": [
+            "Extremely bad integrand behavior occurs at some points of the\n  integration interval."
+          ]
+        },
+        {
+          "tolerance": 1e-09,
+          "value": 12363.402166998561,
+          "quadrature_indicator": 5.197227435415517e-07,
+          "warnings": []
+        }
+      ],
+      "point_counts": {
+        "3": 2036,
+        "5": 2101
+      },
+      "maximum_lens_residual": 9.943992728244367e-43,
+      "precision_digits": 50,
+      "contact_angles": [
+        "2.3650577830518549783706986421979817538718662699292",
+        "4.034626757817597696516989470971122316748404661492"
+      ],
+      "rejected_native_proposals": 0
+    },
+    "seconds": 15.835452620056458
+  },
+  {
+    "id": 4906,
+    "input": {
+      "geom_id": "4906",
+      "case_id": "133",
+      "profile": "uniform",
+      "d_bin_index": "3",
+      "epoch_index": "15",
+      "s": "3.5637081071331274",
+      "q": "0.027808379751637656",
+      "rho": "0.32497683736818195",
+      "x": "0.2688574950463418",
+      "y": "0.42898280014124024",
+      "time": "0.28863869384266594",
+      "c": "0.0",
+      "reference": "2.422975839057586",
+      "vbm_ms_1e3": "0.05487899761646986",
+      "vbm_ms_1e4": "0.09277695789933205",
+      "actual_d_over_rho": "1.4182407773286465"
+    },
+    "result": {
+      "values": [
+        {
+          "tolerance": 1e-07,
+          "value": 2.422975778167773,
+          "quadrature_indicator": 4.500521714197232e-14,
+          "warnings": []
+        },
+        {
+          "tolerance": 1e-09,
+          "value": 2.422975778167759,
+          "quadrature_indicator": 7.144785819229726e-08,
+          "warnings": []
+        }
+      ],
+      "point_counts": {
+        "3": 483
+      },
+      "maximum_lens_residual": 3.0385132006364126e-48,
+      "precision_digits": 50,
+      "contact_angles": [],
+      "rejected_native_proposals": 0
+    },
+    "seconds": 1.4020694680511951
+  },
+  {
+    "id": 7196,
+    "input": {
+      "geom_id": "7196",
+      "case_id": "208",
+      "profile": "uniform",
+      "d_bin_index": "4",
+      "epoch_index": "0",
+      "s": "1.0",
+      "q": "0.0004781363778954779",
+      "rho": "0.45308715541986755",
+      "x": "-0.08224053296492484",
+      "y": "-0.8014011771300719",
+      "time": "-0.17285796404889836",
+      "c": "0.0",
+      "reference": "1.566988463754564",
+      "vbm_ms_1e3": "0.04696403630077839",
+      "vbm_ms_1e4": "0.08343503577634692",
+      "actual_d_over_rho": "1.7101459320315264"
+    },
+    "result": {
+      "values": [
+        {
+          "tolerance": 1e-07,
+          "value": 1.566988396066097,
+          "quadrature_indicator": 3.487394234853743e-14,
+          "warnings": []
+        },
+        {
+          "tolerance": 1e-09,
+          "value": 1.5669883960660975,
+          "quadrature_indicator": 2.3122983347121599e-10,
+          "warnings": []
+        }
+      ],
+      "point_counts": {
+        "3": 483
+      },
+      "maximum_lens_residual": 8.19045403627758e-51,
+      "precision_digits": 50,
+      "contact_angles": [],
+      "rejected_native_proposals": 0
+    },
+    "seconds": 1.3828936730278656
+  }
+]

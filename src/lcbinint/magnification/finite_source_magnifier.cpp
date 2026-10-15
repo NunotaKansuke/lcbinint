@@ -2,6 +2,7 @@
 #include "lcbinint/magnification/cartesian_run_fill.hpp"
 #include "lcbinint/magnification/adaptive_cartesian_run_fill.hpp"
 #include "lcbinint/magnification/adaptive_refinement_work.hpp"
+#include "lcbinint/magnification/adaptive_route_selector.hpp"
 #include "lcbinint/magnification/adaptive_bennett_integration.hpp"
 #include "lcbinint/magnification/adaptive_polar_polynomial.hpp"
 #include "lcbinint/magnification/adaptive_polar_roots.hpp"
@@ -9815,10 +9816,11 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
     // positions only now, reusing the root set retained by the centre safety
     // evaluation (the batched hexadecapole probes do not overwrite it).
     std::vector<SourcePosition> deferred_center_images;
+    std::vector<BinaryImage> deferred_center_roots;
     if (center_image_seeds == nullptr) {
-        const auto images = point_magnifier.binary_images(separation, mass_ratio, source);
-        deferred_center_images.reserve(images.size());
-        for (const auto& image : images) deferred_center_images.push_back(image.position);
+        deferred_center_roots = point_magnifier.binary_images(separation, mass_ratio, source);
+        deferred_center_images.reserve(deferred_center_roots.size());
+        for (const auto& image : deferred_center_roots) deferred_center_images.push_back(image.position);
         center_image_seeds = &deferred_center_images;
     }
 
@@ -9941,6 +9943,80 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
         }
         return result;
     };
+
+    // Normal light-curve auto: point/hex and tangent checks above remain the
+    // authority. At the integral stage choose one retained adaptive kernel.
+    // Explicit grids, request scopes and unsupported LD keep their own paths.
+    if (settings_.finite_mode == 4 && settings_.automatic_source_bins &&
+        settings_.max_source_bins >= 16 && settings_.limb_darkening_d == 0.0 &&
+        settings_.limb_darkening_c >= 0.0 && settings_.limb_darkening_c <= 1.0 &&
+        !adaptive_flux_request() && !adaptive_polar_request()) {
+        if (deferred_center_roots.empty())
+            deferred_center_roots = point_magnifier.binary_images(separation, mass_ratio, source);
+        const bool explicit_tolerance = has_explicit_finite_source_tolerance(settings_);
+        const double atol = explicit_tolerance ? std::max(0.0, settings_.finite_source_tol)
+                                              : kDefaultFiniteSourceAbsoluteTolerance;
+        const double rtol = explicit_tolerance ? std::max(0.0, settings_.finite_source_reltol)
+                                              : kDefaultFiniteSourceRelativeTolerance;
+        const auto route = adaptive_detail::choose_adaptive_route(
+            separation, mass_ratio, source_radius, settings_.limb_darkening_c,
+            rtol, deferred_center_roots);
+        const double normalization = kPi * source_radius * source_radius *
+            (1.0 - settings_.limb_darkening_c / 3.0);
+        if (!(normalization > 0.0) || !std::isfinite(normalization))
+            throw std::runtime_error("auto adaptive source flux is outside the representable range");
+        AdaptiveFluxRequest cartesian;
+        cartesian.target = atol * normalization;
+        cartesian.relative_target = rtol;
+        cartesian.max_bins = std::min(512, settings_.max_source_bins);
+        AdaptivePolarRequest polar;
+        // Polar's request contract requires a positive absolute term even
+        // for relative-only callers; the smallest normal value adds no
+        // practical allowance to their relative budget.
+        polar.absolute_tolerance = std::max(atol, std::numeric_limits<double>::min());
+        polar.relative_tolerance = rtol;
+        struct RequestScope {
+            AdaptiveFluxRequest* old_cartesian = adaptive_flux_request();
+            AdaptivePolarRequest* old_polar = adaptive_polar_request();
+            bool old_lightweight = lightweight_flux_error_mode();
+            explicit RequestScope(AdaptiveFluxRequest* c, AdaptivePolarRequest* p) {
+                adaptive_flux_request() = c; adaptive_polar_request() = p;
+                lightweight_flux_error_mode() = true;
+            }
+            ~RequestScope() {
+                adaptive_flux_request() = old_cartesian; adaptive_polar_request() = old_polar;
+                lightweight_flux_error_mode() = old_lightweight;
+            }
+        };
+        FiniteSourceResult integrated;
+        {
+            RequestScope scope(route.polar ? nullptr : &cartesian, route.polar ? &polar : nullptr);
+            integrated = binary_mag_preplanned(
+                separation, mass_ratio, source, source_radius, point_source_magnification,
+                route.polar ? FiniteSourceMethod::inverse_ray_polar
+                            : FiniteSourceMethod::inverse_ray_cartesian,
+                route.polar ? 2 : 16, center_image_seeds, &point_magnifier);
+        }
+        integrated.converged = route.polar ? polar.executed && polar.met
+                                          : cartesian.executed && cartesian.met;
+        integrated.error_estimate = route.polar ? polar.error_indicator
+                                                : cartesian.acceptance_indicator / normalization;
+        integrated.refinement_level = route.polar ? polar.largest_angular_depth : 0;
+        integrated.decision.estimated_evaluations = route.polar ? polar.maps : cartesian.new_maps;
+        integrated.decision.reason = route.within_training_domain
+            ? "auto empirical Cartesian/polar geometry selector"
+            : "auto adaptive polar outside selector calibration bounds";
+        integrated.diagnostic_stop = route.polar ? polar.stop_reason : cartesian.stop_reason;
+        // Cartesian normalizes its relative request against the initial
+        // retained flux. Also enforce the LC budget at the returned value,
+        // including the implicit default tolerance.
+        if (integrated.converged && !finite_source_error_within_budget(
+                settings_, integrated.magnification, integrated.error_estimate)) {
+            integrated.converged = false;
+            integrated.diagnostic_stop = "estimated_error_exceeds_final_budget";
+        }
+        return cache_and_return(apply_tangent_band_floor(std::move(integrated)));
+    }
 
     const bool auto_polar =
         settings_.finite_mode == 4 &&

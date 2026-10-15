@@ -1,0 +1,11 @@
+{
+  "identical": true,
+  "objects": {
+    "component_certificate.cpp.o": "834712149c566257b4852df31bb06dd8d7eaf892bdda81afa7e63b561b817cc8",
+    "finite_source_magnifier.cpp.o": "e2e1f02c02d5e990623a4b01b95f8afd33e114e87b9b98bb4424dcff6a682ef4",
+    "point_source_magnifier.cpp.o": "226dfbef768ebb5a63ea553778c8017bce0c98d1124f79f91bc9fb5381ec1833",
+    "probe_diagnostics.cpp.o": "84a038122739b628f68dfb7998b62472bc108eec4c8bec96339736032bc19d8c",
+    "polynomial_roots.cpp.o": "3d77cdc0d39ea36edd493a6ae1090e0bf0a27bd0b54671aa0bad3f49ce70f873",
+    "SkowronGould.cpp.o": "2c6ecbc633962cabd9fe0d09c26738224b3462a9a8a44c0bdfbf8e65e6578620"
+  }
+}

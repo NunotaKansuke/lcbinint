@@ -85,7 +85,8 @@ lcbi_options lcbi_default_options(void)
     options.hexadecapole_threshold = 3.0;
     options.adaptive_hex_threshold = 0.001;
     options.automatic_source_bins = 1;
-    options.max_source_bins = 400;
+    // The default adaptive Cartesian path refines 16 -> ... -> 512.
+    options.max_source_bins = 512;
     options.finite_source_reltol = 0.0;
     options.bennett_delta_c = 0.15;
     options.xallarap_param_type = LCBI_XALLARAP_NONE;

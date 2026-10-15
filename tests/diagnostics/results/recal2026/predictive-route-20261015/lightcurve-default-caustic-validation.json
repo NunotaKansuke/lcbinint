@@ -1,0 +1,42 @@
+[
+  {
+    "id": "59",
+    "method": "inverse_ray_polar",
+    "status": "ok"
+  },
+  {
+    "id": "2305",
+    "method": "inverse_ray_polar",
+    "status": "ok"
+  },
+  {
+    "id": "3864",
+    "method": "inverse_ray_cartesian",
+    "status": "ok"
+  },
+  {
+    "id": "6299",
+    "method": "inverse_ray_cartesian",
+    "status": "ok"
+  },
+  {
+    "id": "286",
+    "method": "inverse_ray_cartesian",
+    "status": "ok"
+  },
+  {
+    "id": "2261",
+    "method": "inverse_ray_cartesian",
+    "status": "ok"
+  },
+  {
+    "id": "3774",
+    "method": "inverse_ray_polar",
+    "status": "ok"
+  },
+  {
+    "id": "5590",
+    "method": "inverse_ray_cartesian",
+    "status": "ok"
+  }
+]

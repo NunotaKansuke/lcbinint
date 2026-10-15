@@ -6,6 +6,7 @@
 #include "lcbinint/magnification/point_source_magnifier.hpp"
 #include "lcbinint/magnification/probe_diagnostics.hpp"
 #include "lcbinint/magnification/adaptive_refinement_work.hpp"
+#include "lcbinint/magnification/adaptive_route_selector.hpp"
 #include "lcbinint/obs/coordinates.hpp"
 #include "lcbinint/model/lens_parameters.hpp"
 #include "lcbinint/model/orbital_motion.hpp"
@@ -2527,6 +2528,38 @@ Cartesian or polar grid and its resolution.)");
       py::arg("limb_darkening"),py::arg("initial_bins")=16,py::arg("max_bins")=512,
       py::arg("absolute_tolerance")=1e-4,py::arg("max_lattice_maps")=1000000,py::arg("relative_tolerance")=0.,
       "Retained Cartesian adaptive integration with an estimated error; initial seed discovery once. Positive relative_tolerance takes precedence and normalizes once against the retained initial flux. No certified tolerance guarantee.");
+
+    const py::object cartesian_entry=lc.attr("binary_adaptive_flux");
+    const py::object polar_entry=lc.attr("binary_adaptive_polar_flux");
+    lc.def("binary_adaptive_auto_flux",[cartesian_entry,polar_entry](
+        double x,double y,double s,double q,double rho,const PyLimbDarkening& ld,
+        double relative_tolerance,double absolute_tolerance,std::size_t budget) {
+        using namespace lcbinint::magnification;
+        if(!(std::isfinite(x)&&std::isfinite(y)&&std::isfinite(s)&&s>0&&
+             std::isfinite(q)&&q>0&&std::isfinite(rho)&&rho>0&&
+             std::isfinite(ld.c)&&ld.c>=0&&ld.c<=1&&ld.d==0&&
+             std::isfinite(relative_tolerance)&&relative_tolerance>0&&
+             std::isfinite(absolute_tolerance)&&absolute_tolerance>0&&budget>0))
+            throw std::invalid_argument("auto adaptive integration requires finite geometry, positive tolerances/budget and linear LD 0<=c<=1");
+        // This convenience wrapper currently solves centre roots separately.
+        // Native preplanned callers can reuse theirs through choose_adaptive_route.
+        PointSourceMagnifier point;
+        const auto images=point.binary_images(s,q,{x,std::abs(y)});
+        const auto decision=adaptive_detail::choose_adaptive_route(s,q,rho,ld.c,relative_tolerance,images);
+        const auto& entry=decision.polar?polar_entry:cartesian_entry;
+        py::dict out=entry(x,y,py::arg("s")=s,py::arg("q")=q,py::arg("rho")=rho,
+            py::arg("limb_darkening")=ld,py::arg("relative_tolerance")=relative_tolerance,
+            py::arg("absolute_tolerance")=absolute_tolerance,
+            py::arg("max_lattice_maps")=budget).cast<py::dict>();
+        out["selected_method"]=decision.polar?"polar":"cartesian";
+        out["route_model"]="empirical_geometry_v1";
+        out["route_within_training_domain"]=decision.within_training_domain;
+        out["route_reuses_center_roots"]=false;
+        return out;
+    },py::arg("x"),py::arg("y"),py::kw_only(),py::arg("s"),py::arg("q"),py::arg("rho"),
+      py::arg("limb_darkening"),py::arg("relative_tolerance")=1e-3,
+      py::arg("absolute_tolerance")=1e-4,py::arg("max_lattice_maps")=1000000,
+      "Experimental empirical Cartesian/Polar selection. Outside the fitted domain selects Polar. Preserves the selected integrator's error contract; no tolerance certification.");
 
 lc.def("_binary_caustic_clearance_lower_bound",
         [](double s, double q, double x, double y) {

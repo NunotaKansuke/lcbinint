@@ -1,0 +1,36 @@
+{
+  "head": "d5c442d4d0d1e0263911102eee063e26d627909f",
+  "branch": "feature/boundary-error-and-discriminant-support",
+  "source_sha256": {
+    "python/bind_lc.cpp": "09e8f3af82d57309e52471d572cd9d291fabce61a38a4e4e293ed5aa5da41a7f",
+    "src/lcbinint/magnification/adaptive_route_model.hpp": "cf16d8949c578bc21d302e2953bda6dafa589ef34da180ae5329aa23a80f19ff",
+    "src/lcbinint/magnification/adaptive_route_features.hpp": "405af77fdc4418e4fc458ec0e04bff1316c4035bd252640bd48eaf90e4be9535",
+    "src/lcbinint/magnification/adaptive_route_selector.hpp": "1a962075505f944c0f55f38d01b538eb4dc17ddd011ce637af92e0e62ba71b21",
+    "tests/diagnostics/recal2026/adaptive_route_features.cpp": "c8231ea72817c1f1526b0ac7fea7217d9bb686305d7087249512b24657fced71",
+    "tests/diagnostics/recal2026/predictive_route_campaign.py": "61cb402dc8de8761403d7dc81fd63d9e2feadb10b452649e84d8dfca5eb2308d",
+    "tests/diagnostics/recal2026/train_adaptive_route.py": "035912f5f0a2c9740224dfd1566ff5f651a3f85600ec9d660a67d8a3e0399b54",
+    "tests/diagnostics/recal2026/predictive_route_runner.cpp": "c40e4502830522f25bdbc6067cfb274d31a44d4be105a1a098c5f1c5871069d7",
+    "tests/diagnostics/recal2026/validate_predictive_route.py": "65efb88357138becf7a6eefdd72cdc97182cd89754eca717317692193a6aa9ae",
+    "tests/diagnostics/recal2026/check_predictive_route_api.py": "307d40ef1728bf008fdbaf48844843d51dd7d1211f07bd8154dbe59033d7ba83",
+    "tests/diagnostics/recal2026/replay_predictive_route_accuracy.py": "7fa9e838c9e8a0f0fe04d9b3585d839699a168076ec1e4408dd7a58cc4bd9a70",
+    "tests/diagnostics/recal2026/test_adaptive_route_features.cpp": "465b79e3151361f7d42463f81cdb6a5c0f1ee398640b0b96852b995ff35ada34"
+  },
+  "native_sha256": "a40f203dc745a6f09944b6102cb3f7ac2007aa4ebd84ed95ecf3dbcf028250c9",
+  "model_sha256": "8b6736ef8a70878a5f3cf6bb04919edb55d67aa36fce140e878d2d530de0e17f",
+  "automatic_runner_sha256": "110511d1c6b98e58f17c07d747680c349ae8ce00cfcf47e09c92483652daf2ef",
+  "original_timing_runner_sha256": "37da98394bbafce07794e5d9e127f7c5cf8322051594ac0a1ce29f7e57465b98",
+  "artifacts": {
+    "REPORT.md": "e6207840dd60e192c6a1a11587a0ee5a91432a24be82c2af0080407b63dc779b",
+    "automatic-validation.json": "c6929822c3e6304a0066e6e9dabcb755431376129e39ace124b47159caa8a4bc",
+    "api-validation.json": "a926bb4f9c8baa27b336e41592e5af6c78a5b63f610d56cbc13817475638c8dd",
+    "kernel-object-parity.json": "cc1a120941d45217faceceaa1e2e1d6a7f68508a746d4de28e0896b881cac9b8",
+    "full-accuracy-replay.json": "4a6cad52277826204e0862f30176bf8c84d86110d29d73ddc505bb6d9dff9aab",
+    "features.tsv": "e078f989c1fdf8287ed4c7f9095ee77ce66d7a31e4b8a7ae3a717c541bcf8433",
+    "selected-inputs.tsv": "2625a123b69052f85f74972b826d3ed88617dfbf8c98fba7ae985fe470423f29",
+    "measurements.json": "13f1c76b5a9d16ffc58de55c6cf6c0219ac178f5de3827445be5dfb3a19d8eb7",
+    "unit/result.txt": "c0d70a64f9d061c61a370018852fc0afb6e383a06d278586ed7f84727aea4082"
+  },
+  "platform": "Linux-5.14.0-570.23.1.el9_6.x86_64-x86_64-with-glibc2.34",
+  "cpu0_single_thread": true,
+  "status": "experimental opt-in selector; verification complete; no running jobs; not committed; no certified error model"
+}

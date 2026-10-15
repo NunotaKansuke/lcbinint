@@ -1,0 +1,536 @@
+{
+  "native_sha256": "fc313060fdd9c95d8bfdd5f7f0e09b6a84238b6b18ec02290747c8650c8fb1d3",
+  "row_ratio": 1,
+  "checks": [
+    {
+      "check": "408:0.001:repeat",
+      "passed": true
+    },
+    {
+      "check": "408:0.001:flux-ledger",
+      "passed": true
+    },
+    {
+      "check": "408:0.001:admission",
+      "passed": true
+    },
+    {
+      "check": "408:0.001:LCBININT_DIAGNOSTIC_ROW_PANEL_TRACE",
+      "passed": true
+    },
+    {
+      "check": "408:0.001:LCBININT_DIAGNOSTIC_ADAPTIVE_COST_TRACE",
+      "passed": true
+    },
+    {
+      "check": "408:0.001:budget1",
+      "passed": true
+    },
+    {
+      "check": "408:0.001:restore1",
+      "passed": true
+    },
+    {
+      "check": "408:0.001:budget256",
+      "passed": true
+    },
+    {
+      "check": "408:0.001:restore256",
+      "passed": true
+    },
+    {
+      "check": "408:0.001:budget1024",
+      "passed": true
+    },
+    {
+      "check": "408:0.001:restore1024",
+      "passed": true
+    },
+    {
+      "check": "408:0.0001:repeat",
+      "passed": true
+    },
+    {
+      "check": "408:0.0001:flux-ledger",
+      "passed": true
+    },
+    {
+      "check": "408:0.0001:admission",
+      "passed": true
+    },
+    {
+      "check": "408:0.0001:LCBININT_DIAGNOSTIC_ROW_PANEL_TRACE",
+      "passed": true
+    },
+    {
+      "check": "408:0.0001:LCBININT_DIAGNOSTIC_ADAPTIVE_COST_TRACE",
+      "passed": true
+    },
+    {
+      "check": "408:0.0001:budget1",
+      "passed": true
+    },
+    {
+      "check": "408:0.0001:restore1",
+      "passed": true
+    },
+    {
+      "check": "408:0.0001:budget256",
+      "passed": true
+    },
+    {
+      "check": "408:0.0001:restore256",
+      "passed": true
+    },
+    {
+      "check": "408:0.0001:budget1024",
+      "passed": true
+    },
+    {
+      "check": "408:0.0001:restore1024",
+      "passed": true
+    },
+    {
+      "check": "777:0.001:repeat",
+      "passed": true
+    },
+    {
+      "check": "777:0.001:flux-ledger",
+      "passed": true
+    },
+    {
+      "check": "777:0.001:admission",
+      "passed": true
+    },
+    {
+      "check": "777:0.001:LCBININT_DIAGNOSTIC_ROW_PANEL_TRACE",
+      "passed": true
+    },
+    {
+      "check": "777:0.001:LCBININT_DIAGNOSTIC_ADAPTIVE_COST_TRACE",
+      "passed": true
+    },
+    {
+      "check": "777:0.001:budget1",
+      "passed": true
+    },
+    {
+      "check": "777:0.001:restore1",
+      "passed": true
+    },
+    {
+      "check": "777:0.001:budget256",
+      "passed": true
+    },
+    {
+      "check": "777:0.001:restore256",
+      "passed": true
+    },
+    {
+      "check": "777:0.001:budget1024",
+      "passed": true
+    },
+    {
+      "check": "777:0.001:restore1024",
+      "passed": true
+    },
+    {
+      "check": "777:0.0001:repeat",
+      "passed": true
+    },
+    {
+      "check": "777:0.0001:flux-ledger",
+      "passed": true
+    },
+    {
+      "check": "777:0.0001:admission",
+      "passed": true
+    },
+    {
+      "check": "777:0.0001:LCBININT_DIAGNOSTIC_ROW_PANEL_TRACE",
+      "passed": true
+    },
+    {
+      "check": "777:0.0001:LCBININT_DIAGNOSTIC_ADAPTIVE_COST_TRACE",
+      "passed": true
+    },
+    {
+      "check": "777:0.0001:budget1",
+      "passed": true
+    },
+    {
+      "check": "777:0.0001:restore1",
+      "passed": true
+    },
+    {
+      "check": "777:0.0001:budget256",
+      "passed": true
+    },
+    {
+      "check": "777:0.0001:restore256",
+      "passed": true
+    },
+    {
+      "check": "777:0.0001:budget1024",
+      "passed": true
+    },
+    {
+      "check": "777:0.0001:restore1024",
+      "passed": true
+    },
+    {
+      "check": "1604:0.001:repeat",
+      "passed": true
+    },
+    {
+      "check": "1604:0.001:flux-ledger",
+      "passed": true
+    },
+    {
+      "check": "1604:0.001:admission",
+      "passed": true
+    },
+    {
+      "check": "1604:0.001:LCBININT_DIAGNOSTIC_ROW_PANEL_TRACE",
+      "passed": true
+    },
+    {
+      "check": "1604:0.001:LCBININT_DIAGNOSTIC_ADAPTIVE_COST_TRACE",
+      "passed": true
+    },
+    {
+      "check": "1604:0.001:budget1",
+      "passed": true
+    },
+    {
+      "check": "1604:0.001:restore1",
+      "passed": true
+    },
+    {
+      "check": "1604:0.001:budget256",
+      "passed": true
+    },
+    {
+      "check": "1604:0.001:restore256",
+      "passed": true
+    },
+    {
+      "check": "1604:0.001:budget1024",
+      "passed": true
+    },
+    {
+      "check": "1604:0.001:restore1024",
+      "passed": true
+    },
+    {
+      "check": "1604:0.0001:repeat",
+      "passed": true
+    },
+    {
+      "check": "1604:0.0001:flux-ledger",
+      "passed": true
+    },
+    {
+      "check": "1604:0.0001:admission",
+      "passed": true
+    },
+    {
+      "check": "1604:0.0001:LCBININT_DIAGNOSTIC_ROW_PANEL_TRACE",
+      "passed": true
+    },
+    {
+      "check": "1604:0.0001:LCBININT_DIAGNOSTIC_ADAPTIVE_COST_TRACE",
+      "passed": true
+    },
+    {
+      "check": "1604:0.0001:budget1",
+      "passed": true
+    },
+    {
+      "check": "1604:0.0001:restore1",
+      "passed": true
+    },
+    {
+      "check": "1604:0.0001:budget256",
+      "passed": true
+    },
+    {
+      "check": "1604:0.0001:restore256",
+      "passed": true
+    },
+    {
+      "check": "1604:0.0001:budget1024",
+      "passed": true
+    },
+    {
+      "check": "1604:0.0001:restore1024",
+      "passed": true
+    },
+    {
+      "check": "438:0.001:repeat",
+      "passed": true
+    },
+    {
+      "check": "438:0.001:flux-ledger",
+      "passed": true
+    },
+    {
+      "check": "438:0.001:admission",
+      "passed": true
+    },
+    {
+      "check": "438:0.001:LCBININT_DIAGNOSTIC_ROW_PANEL_TRACE",
+      "passed": true
+    },
+    {
+      "check": "438:0.001:LCBININT_DIAGNOSTIC_ADAPTIVE_COST_TRACE",
+      "passed": true
+    },
+    {
+      "check": "438:0.001:budget1",
+      "passed": true
+    },
+    {
+      "check": "438:0.001:restore1",
+      "passed": true
+    },
+    {
+      "check": "438:0.001:budget256",
+      "passed": true
+    },
+    {
+      "check": "438:0.001:restore256",
+      "passed": true
+    },
+    {
+      "check": "438:0.001:budget1024",
+      "passed": true
+    },
+    {
+      "check": "438:0.001:restore1024",
+      "passed": true
+    },
+    {
+      "check": "438:0.0001:repeat",
+      "passed": true
+    },
+    {
+      "check": "438:0.0001:flux-ledger",
+      "passed": true
+    },
+    {
+      "check": "438:0.0001:admission",
+      "passed": true
+    },
+    {
+      "check": "438:0.0001:LCBININT_DIAGNOSTIC_ROW_PANEL_TRACE",
+      "passed": true
+    },
+    {
+      "check": "438:0.0001:LCBININT_DIAGNOSTIC_ADAPTIVE_COST_TRACE",
+      "passed": true
+    },
+    {
+      "check": "438:0.0001:budget1",
+      "passed": true
+    },
+    {
+      "check": "438:0.0001:restore1",
+      "passed": true
+    },
+    {
+      "check": "438:0.0001:budget256",
+      "passed": true
+    },
+    {
+      "check": "438:0.0001:restore256",
+      "passed": true
+    },
+    {
+      "check": "438:0.0001:budget1024",
+      "passed": true
+    },
+    {
+      "check": "438:0.0001:restore1024",
+      "passed": true
+    },
+    {
+      "check": "469:0.001:repeat",
+      "passed": true
+    },
+    {
+      "check": "469:0.001:flux-ledger",
+      "passed": true
+    },
+    {
+      "check": "469:0.001:admission",
+      "passed": true
+    },
+    {
+      "check": "469:0.001:LCBININT_DIAGNOSTIC_ROW_PANEL_TRACE",
+      "passed": true
+    },
+    {
+      "check": "469:0.001:LCBININT_DIAGNOSTIC_ADAPTIVE_COST_TRACE",
+      "passed": true
+    },
+    {
+      "check": "469:0.001:budget1",
+      "passed": true
+    },
+    {
+      "check": "469:0.001:restore1",
+      "passed": true
+    },
+    {
+      "check": "469:0.001:budget256",
+      "passed": true
+    },
+    {
+      "check": "469:0.001:restore256",
+      "passed": true
+    },
+    {
+      "check": "469:0.001:budget1024",
+      "passed": true
+    },
+    {
+      "check": "469:0.001:restore1024",
+      "passed": true
+    },
+    {
+      "check": "469:0.0001:repeat",
+      "passed": true
+    },
+    {
+      "check": "469:0.0001:flux-ledger",
+      "passed": true
+    },
+    {
+      "check": "469:0.0001:admission",
+      "passed": true
+    },
+    {
+      "check": "469:0.0001:LCBININT_DIAGNOSTIC_ROW_PANEL_TRACE",
+      "passed": true
+    },
+    {
+      "check": "469:0.0001:LCBININT_DIAGNOSTIC_ADAPTIVE_COST_TRACE",
+      "passed": true
+    },
+    {
+      "check": "469:0.0001:budget1",
+      "passed": true
+    },
+    {
+      "check": "469:0.0001:restore1",
+      "passed": true
+    },
+    {
+      "check": "469:0.0001:budget256",
+      "passed": true
+    },
+    {
+      "check": "469:0.0001:restore256",
+      "passed": true
+    },
+    {
+      "check": "469:0.0001:budget1024",
+      "passed": true
+    },
+    {
+      "check": "469:0.0001:restore1024",
+      "passed": true
+    },
+    {
+      "check": "620:0.001:repeat",
+      "passed": true
+    },
+    {
+      "check": "620:0.001:flux-ledger",
+      "passed": true
+    },
+    {
+      "check": "620:0.001:admission",
+      "passed": true
+    },
+    {
+      "check": "620:0.001:LCBININT_DIAGNOSTIC_ROW_PANEL_TRACE",
+      "passed": true
+    },
+    {
+      "check": "620:0.001:LCBININT_DIAGNOSTIC_ADAPTIVE_COST_TRACE",
+      "passed": true
+    },
+    {
+      "check": "620:0.001:budget1",
+      "passed": true
+    },
+    {
+      "check": "620:0.001:restore1",
+      "passed": true
+    },
+    {
+      "check": "620:0.001:budget256",
+      "passed": true
+    },
+    {
+      "check": "620:0.001:restore256",
+      "passed": true
+    },
+    {
+      "check": "620:0.001:budget1024",
+      "passed": true
+    },
+    {
+      "check": "620:0.001:restore1024",
+      "passed": true
+    },
+    {
+      "check": "620:0.0001:repeat",
+      "passed": true
+    },
+    {
+      "check": "620:0.0001:flux-ledger",
+      "passed": true
+    },
+    {
+      "check": "620:0.0001:admission",
+      "passed": true
+    },
+    {
+      "check": "620:0.0001:LCBININT_DIAGNOSTIC_ROW_PANEL_TRACE",
+      "passed": true
+    },
+    {
+      "check": "620:0.0001:LCBININT_DIAGNOSTIC_ADAPTIVE_COST_TRACE",
+      "passed": true
+    },
+    {
+      "check": "620:0.0001:budget1",
+      "passed": true
+    },
+    {
+      "check": "620:0.0001:restore1",
+      "passed": true
+    },
+    {
+      "check": "620:0.0001:budget256",
+      "passed": true
+    },
+    {
+      "check": "620:0.0001:restore256",
+      "passed": true
+    },
+    {
+      "check": "620:0.0001:budget1024",
+      "passed": true
+    },
+    {
+      "check": "620:0.0001:restore1024",
+      "passed": true
+    }
+  ],
+  "failures": [],
+  "certified": false
+}
