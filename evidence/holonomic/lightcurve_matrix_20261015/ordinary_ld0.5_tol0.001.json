@@ -1,0 +1,84 @@
+{
+  "id": "ordinary_ld0.5_tol0.001",
+  "case": "ordinary",
+  "params": {
+    "s": 1.2,
+    "q": 0.01,
+    "rho": 0.003,
+    "t0": 0.0,
+    "tE": 10.0,
+    "u0": 0.3,
+    "alpha": 0.0
+  },
+  "tau_min": -1.0,
+  "tau_max": 1.0,
+  "limb": 0.5,
+  "tol": 0.001,
+  "n_times": 401,
+  "status": "ok",
+  "setup_ms": 0.07104396354407072,
+  "cold_ms": {
+    "lc": 0.7590099703520536,
+    "vbm": 0.39873900823295116
+  },
+  "warm_ms": {
+    "lc": [
+      0.42099400889128447,
+      0.3756210207939148,
+      0.3632999723777175
+    ],
+    "vbm": [
+      0.3623299999162555,
+      0.35128905437886715,
+      0.35113398917019367
+    ]
+  },
+  "lc_ms": 0.3756210207939148,
+  "vbm_ms": 0.35128905437886715,
+  "speed_vbm_over_lc": 0.9352220321332937,
+  "plain_call_ms": 0.38159394171088934,
+  "plain_matches_info": true,
+  "gradient_ms_one_call": 62.62778502423316,
+  "finite_gradient_components": 2807,
+  "valid_gradient_components": 2807,
+  "gradient_value_converged": 401,
+  "finite_values": 401,
+  "value_converged": 401,
+  "fully_converged": 401,
+  "integral_epochs": 0,
+  "integral_support_certified": 0,
+  "routes": {
+    "point_source": 401
+  },
+  "stops": {
+    "not_integrated": 401
+  },
+  "nodes_total": 401,
+  "nodes_max": 1,
+  "relative_difference_max": 5.564917959511587e-15,
+  "relative_difference_p99": 3.972630837737632e-15,
+  "relative_difference_median": 6.50480732622333e-16,
+  "scaled_difference_max": 5.564917959511587e-12,
+  "scaled_difference_over_one": 0,
+  "worst_index": 279,
+  "worst_time": 3.95,
+  "peak_rss_kib": 45568,
+  "native_file": "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/build-algebraic-boundary/python-api/lcbinint/_lcbinint.cpython-310-x86_64-linux-gnu.so",
+  "info_keys": [
+    "mu",
+    "error_estimate",
+    "value_converged",
+    "fully_converged",
+    "support_certified",
+    "frontier_discovery_completed",
+    "seed_support_proven",
+    "center_image_count",
+    "augmented_seed_count",
+    "node_evaluations",
+    "finite_source_method",
+    "finite_source_method_name",
+    "stop",
+    "seconds",
+    "integrator_used"
+  ]
+}

@@ -15,8 +15,10 @@ FusedGradientResult epoch_fused_gradient(const LensParams& p,double u,
     cfg.gradient_policy=kernel::GradientPolicy::ValueFirst;
     cfg.value_first_gradient_node_budget=0;cfg.value_first_gradient_round_budget=0;
     kernel::AdaptiveWorkspace workspace;
+    kernel::fused_gradient::reliability_retry_used=false;
     const auto result=kernel::epoch_seeded_radial_frontier(params,u,seeds,cfg,workspace);
     FusedGradientResult out;
+    out.reliability_retried=kernel::fused_gradient::reliability_retry_used;
     out.mu=result.integral.mu;out.grad_mu=result.integral.grad_mu;
     out.value_converged=result.integral.value_converged;
     out.stop=kernel::adaptive_stop_name(result.integral.stop);

@@ -1,0 +1,7 @@
+{
+  "seconds": 4.338341885013506,
+  "cases": 3,
+  "worker_timeout_seconds": 40,
+  "cpu": "one pinned allowed CPU; sequential workers",
+  "repeats": 3
+}

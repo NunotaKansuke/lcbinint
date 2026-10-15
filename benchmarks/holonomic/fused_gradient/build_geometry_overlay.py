@@ -12,6 +12,7 @@ frontier=target/'lcbinint/magnification/holonomic/seeded_radial_frontier.hpp'
 if 'geometry_experiment::detect(pf,topo,seeds' in frontier.read_text():
     raise SystemExit(0)
 shutil.copyfile(out/'fused_geometry.hpp',target/'geometry.hpp')
+(target/'fused_geometry_exact.hpp').write_text((out/'fused_geometry_exact.hpp').read_text().replace('lcbinint::holonomic::geometry_experiment','lcbinint::holonomic_fused::geometry_experiment'))
 (target/'fused_geometry_screen.hpp').write_text((out/'fused_geometry_screen.hpp').read_text().replace('lcbinint::holonomic::geometry_experiment','lcbinint::holonomic_fused::geometry_experiment'))
 p=target/'geometry.hpp';s=p.read_text().replace('lcbinint::holonomic::geometry_experiment','lcbinint::holonomic_fused::geometry_experiment');s=s.replace('struct Pair {','struct Pair {').replace('\n}\n}\n','\n}\ninline thread_local const std::vector<Pair>* active=nullptr;\nstruct Scope {const std::vector<Pair>* previous;explicit Scope(const std::vector<Pair>&p):previous(active){active=&p;}~Scope(){active=previous;}};\n}\n');p.write_text(s)
 p=target/'lcbinint/magnification/holonomic/seeded_radial_frontier.hpp';s=p.read_text();s=s.replace('#include <complex>','#include <complex>\n#include "geometry.hpp"')
@@ -79,7 +80,7 @@ s=s.replace('  if(panel.depth==0&&!hot){',(out/'fused_geometry_pair.inc').read_t
 # Keeping the old depth-zero derivative estimate leaves uncancelled background
 # quadrature error even when the close-pair integral is well resolved.
 s=s.replace('if(panel.depth==0&&!hot){', 'if(panel.depth==0&&!hot&&!(geometry_experiment::active&&!geometry_experiment::active->empty())){')
-s=s.replace('const auto&rule=gaussian_rule(((1<<level)-1)*2);','const auto&rule=gaussian_rule(hot?64:((1<<level)-1)*2);')
+s=s.replace('const auto&rule=gaussian_rule(((1<<level)-1)*2);','const auto&rule=gaussian_rule(reliability_retry?14:(hot?64:((1<<level)-1)*2));')
 s=s.replace('   auto mapped=panel.map(x);','   auto map=panel.map;if(hot&&panel.weighted)map.left=map.right=true;\n   auto mapped=map(x);')
 s=s.replace('   const double R=mapped[0],jac=mapped[1]*half;','''   double jac=mapped[1]*half;
    if(hot&&!hot->real){
@@ -92,4 +93,4 @@ s=s.replace('   const double R=mapped[0],jac=mapped[1]*half;','''   double jac=m
 s=s.replace('   const double R=mapped[0];',(out/'fused_geometry_exterior.inc').read_text()+'   const double R=mapped[0];')
 s=s.replace('anchor,false,0,level,nullptr','anchor,false,radius_lo,level,nullptr').replace('nullptr,true,0,level,nullptr','nullptr,true,radius_lo,level,nullptr')
 p.write_text(s)
-p=target/'lcbinint/magnification/holonomic/adaptive_epoch.hpp'  ;s=p.read_text();s=s.replace('result.value_converged && deferred_children)', 'result.value_converged && (deferred_children || (geometry_experiment::active&&!geometry_experiment::active->empty())))');p.write_text(s)
+# Keep replay tied to actual deferred children; the geometry pass itself does not require gradient replay.

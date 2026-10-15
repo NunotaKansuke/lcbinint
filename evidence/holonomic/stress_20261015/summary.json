@@ -1,0 +1,46 @@
+{
+  "configurations": 120,
+  "successful_workers": 119,
+  "failed_workers": [
+    {
+      "id": "case_054",
+      "params": {
+        "s": 0.42864398090991945,
+        "q": 4.405145631905463e-06,
+        "rho": 6.331657923033541e-05,
+        "t0": 0.0,
+        "tE": 10.0,
+        "u0": -1e-05,
+        "alpha": 1.3964701276534512
+      },
+      "limb": 0.9,
+      "span": 0.03,
+      "status": "failed",
+      "error": "Command '['/home/nunota/.miniconda3/envs/myenv/bin/python', '/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/evidence/holonomic/stress_20261015/sweep.py', 'worker', '{\"id\": \"case_054\", \"params\": {\"s\": 0.42864398090991945, \"q\": 4.405145631905463e-06, \"rho\": 6.331657923033541e-05, \"t0\": 0.0, \"tE\": 10.0, \"u0\": -1e-05, \"alpha\": 1.3964701276534512}, \"limb\": 0.9, \"span\": 0.03}']' timed out after 20 seconds"
+    }
+  ],
+  "finite_values": 3927,
+  "value_converged": 3927,
+  "expected_values": 3927,
+  "finite_gradient_components": 27398,
+  "expected_gradient_components": 27489,
+  "invalid_gradient_cases": [
+    "case_004",
+    "case_010",
+    "case_011",
+    "case_012",
+    "case_049",
+    "case_058",
+    "case_063",
+    "case_081",
+    "case_101",
+    "case_109",
+    "case_110",
+    "case_113",
+    "case_116"
+  ],
+  "max_reverse_order_relative_difference": 4.005209483139852e-11,
+  "state_reuse_exact": true,
+  "fd_parameter_cases": 48,
+  "fd_epochs": 144
+}

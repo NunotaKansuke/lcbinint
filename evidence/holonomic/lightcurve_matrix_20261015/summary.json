@@ -1,0 +1,106 @@
+{
+  "cases": 60,
+  "epochs": 24060,
+  "failed": [],
+  "finite_values": 24060,
+  "value_converged": 24060,
+  "fully_converged": 16173,
+  "integral_epochs": 7887,
+  "integral_support_certified": 0,
+  "finite_gradient_components": 168420,
+  "gradient_components_expected": 168420,
+  "lc_faster_cases": 43,
+  "median_speed_ratio": 1.847395913642842,
+  "pairwise_difference_over_request_cases": [
+    "broad_source_ld0.5_tol0.001",
+    "broad_source_ld0.5_tol0.0001",
+    "broad_source_ld0.9_tol0.001",
+    "broad_source_ld0.9_tol0.0001",
+    "large_source_ld0.5_tol0.0001",
+    "large_source_ld0.9_tol0.0001"
+  ],
+  "plain_call_matches_info": true,
+  "peak_worker_rss_mib": 54.0,
+  "annulus_checks": [
+    {
+      "id": "broad_source_ld0.5_tol0.0001",
+      "time": 0.0,
+      "annulus_reference": 42.86145924185831,
+      "reference_relative_change": 3.388435770049116e-08,
+      "lc_relative_difference_from_annulus": 4.01678645919992e-09,
+      "vbm_relative_difference_from_annulus": 0.00030078618890574764,
+      "vbm_tight_relative_difference_from_annulus": 0.0008625124803362096,
+      "native_uniform_outer_relative_difference": 4.089672838211951e-13
+    },
+    {
+      "id": "broad_source_ld0.5_tol0.001",
+      "time": 0.272,
+      "annulus_reference": 38.18646175891847,
+      "reference_relative_change": 9.339484923597662e-07,
+      "lc_relative_difference_from_annulus": 5.6571030561455e-07,
+      "vbm_relative_difference_from_annulus": 0.03454171988318558,
+      "vbm_tight_relative_difference_from_annulus": 6.758904431974036e-06,
+      "native_uniform_outer_relative_difference": 4.684873952365605e-12
+    },
+    {
+      "id": "broad_source_ld0.9_tol0.0001",
+      "time": 0.0,
+      "annulus_reference": 46.117424507941855,
+      "reference_relative_change": 6.748300050359784e-08,
+      "lc_relative_difference_from_annulus": 2.4794199899112898e-08,
+      "vbm_relative_difference_from_annulus": 0.0002989189552235205,
+      "vbm_tight_relative_difference_from_annulus": 0.00029897038694929587,
+      "native_uniform_outer_relative_difference": 4.089672838211951e-13
+    },
+    {
+      "id": "broad_source_ld0.9_tol0.001",
+      "time": 0.272,
+      "annulus_reference": 39.69405696404251,
+      "reference_relative_change": 1.925307380531847e-06,
+      "lc_relative_difference_from_annulus": 1.1662776202172657e-06,
+      "vbm_relative_difference_from_annulus": 0.07121018829320269,
+      "vbm_tight_relative_difference_from_annulus": 5.871373775475891e-06,
+      "native_uniform_outer_relative_difference": 4.684873952365605e-12
+    },
+    {
+      "id": "large_source_ld0.5_tol0.0001",
+      "time": 0.0,
+      "annulus_reference": 4.402439056313948,
+      "reference_relative_change": 3.297364663569546e-08,
+      "lc_relative_difference_from_annulus": 2.4058883794009025e-08,
+      "vbm_relative_difference_from_annulus": 0.00029250027783576374,
+      "vbm_tight_relative_difference_from_annulus": 0.0002940958628493522,
+      "native_uniform_outer_relative_difference": 1.0482903040120256e-10
+    },
+    {
+      "id": "large_source_ld0.5_tol0.001",
+      "time": -0.32399999999999995,
+      "annulus_reference": 4.396353631130578,
+      "reference_relative_change": 2.2106217440456892e-07,
+      "lc_relative_difference_from_annulus": 9.761415831037018e-08,
+      "vbm_relative_difference_from_annulus": 0.0001983877153407586,
+      "vbm_tight_relative_difference_from_annulus": 1.3302435762942866e-05,
+      "native_uniform_outer_relative_difference": 9.258228866295125e-11
+    },
+    {
+      "id": "large_source_ld0.9_tol0.0001",
+      "time": 0.0,
+      "annulus_reference": 4.72167502973716,
+      "reference_relative_change": 6.58805868161668e-08,
+      "lc_relative_difference_from_annulus": 8.017218922631166e-08,
+      "vbm_relative_difference_from_annulus": 0.0002923209353258298,
+      "vbm_tight_relative_difference_from_annulus": 0.00029255070758559085,
+      "native_uniform_outer_relative_difference": 1.0482903040120256e-10
+    },
+    {
+      "id": "large_source_ld0.9_tol0.001",
+      "time": -0.3,
+      "annulus_reference": 4.714253930562788,
+      "reference_relative_change": 1.1033043457015666e-06,
+      "lc_relative_difference_from_annulus": 2.893091329891555e-07,
+      "vbm_relative_difference_from_annulus": 0.0003076860938159561,
+      "vbm_tight_relative_difference_from_annulus": 2.4924032551347347e-05,
+      "native_uniform_outer_relative_difference": 9.344892194472205e-11
+    }
+  ]
+}

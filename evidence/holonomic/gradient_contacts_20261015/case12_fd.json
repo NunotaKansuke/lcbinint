@@ -1,0 +1,84 @@
+{
+  "case": "case_012",
+  "time": -8.448456160095342,
+  "tol": 1e-09,
+  "gradient_mu": 1.8257962640767447,
+  "gradient_drho": 12.771001280202361,
+  "gradient_valid": true,
+  "value_converged": true,
+  "support_certified": false,
+  "fd": [
+    {
+      "fraction_of_rho": 1e-07,
+      "fd_drho": 12.641922398422725,
+      "value_converged": [
+        true,
+        true
+      ],
+      "fully_converged": [
+        false,
+        false
+      ]
+    },
+    {
+      "fraction_of_rho": 3e-08,
+      "fd_drho": 12.940064281689159,
+      "value_converged": [
+        true,
+        true
+      ],
+      "fully_converged": [
+        false,
+        false
+      ]
+    },
+    {
+      "fraction_of_rho": 1e-08,
+      "fd_drho": 12.779038591812743,
+      "value_converged": [
+        true,
+        true
+      ],
+      "fully_converged": [
+        false,
+        false
+      ]
+    },
+    {
+      "fraction_of_rho": 3e-09,
+      "fd_drho": 12.770171830028653,
+      "value_converged": [
+        true,
+        true
+      ],
+      "fully_converged": [
+        false,
+        false
+      ]
+    },
+    {
+      "fraction_of_rho": 1e-09,
+      "fd_drho": 12.76942217208392,
+      "value_converged": [
+        true,
+        true
+      ],
+      "fully_converged": [
+        false,
+        false
+      ]
+    },
+    {
+      "fraction_of_rho": 3e-10,
+      "fd_drho": 12.76933719274462,
+      "value_converged": [
+        true,
+        true
+      ],
+      "fully_converged": [
+        false,
+        false
+      ]
+    }
+  ]
+}

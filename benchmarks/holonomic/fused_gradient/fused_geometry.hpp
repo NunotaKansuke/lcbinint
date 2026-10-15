@@ -5,6 +5,9 @@
 #include "fused_geometry_screen.hpp"
 namespace lcbinint::holonomic::geometry_experiment {
 using Q=__float128;
+}
+#include "fused_geometry_exact.hpp"
+namespace lcbinint::holonomic::geometry_experiment {
 struct Pair {double center=0,scale=0,left=0,right=0,band_lo=0,band_hi=0;bool real=false,existing=false;};
 // Existing support edges are normal image endpoints. Only mutually closest
 // INTERNAL physical folds are candidates for additional near-pair treatment.
@@ -135,6 +138,10 @@ inline std::vector<Pair> detect(const PrimaryFrame&pf,const TopologyResult&topo,
     }
     if(!pending.empty())ok=false;if(ok)isolated={roots,true};
    }
+  }
+  if(!isolated.second){
+   std::vector<Q> exact_roots;
+   if(exact_stationary_roots(pf,lo,hi,exact_roots))isolated={std::move(exact_roots),true};
   }
   if(!isolated.second)completed=false;
   const auto&stationary_roots=isolated.first;

@@ -9,7 +9,7 @@ def replace(s,a,b):
     assert s.count(a)==1,(a,s.count(a))
     return s.replace(a,b)
 s=(BASE/'phi.hpp').read_text()
-s=replace(s,'#include <cmath>','#include <cmath>\n#include "fused_motion.hpp"')
+s=replace(s,'#include <cmath>','#include <cmath>\n#include <quadmath.h>\n#include "fused_motion.hpp"')
 point='inline PhiGrad phi_grad('
 pos=s.index(point)
 s=s[:pos]+'''inline std::array<double,5> fused_material_phi_dp(const phi_detail::Core& c,
@@ -28,6 +28,9 @@ s=s[:pos]+'''inline std::array<double,5> fused_material_phi_dp(const phi_detail:
 '''+s[pos:]
 s=replace(s,'out.dP = phi_detail::dP_from(c, pf);','out.dP = fused_material_phi_dp(c, R, pf);')
 s=replace(s,'return {c.phi, phi_detail::dP_from(c, pf)};','return {c.phi, fused_material_phi_dp(c, R, pf)};')
+s=s.replace('inline PhiGrad phi_grad(', (Path(__file__).with_name('fused_phi.inc')).read_text()+'\ninline PhiGrad phi_grad(')
+s=replace(s,'return {c.phi, fused_material_phi_dp(c, R, pf)};', 'if(c.phi<1e-8)return fused_precise_phi(R,theta,pf);\n    return {c.phi, fused_material_phi_dp(c, R, pf)};')
+s=replace(s,'return phi_detail::core(R, theta, pf).phi;', 'const double value=phi_detail::core(R, theta, pf).phi;\n    return value<1e-8?fused_precise_phi(R,theta,pf).phi:value;')
 (OUT/'phi.hpp').write_text(s)
 s=(BASE/'holonomic_transport.hpp').read_text()
 s=replace(s,'#pragma once','#pragma once\n#include "fused_motion.hpp"')
@@ -139,7 +142,8 @@ s=replace(s,'''        const CellPlan& cell=integration_plan.spans[static_cast<s
         fused_gradient::Motion material_motion;
         const bool material_active=with_jacobian&&material_maps[i].valid;
         if(material_active)material_motion=material_maps[i].at(R,radius_lo,jac);
-        fused_gradient::MotionScope motion_scope(material_active?&material_motion:nullptr);''')
+        fused_gradient::MotionScope motion_scope(material_active?&material_motion:nullptr);
+        fused_gradient::RadiusOffsetScope radius_scope(radius_lo);''')
 s=replace(s,'QuarticParamJac dpc{};if(with_jac)dpc=boundary_quartic_dp(R,pf);','''QuarticParamJac dpc{};if(with_jac) {
         dpc=boundary_quartic_dp(R,pf);
         if(const auto* motion=fused_gradient::active_motion) {

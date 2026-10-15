@@ -1,0 +1,27 @@
+{
+  "head": "1d6984f7501066f22ff0143d69c1cd1c45b04d06",
+  "source_sha256": {
+    "python/bind_holonomic_fused.cpp": "91a6498f8c54f03316017ab3cf25be78177dee53b1f5f4ad1529240458b62dad",
+    "src/lcbinint/magnification/binary_caustic_enclosure.hpp": "e525a326c52ddb40ccd59a07c3d29a6c9233cbf232bc1520fa81c7e5e0c24d35",
+    "src/lcbinint/magnification/holonomic/source_disk_gradient.hpp": "e5239a3f2ab2019b3b66e7d988f2c14f6c6b7db65dcaeb538676a2ee829dec34",
+    "src/lcbinint/magnification/holonomic/fused_gradient.cpp": "ca993a5072d0aeedf3ad3f035427823bff5233a8c6a82bc2f1786c14e20ebab4",
+    "src/lcbinint/magnification/holonomic/fused_gradient.hpp": "1ed74a180bd6de5831e80851ae9bbaa0663a35439d18cbe52d4b3d12369e2226",
+    "benchmarks/holonomic/fused_gradient/fused_geometry.hpp": "0461040f51b6731dd22cfe46e1a6400f15150ca1bb3a7c79b474aa8bfda7d848",
+    "benchmarks/holonomic/fused_gradient/fused_geometry_exact.hpp": "a943ee270ca125fcb24ebfe7f2c3bdf8bb4d6f99c1c50a98d2ef86eda063ca7c",
+    "benchmarks/holonomic/fused_gradient/fused_phi.inc": "de4ac0ea090dbaafdcacf5f75fac9a0896b42f00328ee3c48a0ef805a86ca584",
+    "benchmarks/holonomic/fused_gradient/fused_gaussian.hpp": "0fbf1b2ecdcb48fc3fd318a2cdbaf9f1bace4442d3403a715d469e1fbff5732b",
+    "benchmarks/holonomic/fused_gradient/fused_motion.hpp": "fad26183d9d0d914efc9e3ffe00e4625c2cce7733528fb8d006c8d4cd97384f6",
+    "benchmarks/holonomic/fused_gradient/build_geometry_overlay.py": "c6addb15e5b221d37369a056dc0802c8ec3b0090a8e24af91f93640268d1fb5b",
+    "benchmarks/holonomic/fused_gradient/build_material_overlay.py": "1520068c61bb1bd21762ba6c2194ef25a6be257fd79c6feef2b62c8ec1ba3b93",
+    "benchmarks/holonomic/fused_gradient/fused_k.hpp": "fc5a487b959717c88d3009acb9a55bc3b25c41dec9beb4e725939f7d76841c24",
+    "src/lcbinint/magnification/finite_source_magnifier.cpp": "d2fe67dc32b993a3cfa31fb7c91fc2149e7a6ccd88ca13b0c4c766fbf8799594",
+    "src/lcbinint/magnification/finite_source_magnifier.hpp": "a6c58e4cc274201dae598eb29ba8b6cf0f8afb1755fc725abd9f571edffe88c6",
+    "src/lcbinint/magnification/holonomic/seeded_radial_frontier_value.hpp": "b4fa3c10e019cfbabb24bdcffb38c3407bf7f97f4784f49f469b0f62ad713417"
+  },
+  "module_sha256": {
+    "build-algebraic-boundary/python-api/lcbinint/_lcbinint.cpython-310-x86_64-linux-gnu.so": "b6ba4c1a395452784ac1a287986a2cc8dcd9372b32c13405775fc7a02499258d",
+    "build-algebraic-boundary/fused-gradient/python/_lcbinint_holonomic_fused.cpython-310-x86_64-linux-gnu.so": "aa6d429b052e8ae68dcf5481d02b28e5a7ba758c941abad483bcc17203b84836"
+  },
+  "timing": "one pinned allowed CPU, warmup then median of three 401-epoch gradient calls, BLAS/OpenMP one thread, constructors excluded",
+  "baseline_module_sha256": "9c5e12a5fb84778e8ba6a84d28251b75e2fd2714828d230228d1b2b5e6b40cd5"
+}

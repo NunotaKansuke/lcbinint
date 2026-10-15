@@ -1,0 +1,86 @@
+{
+  "id": "notebook_alpha180_rad_ld0.9_tol0.001",
+  "case": "notebook_alpha180_rad",
+  "params": {
+    "s": 1.5,
+    "q": 0.01,
+    "rho": 0.001,
+    "t0": 0.0,
+    "tE": 10.0,
+    "u0": -0.01,
+    "alpha": 180.0
+  },
+  "tau_min": -0.08,
+  "tau_max": 0.08,
+  "limb": 0.9,
+  "tol": 0.001,
+  "n_times": 401,
+  "status": "ok",
+  "setup_ms": 0.0554920407012105,
+  "cold_ms": {
+    "lc": 23.58114905655384,
+    "vbm": 40.27628409676254
+  },
+  "warm_ms": {
+    "lc": [
+      16.529162996448576,
+      16.56321599148214,
+      16.447113011963665
+    ],
+    "vbm": [
+      40.21494498010725,
+      40.37553898524493,
+      39.72861007787287
+    ]
+  },
+  "lc_ms": 16.529162996448576,
+  "vbm_ms": 40.21494498010725,
+  "speed_vbm_over_lc": 2.432969230731632,
+  "plain_call_ms": 16.48326206486672,
+  "plain_matches_info": true,
+  "gradient_ms_one_call": 109.64914795476943,
+  "finite_gradient_components": 2807,
+  "valid_gradient_components": 2807,
+  "gradient_value_converged": 401,
+  "finite_values": 401,
+  "value_converged": 401,
+  "fully_converged": 356,
+  "integral_epochs": 45,
+  "integral_support_certified": 0,
+  "routes": {
+    "hexadecapole": 356,
+    "algebraic_boundary_seeded_radial": 45
+  },
+  "stops": {
+    "not_integrated": 356,
+    "frontier_coverage_unproven": 45
+  },
+  "nodes_total": 7414,
+  "nodes_max": 210,
+  "relative_difference_max": 0.00035796418651808196,
+  "relative_difference_p99": 0.00019405008010027196,
+  "relative_difference_median": 3.0912254042959356e-05,
+  "scaled_difference_max": 0.35796418651808193,
+  "scaled_difference_over_one": 0,
+  "worst_index": 207,
+  "worst_time": 0.02799999999999997,
+  "peak_rss_kib": 49152,
+  "native_file": "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/build-algebraic-boundary/python-api/lcbinint/_lcbinint.cpython-310-x86_64-linux-gnu.so",
+  "info_keys": [
+    "mu",
+    "error_estimate",
+    "value_converged",
+    "fully_converged",
+    "support_certified",
+    "frontier_discovery_completed",
+    "seed_support_proven",
+    "center_image_count",
+    "augmented_seed_count",
+    "node_evaluations",
+    "finite_source_method",
+    "finite_source_method_name",
+    "stop",
+    "seconds",
+    "integrator_used"
+  ]
+}

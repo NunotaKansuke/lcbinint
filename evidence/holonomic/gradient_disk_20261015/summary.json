@@ -1,0 +1,81 @@
+{
+  "matrix_configurations": 60,
+  "matrix_epochs": 24060,
+  "matrix_finite_gradients": 168420,
+  "max_value_api_change": 0.0,
+  "changed_value_fields": [],
+  "stress_configurations": 120,
+  "stress_finite_gradients": 27720,
+  "stress_invalid_cases": [],
+  "stress_value_converged": 3960,
+  "case033_rho_before": [
+    -150.42007418691975,
+    110.92397189090984
+  ],
+  "case033_rho_after": [
+    1.1234968125634996,
+    1.12406574286046
+  ],
+  "timing": [
+    {
+      "id": "broad_source_ld0.5_tol0.001",
+      "before_ms": 410.38632905110717,
+      "after_ms": 419.7259859647602,
+      "ratio": 1.0227582067249854
+    },
+    {
+      "id": "close_binary_ld0.5_tol0.001",
+      "before_ms": 78.67842598352581,
+      "after_ms": 79.82123992405832,
+      "ratio": 1.01452512459733
+    },
+    {
+      "id": "close_planet_ld0.5_tol0.001",
+      "before_ms": 80.10464091785252,
+      "after_ms": 82.05525402445346,
+      "ratio": 1.0243508126901324
+    },
+    {
+      "id": "equal_mass_ld0.5_tol0.001",
+      "before_ms": 111.41352995764464,
+      "after_ms": 113.70274901855737,
+      "ratio": 1.020547047219337
+    },
+    {
+      "id": "large_source_ld0.5_tol0.001",
+      "before_ms": 259.8972759442404,
+      "after_ms": 260.18247997853905,
+      "ratio": 1.0010973721569896
+    },
+    {
+      "id": "notebook_alpha180_rad_ld0.5_tol0.001",
+      "before_ms": 101.64302994962782,
+      "after_ms": 104.76157895755023,
+      "ratio": 1.030681385722837
+    },
+    {
+      "id": "ordinary_ld0.5_tol0.001",
+      "before_ms": 54.81531796976924,
+      "after_ms": 54.84786198940128,
+      "ratio": 1.0005937030165544
+    },
+    {
+      "id": "resonant_ld0.5_tol0.001",
+      "before_ms": 134.37566603533924,
+      "after_ms": 136.85974897816777,
+      "ratio": 1.0184861070171385
+    },
+    {
+      "id": "tiny_source_ld0.5_tol0.001",
+      "before_ms": 172.09457396529615,
+      "after_ms": 64.28214500192553,
+      "ratio": 0.37352801730337176
+    },
+    {
+      "id": "wide_caustic_ld0.5_tol0.001",
+      "before_ms": 65.39872102439404,
+      "after_ms": 65.63497299794108,
+      "ratio": 1.0036124861441698
+    }
+  ]
+}

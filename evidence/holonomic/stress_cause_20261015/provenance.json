@@ -1,0 +1,8 @@
+{
+  "head": "1d6984f7501066f22ff0143d69c1cd1c45b04d06",
+  "sha256": {
+    "src/lcbinint/magnification/finite_source_magnifier.cpp": "d2fe67dc32b993a3cfa31fb7c91fc2149e7a6ccd88ca13b0c4c766fbf8799594",
+    "benchmarks/holonomic/fused_gradient/fused_k.hpp": "fc5a487b959717c88d3009acb9a55bc3b25c41dec9beb4e725939f7d76841c24",
+    "build-algebraic-boundary/fused-gradient/python/_lcbinint_holonomic_fused.cpython-310-x86_64-linux-gnu.so": "9c5e12a5fb84778e8ba6a84d28251b75e2fd2714828d230228d1b2b5e6b40cd5"
+  }
+}

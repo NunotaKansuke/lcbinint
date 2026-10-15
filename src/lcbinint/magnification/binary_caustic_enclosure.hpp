@@ -49,7 +49,7 @@ inline double binary_caustic_strip_clearance(
 // factorisation error and generous double-roundoff padding enter the upper
 // bound. If any interval cannot be covered, discard the entire enclosure.
 inline std::vector<CausticEnclosureDisk> build_binary_caustic_enclosure(
-    double separation, double mass_ratio)
+    double separation, double mass_ratio, int max_depth = 4, int initial_intervals = 32)
 {
     const double s = std::abs(separation);
     const double q_input = std::abs(mass_ratio);
@@ -62,8 +62,6 @@ inline std::vector<CausticEnclosureDisk> build_binary_caustic_enclosure(
     const double m2 = q * m1;
     constexpr double pi = 3.14159265358979323846;
     constexpr double padding = 256.0 * std::numeric_limits<double>::epsilon();
-    constexpr int initial_intervals = 32;
-    constexpr int max_depth = 4;
     struct Interval { double center, half_width; int depth; };
     std::vector<Interval> pending;
     // Real lens positions/masses imply Q(conj(z), conj(phase))=conj(Q(z,phase)).

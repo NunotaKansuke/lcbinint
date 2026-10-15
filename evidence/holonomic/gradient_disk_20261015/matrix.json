@@ -1,0 +1,482 @@
+[
+  {
+    "id": "ordinary_ld0_tol0.001",
+    "finite": 2807,
+    "gradient_converged": 401,
+    "mu_relative_change": 0.0,
+    "changed_value_fields": [],
+    "gradient_mu_value_relative_difference": 1.2540690314277031e-05
+  },
+  {
+    "id": "ordinary_ld0_tol0.0001",
+    "finite": 2807,
+    "gradient_converged": 401,
+    "mu_relative_change": 0.0,
+    "changed_value_fields": [],
+    "gradient_mu_value_relative_difference": 7.424381460442606e-06
+  },
+  {
+    "id": "ordinary_ld0.5_tol0.001",
+    "finite": 2807,
+    "gradient_converged": 401,
+    "mu_relative_change": 0.0,
+    "changed_value_fields": [],
+    "gradient_mu_value_relative_difference": 1.1537419321006528e-05
+  },
+  {
+    "id": "ordinary_ld0.5_tol0.0001",
+    "finite": 2807,
+    "gradient_converged": 401,
+    "mu_relative_change": 0.0,
+    "changed_value_fields": [],
+    "gradient_mu_value_relative_difference": 6.8304230708811175e-06
+  },
+  {
+    "id": "ordinary_ld0.9_tol0.001",
+    "finite": 2807,
+    "gradient_converged": 401,
+    "mu_relative_change": 0.0,
+    "changed_value_fields": [],
+    "gradient_mu_value_relative_difference": 1.0390823900033605e-05
+  },
+  {
+    "id": "ordinary_ld0.9_tol0.0001",
+    "finite": 2807,
+    "gradient_converged": 401,
+    "mu_relative_change": 0.0,
+    "changed_value_fields": [],
+    "gradient_mu_value_relative_difference": 6.151613482951699e-06
+  },
+  {
+    "id": "wide_caustic_ld0_tol0.001",
+    "finite": 2807,
+    "gradient_converged": 401,
+    "mu_relative_change": 0.0,
+    "changed_value_fields": [],
+    "gradient_mu_value_relative_difference": 7.426734547457167e-05
+  },
+  {
+    "id": "wide_caustic_ld0_tol0.0001",
+    "finite": 2807,
+    "gradient_converged": 401,
+    "mu_relative_change": 0.0,
+    "changed_value_fields": [],
+    "gradient_mu_value_relative_difference": 8.707540807404382e-06
+  },
+  {
+    "id": "wide_caustic_ld0.5_tol0.001",
+    "finite": 2807,
+    "gradient_converged": 401,
+    "mu_relative_change": 0.0,
+    "changed_value_fields": [],
+    "gradient_mu_value_relative_difference": 6.832566421027641e-05
+  },
+  {
+    "id": "wide_caustic_ld0.5_tol0.0001",
+    "finite": 2807,
+    "gradient_converged": 401,
+    "mu_relative_change": 0.0,
+    "changed_value_fields": [],
+    "gradient_mu_value_relative_difference": 8.010940345391217e-06
+  },
+  {
+    "id": "wide_caustic_ld0.9_tol0.001",
+    "finite": 2807,
+    "gradient_converged": 401,
+    "mu_relative_change": 0.0,
+    "changed_value_fields": [],
+    "gradient_mu_value_relative_difference": 6.153517133712704e-05
+  },
+  {
+    "id": "wide_caustic_ld0.9_tol0.0001",
+    "finite": 2807,
+    "gradient_converged": 401,
+    "mu_relative_change": 0.0,
+    "changed_value_fields": [],
+    "gradient_mu_value_relative_difference": 7.21482553177708e-06
+  },
+  {
+    "id": "resonant_ld0_tol0.001",
+    "finite": 2807,
+    "gradient_converged": 401,
+    "mu_relative_change": 0.0,
+    "changed_value_fields": [],
+    "gradient_mu_value_relative_difference": 3.0488320917936976e-05
+  },
+  {
+    "id": "resonant_ld0_tol0.0001",
+    "finite": 2807,
+    "gradient_converged": 401,
+    "mu_relative_change": 0.0,
+    "changed_value_fields": [],
+    "gradient_mu_value_relative_difference": 2.1228200385282004e-07
+  },
+  {
+    "id": "resonant_ld0.5_tol0.001",
+    "finite": 2807,
+    "gradient_converged": 401,
+    "mu_relative_change": 0.0,
+    "changed_value_fields": [],
+    "gradient_mu_value_relative_difference": 1.9230403998992504e-05
+  },
+  {
+    "id": "resonant_ld0.5_tol0.0001",
+    "finite": 2807,
+    "gradient_converged": 401,
+    "mu_relative_change": 0.0,
+    "changed_value_fields": [],
+    "gradient_mu_value_relative_difference": 2.5087425633218716e-07
+  },
+  {
+    "id": "resonant_ld0.9_tol0.001",
+    "finite": 2807,
+    "gradient_converged": 401,
+    "mu_relative_change": 0.0,
+    "changed_value_fields": [],
+    "gradient_mu_value_relative_difference": 9.819163910131186e-06
+  },
+  {
+    "id": "resonant_ld0.9_tol0.0001",
+    "finite": 2807,
+    "gradient_converged": 401,
+    "mu_relative_change": 0.0,
+    "changed_value_fields": [],
+    "gradient_mu_value_relative_difference": 1.2680711185347527e-06
+  },
+  {
+    "id": "equal_mass_ld0_tol0.001",
+    "finite": 2807,
+    "gradient_converged": 401,
+    "mu_relative_change": 0.0,
+    "changed_value_fields": [],
+    "gradient_mu_value_relative_difference": 6.53137376198945e-05
+  },
+  {
+    "id": "equal_mass_ld0_tol0.0001",
+    "finite": 2807,
+    "gradient_converged": 401,
+    "mu_relative_change": 0.0,
+    "changed_value_fields": [],
+    "gradient_mu_value_relative_difference": 3.604665642336181e-07
+  },
+  {
+    "id": "equal_mass_ld0.5_tol0.001",
+    "finite": 2807,
+    "gradient_converged": 401,
+    "mu_relative_change": 0.0,
+    "changed_value_fields": [],
+    "gradient_mu_value_relative_difference": 5.355127440113587e-05
+  },
+  {
+    "id": "equal_mass_ld0.5_tol0.0001",
+    "finite": 2807,
+    "gradient_converged": 401,
+    "mu_relative_change": 0.0,
+    "changed_value_fields": [],
+    "gradient_mu_value_relative_difference": 2.393813646165999e-05
+  },
+  {
+    "id": "equal_mass_ld0.9_tol0.001",
+    "finite": 2807,
+    "gradient_converged": 401,
+    "mu_relative_change": 0.0,
+    "changed_value_fields": [],
+    "gradient_mu_value_relative_difference": 5.75646031955449e-05
+  },
+  {
+    "id": "equal_mass_ld0.9_tol0.0001",
+    "finite": 2807,
+    "gradient_converged": 401,
+    "mu_relative_change": 0.0,
+    "changed_value_fields": [],
+    "gradient_mu_value_relative_difference": 8.703143264637518e-06
+  },
+  {
+    "id": "close_binary_ld0_tol0.001",
+    "finite": 2807,
+    "gradient_converged": 401,
+    "mu_relative_change": 0.0,
+    "changed_value_fields": [],
+    "gradient_mu_value_relative_difference": 5.757802126532918e-05
+  },
+  {
+    "id": "close_binary_ld0_tol0.0001",
+    "finite": 2807,
+    "gradient_converged": 401,
+    "mu_relative_change": 0.0,
+    "changed_value_fields": [],
+    "gradient_mu_value_relative_difference": 5.845502131465407e-08
+  },
+  {
+    "id": "close_binary_ld0.5_tol0.001",
+    "finite": 2807,
+    "gradient_converged": 401,
+    "mu_relative_change": 0.0,
+    "changed_value_fields": [],
+    "gradient_mu_value_relative_difference": 5.2971244856973644e-05
+  },
+  {
+    "id": "close_binary_ld0.5_tol0.0001",
+    "finite": 2807,
+    "gradient_converged": 401,
+    "mu_relative_change": 0.0,
+    "changed_value_fields": [],
+    "gradient_mu_value_relative_difference": 2.741769662904373e-07
+  },
+  {
+    "id": "close_binary_ld0.9_tol0.001",
+    "finite": 2807,
+    "gradient_converged": 401,
+    "mu_relative_change": 0.0,
+    "changed_value_fields": [],
+    "gradient_mu_value_relative_difference": 4.770635753288324e-05
+  },
+  {
+    "id": "close_binary_ld0.9_tol0.0001",
+    "finite": 2807,
+    "gradient_converged": 401,
+    "mu_relative_change": 0.0,
+    "changed_value_fields": [],
+    "gradient_mu_value_relative_difference": 5.207360562337995e-07
+  },
+  {
+    "id": "close_planet_ld0_tol0.001",
+    "finite": 2807,
+    "gradient_converged": 401,
+    "mu_relative_change": 0.0,
+    "changed_value_fields": [],
+    "gradient_mu_value_relative_difference": 9.433026580144724e-06
+  },
+  {
+    "id": "close_planet_ld0_tol0.0001",
+    "finite": 2807,
+    "gradient_converged": 401,
+    "mu_relative_change": 0.0,
+    "changed_value_fields": [],
+    "gradient_mu_value_relative_difference": 1.2786789643527889e-06
+  },
+  {
+    "id": "close_planet_ld0.5_tol0.001",
+    "finite": 2807,
+    "gradient_converged": 401,
+    "mu_relative_change": 0.0,
+    "changed_value_fields": [],
+    "gradient_mu_value_relative_difference": 8.678373368396588e-06
+  },
+  {
+    "id": "close_planet_ld0.5_tol0.0001",
+    "finite": 2807,
+    "gradient_converged": 401,
+    "mu_relative_change": 0.0,
+    "changed_value_fields": [],
+    "gradient_mu_value_relative_difference": 1.1554577804412948e-06
+  },
+  {
+    "id": "close_planet_ld0.9_tol0.001",
+    "finite": 2807,
+    "gradient_converged": 401,
+    "mu_relative_change": 0.0,
+    "changed_value_fields": [],
+    "gradient_mu_value_relative_difference": 7.815912555629792e-06
+  },
+  {
+    "id": "close_planet_ld0.9_tol0.0001",
+    "finite": 2807,
+    "gradient_converged": 401,
+    "mu_relative_change": 0.0,
+    "changed_value_fields": [],
+    "gradient_mu_value_relative_difference": 1.0713183853758964e-06
+  },
+  {
+    "id": "broad_source_ld0_tol0.001",
+    "finite": 2807,
+    "gradient_converged": 401,
+    "mu_relative_change": 0.0,
+    "changed_value_fields": [],
+    "gradient_mu_value_relative_difference": 0.0004418103999427669
+  },
+  {
+    "id": "broad_source_ld0_tol0.0001",
+    "finite": 2807,
+    "gradient_converged": 401,
+    "mu_relative_change": 0.0,
+    "changed_value_fields": [],
+    "gradient_mu_value_relative_difference": 0.0
+  },
+  {
+    "id": "broad_source_ld0.5_tol0.001",
+    "finite": 2807,
+    "gradient_converged": 401,
+    "mu_relative_change": 0.0,
+    "changed_value_fields": [],
+    "gradient_mu_value_relative_difference": 0.0001382928716968776
+  },
+  {
+    "id": "broad_source_ld0.5_tol0.0001",
+    "finite": 2807,
+    "gradient_converged": 401,
+    "mu_relative_change": 0.0,
+    "changed_value_fields": [],
+    "gradient_mu_value_relative_difference": 2.3931075648606434e-15
+  },
+  {
+    "id": "broad_source_ld0.9_tol0.001",
+    "finite": 2807,
+    "gradient_converged": 401,
+    "mu_relative_change": 0.0,
+    "changed_value_fields": [],
+    "gradient_mu_value_relative_difference": 0.00012108770280912253
+  },
+  {
+    "id": "broad_source_ld0.9_tol0.0001",
+    "finite": 2807,
+    "gradient_converged": 401,
+    "mu_relative_change": 0.0,
+    "changed_value_fields": [],
+    "gradient_mu_value_relative_difference": 9.552558322714734e-06
+  },
+  {
+    "id": "large_source_ld0_tol0.001",
+    "finite": 2807,
+    "gradient_converged": 401,
+    "mu_relative_change": 0.0,
+    "changed_value_fields": [],
+    "gradient_mu_value_relative_difference": 0.0
+  },
+  {
+    "id": "large_source_ld0_tol0.0001",
+    "finite": 2807,
+    "gradient_converged": 401,
+    "mu_relative_change": 0.0,
+    "changed_value_fields": [],
+    "gradient_mu_value_relative_difference": 0.0
+  },
+  {
+    "id": "large_source_ld0.5_tol0.001",
+    "finite": 2807,
+    "gradient_converged": 401,
+    "mu_relative_change": 0.0,
+    "changed_value_fields": [],
+    "gradient_mu_value_relative_difference": 7.266114111216534e-05
+  },
+  {
+    "id": "large_source_ld0.5_tol0.0001",
+    "finite": 2807,
+    "gradient_converged": 401,
+    "mu_relative_change": 0.0,
+    "changed_value_fields": [],
+    "gradient_mu_value_relative_difference": 3.7018446338640706e-05
+  },
+  {
+    "id": "large_source_ld0.9_tol0.001",
+    "finite": 2807,
+    "gradient_converged": 401,
+    "mu_relative_change": 0.0,
+    "changed_value_fields": [],
+    "gradient_mu_value_relative_difference": 0.0001453298589197984
+  },
+  {
+    "id": "large_source_ld0.9_tol0.0001",
+    "finite": 2807,
+    "gradient_converged": 401,
+    "mu_relative_change": 0.0,
+    "changed_value_fields": [],
+    "gradient_mu_value_relative_difference": 1.4530826921412735e-07
+  },
+  {
+    "id": "tiny_source_ld0_tol0.001",
+    "finite": 2807,
+    "gradient_converged": 401,
+    "mu_relative_change": 0.0,
+    "changed_value_fields": [],
+    "gradient_mu_value_relative_difference": 3.124673625383224e-10
+  },
+  {
+    "id": "tiny_source_ld0_tol0.0001",
+    "finite": 2807,
+    "gradient_converged": 401,
+    "mu_relative_change": 0.0,
+    "changed_value_fields": [],
+    "gradient_mu_value_relative_difference": 3.124673625383224e-10
+  },
+  {
+    "id": "tiny_source_ld0.5_tol0.001",
+    "finite": 2807,
+    "gradient_converged": 401,
+    "mu_relative_change": 0.0,
+    "changed_value_fields": [],
+    "gradient_mu_value_relative_difference": 2.8747183552981926e-10
+  },
+  {
+    "id": "tiny_source_ld0.5_tol0.0001",
+    "finite": 2807,
+    "gradient_converged": 401,
+    "mu_relative_change": 0.0,
+    "changed_value_fields": [],
+    "gradient_mu_value_relative_difference": 2.8747183552981926e-10
+  },
+  {
+    "id": "tiny_source_ld0.9_tol0.001",
+    "finite": 2807,
+    "gradient_converged": 401,
+    "mu_relative_change": 0.0,
+    "changed_value_fields": [],
+    "gradient_mu_value_relative_difference": 2.589054439488918e-10
+  },
+  {
+    "id": "tiny_source_ld0.9_tol0.0001",
+    "finite": 2807,
+    "gradient_converged": 401,
+    "mu_relative_change": 0.0,
+    "changed_value_fields": [],
+    "gradient_mu_value_relative_difference": 2.589054439488918e-10
+  },
+  {
+    "id": "notebook_alpha180_rad_ld0_tol0.001",
+    "finite": 2807,
+    "gradient_converged": 401,
+    "mu_relative_change": 0.0,
+    "changed_value_fields": [],
+    "gradient_mu_value_relative_difference": 4.928023486315302e-07
+  },
+  {
+    "id": "notebook_alpha180_rad_ld0_tol0.0001",
+    "finite": 2807,
+    "gradient_converged": 401,
+    "mu_relative_change": 0.0,
+    "changed_value_fields": [],
+    "gradient_mu_value_relative_difference": 2.9801039880172508e-08
+  },
+  {
+    "id": "notebook_alpha180_rad_ld0.5_tol0.001",
+    "finite": 2807,
+    "gradient_converged": 401,
+    "mu_relative_change": 0.0,
+    "changed_value_fields": [],
+    "gradient_mu_value_relative_difference": 4.259958404322732e-05
+  },
+  {
+    "id": "notebook_alpha180_rad_ld0.5_tol0.0001",
+    "finite": 2807,
+    "gradient_converged": 401,
+    "mu_relative_change": 0.0,
+    "changed_value_fields": [],
+    "gradient_mu_value_relative_difference": 4.783716831967927e-09
+  },
+  {
+    "id": "notebook_alpha180_rad_ld0.9_tol0.001",
+    "finite": 2807,
+    "gradient_converged": 401,
+    "mu_relative_change": 0.0,
+    "changed_value_fields": [],
+    "gradient_mu_value_relative_difference": 4.76806457270742e-05
+  },
+  {
+    "id": "notebook_alpha180_rad_ld0.9_tol0.0001",
+    "finite": 2807,
+    "gradient_converged": 401,
+    "mu_relative_change": 0.0,
+    "changed_value_fields": [],
+    "gradient_mu_value_relative_difference": 9.080582481832016e-09
+  }
+]

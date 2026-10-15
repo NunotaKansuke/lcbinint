@@ -1,0 +1,24 @@
+{
+  "configurations": 76,
+  "standard_configurations": 60,
+  "maximum_relative_mu_difference": 2.187314115853199e-11,
+  "changed_fields": [],
+  "gradient_finite": 168420,
+  "gradient_maximum_scaled_difference": {
+    "id": "notebook_alpha180_rad_ld0.9_tol0.0001",
+    "finite": 2807,
+    "maximum_absolute_difference": 6.967675680868979e-07,
+    "maximum_scaled_difference": 2.755204338356442e-08,
+    "value_converged": 401,
+    "baseline_value_converged": 401
+  },
+  "gradient_maximum_absolute_difference": {
+    "id": "close_planet_ld0.9_tol0.001",
+    "finite": 2807,
+    "maximum_absolute_difference": 9.741977555677295e-05,
+    "maximum_scaled_difference": 8.293735295228916e-09,
+    "value_converged": 401,
+    "baseline_value_converged": 401
+  },
+  "gradient_convergence_changes": []
+}

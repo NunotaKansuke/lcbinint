@@ -1,0 +1,86 @@
+{
+  "id": "resonant_ld0_tol0.0001",
+  "case": "resonant",
+  "params": {
+    "s": 0.95,
+    "q": 0.01,
+    "rho": 0.005,
+    "t0": 0.0,
+    "tE": 10.0,
+    "u0": 0.03,
+    "alpha": 0.5
+  },
+  "tau_min": -0.15,
+  "tau_max": 0.15,
+  "limb": 0.0,
+  "tol": 0.0001,
+  "n_times": 401,
+  "status": "ok",
+  "setup_ms": 0.06707804277539253,
+  "cold_ms": {
+    "lc": 50.78239995054901,
+    "vbm": 44.39383593853563
+  },
+  "warm_ms": {
+    "lc": [
+      48.62873803358525,
+      48.57013502623886,
+      48.654480022378266
+    ],
+    "vbm": [
+      43.12462906818837,
+      43.14262908883393,
+      43.52194396778941
+    ]
+  },
+  "lc_ms": 48.62873803358525,
+  "vbm_ms": 43.14262908883393,
+  "speed_vbm_over_lc": 0.8871838100967712,
+  "plain_call_ms": 48.559425980784,
+  "plain_matches_info": true,
+  "gradient_ms_one_call": 128.35817702580243,
+  "finite_gradient_components": 2807,
+  "valid_gradient_components": 2807,
+  "gradient_value_converged": 401,
+  "finite_values": 401,
+  "value_converged": 401,
+  "fully_converged": 113,
+  "integral_epochs": 288,
+  "integral_support_certified": 0,
+  "routes": {
+    "hexadecapole": 113,
+    "algebraic_boundary_seeded_radial": 288
+  },
+  "stops": {
+    "not_integrated": 113,
+    "frontier_coverage_unproven": 288
+  },
+  "nodes_total": 14667,
+  "nodes_max": 122,
+  "relative_difference_max": 1.7495246695074827e-05,
+  "relative_difference_p99": 1.3865761348916663e-05,
+  "relative_difference_median": 9.562500993515426e-07,
+  "scaled_difference_max": 0.17495246695074826,
+  "scaled_difference_over_one": 0,
+  "worst_index": 56,
+  "worst_time": -1.0799999999999998,
+  "peak_rss_kib": 49152,
+  "native_file": "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/build-algebraic-boundary/python-api/lcbinint/_lcbinint.cpython-310-x86_64-linux-gnu.so",
+  "info_keys": [
+    "mu",
+    "error_estimate",
+    "value_converged",
+    "fully_converged",
+    "support_certified",
+    "frontier_discovery_completed",
+    "seed_support_proven",
+    "center_image_count",
+    "augmented_seed_count",
+    "node_evaluations",
+    "finite_source_method",
+    "finite_source_method_name",
+    "stop",
+    "seconds",
+    "integrator_used"
+  ]
+}

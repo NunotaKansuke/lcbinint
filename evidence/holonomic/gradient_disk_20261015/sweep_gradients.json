@@ -1,0 +1,722 @@
+[
+  {
+    "id": "case_000",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 20.5622639041394
+  },
+  {
+    "id": "case_001",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 37.53373201470822
+  },
+  {
+    "id": "case_002",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 14.025349053554237
+  },
+  {
+    "id": "case_003",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 9.04424604959786
+  },
+  {
+    "id": "case_004",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 10.226367972791195
+  },
+  {
+    "id": "case_005",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 88.45714293420315
+  },
+  {
+    "id": "case_006",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 7.132390979677439
+  },
+  {
+    "id": "case_007",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 58.60287498217076
+  },
+  {
+    "id": "case_008",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 25.10906499810517
+  },
+  {
+    "id": "case_009",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 11.149874073453248
+  },
+  {
+    "id": "case_010",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 233.18225203547627
+  },
+  {
+    "id": "case_011",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 88.22666201740503
+  },
+  {
+    "id": "case_012",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 173.0650820536539
+  },
+  {
+    "id": "case_013",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 40.06026894785464
+  },
+  {
+    "id": "case_014",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 21.133547998033464
+  },
+  {
+    "id": "case_015",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 8.619742002338171
+  },
+  {
+    "id": "case_016",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 28.32860895432532
+  },
+  {
+    "id": "case_017",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 6.534364074468613
+  },
+  {
+    "id": "case_018",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 13.696508016437292
+  },
+  {
+    "id": "case_019",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 46.89045902341604
+  },
+  {
+    "id": "case_020",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 37.389860954135656
+  },
+  {
+    "id": "case_021",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 12.568391975946724
+  },
+  {
+    "id": "case_022",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 23.075527045875788
+  },
+  {
+    "id": "case_023",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 24.22734396532178
+  },
+  {
+    "id": "case_024",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 7.832614937797189
+  },
+  {
+    "id": "case_025",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 36.66325402446091
+  },
+  {
+    "id": "case_026",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 32.54106000531465
+  },
+  {
+    "id": "case_027",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 9.85515397042036
+  },
+  {
+    "id": "case_028",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 9.072238928638399
+  },
+  {
+    "id": "case_029",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 6.658848957158625
+  },
+  {
+    "id": "case_030",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 10.443561943247914
+  },
+  {
+    "id": "case_031",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 28.45865802373737
+  },
+  {
+    "id": "case_032",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 24.400472990237176
+  },
+  {
+    "id": "case_033",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 8.465425111353397
+  },
+  {
+    "id": "case_034",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 44.50469103176147
+  },
+  {
+    "id": "case_035",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 34.5301260240376
+  },
+  {
+    "id": "case_036",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 24.34652391821146
+  },
+  {
+    "id": "case_037",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 15.275127021595836
+  },
+  {
+    "id": "case_038",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 10.956486919894814
+  },
+  {
+    "id": "case_039",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 9.688483085483313
+  },
+  {
+    "id": "case_040",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 9.784886962734163
+  },
+  {
+    "id": "case_041",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 6.541005917824805
+  },
+  {
+    "id": "case_042",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 6.618196959607303
+  },
+  {
+    "id": "case_043",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 7.949303952045739
+  },
+  {
+    "id": "case_044",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 37.73918002843857
+  },
+  {
+    "id": "case_045",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 26.692193001508713
+  },
+  {
+    "id": "case_046",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 12.560674920678139
+  },
+  {
+    "id": "case_047",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 23.338758968748152
+  },
+  {
+    "id": "case_048",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 9.18030203320086
+  },
+  {
+    "id": "case_049",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 9.094530949369073
+  },
+  {
+    "id": "case_050",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 6.565351039171219
+  },
+  {
+    "id": "case_051",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 34.11730704829097
+  },
+  {
+    "id": "case_052",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 6.30650797393173
+  },
+  {
+    "id": "case_053",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 7.4356578988954425
+  },
+  {
+    "id": "case_054",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 9.067122009582818
+  },
+  {
+    "id": "case_055",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 13.10529699549079
+  },
+  {
+    "id": "case_056",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 25.181274977512658
+  },
+  {
+    "id": "case_057",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 12.788622989319265
+  },
+  {
+    "id": "case_058",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 38.4163330309093
+  },
+  {
+    "id": "case_059",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 22.057712078094482
+  },
+  {
+    "id": "case_060",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 10.684631997719407
+  },
+  {
+    "id": "case_061",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 10.662460001185536
+  },
+  {
+    "id": "case_062",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 9.615296963602304
+  },
+  {
+    "id": "case_063",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 102.2342739161104
+  },
+  {
+    "id": "case_064",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 22.076711989939213
+  },
+  {
+    "id": "case_065",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 7.673652027733624
+  },
+  {
+    "id": "case_066",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 17.409621039405465
+  },
+  {
+    "id": "case_067",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 9.360520052723587
+  },
+  {
+    "id": "case_068",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 6.427356973290443
+  },
+  {
+    "id": "case_069",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 8.492183987982571
+  },
+  {
+    "id": "case_070",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 6.797204026952386
+  },
+  {
+    "id": "case_071",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 9.000175981782377
+  },
+  {
+    "id": "case_072",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 10.018020053394139
+  },
+  {
+    "id": "case_073",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 40.53114599082619
+  },
+  {
+    "id": "case_074",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 12.215211987495422
+  },
+  {
+    "id": "case_075",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 10.358485975302756
+  },
+  {
+    "id": "case_076",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 24.47095199022442
+  },
+  {
+    "id": "case_077",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 7.310988963581622
+  },
+  {
+    "id": "case_078",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 14.744402025826275
+  },
+  {
+    "id": "case_079",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 24.078638991340995
+  },
+  {
+    "id": "case_080",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 24.42677109502256
+  },
+  {
+    "id": "case_081",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 31.135239987634122
+  },
+  {
+    "id": "case_082",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 18.96485104225576
+  },
+  {
+    "id": "case_083",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 7.034020032733679
+  },
+  {
+    "id": "case_084",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 17.057686927728355
+  },
+  {
+    "id": "case_085",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 13.69478099513799
+  },
+  {
+    "id": "case_086",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 6.891755037941039
+  },
+  {
+    "id": "case_087",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 28.92676996998489
+  },
+  {
+    "id": "case_088",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 31.500053009949625
+  },
+  {
+    "id": "case_089",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 43.91671298071742
+  },
+  {
+    "id": "case_090",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 33.418698934838176
+  },
+  {
+    "id": "case_091",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 14.787624008022249
+  },
+  {
+    "id": "case_092",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 6.642414955422282
+  },
+  {
+    "id": "case_093",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 31.91100200638175
+  },
+  {
+    "id": "case_094",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 12.321234913542867
+  },
+  {
+    "id": "case_095",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 36.08693496789783
+  },
+  {
+    "id": "case_096",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 6.1065449845045805
+  },
+  {
+    "id": "case_097",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 25.435564923100173
+  },
+  {
+    "id": "case_098",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 30.985921970568597
+  },
+  {
+    "id": "case_099",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 6.771774962544441
+  },
+  {
+    "id": "case_100",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 9.108989965170622
+  },
+  {
+    "id": "case_101",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 117.78296600095928
+  },
+  {
+    "id": "case_102",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 28.575832024216652
+  },
+  {
+    "id": "case_103",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 24.98600399121642
+  },
+  {
+    "id": "case_104",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 6.16664404515177
+  },
+  {
+    "id": "case_105",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 8.733117021620274
+  },
+  {
+    "id": "case_106",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 11.255585006438196
+  },
+  {
+    "id": "case_107",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 6.831028964370489
+  },
+  {
+    "id": "case_108",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 31.90131497103721
+  },
+  {
+    "id": "case_109",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 29.212935944087803
+  },
+  {
+    "id": "case_110",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 138.68553203064948
+  },
+  {
+    "id": "case_111",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 25.946190929971635
+  },
+  {
+    "id": "case_112",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 9.24294302240014
+  },
+  {
+    "id": "case_113",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 191.8774408986792
+  },
+  {
+    "id": "case_114",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 21.056749974377453
+  },
+  {
+    "id": "case_115",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 11.885792948305607
+  },
+  {
+    "id": "case_116",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 129.23859700094908
+  },
+  {
+    "id": "case_117",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 26.36885200627148
+  },
+  {
+    "id": "case_118",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 28.212953940965235
+  },
+  {
+    "id": "case_119",
+    "finite": 231,
+    "nan_indices": [],
+    "ms": 6.1128330416977406
+  }
+]

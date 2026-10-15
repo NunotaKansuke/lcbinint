@@ -3388,18 +3388,28 @@ bool append_certified_component_seeds(
     SourcePosition source,
     double source_radius,
     const DiskSupport& support,
-    std::vector<SourcePosition>& seeds)
+    std::vector<SourcePosition>& seeds,
+    std::vector<PointSourceMagnifier>* probe_magnifiers = nullptr)
 {
     const double source_radius2 = source_radius * source_radius;
     const bool stats = probe_stats_enabled();
+    std::size_t probe_index = 0;
     const bool proven = resolve_certified_probes(support, [&](SourcePosition probe) {
         if (distance_squared(probe, source) >= source_radius2 * (1.0 + 1.0e-10)) {
             return -1;
         }
         const auto started = stats ? std::chrono::steady_clock::now()
                                    : std::chrono::steady_clock::time_point {};
+        const PointSourceMagnifier* provider = &point_magnifier;
+        // The cap bounds cache memory only; overflow uses the incumbent solver.
+        if (probe_magnifiers != nullptr && probe_index < 1024) {
+            if (probe_index == probe_magnifiers->size())
+                probe_magnifiers->emplace_back();
+            provider = &(*probe_magnifiers)[probe_index];
+        }
+        ++probe_index;
         const auto probe_images =
-            selected_point_images(point_magnifier, separation, mass_ratio, probe);
+            selected_point_images(*provider, separation, mass_ratio, probe);
         if (stats) {
             auto& counters = probe_counters();
             counters.certified_solves += 1;
@@ -3427,7 +3437,8 @@ std::vector<SourcePosition> augmented_image_seeds(
     const std::vector<SourcePosition>* seed_hints = nullptr,
     const std::vector<std::vector<SourcePosition>>* caustic_branches = nullptr,
     bool* support_proven = nullptr,
-    std::size_t* initial_seed_count = nullptr)
+    std::size_t* initial_seed_count = nullptr,
+    std::vector<PointSourceMagnifier>* probe_magnifiers = nullptr)
 {
     if (support_proven != nullptr) {
         *support_proven = true;
@@ -3481,7 +3492,7 @@ std::vector<SourcePosition> augmented_image_seeds(
             std::move(scan.support), source, source_radius);
         const bool proven = append_certified_component_seeds(
             point_magnifier, mapper, separation, mass_ratio, source, source_radius,
-            support, seeds);
+            support, seeds, probe_magnifiers);
         if (support_proven != nullptr) {
             *support_proven = proven;
         }
@@ -6715,7 +6726,8 @@ std::vector<SourcePosition> FiniteSourceMagnifier::cached_binary_image_seeds(
     double source_radius,
     double caustic_distance,
     const std::vector<SourcePosition>* center_image_seeds,
-    bool* support_proven) const
+    bool* support_proven,
+    bool continue_probe_roots) const
 {
     for (const auto& entry : binary_seed_cache_) {
         const bool center_seeds_match =
@@ -6745,7 +6757,7 @@ std::vector<SourcePosition> FiniteSourceMagnifier::cached_binary_image_seeds(
         caustic_distance,
         center_image_seeds,
         &binary_caustic_branches(separation, mass_ratio),
-        &proven);
+        &proven, nullptr, continue_probe_roots ? &binary_probe_magnifiers_ : nullptr);
 
     constexpr std::size_t maximum_entries = 1024;
     if (binary_seed_cache_.size() >= maximum_entries) {
@@ -6778,6 +6790,7 @@ void FiniteSourceMagnifier::clear_binary_epoch_caches() const
     caustic_cache_grid_.clear();
     caustic_cache_branch_grid_.clear();
     binary_seed_cache_.clear();
+    binary_probe_magnifiers_.clear();
     result_cache_valid_ = false;
 }
 

@@ -1,0 +1,15 @@
+{
+  "head": "1d6984f7501066f22ff0143d69c1cd1c45b04d06",
+  "sha256": {
+    "src/lcbinint/magnification/finite_source_magnifier.cpp": "d2fe67dc32b993a3cfa31fb7c91fc2149e7a6ccd88ca13b0c4c766fbf8799594",
+    "benchmarks/holonomic/fused_gradient/fused_k.hpp": "fc5a487b959717c88d3009acb9a55bc3b25c41dec9beb4e725939f7d76841c24",
+    "benchmarks/holonomic/fused_gradient/build_material_overlay.py": "1edeed35b6af5ccc9e65a7c0927711393e2db827d2ae74f4211143c28c401a45",
+    "benchmarks/holonomic/fused_gradient/build_geometry_overlay.py": "af38c8433e7c1f6a6f8d7abb8fcef89a8fed8749b41738603c09bdbb385bc43a",
+    "build-algebraic-boundary/python-api/lcbinint/_lcbinint.cpython-310-x86_64-linux-gnu.so": "4f19b261bdcb5d8b445f3edc9de09f4a3c5a7b24af517c1e16b230585cc516a4",
+    "build-algebraic-boundary/fused-gradient/python/_lcbinint_holonomic_fused.cpython-310-x86_64-linux-gnu.so": "9c5e12a5fb84778e8ba6a84d28251b75e2fd2714828d230228d1b2b5e6b40cd5"
+  },
+  "seed": 20261015,
+  "worker_seconds_limit": 20,
+  "threads": 1,
+  "tolerance": 0.001
+}

@@ -1,6 +1,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <array>
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <limits>
@@ -8,6 +9,7 @@
 #include "lcbinint/magnification/finite_source_magnifier.hpp"
 #include "lcbinint/magnification/point_source_magnifier.hpp"
 #include "lcbinint/magnification/holonomic/fused_gradient.hpp"
+#include "lcbinint/magnification/holonomic/source_disk_gradient.hpp"
 #include "lcbinint/magnification/holonomic/seeded_radial_frontier_value.hpp"
 
 namespace py=pybind11;
@@ -44,6 +46,16 @@ public:
     PreparedEpoch evaluate(double xs, double ys, double limb_darkening,
                            double mu_atol, double mu_rtol, bool barycentric) {
         const lcbinint::SourcePosition source{xs, ys};
+        PreparedEpoch disk;
+        int disk_images=0;
+        if(lcbinint::holonomic::source_disk_detail::evaluate(
+            LensParams{xs,ys,source_radius_,mass_ratio_,separation_,barycentric},
+            limb_darkening,{mu_atol,mu_rtol},finite_,point_,disk.result,disk_images)) {
+            disk.center_image_count=disk_images;
+            disk.augmented_seed_count=disk_images;
+            disk.seed_support_proven=true;
+            return disk;
+        }
         const auto seed_set = lcbinint::holonomic::make_caustic_aware_binary_seeds(
             finite_, point_, separation_, mass_ratio_, source, source_radius_);
         std::vector<std::array<double, 2>> seeds;
@@ -59,6 +71,16 @@ public:
         prepared.result = epoch_fused_gradient(
             LensParams{xs, ys, source_radius_, mass_ratio_, separation_, barycentric},
             limb_darkening, seeds, {mu_atol, mu_rtol});
+        if(prepared.result.reliability_retried || !std::all_of(prepared.result.gradient_valid.begin(),
+                        prepared.result.gradient_valid.end(),[](bool valid){return valid;})) {
+            auto repaired=prepared.result;
+            int repaired_images=0;
+            if(lcbinint::holonomic::source_disk_detail::evaluate(
+                LensParams{xs,ys,source_radius_,mass_ratio_,separation_,barycentric},
+                limb_darkening,{mu_atol,mu_rtol},finite_,point_,repaired,repaired_images,true)) {
+                prepared.result=std::move(repaired);
+            }
+        }
         return prepared;
     }
 

@@ -43,7 +43,7 @@ inline const GaussianRule& gaussian_rule(int n) {
 // points integrate polynomials through degree 4*(2^level-1)-1. No derivative
 // error is estimated or used to choose the order or the accepted value mesh.
 template<class Eval>
-inline AdaptiveResult gaussian_replay(AdaptiveWorkspace&workspace,const AdaptiveConfig&cfg,Eval&&eval,std::size_t primal_nodes){
+inline AdaptiveResult gaussian_replay(AdaptiveWorkspace&workspace,const AdaptiveConfig&cfg,Eval&&eval,std::size_t primal_nodes,int reliability_retry=0){
  AdaptiveResult result;std::array<adaptive_detail::Sum,5> sum;
  bool valid=true;AdaptiveStop failure=AdaptiveStop::TopologyUnresolved;
  for(const auto&panel:workspace.panels)if(panel.active){
@@ -89,6 +89,14 @@ inline AdaptiveResult gaussian_replay(AdaptiveWorkspace&workspace,const Adaptive
    sample.R=R;previous=std::move(sample);have_previous=true;
   }
   if(!valid)break;
+ }
+ // A desingularized panel may place its highest-order nodes closer to a
+ // fold than its endpoint roots can resolve. Retry a fixed interior rule only
+ // after geometry evaluation failed; this does not inspect gradient errors.
+ if(!valid&&failure==AdaptiveStop::TopologyUnresolved&&reliability_retry==0){
+  reliability_retry_used=true;
+  auto retry=gaussian_replay(workspace,cfg,eval,primal_nodes+result.stats.node_evaluations,1);
+  retry.stats.node_evaluations+=result.stats.node_evaluations;return retry;
  }
  for(int j=0;j<5;++j){result.grad_mu[j]=valid?sum[j].get():std::numeric_limits<double>::quiet_NaN();result.grad_quality[j]=valid?GradientQuality::FiniteUncertified:GradientQuality::Invalid;result.grad_reason[j]=valid || failure==AdaptiveStop::BudgetExceeded?GradientReason::BudgetExceeded:GradientReason::TopologyUnresolved;}
  result.stop=valid?AdaptiveStop::Converged:failure;

@@ -39,7 +39,7 @@ inline CausticAwareBinarySeeds make_caustic_aware_binary_seeds(
     const auto positions = finite.cached_binary_image_seeds(
         point, separation, mass_ratio, source, source_radius,
         std::numeric_limits<double>::infinity(), &result.center_images,
-        &result.support_proven);
+        &result.support_proven, true);
     result.radial_seeds.reserve(positions.size());
     const double frame_shift = mass_ratio < 1.0 ? separation : 0.0;
     for (const auto& image : positions) {

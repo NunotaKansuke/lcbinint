@@ -1,5 +1,6 @@
 #pragma once
 #include "fused_motion.hpp"
+#include "fused_geometry_screen.hpp"
 #include "lcbinint/magnification/holonomic/root_pair.hpp"
 #include "lcbinint/magnification/holonomic/holonomic_transport.hpp"
 
@@ -18,6 +19,44 @@ inline std::array<RootPairDR,5> root_pair_tangents(const RootPair& pair,
         out[j]={-(J.O_v*E-J.E_v*O)/det,-(-J.O_m*E+J.E_m*O)/det,true};
     }
     return out;
+}
+// The 1/3 embedded difference can vanish for a nonconstant integrand.
+// Certify only the cheap three-node shortcut with a Cauchy/Taylor tail bound.
+// On |x|<=r each quadratic factor is p0*(1+e), |e|<=1/2.
+// GC2(3) is exact through degree five, so its error is bounded by
+// pi*M*r^-6/(1-r^-1), where M bounds the analytic integrand on that circle.
+// This controls value quadrature only; it is not a gradient-error criterion.
+inline double short_angular_value_bound(const DeflatedQuad& q,double m,double s,
+    double v,double b0,double b2,double rho) {
+    namespace screen=geometry_experiment;
+    using I=screen::ScreenInterval;
+    if(!positive_detail::environment_ok())return INFINITY;
+    const I mm(m),ss(s),square_s=ss*ss,one(1),two(2);
+    const I S0=-(I(q.d0)+mm*(I(q.d1)+mm*I(q.p4)));
+    const I S1=-ss*(I(q.d1)+two*mm*I(q.p4)),S2=-square_s*I(q.p4);
+    const I A0=one+mm*mm,A1=two*mm*ss,A2=square_s;
+    const I B0=I(b0)*I(b0)+I(b2)*mm*mm,B1=two*I(b2)*mm*ss,B2=I(b2)*square_s;
+    auto up=screen::screen_up,down=screen::screen_down;
+    auto radius=[&](I p0,I p1,I p2){
+        if(!(p0.lo>0)||!std::isfinite(p0.hi)||!std::isfinite(screen::screen_upper(p1))||!std::isfinite(screen::screen_upper(p2)))return 0.;
+        const double a=up(screen::screen_upper(p2)/p0.lo),b=up(screen::screen_upper(p1)/p0.lo);
+        const double discriminant=up(up(b*b)+up(2*a));
+        const double denominator=up(b+up(std::sqrt(discriminant)));
+        return denominator>0&&std::isfinite(denominator)?down(1/denominator):0.;
+    };
+    double r=std::min({radius(S0,S1,S2),radius(A0,A1,A2),radius(B0,B1,B2)});
+    if(!(r>1&&std::isfinite(r)))return INFINITY;
+    int exponent=0;std::frexp(r,&exponent);const int power=exponent-1;
+    if(power<=0)return INFINITY;
+    r=std::ldexp(1.,power);
+    const double ah=down(.5*A0.lo),bh=down(.5*B0.lo);
+    const double denominator=down(down(ah*down(std::sqrt(ah)))*down(std::sqrt(bh)));
+    if(!(denominator>0))return INFINITY;
+    const double M=up(up(std::sqrt(up(1.5*S0.hi)))/denominator);
+    const double tail=up(up(std::ldexp(1.,-6*power))/down(1-1/r));
+    const double prefactor=up(up(2*v)/rho);
+    const double bound=up(prefactor*up(up(kHoloPi)*up(M*tail)));
+    return std::isfinite(bound)?bound:INFINITY;
 }
 struct AngularPair { VKJacobian high{}, low{}; bool ok=false; int points=0; };
 // Value and five tangents share each point evaluation, square root and
@@ -60,6 +99,10 @@ inline AngularPair angular_pair(double m,double v,const std::array<double,5>& dm
         bool accepted=2*std::fabs(out.high.vK-out.low.vK)<=value_gate*std::fabs(out.high.vK);
         for(int j=0;j<5;++j)accepted=accepted&&
             2*std::fabs(out.high.dvK[j]-out.low.dvK[j])<=gradient_gate*std::max(1e-30,std::fabs(out.high.dvK[j]));
+        if constexpr(N==3)if(accepted) {
+            const double bound=short_angular_value_bound(q,m,s,v,b0,b2,pf.rho);
+            accepted=bound<=geometry_experiment::screen_down(value_gate*std::fabs(out.high.vK));
+        }
         previous=out.high;previous_order=N;
         return accepted?1:0;
     };
@@ -89,8 +132,25 @@ inline MaterialMap make_material_map(const Event& left,const Event& right,const 
     map.b=(long double)right.radius+right.radius_lo;
     if(!(map.b>map.a))return map;
     auto derivative=[&](const Event& event,std::array<double,5>& output){
-        if(!event.pair_motion_valid)return false;
-        const double theta=event.pair_reciprocal?2*std::atan(event.pair_m)+kPi:2*std::atan(event.pair_m);
+        // The endpoint derivative only needs the stationary angular location.
+        // `pair_motion_valid` additionally requires differentiating the local
+        // root-pair coordinates, which can fail at a degenerate or ill-conditioned fold.
+        // In that case the retained fold seed is still enough: phi_theta=0
+        // removes the angular-motion term from d(phi(R,theta,p))/dp.
+        double m=0.0;
+        bool reciprocal=false;
+        if(event.pair_motion_valid) {
+            m=event.pair_m;
+            reciprocal=event.pair_reciprocal;
+        } else if(event.t_seed_valid && std::isfinite(event.t_seed)) {
+            m=event.t_seed;
+        } else if(event.u_seed_valid && std::isfinite(event.u_seed)) {
+            m=event.u_seed;
+            reciprocal=true;
+        } else {
+            return false;
+        }
+        const double theta=reciprocal?2*std::atan(m)+kPi:2*std::atan(m);
         const auto c=phi_detail::core(event.radius,theta,pf);
         const auto gradient=phi_detail::dP_from(c,pf);
         using namespace phi_detail;

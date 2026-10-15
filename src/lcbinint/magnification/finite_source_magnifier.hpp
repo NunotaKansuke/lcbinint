@@ -2,6 +2,7 @@
 
 #include "lcbinint/model/triple_lens_geometry.hpp"
 #include "lcbinint/types.hpp"
+#include "lcbinint/magnification/point_source_magnifier.hpp"
 
 #include <cstddef>
 #include <limits>
@@ -225,7 +226,8 @@ public:
         double source_radius,
         double caustic_distance,
         const std::vector<SourcePosition>* center_image_seeds,
-        bool* support_proven) const;
+        bool* support_proven,
+        bool continue_probe_roots = false) const;
     // Start a cold binary-epoch diagnostic while retaining the reusable
     // limb-darkening table. The normal production path keeps these caches.
     void clear_binary_epoch_caches() const;
@@ -333,6 +335,9 @@ private:
         bool support_proven;
     };
     mutable std::vector<BinarySeedCacheEntry> binary_seed_cache_;
+    // Each certificate probe continues from the corresponding previous-epoch
+    // solve. Every warm root set still passes the ordinary validation/cold retry.
+    mutable std::vector<PointSourceMagnifier> binary_probe_magnifiers_;
     mutable bool result_cache_valid_ = false;
     mutable double result_cache_separation_ = 0.0;
     mutable double result_cache_mass_ratio_ = 0.0;

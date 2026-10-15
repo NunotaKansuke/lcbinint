@@ -1,0 +1,80 @@
+                     case  limb  ...  integral_epochs  integral_support_certified
+0                ordinary   0.0  ...                0                           0
+1                ordinary   0.0  ...                0                           0
+2                ordinary   0.5  ...                0                           0
+3                ordinary   0.5  ...                0                           0
+4                ordinary   0.9  ...                0                           0
+5                ordinary   0.9  ...                0                           0
+6            wide_caustic   0.0  ...               43                           0
+7            wide_caustic   0.0  ...               46                           0
+8            wide_caustic   0.5  ...               43                           0
+9            wide_caustic   0.5  ...               46                           0
+10           wide_caustic   0.9  ...               43                           0
+11           wide_caustic   0.9  ...               46                           0
+12               resonant   0.0  ...              190                           0
+13               resonant   0.0  ...              288                           0
+14               resonant   0.5  ...              184                           0
+15               resonant   0.5  ...              285                           0
+16               resonant   0.9  ...              177                           0
+17               resonant   0.9  ...              281                           0
+18             equal_mass   0.0  ...               99                           0
+19             equal_mass   0.0  ...              121                           0
+20             equal_mass   0.5  ...               99                           0
+21             equal_mass   0.5  ...              119                           0
+22             equal_mass   0.9  ...               97                           0
+23             equal_mass   0.9  ...              117                           0
+24           close_binary   0.0  ...               59                           0
+25           close_binary   0.0  ...               63                           0
+26           close_binary   0.5  ...               59                           0
+27           close_binary   0.5  ...               63                           0
+28           close_binary   0.9  ...               58                           0
+29           close_binary   0.9  ...               63                           0
+30           close_planet   0.0  ...               17                           0
+31           close_planet   0.0  ...               19                           0
+32           close_planet   0.5  ...               17                           0
+33           close_planet   0.5  ...               19                           0
+34           close_planet   0.9  ...               17                           0
+35           close_planet   0.9  ...               19                           0
+36           broad_source   0.0  ...              401                           0
+37           broad_source   0.0  ...              401                           0
+38           broad_source   0.5  ...              401                           0
+39           broad_source   0.5  ...              401                           0
+40           broad_source   0.9  ...              401                           0
+41           broad_source   0.9  ...              401                           0
+42           large_source   0.0  ...              401                           0
+43           large_source   0.0  ...              401                           0
+44           large_source   0.5  ...              401                           0
+45           large_source   0.5  ...              401                           0
+46           large_source   0.9  ...              401                           0
+47           large_source   0.9  ...              401                           0
+48            tiny_source   0.0  ...                0                           0
+49            tiny_source   0.0  ...                0                           0
+50            tiny_source   0.5  ...                0                           0
+51            tiny_source   0.5  ...                0                           0
+52            tiny_source   0.9  ...                0                           0
+53            tiny_source   0.9  ...                0                           0
+54  notebook_alpha180_rad   0.0  ...               47                           0
+55  notebook_alpha180_rad   0.0  ...               47                           0
+56  notebook_alpha180_rad   0.5  ...               45                           0
+57  notebook_alpha180_rad   0.5  ...               47                           0
+58  notebook_alpha180_rad   0.9  ...               45                           0
+59  notebook_alpha180_rad   0.9  ...               47                           0
+
+[60 rows x 10 columns]
+{'id': 'wide_caustic_ld0.5_tol0.0001', 'case': 'wide_caustic', 'params': {'s': 1.2, 'q': 0.01, 'rho': 0.003, 't0': 0.0, 'tE': 10.0, 'u0': 0.03, 'alpha': -0.08}, 'tau_min': -0.2, 'tau_max': 0.8, 'limb': 0.5, 'tol': 0.0001, 'n_times': 401}
+lcbinint / VBM [ms]: 12.19504198525101 81.41612098552287
+routes: {'hexadecapole': 224, 'algebraic_boundary_seeded_radial': 46, 'point_source': 131}
+value converged: 401 / 401
+integral support certified: 0 / 46
+                             id  ...  native_uniform_outer_relative_difference
+0  broad_source_ld0.5_tol0.0001  ...                              4.089673e-13
+1   broad_source_ld0.5_tol0.001  ...                              4.684874e-12
+2  broad_source_ld0.9_tol0.0001  ...                              4.089673e-13
+3   broad_source_ld0.9_tol0.001  ...                              4.684874e-12
+4  large_source_ld0.5_tol0.0001  ...                              1.048290e-10
+5   large_source_ld0.5_tol0.001  ...                              9.258229e-11
+6  large_source_ld0.9_tol0.0001  ...                              1.048290e-10
+7   large_source_ld0.9_tol0.001  ...                              9.344892e-11
+
+[8 rows x 8 columns]
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/example/compare-vbm/lcbinint_vbm_lightcurve_performance.ipynb

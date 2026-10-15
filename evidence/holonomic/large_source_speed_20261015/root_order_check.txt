@@ -1,0 +1,1 @@
+1600000 sqrt-order comparisons agree across four IEEE rounding modes\n

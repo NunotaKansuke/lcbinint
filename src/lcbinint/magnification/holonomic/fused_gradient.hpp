@@ -17,6 +17,7 @@ struct FusedGradientResult {
     std::array<bool,5> gradient_valid{}; // usable finite result, not an accuracy bound
     bool value_converged=false;
     bool gradient_precision_checked=false;
+    bool reliability_retried=false; // geometry retry, not a gradient accuracy claim
     std::string stop;
     bool support_certified=false;
     std::size_t node_evaluations=0;

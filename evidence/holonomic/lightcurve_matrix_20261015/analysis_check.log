@@ -1,0 +1,24 @@
+{
+  "cases": 60,
+  "epochs": 24060,
+  "failed": [],
+  "finite_values": 24060,
+  "value_converged": 24060,
+  "fully_converged": 16173,
+  "integral_epochs": 7887,
+  "integral_support_certified": 0,
+  "finite_gradient_components": 168420,
+  "gradient_components_expected": 168420,
+  "lc_faster_cases": 43,
+  "median_speed_ratio": 1.847395913642842,
+  "pairwise_difference_over_request_cases": [
+    "broad_source_ld0.5_tol0.001",
+    "broad_source_ld0.5_tol0.0001",
+    "broad_source_ld0.9_tol0.001",
+    "broad_source_ld0.9_tol0.0001",
+    "large_source_ld0.5_tol0.0001",
+    "large_source_ld0.9_tol0.0001"
+  ],
+  "plain_call_matches_info": true,
+  "peak_worker_rss_mib": 54.0
+}
