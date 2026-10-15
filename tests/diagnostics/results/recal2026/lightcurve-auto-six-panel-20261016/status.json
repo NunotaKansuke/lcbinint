@@ -1,0 +1,9 @@
+{
+  "conditions": 14432,
+  "state": "figures_complete_visual_reviewed",
+  "updated_unix": 1792077851.3225522,
+  "visual_review": {
+    "checked": "all four figures show the 1x category as pure white and retain the shared reciprocal factor-of-two scale",
+    "rendered_pngs": 4
+  }
+}

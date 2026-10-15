@@ -1,0 +1,40 @@
+{
+  "adjudications_sha256": "15edcc514d0583be54c275c55b260f2485bcd95d749854730b61c620e3185df7",
+  "cpu_affinity": [
+    0
+  ],
+  "default_options": {
+    "adaptive_hex_threshold": 0.001,
+    "hexadecapole_threshold": 3.0,
+    "inverse_ray_grid": "auto",
+    "max_source_bins": 512,
+    "mode": 4,
+    "nbin": "auto",
+    "point_source_threshold": 20.0
+  },
+  "git_head": "a444343285b3716e2131272f7c9183456580aebf",
+  "host": "rogue1",
+  "input_sha256": "e79599e1365020aa4911f079bbafd4951bb2056dc21730b049fec2a6c241ec09",
+  "native_module": "/rogue1_8/nunota/lcbinint/build-adaptive-production/lcbinint/_lcbinint.cpython-310-x86_64-linux-gnu.so",
+  "native_sha256": "fc313060fdd9c95d8bfdd5f7f0e09b6a84238b6b18ec02290747c8650c8fb1d3",
+  "options_overrides": {
+    "coordinates": "center_of_mass",
+    "finite_source_reltol": [
+      0.001,
+      0.0001
+    ],
+    "finite_source_tol": 0.0
+  },
+  "python": "3.10.19",
+  "reference_certified": false,
+  "script_sha256": "491fdf73c80d6b44d2c27a9c67adc4ea17e0619f5fe9bc7b906d91ef51142f19",
+  "targets": [
+    0.001,
+    0.0001
+  ],
+  "threads": 1,
+  "timing": "public LightCurve.info vector call; one warm batch and three timed batches; median batch wall time divided by epoch count; LightCurve object and NumPy epoch array prepared outside timer",
+  "vbm_measurement_sha256": "b6a2d4c10f8665127ca3d1a90f0b830b83038d229c1d433203f7758f4f436a16",
+  "vbm_results_sha256": "7e20631b43bcc8084a3c09cca184744dcea44d718e3673c860d9a71e07e109af",
+  "vbm_timing": "reused matched direct Python binding timings; same cohort and targets; one warm plus three timed calls per epoch; median; VBM solver setup excluded"
+}
