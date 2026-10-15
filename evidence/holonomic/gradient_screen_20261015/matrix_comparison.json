@@ -1,0 +1,9 @@
+{
+  "epochs": 60,
+  "gradient_components": 300,
+  "finite_on": 300,
+  "finite_off": 300,
+  "value_converged_on": 60,
+  "value_converged_off": 60,
+  "differences": []
+}

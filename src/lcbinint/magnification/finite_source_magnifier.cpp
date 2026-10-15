@@ -8281,23 +8281,6 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
         point_safety.topology_safe() || measured_topology_safe;
     const bool effective_point_source_safe =
         point_safety.quadrupole_cusp_safe && effective_topology_safe;
-    const auto calibrated_resolution = calibrated_binary_resolution(
-        mass_ratio,
-        source_radius,
-        refined_dist,
-        point_source_magnification,
-        settings_.limb_darkening_c,
-        settings_.finite_mode,
-        settings_.finite_source_tol,
-        settings_.finite_source_reltol,
-        settings_.max_source_bins);
-    FiniteSourceSettings runtime_settings = settings_;
-    if (settings_.automatic_source_bins) {
-        runtime_settings.source_bins = calibrated_resolution.source_bins;
-        if (runtime_settings.polar_source_bins <= 0) {
-            runtime_settings.polar_source_bins = calibrated_resolution.source_bins;
-        }
-    }
     const double hex_dist_threshold = settings_.hex_threshold * source_radius;
     const bool near_caustic = refined_dist < hex_dist_threshold;
     double rejected_hex_magnification = std::numeric_limits<double>::quiet_NaN();
@@ -8463,6 +8446,27 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
             std::min<std::size_t>(integrated.integral.stats.node_evaluations,
                                   static_cast<std::size_t>(std::numeric_limits<int>::max())));
         return cache_and_return(std::move(result));
+    }
+
+    // Only the legacy inverse-ray path consumes the empirical automatic-nbin
+    // calibration. The seeded radial-frontier route above uses its requested
+    // tolerances directly and returns before consulting this resolution law.
+    const auto calibrated_resolution = calibrated_binary_resolution(
+        mass_ratio,
+        source_radius,
+        refined_dist,
+        point_source_magnification,
+        settings_.limb_darkening_c,
+        settings_.finite_mode,
+        settings_.finite_source_tol,
+        settings_.finite_source_reltol,
+        settings_.max_source_bins);
+    FiniteSourceSettings runtime_settings = settings_;
+    if (settings_.automatic_source_bins) {
+        runtime_settings.source_bins = calibrated_resolution.source_bins;
+        if (runtime_settings.polar_source_bins <= 0) {
+            runtime_settings.polar_source_bins = calibrated_resolution.source_bins;
+        }
     }
 
     // Grazing-caustic diagnostics.  Binary automatic evaluation deliberately

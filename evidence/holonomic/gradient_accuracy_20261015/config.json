@@ -1,0 +1,25 @@
+{
+  "params": {
+    "t0": 0.0,
+    "tE": 10.0,
+    "u0": -1e-05,
+    "alpha": 0.5,
+    "s": 0.6,
+    "q": 0.0001,
+    "rho": 0.05
+  },
+  "times": [
+    -0.72,
+    -0.704,
+    -0.7,
+    -0.696,
+    -0.68,
+    0.1,
+    0.78
+  ],
+  "vbm_atol": 1e-10,
+  "vbm_rtol": 1e-10,
+  "native_atol": 1e-10,
+  "native_rtol": 1e-09,
+  "native_file": "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/build-algebraic-boundary/python-api/lcbinint/_lcbinint.cpython-310-x86_64-linux-gnu.so"
+}

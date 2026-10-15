@@ -1,0 +1,8 @@
+-0.72 value_mesh 9.69638 ms
+-0.704 value_mesh 5.91129 ms
+-0.7 value_mesh 4.77038 ms
+-0.696 value_mesh 4.91893 ms
+-0.68 value_mesh 2.44848 ms
+0.1 value_mesh 0.550018 ms
+0.78 value_mesh 3.91839 ms
+screen 7 bands 19 clear 7 fine_epochs 7 special_epochs 6 double 7 precise 0 epochs_clear 0

@@ -1,4 +1,4 @@
-# Forward fused gradients (isolated experiment)
+# Forward fused gradients
 
 This experimental entry point carries derivatives for `(xs, ys, rho, q, a)`
 while computing the magnification. It does not call a VJP or rerun the
@@ -148,3 +148,29 @@ fall back to the existing geometry and integration routes.
 Matched before/after timings, per-epoch values/support flags, code provenance
 and validation commands are in
 [`router_shared_point_20261014`](../../../evidence/holonomic/router_shared_point_20261014/README.md).
+
+## Default close-pair treatment (2026-10-15)
+
+The compiled gradient API now uses conservative D14 root screening, detailed
+isolation only where the screen is inconclusive, and regularized close-pair
+replay. At special epochs the smooth background is replayed too, using the
+existing value-selected quadrature level. Ordinary epochs retain their normal
+path. No derivative-error tolerance or derivative-driven adaptivity is added;
+finite gradients remain uncertified. This changes the gradient build's default,
+not the finite-source backend selected by a caller.
+
+Both `build.sh` and `build_algebraic.sh` enable this through
+`build_api_overlay.py`; no separate geometry build or environment switch is
+needed. In this algebraic-boundary checkout use:
+
+```bash
+bash benchmarks/holonomic/fused_gradient/build_algebraic.sh
+```
+
+The resulting module is under `build-algebraic-boundary/fused-gradient/python`.
+Restart a running Python/Jupyter kernel to load the rebuilt extension.
+`build_geometry.sh` remains a comparison build of the same kernel.
+
+Accuracy, timing limits and reproduction inputs are recorded in
+`evidence/holonomic/gradient_refine_20261015/README.md`; default adoption is
+recorded in `evidence/holonomic/gradient_default_20261015/README.md`.

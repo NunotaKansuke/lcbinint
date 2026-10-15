@@ -1,8 +1,9 @@
+import os
 from pathlib import Path
 import hashlib,json,shutil
 ROOT=Path(__file__).resolve().parents[3]
 BASE=ROOT/'src/lcbinint/magnification/holonomic'
-OUT=ROOT/'build-seeded-events/fused-gradient/include/lcbinint/magnification/holonomic'
+OUT=Path(os.environ.get('LCBININT_FUSED_BUILD', str(ROOT/'build-seeded-events/fused-gradient')))/'include/lcbinint/magnification/holonomic'
 OUT.mkdir(parents=True,exist_ok=True)
 # Quote-relative includes must resolve within one consistent experimental
 # header tree; mixing original and overlaid structs would violate the ABI.

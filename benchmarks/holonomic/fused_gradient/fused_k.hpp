@@ -84,7 +84,7 @@ struct MaterialMap {
     }
 };
 template<class Event>
-inline MaterialMap make_material_map(const Event& left,const Event& right,const PrimaryFrame& pf) {
+inline MaterialMap make_material_map(const Event& left,const Event& right,const PrimaryFrame& pf, bool left_fixed=false, bool right_fixed=false) {
     MaterialMap map;map.a=(long double)left.radius+left.radius_lo;
     map.b=(long double)right.radius+right.radius_lo;
     if(!(map.b>map.a))return map;
@@ -102,6 +102,6 @@ inline MaterialMap make_material_map(const Event& left,const Event& right,const 
         for(int j=0;j<5;++j){output[j]=-gradient[j]/slope;if(!std::isfinite(output[j]))return false;}
         return true;
     };
-    map.valid=derivative(left,map.da)&&derivative(right,map.db);return map;
+    map.valid=(left_fixed || derivative(left,map.da))&&(right_fixed || derivative(right,map.db));return map;
 }
 }

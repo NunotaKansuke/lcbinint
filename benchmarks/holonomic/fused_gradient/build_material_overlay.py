@@ -1,9 +1,10 @@
+import os
 from pathlib import Path
 import runpy,json,hashlib
 runpy.run_path(str(Path(__file__).with_name('build_overlay.py')))
 ROOT=Path(__file__).resolve().parents[3]
 BASE=ROOT/'src/lcbinint/magnification/holonomic'
-OUT=ROOT/'build-seeded-events/fused-gradient/include/lcbinint/magnification/holonomic'
+OUT=Path(os.environ.get('LCBININT_FUSED_BUILD', str(ROOT/'build-seeded-events/fused-gradient')))/'include/lcbinint/magnification/holonomic'
 def replace(s,a,b):
     assert s.count(a)==1,(a,s.count(a))
     return s.replace(a,b)
@@ -101,19 +102,34 @@ rest=replace(rest,'    for(int j=0;j<error_components;++j) {\n        p.q[j]=q[j
 s=s[:a]+first+rest+s[b:]
 s=replace(s,'            p.q[j]+=uniform.q[j];p.radial[j]+=uniform.radial[j];',
     '            p.q[j]+=uniform.q[j];\n            if(cfg.fused_value_mesh && j>0) {\n                p.error[j]=kAdaptiveUnresolvedError;p.gradient_resolved[j-1]=false;continue;\n            }\n            p.radial[j]+=uniform.radial[j];')
+# Keep the eager fused lane for unsplit panels. h children perform only
+# value work while the value controller is still choosing their final mesh.
+s=replace(s,'#pragma once','#pragma once\n#include "fused_motion.hpp"')
+s=replace(s,'            auto start=cost_now();\n            AdaptiveHermiteJet sample_jet{};',
+    '            fused_gradient::TangentScheduleScope tangent_schedule(cfg.fused_value_mesh && p.depth>0);\n            auto start=cost_now();\n            AdaptiveHermiteJet sample_jet{};')
 (OUT/'adaptive_radial.hpp').write_text(s)
 s=(OUT/'adaptive_epoch.hpp').read_text()
 s=replace(s,'weighted_candidate && policy==GradientPolicy::None &&','weighted_candidate &&')
+s=replace(s,'        bool weighted_candidate=cfg.weighted_radial_spans==nullptr;', '''        // Differentiate the radial coordinate map on every span. Artificial
+        // partition endpoints are fixed; physical folds follow the implicit phi=0.
+        if(policy!=GradientPolicy::None) {
+            adaptive_detail::EventLocation left{},right{};
+            left.radius=panel.map.a;left.radius_lo=panel.left_radius_lo;
+            right.radius=panel.map.b;right.radius_lo=panel.right_radius_lo;
+            if(physical(c.r_lo))left=uncertainty(c.r_lo);
+            if(physical(c.r_hi))right=uncertainty(c.r_hi);
+            material_maps[i]=fused_gradient::make_material_map(
+                left,right,pf,!physical(c.r_lo),!physical(c.r_hi));
+        }
+        bool weighted_candidate=cfg.weighted_radial_spans==nullptr;''')
+
 s=replace(s,'                auto coupled=fused_gradient::angular_pair', '                if(adaptive_cfg && adaptive_cfg->fused_value_mesh)gg=std::numeric_limits<double>::infinity();\n                auto coupled=fused_gradient::angular_pair')
 s=replace(s,'    const std::size_t previous_panels=retain_matching_panels?', '''    std::vector<fused_gradient::MaterialMap> material_maps(integration_plan.spans.size());
     const std::size_t previous_panels=retain_matching_panels?''')
 s=replace(s,'''            panel.split_ld=u!=0 && cfg.split_ld_radial;
             panel.weighted=true;panel.map.left=panel.map.right=false;''','''            bool material_ok=true;
             if(policy!=GradientPolicy::None) {
-                const auto left=uncertainty(c.r_lo),right=uncertainty(c.r_hi);
-                auto& material=material_maps[i];
-                material=fused_gradient::make_material_map(left,right,pf);
-                material_ok=material.valid;
+                material_ok=material_maps[i].valid;
             }
             if(material_ok) {
                 panel.split_ld=u!=0 && cfg.split_ld_radial;
@@ -167,6 +183,41 @@ s=replace(s,"""                bool regular=true;
                 const auto tangents=fused_gradient::root_pair_tangents(RootPair{ap.m,ap.v},cp.p,dp.dp);
                 for(int j=0;j<5;++j) {
                     const auto& d=tangents[j];""")
+# Full-circle spans also carry the moving radial measure.
+a=s.index('inline AdaptiveSample mapped_full_circle(');b=s.index('\ninline ',a+10)
+section=s[a:b]
+section=replace(section,'        const auto dh=internal_to_user_jac(dfh,p);', '''        std::array<double,5> df0{};
+        if(const auto* motion=fused_gradient::active_motion)for(int j=0;j<5;++j) {
+            df0[j]=jac*motion->radius[j]*kTwoPi+motion->jacobian[j]*f0;
+            dfh[j]+=jac*motion->radius[j]*(fh/R)+motion->jacobian[j]*fh;
+        }
+        const auto d0=internal_to_user_jac(df0,p);
+        const auto dh=internal_to_user_jac(dfh,p);''')
+section=replace(section,'out.value[j+1]=(u*dh[j])/D;',
+    'out.value[j+1]=((1-u)*d0[j]+u*dh[j])/D;')
+s=s[:a]+section+s[b:]
+# Evaluate deferred tangents only after the value mesh has been accepted.
+s=replace(s,'#include "fused_k.hpp"','#include "fused_k.hpp"\n#include "fused_gaussian.hpp"')
+s=replace(s,'    auto result=adaptive_detail::integrate(workspace,radial_cfg,[&](', '    auto evaluate=[&](')
+a=s.index('    auto evaluate=[&](');b=s.index('    });\n    result.stats.setup_ms=',a)
+section=s[a:b].replace('with_jacobian','node_with_jacobian').replace('plain_value_lane','node_plain_value_lane').replace('cfg.node_with_jacobian','cfg.with_jacobian')
+section=replace(section,'        const CellPlan& cell=integration_plan.spans[static_cast<std::size_t>(i)].cell;', '''        const bool node_with_jacobian=with_jacobian && !fused_gradient::defer_sample_tangents;
+        const bool node_plain_value_lane=!node_with_jacobian && !cfg.angular_adaptive &&
+            !cfg.gradient_adaptive && !cfg.same_node_hermite_shadow && !active_atlas_samples;
+        const CellPlan& cell=integration_plan.spans[static_cast<std::size_t>(i)].cell;''')
+s=s[:a]+section+s[b:]
+s=replace(s,'    });\n    result.stats.setup_ms=setup_total_ms;', '''    };
+    auto result=adaptive_detail::integrate(workspace,radial_cfg,evaluate);
+    bool deferred_children=false;
+    for(const auto& panel:workspace.panels)deferred_children|=panel.active && panel.depth>0;
+    if(cfg.fused_value_mesh && with_jacobian && result.value_converged && deferred_children) {
+        const auto tangent=fused_gradient::gaussian_replay(workspace,radial_cfg,evaluate,result.stats.node_evaluations);
+        result.grad_mu=tangent.grad_mu;result.grad_quality=tangent.grad_quality;result.grad_reason=tangent.grad_reason;
+        result.grad_converged.fill(false);result.gradient_stop_reason=tangent.stop==AdaptiveStop::Converged?AdaptiveStop::BudgetExceeded:tangent.stop;
+        result.estimated_abs_error_grad.fill(kAdaptiveUnresolvedError);
+        result.stats.node_evaluations+=tangent.stats.node_evaluations;
+    }
+    result.stats.setup_ms=setup_total_ms;''')
 (OUT/'adaptive_epoch.hpp').write_text(s)
 manifest={name:{'base_sha256':hashlib.sha256((BASE/name).read_bytes()).hexdigest(),
     'overlay_sha256':hashlib.sha256((OUT/name).read_bytes()).hexdigest()} for name in

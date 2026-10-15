@@ -471,8 +471,11 @@ MagnificationResult LensModel::magnification_impl(
         result.separation = orbit.separation;
         result.mass_ratio = effective_q;
 
-        if ((plan == nullptr || use_seeded_radial_frontier) &&
-            params_.rho != 0.0 && options_.mode > 0 &&
+        // The seeded radial-frontier route consumes the requested tolerances
+        // directly and reports its own value/support convergence. The
+        // empirical automatic-nbin domain applies only to the legacy unplanned
+        // binary route.
+        if (plan == nullptr && params_.rho != 0.0 && options_.mode > 0 &&
             options_.automatic_source_bins != 0 &&
             !magnification::binary_auto_tolerance_supported(
                 options_.finite_source_tol,

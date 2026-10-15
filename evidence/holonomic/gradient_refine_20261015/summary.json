@@ -1,0 +1,96 @@
+{
+  "tol": 0.001,
+  "reltol": 0.001,
+  "comparison": {
+    "historical": {
+      "mu_on_off_bitwise": true,
+      "grad_on_off_bitwise": true,
+      "mu_previous_bitwise": true,
+      "changed_gradient_epochs": 126,
+      "finite": 2807,
+      "components": 2807,
+      "value_converged": 401
+    },
+    "current": {
+      "mu_on_off_bitwise": true,
+      "grad_on_off_bitwise": true,
+      "mu_previous_bitwise": true,
+      "changed_gradient_epochs": 2,
+      "finite": 2807,
+      "components": 2807,
+      "value_converged": 401
+    },
+    "ordinary": {
+      "mu_on_off_bitwise": true,
+      "grad_on_off_bitwise": true,
+      "mu_previous_bitwise": true,
+      "changed_gradient_epochs": 2,
+      "finite": 2807,
+      "components": 2807,
+      "value_converged": 401
+    },
+    "scan": {
+      "mu_on_off_bitwise": true,
+      "grad_on_off_bitwise": true,
+      "mu_previous_bitwise": true,
+      "changed_gradient_epochs": 88,
+      "finite": 623,
+      "components": 623,
+      "value_converged": 89
+    }
+  },
+  "timings": [
+    {
+      "case": "historical",
+      "ms": [
+        451.6686530550942,
+        451.79208810441196,
+        453.42753804288805,
+        452.2023620083928,
+        451.95088197942823
+      ],
+      "median_ms": 451.95088197942823,
+      "finite": 2807,
+      "value_converged": 401
+    },
+    {
+      "case": "current",
+      "ms": [
+        78.53581104427576,
+        78.67658196482807,
+        80.93065803404897,
+        78.58208892866969,
+        78.5191940376535
+      ],
+      "median_ms": 78.58208892866969,
+      "finite": 2807,
+      "value_converged": 401
+    },
+    {
+      "case": "ordinary",
+      "ms": [
+        59.22780802939087,
+        59.3522529816255,
+        59.32133994065225,
+        59.37406397424638,
+        59.404056053608656
+      ],
+      "median_ms": 59.3522529816255,
+      "finite": 2807,
+      "value_converged": 401
+    }
+  ],
+  "matrix": {
+    "epochs": 60,
+    "gradient_components": 300,
+    "finite_on": 300,
+    "finite_off": 300,
+    "value_converged_on": 60,
+    "value_converged_off": 60,
+    "differences": []
+  },
+  "checks": {
+    "bounds_check.txt": "99954 IEEE steps and 15000 interval coefficients agree",
+    "radius_check.txt": "100000 outward radius checks passed"
+  }
+}

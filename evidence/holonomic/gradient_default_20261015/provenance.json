@@ -1,0 +1,9 @@
+{
+  "base_head": "b31db3b3be16f9c573dc81d9c87775a045a4aacc",
+  "branch": "experiment/algebraic_boundary",
+  "build_command": "bash benchmarks/holonomic/fused_gradient/build_algebraic.sh",
+  "python": "3.10.19 (main, Oct 21 2025, 16:43:05) [GCC 11.2.0]",
+  "module": "build-algebraic-boundary/fused-gradient/python/_lcbinint_holonomic_fused.cpython-310-x86_64-linux-gnu.so",
+  "module_sha256": "4902939e4d1bc31954ad1084ddfdcaec0b2b846d28a7b413e96b51a549b814ae",
+  "generated_manifest_sha256": "ee62b2b35c11920696c35269184315ad17b3939ee93c5786b90b447517bd6630"
+}

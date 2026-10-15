@@ -25,7 +25,9 @@ struct FusedGradientResult {
 // Optional forward-only route, linked through liblcbinint_fused_gradient.a.
 // Seeds are image positions in the primary frame (lenses at 0 and a), just
 // like epoch_seeded_radial_frontier. Reuse seeds prepared by the value caller.
-// Value tolerances select the mesh; no derivative-only refinement is done.
+// Value tolerances select the mesh. Close discriminant pairs use regularized
+// replay; ordinary accepted h children use fixed Gaussian quadrature.
+// No derivative error controls refinement; finite gradients remain uncertified.
 FusedGradientResult epoch_fused_gradient(const LensParams& p,double limb_darkening,
     const std::vector<std::array<double,2>>& primary_image_seeds,
     const FusedGradientOptions& options={});

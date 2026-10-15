@@ -1,0 +1,31 @@
+{
+  "API_constraint": "mu absolute/relative tolerances only; no derivative-error-driven adaptation in candidates",
+  "candidate": "allmotion_posth: material motion on every radial span, full-circle prefactors included, one deterministic h-split of every accepted radial panel",
+  "value_bitwise_parity": {
+    "baseline_1e-4": true,
+    "allmotion_post2_1e-4": true,
+    "allmotion_posth_1e-4": true,
+    "baseline_1e-5": true,
+    "allmotion_post2_1e-5": true,
+    "allmotion_posth_1e-5": true,
+    "baseline_1e-6": true,
+    "allmotion_post2_1e-6": true,
+    "allmotion_posth_1e-6": true
+  },
+  "reference_caveat": "At t=0.1 VBM t0 FD is unstable; VBM/native q and s FD disagree. Keep both references; do not treat all rows as independently validated truth.",
+  "sample_count": 7,
+  "tol_settings": [
+    0.0001,
+    1e-05,
+    1e-06
+  ],
+  "parameter_order": [
+    "t0",
+    "u0",
+    "rho",
+    "q",
+    "s"
+  ],
+  "timing": "one exploratory evaluation per condition, excludes seed construction; not a speed claim",
+  "promotion": "research prototype only; loose 1e-4 tolerance still has large gradient errors"
+}
