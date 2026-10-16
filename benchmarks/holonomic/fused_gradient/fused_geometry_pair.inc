@@ -1,7 +1,7 @@
   // Mixed product integration: exact for A(x)+sqrt(1-x^2)*B(x),
   // with quadratic A and B, including the smooth background. The seven
   // fixed cosine nodes stay away from rounded physical endpoints.
-  const bool pair_interior=hot&&hot->real&&panel.xl==-1&&panel.xr==1&&
+  const bool pair_interior=hot&&hot->real&&!hot->upper_edge&&panel.xl==-1&&panel.xr==1&&
       std::fabs(panel.map.a-hot->left)<std::min(hot->scale*.25,1e-10*(1+hot->left))&&
       std::fabs(panel.map.b-hot->right)<std::min(hot->scale*.25,1e-10*(1+hot->right));
   if(pair_interior){

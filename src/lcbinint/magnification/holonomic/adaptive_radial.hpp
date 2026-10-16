@@ -148,6 +148,7 @@ struct AdaptiveTolerance {
 struct AdaptiveConfig {
     AdaptiveTolerance tol;
     GradientPolicy gradient_policy=GradientPolicy::None;
+    bool material_coordinate_motion=true;
     bool with_jacobian=false,require_bound=false,fold_maps=true;
     bool reuse_samples=true; // isolated A/B control; default keeps nested samples
     bool collect_costs=false; // inner clocks only when explicitly requested

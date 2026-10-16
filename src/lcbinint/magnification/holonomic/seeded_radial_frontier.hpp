@@ -49,6 +49,7 @@ struct SeededFrontierStats {
     std::size_t integration_calls=0;
 #endif
     bool discovery_completed=false,coverage_certified=false;
+    bool isolated_real_edge_pair=false;
     int local_repairs=0;
     std::size_t retained_nodes=0;
     std::size_t evaluated_nodes=0;

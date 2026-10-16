@@ -1,0 +1,399 @@
+{
+  "head": "65faef7a3f5ade838119c39b77634a5ccbdf1ee3",
+  "native_sha256": "b6ba4c1a395452784ac1a287986a2cc8dcd9372b32c13405775fc7a02499258d",
+  "gradient_sha256": "d610da31602364566a2870e0f7dd60031eb994eae1d1006a9f3f09b45e5c8d2a",
+  "cpu_affinity": [
+    0
+  ],
+  "tol": 0.001,
+  "profiles": [
+    {
+      "id": "stratified_00",
+      "params": {
+        "s": 1.000001,
+        "q": 1e-06,
+        "rho": 0.001,
+        "t0": 0.0,
+        "tE": 10.0,
+        "u0": 0.0,
+        "alpha": 0.0
+      },
+      "limb": 0.0,
+      "n_epochs": 27,
+      "screen_value_ms": 12.335406965576112,
+      "screen_gradient_ms": 1038.6775230290368,
+      "geometry_preparation_ms": 0.20309293176978827,
+      "caustic_seed_object_setup_ms": 1.7389599233865738,
+      "five_sample_evaluations": [
+        {
+          "index": 0,
+          "time_days": -0.3,
+          "source_x": -0.03,
+          "source_y": 0.0,
+          "elapsed_ms": 81.98372891638428,
+          "stop": "Converged",
+          "node_evaluations": 75,
+          "center_image_count": 3,
+          "augmented_seed_count": 3,
+          "seed_support_proven": true,
+          "support_certified": false,
+          "gradient_valid_count": 5
+        },
+        {
+          "index": 6,
+          "time_days": -0.15,
+          "source_x": -0.015,
+          "source_y": 0.0,
+          "elapsed_ms": 1.0088890558108687,
+          "stop": "Converged",
+          "node_evaluations": 83,
+          "center_image_count": 5,
+          "augmented_seed_count": 117,
+          "seed_support_proven": true,
+          "support_certified": false,
+          "gradient_valid_count": 5
+        },
+        {
+          "index": 13,
+          "time_days": 0.0,
+          "source_x": 0.0,
+          "source_y": 0.0,
+          "elapsed_ms": 1.7716700676828623,
+          "stop": "Converged",
+          "node_evaluations": 91,
+          "center_image_count": 5,
+          "augmented_seed_count": 569,
+          "seed_support_proven": true,
+          "support_certified": false,
+          "gradient_valid_count": 5
+        },
+        {
+          "index": 20,
+          "time_days": 0.15,
+          "source_x": 0.015,
+          "source_y": 0.0,
+          "elapsed_ms": 71.40430691652,
+          "stop": "Converged",
+          "node_evaluations": 83,
+          "center_image_count": 3,
+          "augmented_seed_count": 3,
+          "seed_support_proven": true,
+          "support_certified": false,
+          "gradient_valid_count": 5
+        },
+        {
+          "index": 26,
+          "time_days": 0.3,
+          "source_x": 0.03,
+          "source_y": 0.0,
+          "elapsed_ms": 0.753333093598485,
+          "stop": "Converged",
+          "node_evaluations": 75,
+          "center_image_count": 3,
+          "augmented_seed_count": 3,
+          "seed_support_proven": true,
+          "support_certified": false,
+          "gradient_valid_count": 5
+        }
+      ],
+      "public_all_epoch_gradient_ms": 1035.6934510637075,
+      "public_five_epoch_gradient_ms": 157.66192600131035,
+      "public_gradient_finite_components": 189,
+      "public_gradient_valid_components": 189,
+      "public_gradient_stop_counts": {
+        "Converged": 27
+      }
+    },
+    {
+      "id": "stratified_03",
+      "params": {
+        "s": 0.15,
+        "q": 1e-06,
+        "rho": 1e-05,
+        "t0": 0.0,
+        "tE": 10.0,
+        "u0": 9.843697502763428e-06,
+        "alpha": 3.141592653589793
+      },
+      "limb": 0.999999,
+      "n_epochs": 27,
+      "screen_value_ms": 7.5956020737066865,
+      "screen_gradient_ms": 350.4786209668964,
+      "geometry_preparation_ms": 0.023222994059324265,
+      "caustic_seed_object_setup_ms": 1.5646179672330618,
+      "five_sample_evaluations": [
+        {
+          "index": 0,
+          "time_days": -0.3,
+          "source_x": 0.03,
+          "source_y": -9.843697502767103e-06,
+          "elapsed_ms": 5.963876028545201,
+          "stop": "Converged",
+          "node_evaluations": 21,
+          "center_image_count": 3,
+          "augmented_seed_count": 3,
+          "seed_support_proven": true,
+          "support_certified": false,
+          "gradient_valid_count": 5
+        },
+        {
+          "index": 6,
+          "time_days": -0.15,
+          "source_x": 0.015,
+          "source_y": -9.843697502765265e-06,
+          "elapsed_ms": 0.23374299053102732,
+          "stop": "Converged",
+          "node_evaluations": 21,
+          "center_image_count": 3,
+          "augmented_seed_count": 3,
+          "seed_support_proven": true,
+          "support_certified": false,
+          "gradient_valid_count": 5
+        },
+        {
+          "index": 13,
+          "time_days": 0.0,
+          "source_x": -1.2055052638534026e-21,
+          "source_y": -9.843697502763428e-06,
+          "elapsed_ms": 1.1020179372280836,
+          "stop": "Converged",
+          "node_evaluations": 36,
+          "center_image_count": 3,
+          "augmented_seed_count": 540,
+          "seed_support_proven": true,
+          "support_certified": false,
+          "gradient_valid_count": 5
+        },
+        {
+          "index": 20,
+          "time_days": 0.15,
+          "source_x": -0.015,
+          "source_y": -9.843697502761592e-06,
+          "elapsed_ms": 0.23908307775855064,
+          "stop": "Converged",
+          "node_evaluations": 21,
+          "center_image_count": 3,
+          "augmented_seed_count": 3,
+          "seed_support_proven": true,
+          "support_certified": false,
+          "gradient_valid_count": 5
+        },
+        {
+          "index": 26,
+          "time_days": 0.3,
+          "source_x": -0.03,
+          "source_y": -9.843697502759754e-06,
+          "elapsed_ms": 0.2207929501309991,
+          "stop": "Converged",
+          "node_evaluations": 21,
+          "center_image_count": 3,
+          "augmented_seed_count": 3,
+          "seed_support_proven": true,
+          "support_certified": false,
+          "gradient_valid_count": 5
+        }
+      ],
+      "public_all_epoch_gradient_ms": 343.1928859790787,
+      "public_five_epoch_gradient_ms": 3.6541700828820467,
+      "public_gradient_finite_components": 189,
+      "public_gradient_valid_components": 189,
+      "public_gradient_stop_counts": {
+        "Converged": 27
+      }
+    },
+    {
+      "id": "stratified_12",
+      "params": {
+        "s": 10.0,
+        "q": 0.0001,
+        "rho": 1e-06,
+        "t0": 0.0,
+        "tE": 10.0,
+        "u0": 0.0,
+        "alpha": 0.0
+      },
+      "limb": 0.0,
+      "n_epochs": 27,
+      "screen_value_ms": 4.375988035462797,
+      "screen_gradient_ms": 472.4745210260153,
+      "geometry_preparation_ms": 0.015731086023151875,
+      "caustic_seed_object_setup_ms": 1.4304770156741142,
+      "five_sample_evaluations": [
+        {
+          "index": 0,
+          "time_days": -0.3,
+          "source_x": -0.03,
+          "source_y": 0.0,
+          "elapsed_ms": 0.359445926733315,
+          "stop": "Converged",
+          "node_evaluations": 21,
+          "center_image_count": 3,
+          "augmented_seed_count": 3,
+          "seed_support_proven": true,
+          "support_certified": false,
+          "gradient_valid_count": 5
+        },
+        {
+          "index": 6,
+          "time_days": -0.15,
+          "source_x": -0.015,
+          "source_y": 0.0,
+          "elapsed_ms": 0.2850990276783705,
+          "stop": "Converged",
+          "node_evaluations": 21,
+          "center_image_count": 3,
+          "augmented_seed_count": 3,
+          "seed_support_proven": true,
+          "support_certified": false,
+          "gradient_valid_count": 5
+        },
+        {
+          "index": 13,
+          "time_days": 0.0,
+          "source_x": 0.0,
+          "source_y": 0.0,
+          "elapsed_ms": 117.88882000837475,
+          "stop": "Converged",
+          "node_evaluations": 59,
+          "center_image_count": 3,
+          "augmented_seed_count": 3,
+          "seed_support_proven": true,
+          "support_certified": false,
+          "gradient_valid_count": 5
+        },
+        {
+          "index": 20,
+          "time_days": 0.15,
+          "source_x": 0.015,
+          "source_y": 0.0,
+          "elapsed_ms": 0.30894496012479067,
+          "stop": "Converged",
+          "node_evaluations": 21,
+          "center_image_count": 3,
+          "augmented_seed_count": 3,
+          "seed_support_proven": true,
+          "support_certified": false,
+          "gradient_valid_count": 5
+        },
+        {
+          "index": 26,
+          "time_days": 0.3,
+          "source_x": 0.03,
+          "source_y": 0.0,
+          "elapsed_ms": 0.2777359914034605,
+          "stop": "Converged",
+          "node_evaluations": 21,
+          "center_image_count": 3,
+          "augmented_seed_count": 3,
+          "seed_support_proven": true,
+          "support_certified": false,
+          "gradient_valid_count": 5
+        }
+      ],
+      "public_all_epoch_gradient_ms": 471.856202930212,
+      "public_five_epoch_gradient_ms": 121.39665696304291,
+      "public_gradient_finite_components": 189,
+      "public_gradient_valid_components": 189,
+      "public_gradient_stop_counts": {
+        "Converged": 27
+      }
+    },
+    {
+      "id": "stratified_13",
+      "params": {
+        "s": 0.6,
+        "q": 1.0,
+        "rho": 1e-06,
+        "t0": 0.0,
+        "tE": 10.0,
+        "u0": 1e-09,
+        "alpha": 0.19026053636559803
+      },
+      "limb": 0.5,
+      "n_epochs": 27,
+      "screen_value_ms": 1.579006901010871,
+      "screen_gradient_ms": 155.4022909840569,
+      "geometry_preparation_ms": 0.019002007320523262,
+      "caustic_seed_object_setup_ms": 1.6406479990109801,
+      "five_sample_evaluations": [
+        {
+          "index": 0,
+          "time_days": -0.3,
+          "source_x": -0.029458650104481413,
+          "source_y": -0.005673441109391913,
+          "elapsed_ms": 0.9139630710706115,
+          "stop": "Converged",
+          "node_evaluations": 133,
+          "center_image_count": 5,
+          "augmented_seed_count": 5,
+          "seed_support_proven": true,
+          "support_certified": false,
+          "gradient_valid_count": 5
+        },
+        {
+          "index": 6,
+          "time_days": -0.15,
+          "source_x": -0.014729325146798073,
+          "source_y": -0.0028367200637184576,
+          "elapsed_ms": 0.7093820022419095,
+          "stop": "Converged",
+          "node_evaluations": 35,
+          "center_image_count": 5,
+          "augmented_seed_count": 5,
+          "seed_support_proven": true,
+          "support_certified": false,
+          "gradient_valid_count": 5
+        },
+        {
+          "index": 13,
+          "time_days": 0.0,
+          "source_x": -1.8911473637823035e-10,
+          "source_y": 9.819549971788892e-10,
+          "elapsed_ms": 131.6077240044251,
+          "stop": "Converged",
+          "node_evaluations": 39,
+          "center_image_count": 5,
+          "augmented_seed_count": 5,
+          "seed_support_proven": true,
+          "support_certified": false,
+          "gradient_valid_count": 5
+        },
+        {
+          "index": 20,
+          "time_days": 0.15,
+          "source_x": 0.014729324768568601,
+          "source_y": 0.0028367220276284523,
+          "elapsed_ms": 0.45217503793537617,
+          "stop": "Converged",
+          "node_evaluations": 35,
+          "center_image_count": 5,
+          "augmented_seed_count": 5,
+          "seed_support_proven": true,
+          "support_certified": false,
+          "gradient_valid_count": 5
+        },
+        {
+          "index": 26,
+          "time_days": 0.3,
+          "source_x": 0.029458649726251937,
+          "source_y": 0.005673443073301907,
+          "elapsed_ms": 0.4472609143704176,
+          "stop": "Converged",
+          "node_evaluations": 35,
+          "center_image_count": 5,
+          "augmented_seed_count": 5,
+          "seed_support_proven": true,
+          "support_certified": false,
+          "gradient_valid_count": 5
+        }
+      ],
+      "public_all_epoch_gradient_ms": 149.98122793622315,
+      "public_five_epoch_gradient_ms": 136.23415399342775,
+      "public_gradient_finite_components": 189,
+      "public_gradient_valid_components": 189,
+      "public_gradient_stop_counts": {
+        "Converged": 27
+      }
+    }
+  ]
+}

@@ -25,6 +25,8 @@ insert='''    bool geometry_complete=false;
         auto known=[&](double r){for(auto e:topo.events)if(std::fabs(e.radius-r)<std::min(pair.scale*.25,1e-10*(1+r)))return true;return false;};
         return known(pair.left)&&known(pair.right);
     }),pairs.end());
+    out.frontier.isolated_real_edge_pair=std::any_of(pairs.begin(),pairs.end(),[](const auto& pair){return pair.real&&pair.upper_edge;});
+    pairs.erase(std::remove_if(pairs.begin(),pairs.end(),[](const auto& pair){return pair.upper_edge;}),pairs.end());
     if(pairs.empty()&&geometry_complete){out.frontier.evaluated_nodes=workspace.samples.size();out.integral.stats.topology_ms=out.frontier.planning_ms;return out;}
     const bool retain_geometry=std::all_of(pairs.begin(),pairs.end(),[](const auto&pair){return pair.existing;});
     bool geometry_ok=true;
@@ -65,7 +67,7 @@ s=s.replace('    out.frontier.evaluated_nodes=workspace.samples.size();',insert+
 s=s.replace('    out.frontier.evaluated_nodes=workspace.samples.size();','''    if(!geometry_complete)for(int j=0;j<5;++j){out.integral.grad_mu[j]=std::numeric_limits<double>::quiet_NaN();out.integral.grad_quality[j]=GradientQuality::Invalid;out.integral.grad_reason[j]=GradientReason::TopologyUnresolved;}
     out.frontier.evaluated_nodes=workspace.samples.size();''')
 p.write_text(s)
-p=target/'fused_gaussian.hpp' ;s=p.read_text();s=s.replace('#pragma once','#pragma once\n#include "geometry.hpp"\n#include <cstdio>')
+p=target/'fused_gaussian.hpp' ;s=p.read_text();s=s.replace('#pragma once','#pragma once\n#include "geometry.hpp"')
 s=s.replace(' case 14:', ' case 64:return fixed_gaussian_rule<64>();\n case 128:return fixed_gaussian_rule<128>();\n case 14:')
 s=s.replace('  if(panel.depth==0){','''  const geometry_experiment::Pair* hot=nullptr;
   if(geometry_experiment::active)for(const auto&pair:*geometry_experiment::active){
@@ -76,12 +78,14 @@ s=s.replace('  if(panel.depth==0){','''  const geometry_experiment::Pair* hot=nu
   }
   if(panel.depth==0&&!hot){''')
 s=s.replace('  if(panel.depth==0&&!hot){',(out/'fused_geometry_pair.inc').read_text()+'  if(panel.depth==0&&!hot){')
-# Once topology requires a special replay, replay its smooth background too.
-# Keeping the old depth-zero derivative estimate leaves uncancelled background
-# quadrature error even when the close-pair integral is well resolved.
+# Replay the accepted mesh across the smooth background when a scoped pair is active.
 s=s.replace('if(panel.depth==0&&!hot){', 'if(panel.depth==0&&!hot&&!(geometry_experiment::active&&!geometry_experiment::active->empty())){')
 s=s.replace('const auto&rule=gaussian_rule(((1<<level)-1)*2);','const auto&rule=gaussian_rule(reliability_retry?14:(hot?64:((1<<level)-1)*2));')
-s=s.replace('   auto mapped=panel.map(x);','   auto map=panel.map;if(hot&&panel.weighted)map.left=map.right=true;\n   auto mapped=map(x);')
+s=s.replace('   auto mapped=panel.map(x);','''   auto map=panel.map;if(hot&&panel.weighted)map.left=map.right=true;
+   auto mapped=map(x);''')
+s=s.replace('if(panel.map.left && panel.map.right)','if(map.left && map.right)')
+s=s.replace('else if(panel.map.left)','else if(map.left)')
+s=s.replace('else if(panel.map.right)','else if(map.right)')
 s=s.replace('   const double R=mapped[0],jac=mapped[1]*half;','''   double jac=mapped[1]*half;
    if(hot&&!hot->real){
     const double lo=map(panel.xl)[0],hi=map(panel.xr)[0];
@@ -89,8 +93,7 @@ s=s.replace('   const double R=mapped[0],jac=mapped[1]*half;','''   double jac=m
     const auto y=hyperbolic(rule.x[k]);mapped[0]=hot->center+hot->scale*std::sinh(y[0]);jac=hot->scale*std::cosh(y[0])*y[1];
    }
    double radius_lo=0;
-   const double R=mapped[0];''');s=s.replace('if(!sample.reliable){valid=false;break;}','''if(!sample.reliable){if(std::getenv("LCBININT_GEOMETRY_DEBUG"))std::fprintf(stderr,"invalid R=%.17g jac=%.17g a=%.17g b=%.17g reason=%d hot_center=%.17g scale=%.17g real=%d\\n",R,jac,panel.map.a,panel.map.b,int(sample.reject_reason),hot?hot->center:0,hot?hot->scale:0,hot?hot->real:0);valid=false;break;}''')
-s=s.replace('   const double R=mapped[0];',(out/'fused_geometry_exterior.inc').read_text()+'   const double R=mapped[0];')
+   const double R=mapped[0];''');s=s.replace('   const double R=mapped[0];',(out/'fused_geometry_exterior.inc').read_text()+'   const double R=mapped[0];')
 s=s.replace('anchor,false,0,level,nullptr','anchor,false,radius_lo,level,nullptr').replace('nullptr,true,0,level,nullptr','nullptr,true,radius_lo,level,nullptr')
 p.write_text(s)
 # Keep replay tied to actual deferred children; the geometry pass itself does not require gradient replay.

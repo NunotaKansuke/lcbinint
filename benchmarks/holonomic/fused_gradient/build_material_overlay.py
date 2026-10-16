@@ -140,7 +140,7 @@ s=replace(s,'''            panel.split_ld=u!=0 && cfg.split_ld_radial;
             }''')
 s=replace(s,'''        const CellPlan& cell=integration_plan.spans[static_cast<std::size_t>(i)].cell;''','''        const CellPlan& cell=integration_plan.spans[static_cast<std::size_t>(i)].cell;
         fused_gradient::Motion material_motion;
-        const bool material_active=with_jacobian&&material_maps[i].valid;
+        const bool material_active=cfg.material_coordinate_motion&&with_jacobian&&material_maps[i].valid;
         if(material_active)material_motion=material_maps[i].at(R,radius_lo,jac);
         fused_gradient::MotionScope motion_scope(material_active?&material_motion:nullptr);
         fused_gradient::RadiusOffsetScope radius_scope(radius_lo);''')

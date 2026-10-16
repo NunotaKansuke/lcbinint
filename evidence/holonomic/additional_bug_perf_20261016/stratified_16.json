@@ -1,0 +1,63 @@
+{
+  "id": "stratified_16",
+  "params": {
+    "s": 1.5,
+    "q": 1.0,
+    "rho": 0.001,
+    "t0": 0.0,
+    "tE": 10.0,
+    "u0": 0.0010220544985444161,
+    "alpha": 2.4874069986769207
+  },
+  "limb": 0.0,
+  "span_tau": 0.03,
+  "origin": "deterministic_stratified_seed_20261016",
+  "refine": false,
+  "reuse_probe": false,
+  "special_times_days": [],
+  "n_uniform": 25,
+  "tol": 0.001,
+  "status": "ok",
+  "n_epochs": 25,
+  "info_ms": 0.32315694261342287,
+  "plain_call_ms": 0.09379303082823753,
+  "reverse_call_ms": 0.053351977840065956,
+  "gradient_ms": 9.741451009176672,
+  "finite_values": 25,
+  "value_converged": 25,
+  "fully_converged": 25,
+  "integral_epochs": 0,
+  "integral_support_certified": 0,
+  "finite_gradient_components": 175,
+  "gradient_components": 175,
+  "valid_gradient_components": 175,
+  "invalid_gradient_epochs": [],
+  "nan_gradient_components": 0,
+  "plain_info_exact": true,
+  "plain_info_max_abs": 0.0,
+  "max_order_abs_difference": 4.440892098500626e-15,
+  "max_order_relative_difference": 1.449249926445777e-15,
+  "nodes_total": 25,
+  "nodes_max_epoch": 1,
+  "epoch_ms_median": 0.000692,
+  "epoch_ms_p95": 0.0013303999999999979,
+  "integral_epoch_ms_p95": 0.0,
+  "routes": {
+    "point_source": 25
+  },
+  "stops": {
+    "not_integrated": 25
+  },
+  "parameter_reuse": null,
+  "tolerance_sweep": null,
+  "peak_rss_kib": 45568,
+  "param_order": [
+    "t0",
+    "u0",
+    "tE",
+    "alpha",
+    "rho",
+    "q",
+    "s"
+  ]
+}

@@ -1,0 +1,11 @@
+CASE neg rmax=1.9500001398769351 events=16 cells=14 known=0 detected=0 complete=1 screen_special=0 fine=1
+ event[12] R=1.7107667104406201 kind=physical_real detail=D14 real root
+ event[13] R=1.9042451126234028 kind=physical_real detail=D14 real root
+ event[14] R=1.9499993028934675 kind=physical_real detail=D14 real root
+ event[15] R=1.9499999281410347 kind=physical_real detail=D14 real root
+CASE center rmax=1.9500002164684993 events=16 cells=14 known=0 detected=0 complete=1 screen_special=0 fine=2
+ event[12] R=1.8161301771116094 kind=physical_real detail=D14 real root
+ event[13] R=1.9179771245669932 kind=physical_real detail=D14 real root
+ event[14] R=1.949999440457781 kind=physical_real detail=D14 real root
+ event[15] R=1.9499999437597968 kind=physical_real detail=D14 real root
+CASE ordinary rmax=2.2143051913334171 events=12 cells=13 known=0 detected=0 complete=1 screen_special=0 fine=2

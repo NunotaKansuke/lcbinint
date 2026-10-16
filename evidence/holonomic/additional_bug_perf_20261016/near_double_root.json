@@ -1,0 +1,81 @@
+{
+  "id": "near_double_root",
+  "params": {
+    "s": 0.6,
+    "q": 0.0001,
+    "rho": 0.05,
+    "t0": 0.0,
+    "tE": 10.0,
+    "u0": -1e-05,
+    "alpha": 0.5
+  },
+  "limb": 0.5,
+  "span_tau": 0.08,
+  "origin": "previously_reported_close_pair",
+  "refine": true,
+  "reuse_probe": true,
+  "special_times_days": [
+    -0.704,
+    -0.7,
+    -0.696
+  ],
+  "n_uniform": 25,
+  "tol": 0.001,
+  "status": "ok",
+  "n_epochs": 30,
+  "info_ms": 25.487828068435192,
+  "plain_call_ms": 18.00166501197964,
+  "reverse_call_ms": 17.847606097348034,
+  "gradient_ms": 57.055033976212144,
+  "finite_values": 30,
+  "value_converged": 30,
+  "fully_converged": 0,
+  "integral_epochs": 30,
+  "integral_support_certified": 0,
+  "finite_gradient_components": 210,
+  "gradient_components": 210,
+  "valid_gradient_components": 210,
+  "invalid_gradient_epochs": [],
+  "nan_gradient_components": 0,
+  "plain_info_exact": true,
+  "plain_info_max_abs": 0.0,
+  "max_order_abs_difference": 0.0,
+  "max_order_relative_difference": 0.0,
+  "nodes_total": 5269,
+  "nodes_max_epoch": 1251,
+  "epoch_ms_median": 0.489614,
+  "epoch_ms_p95": 1.834684849999998,
+  "integral_epoch_ms_p95": 1.834684849999998,
+  "routes": {
+    "algebraic_boundary_seeded_radial": 30
+  },
+  "stops": {
+    "frontier_coverage_unproven": 30
+  },
+  "parameter_reuse": {
+    "max_abs_same_instance_vs_fresh": 0.0,
+    "exact_array_match": true
+  },
+  "tolerance_sweep": {
+    "tol": 1e-05,
+    "finite_values": 30,
+    "value_converged": 30,
+    "fully_converged": 0,
+    "finite_gradient_components": 210,
+    "valid_gradient_components": 210,
+    "max_abs_value_change": 0.000549480883485387,
+    "max_scaled_value_change_in_tol_1e3": 0.036007764667081055,
+    "max_abs_gradient_change": 0.0025021462218148827,
+    "gradient_change_components_over_0p32_percent": 26
+  },
+  "peak_rss_kib": 54236,
+  "param_order": [
+    "t0",
+    "u0",
+    "tE",
+    "alpha",
+    "rho",
+    "q",
+    "s"
+  ]
+}

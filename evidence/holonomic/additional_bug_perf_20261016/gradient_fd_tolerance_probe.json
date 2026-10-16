@@ -1,0 +1,1768 @@
+{
+  "head": "65faef7a3f5ade838119c39b77634a5ccbdf1ee3",
+  "native_sha256": "b6ba4c1a395452784ac1a287986a2cc8dcd9372b32c13405775fc7a02499258d",
+  "case_id": "stratified_00",
+  "params": {
+    "s": 1.000001,
+    "q": 1e-06,
+    "rho": 0.001,
+    "t0": 0.0,
+    "tE": 10.0,
+    "u0": 0.0,
+    "alpha": 0.0
+  },
+  "limb": 0.0,
+  "times_days": [
+    -0.025,
+    0.0,
+    0.025
+  ],
+  "steps": {
+    "q": [
+      1e-08,
+      3e-09,
+      1e-09,
+      3e-10,
+      1e-10
+    ],
+    "s": [
+      1e-05,
+      3e-06,
+      1e-06,
+      3e-07,
+      1e-07,
+      3e-08,
+      1e-08
+    ]
+  },
+  "records": [
+    {
+      "tol": 0.001,
+      "times_days": [
+        -0.025,
+        0.0,
+        0.025
+      ],
+      "analytic_q_s": {
+        "q": [
+          572232.9087676335,
+          -3241164.3496140507,
+          -1171195.6108402463
+        ],
+        "s": [
+          -59.98530807043167,
+          -0.922404526858247,
+          65.40776243183265
+        ]
+      },
+      "analytic_valid": [
+        [
+          true,
+          true
+        ],
+        [
+          true,
+          true
+        ],
+        [
+          true,
+          true
+        ]
+      ],
+      "finite_differences": [
+        {
+          "parameter": "q",
+          "step": 1e-08,
+          "fd": [
+            572232.9896514111,
+            4684790.716203224,
+            -1171195.6459265593
+          ],
+          "analytic": [
+            572232.9087676335,
+            -3241164.3496140507,
+            -1171195.6108402463
+          ],
+          "fd_minus_analytic": [
+            0.08088377758394927,
+            7925955.065817274,
+            -0.03508631302975118
+          ],
+          "max_abs_difference": 7925955.065817274,
+          "estimated_fd_error": [
+            7645521.383883882,
+            160429655.308356,
+            7591626.378039401
+          ],
+          "plus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "minus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "plus_fully_converged": [
+            false,
+            false,
+            false
+          ],
+          "minus_fully_converged": [
+            false,
+            false,
+            false
+          ]
+        },
+        {
+          "parameter": "q",
+          "step": 3e-09,
+          "fd": [
+            572232.7829952671,
+            20789260.500919227,
+            -1171195.7739919398
+          ],
+          "analytic": [
+            572232.9087676335,
+            -3241164.3496140507,
+            -1171195.6108402463
+          ],
+          "fd_minus_analytic": [
+            -0.12577236641664058,
+            24030424.850533277,
+            -0.16315169353038073
+          ],
+          "max_abs_difference": 24030424.850533277,
+          "estimated_fd_error": [
+            25484784.885263804,
+            537657817.9608731,
+            25305121.757661007
+          ],
+          "plus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "minus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "plus_fully_converged": [
+            false,
+            false,
+            false
+          ],
+          "minus_fully_converged": [
+            false,
+            false,
+            false
+          ]
+        },
+        {
+          "parameter": "q",
+          "step": 1e-09,
+          "fd": [
+            572232.3346049051,
+            67501490.29335262,
+            -1171196.8975873787
+          ],
+          "analytic": [
+            572232.9087676335,
+            -3241164.3496140507,
+            -1171195.6108402463
+          ],
+          "fd_minus_analytic": [
+            -0.5741627283859998,
+            70742654.64296667,
+            -1.2867471324279904
+          ],
+          "max_abs_difference": 70742654.64296667,
+          "estimated_fd_error": [
+            76454279.35488957,
+            1615220340.2365494,
+            75915286.81791526
+          ],
+          "plus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "minus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "plus_fully_converged": [
+            false,
+            false,
+            false
+          ],
+          "minus_fully_converged": [
+            false,
+            false,
+            false
+          ]
+        },
+        {
+          "parameter": "q",
+          "step": 3e-10,
+          "fd": [
+            572231.3432935759,
+            -3242861.49142002,
+            -1171196.701174419
+          ],
+          "analytic": [
+            572232.9087676335,
+            -3241164.3496140507,
+            -1171195.6108402463
+          ],
+          "fd_minus_analytic": [
+            -1.5654740575700998,
+            -1697.1418059691787,
+            -1.0903341725934297
+          ],
+          "max_abs_difference": 1697.1418059691787,
+          "estimated_fd_error": [
+            254847569.13218978,
+            4750990060.339533,
+            253050924.54621014
+          ],
+          "plus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "minus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "plus_fully_converged": [
+            false,
+            false,
+            false
+          ],
+          "minus_fully_converged": [
+            false,
+            false,
+            false
+          ]
+        },
+        {
+          "parameter": "q",
+          "step": 1e-10,
+          "fd": [
+            572228.3435716236,
+            -3241327.4050213657,
+            -1171198.1866824317
+          ],
+          "analytic": [
+            572232.9087676335,
+            -3241164.3496140507,
+            -1171195.6108402463
+          ],
+          "fd_minus_analytic": [
+            -4.56519600993488,
+            -163.05540731502697,
+            -2.5758421854116023
+          ],
+          "max_abs_difference": 163.05540731502697,
+          "estimated_fd_error": [
+            764542698.3907334,
+            14252843806.137527,
+            759152768.7705978
+          ],
+          "plus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "minus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "plus_fully_converged": [
+            false,
+            false,
+            false
+          ],
+          "minus_fully_converged": [
+            false,
+            false,
+            false
+          ]
+        },
+        {
+          "parameter": "s",
+          "step": 1e-05,
+          "fd": [
+            -59.984684398273195,
+            -2.5417275082872948,
+            65.4074785956027
+          ],
+          "analytic": [
+            -59.98530807043167,
+            -0.922404526858247,
+            65.40776243183265
+          ],
+          "fd_minus_analytic": [
+            0.0006236721584755855,
+            -1.6193229814290477,
+            -0.0002838362299542041
+          ],
+          "max_abs_difference": 1.6193229814290477,
+          "estimated_fd_error": [
+            7645.549799967124,
+            142342.63797004442,
+            7591.653852715547
+          ],
+          "plus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "minus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "plus_fully_converged": [
+            false,
+            false,
+            false
+          ],
+          "minus_fully_converged": [
+            false,
+            false,
+            false
+          ]
+        },
+        {
+          "parameter": "s",
+          "step": 3e-06,
+          "fd": [
+            -59.984734595749,
+            -2.6386082557413224,
+            65.40832146129105
+          ],
+          "analytic": [
+            -59.98530807043167,
+            -0.922404526858247,
+            65.40776243183265
+          ],
+          "fd_minus_analytic": [
+            0.0005734746826675519,
+            -1.7162037288830754,
+            0.000559029458401028
+          ],
+          "max_abs_difference": 1.7162037288830754,
+          "estimated_fd_error": [
+            25484.79370233933,
+            474740.5865642674,
+            25305.129949292423
+          ],
+          "plus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "minus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "plus_fully_converged": [
+            false,
+            false,
+            false
+          ],
+          "minus_fully_converged": [
+            false,
+            false,
+            false
+          ]
+        },
+        {
+          "parameter": "s",
+          "step": 1e-06,
+          "fd": [
+            -59.98560547482157,
+            -1.000933821160288,
+            65.4074792407755
+          ],
+          "analytic": [
+            -59.98530807043167,
+            -0.922404526858247,
+            65.40776243183265
+          ],
+          "fd_minus_analytic": [
+            -0.00029740438989733775,
+            -0.07852929430204103,
+            -0.00028319105715013393
+          ],
+          "max_abs_difference": 0.07852929430204103,
+          "estimated_fd_error": [
+            76454.28190251197,
+            1425058.961679494,
+            75915.28906868852
+          ],
+          "plus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "minus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "plus_fully_converged": [
+            false,
+            false,
+            false
+          ],
+          "minus_fully_converged": [
+            false,
+            false,
+            false
+          ]
+        },
+        {
+          "parameter": "s",
+          "step": 3e-07,
+          "fd": [
+            -59.985223307042666,
+            -233825.78246886018,
+            65.41024968479785
+          ],
+          "analytic": [
+            -59.98530807043167,
+            -0.922404526858247,
+            65.40776243183265
+          ],
+          "fd_minus_analytic": [
+            8.476338900464953e-05,
+            -233824.86006433333,
+            0.0024872529651958075
+          ],
+          "max_abs_difference": 233824.86006433333,
+          "estimated_fd_error": [
+            254847.57127451382,
+            5386380.356435338,
+            253050.92680462633
+          ],
+          "plus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "minus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "plus_fully_converged": [
+            false,
+            false,
+            false
+          ],
+          "minus_fully_converged": [
+            false,
+            false,
+            false
+          ]
+        },
+        {
+          "parameter": "s",
+          "step": 1e-07,
+          "fd": [
+            -59.98915099780788,
+            -0.9043083082360681,
+            65.40855281400582
+          ],
+          "analytic": [
+            -59.98530807043167,
+            -0.922404526858247,
+            65.40776243183265
+          ],
+          "fd_minus_analytic": [
+            -0.0038429273762119465,
+            0.018096218622178917,
+            0.0007903821731645166
+          ],
+          "max_abs_difference": 0.018096218622178917,
+          "estimated_fd_error": [
+            764542.6958890777,
+            14252809.262491226,
+            759152.7670309925
+          ],
+          "plus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "minus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "plus_fully_converged": [
+            false,
+            false,
+            false
+          ],
+          "minus_fully_converged": [
+            false,
+            false,
+            false
+          ]
+        },
+        {
+          "parameter": "s",
+          "step": 3e-08,
+          "fd": [
+            -60.01862971061201,
+            -1.127117836100903,
+            65.4110503243525
+          ],
+          "analytic": [
+            -59.98530807043167,
+            -0.922404526858247,
+            65.40776243183265
+          ],
+          "fd_minus_analytic": [
+            -0.033321640180339784,
+            -0.20471330924265607,
+            0.0032878925198502884
+          ],
+          "max_abs_difference": 0.20471330924265607,
+          "estimated_fd_error": [
+            2548475.7291991697,
+            47509421.37268427,
+            2530509.2113744114
+          ],
+          "plus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "minus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "plus_fully_converged": [
+            false,
+            false,
+            false
+          ],
+          "minus_fully_converged": [
+            false,
+            false,
+            false
+          ]
+        },
+        {
+          "parameter": "s",
+          "step": 1e-08,
+          "fd": [
+            -59.77146599889238,
+            -0.9658720045990776,
+            65.21211162180407
+          ],
+          "analytic": [
+            -59.98530807043167,
+            -0.922404526858247,
+            65.40776243183265
+          ],
+          "fd_minus_analytic": [
+            0.2138420715392897,
+            -0.043467477740830596,
+            -0.19565081002858165
+          ],
+          "max_abs_difference": 0.2138420715392897,
+          "estimated_fd_error": [
+            7645426.985524417,
+            142528279.04187837,
+            7591527.720408585
+          ],
+          "plus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "minus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "plus_fully_converged": [
+            false,
+            false,
+            false
+          ],
+          "minus_fully_converged": [
+            false,
+            false,
+            false
+          ]
+        }
+      ]
+    },
+    {
+      "tol": 1e-05,
+      "times_days": [
+        -0.025,
+        0.0,
+        0.025
+      ],
+      "analytic_q_s": {
+        "q": [
+          565516.7584904395,
+          -3127070.7682492672,
+          -1177848.7518056042
+        ],
+        "s": [
+          -61.47710595864447,
+          3.824500762872086,
+          66.94920796402589
+        ]
+      },
+      "analytic_valid": [
+        [
+          true,
+          true
+        ],
+        [
+          true,
+          true
+        ],
+        [
+          true,
+          true
+        ]
+      ],
+      "finite_differences": [
+        {
+          "parameter": "q",
+          "step": 1e-08,
+          "fd": [
+            565516.8034394365,
+            -2574764.023836451,
+            -1177848.7601304732
+          ],
+          "analytic": [
+            565516.7584904395,
+            -3127070.7682492672,
+            -1177848.7518056042
+          ],
+          "fd_minus_analytic": [
+            0.04494899697601795,
+            552306.7444128161,
+            -0.008324868977069855
+          ],
+          "max_abs_difference": 552306.7444128161,
+          "estimated_fd_error": [
+            339621.3523860067,
+            1674210.6362021703,
+            339586.6980418838
+          ],
+          "plus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "minus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "plus_fully_converged": [
+            false,
+            false,
+            false
+          ],
+          "minus_fully_converged": [
+            false,
+            false,
+            false
+          ]
+        },
+        {
+          "parameter": "q",
+          "step": 3e-09,
+          "fd": [
+            565516.7840359354,
+            -3043666.194116668,
+            -1177848.7199099648
+          ],
+          "analytic": [
+            565516.7584904395,
+            -3127070.7682492672,
+            -1177848.7518056042
+          ],
+          "fd_minus_analytic": [
+            0.025545495911501348,
+            83404.5741325994,
+            0.03189563937485218
+          ],
+          "max_abs_difference": 83404.5741325994,
+          "estimated_fd_error": [
+            1132068.2544087963,
+            5647175.6136274105,
+            1131952.6988977268
+          ],
+          "plus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "minus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "plus_fully_converged": [
+            false,
+            false,
+            false
+          ],
+          "minus_fully_converged": [
+            false,
+            false,
+            false
+          ]
+        },
+        {
+          "parameter": "q",
+          "step": 1e-09,
+          "fd": [
+            565516.4340794272,
+            -3240683.6179461605,
+            -1177848.779377655
+          ],
+          "analytic": [
+            565516.7584904395,
+            -3127070.7682492672,
+            -1177848.7518056042
+          ],
+          "fd_minus_analytic": [
+            -0.32441101234871894,
+            -113612.84969689324,
+            -0.02757205069065094
+          ],
+          "max_abs_difference": 113612.84969689324,
+          "estimated_fd_error": [
+            3396203.7653967263,
+            16712150.562613897,
+            3395857.663338518
+          ],
+          "plus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "minus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "plus_fully_converged": [
+            false,
+            false,
+            false
+          ],
+          "minus_fully_converged": [
+            false,
+            false,
+            false
+          ]
+        },
+        {
+          "parameter": "q",
+          "step": 3e-10,
+          "fd": [
+            565516.5691109687,
+            -3131586.003822425,
+            -1177848.8081404248
+          ],
+          "analytic": [
+            565516.7584904395,
+            -3127070.7682492672,
+            -1177848.7518056042
+          ],
+          "fd_minus_analytic": [
+            -0.18937947077210993,
+            -4515.235573157668,
+            -0.056334820576012135
+          ],
+          "max_abs_difference": 4515.235573157668,
+          "estimated_fd_error": [
+            11320678.669436058,
+            55278302.873940825,
+            11319523.70389278
+          ],
+          "plus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "minus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "plus_fully_converged": [
+            false,
+            false,
+            false
+          ],
+          "minus_fully_converged": [
+            false,
+            false,
+            false
+          ]
+        },
+        {
+          "parameter": "q",
+          "step": 1e-10,
+          "fd": [
+            565517.5479546415,
+            -3127531.7542167613,
+            -1177848.56797698
+          ],
+          "analytic": [
+            565516.7584904395,
+            -3127070.7682492672,
+            -1177848.7518056042
+          ],
+          "fd_minus_analytic": [
+            0.7894642020110041,
+            -460.9859674940817,
+            0.18382862419821322
+          ],
+          "max_abs_difference": 460.9859674940817,
+          "estimated_fd_error": [
+            33962035.18857815,
+            165692503.25687084,
+            33958573.78210638
+          ],
+          "plus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "minus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "plus_fully_converged": [
+            false,
+            false,
+            false
+          ],
+          "minus_fully_converged": [
+            false,
+            false,
+            false
+          ]
+        },
+        {
+          "parameter": "s",
+          "step": 1e-05,
+          "fd": [
+            -61.47659564987861,
+            -2.50590176165133,
+            66.9488107774896
+          ],
+          "analytic": [
+            -61.47710595864447,
+            3.824500762872086,
+            66.94920796402589
+          ],
+          "fd_minus_analytic": [
+            0.0005103087658611116,
+            -6.330402524523416,
+            -0.0003971865362899507
+          ],
+          "max_abs_difference": 6.330402524523416,
+          "estimated_fd_error": [
+            339.6531879213329,
+            1521.946220834833,
+            339.6184876665751
+          ],
+          "plus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "minus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "plus_fully_converged": [
+            false,
+            false,
+            false
+          ],
+          "minus_fully_converged": [
+            false,
+            false,
+            false
+          ]
+        },
+        {
+          "parameter": "s",
+          "step": 3e-06,
+          "fd": [
+            -61.477254954904005,
+            -15.108122397577972,
+            66.94930676568826
+          ],
+          "analytic": [
+            -61.47710595864447,
+            3.824500762872086,
+            66.94920796402589
+          ],
+          "fd_minus_analytic": [
+            -0.00014899625953290752,
+            -18.932623160450056,
+            9.880166237508092e-05
+          ],
+          "max_abs_difference": 18.932623160450056,
+          "estimated_fd_error": [
+            1132.0778151262566,
+            5227.714877738655,
+            1131.9622611675165
+          ],
+          "plus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "minus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "plus_fully_converged": [
+            false,
+            false,
+            false
+          ],
+          "minus_fully_converged": [
+            false,
+            false,
+            false
+          ]
+        },
+        {
+          "parameter": "s",
+          "step": 1e-06,
+          "fd": [
+            -61.476761402445845,
+            -35.32318999077688,
+            66.9492791587345
+          ],
+          "analytic": [
+            -61.47710595864447,
+            3.824500762872086,
+            66.94920796402589
+          ],
+          "fd_minus_analytic": [
+            0.00034455619862683307,
+            -39.147690753648966,
+            7.119470861027821e-05
+          ],
+          "max_abs_difference": 39.147690753648966,
+          "estimated_fd_error": [
+            3396.2069606323084,
+            16334.923862279236,
+            3395.860469920482
+          ],
+          "plus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "minus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "plus_fully_converged": [
+            false,
+            false,
+            false
+          ],
+          "minus_fully_converged": [
+            false,
+            false,
+            false
+          ]
+        },
+        {
+          "parameter": "s",
+          "step": 3e-07,
+          "fd": [
+            -61.47755044594305,
+            428.19663084022375,
+            66.94883135575462
+          ],
+          "analytic": [
+            -61.47710595864447,
+            3.824500762872086,
+            66.94920796402589
+          ],
+          "fd_minus_analytic": [
+            -0.000444487298580043,
+            424.37213007735164,
+            -0.0003766082712672869
+          ],
+          "max_abs_difference": 424.37213007735164,
+          "estimated_fd_error": [
+            11320.678635425473,
+            42054.89557959995,
+            11319.526566426017
+          ],
+          "plus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "minus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "plus_fully_converged": [
+            false,
+            false,
+            false
+          ],
+          "minus_fully_converged": [
+            false,
+            false,
+            false
+          ]
+        },
+        {
+          "parameter": "s",
+          "step": 1e-07,
+          "fd": [
+            -61.47468752715213,
+            5.370328608478303,
+            66.9476727921392
+          ],
+          "analytic": [
+            -61.47710595864447,
+            3.824500762872086,
+            66.94920796402589
+          ],
+          "fd_minus_analytic": [
+            0.0024184314923445527,
+            1.545827845606217,
+            -0.0015351718866867259
+          ],
+          "max_abs_difference": 1.545827845606217,
+          "estimated_fd_error": [
+            33962.03245694771,
+            165646.21780065369,
+            33958.57455737327
+          ],
+          "plus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "minus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "plus_fully_converged": [
+            false,
+            false,
+            false
+          ],
+          "minus_fully_converged": [
+            false,
+            false,
+            false
+          ]
+        },
+        {
+          "parameter": "s",
+          "step": 3e-08,
+          "fd": [
+            -61.475044314344515,
+            3.8921408910634154,
+            66.92986573852977
+          ],
+          "analytic": [
+            -61.47710595864447,
+            3.824500762872086,
+            66.94920796402589
+          ],
+          "fd_minus_analytic": [
+            0.0020616442999568108,
+            0.06764012819132947,
+            -0.01934222549611775
+          ],
+          "max_abs_difference": 0.06764012819132947,
+          "estimated_fd_error": [
+            113206.79273907146,
+            552243.4532345566,
+            113195.24013805499
+          ],
+          "plus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "minus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "plus_fully_converged": [
+            false,
+            false,
+            false
+          ],
+          "minus_fully_converged": [
+            false,
+            false,
+            false
+          ]
+        },
+        {
+          "parameter": "s",
+          "step": 1e-08,
+          "fd": [
+            -61.37582033716171,
+            3.468517206783872,
+            66.88583198410925
+          ],
+          "analytic": [
+            -61.47710595864447,
+            3.824500762872086,
+            66.94920796402589
+          ],
+          "fd_minus_analytic": [
+            0.10128562148275932,
+            -0.35598355608821386,
+            -0.06337597991664268
+          ],
+          "max_abs_difference": 0.35598355608821386,
+          "estimated_fd_error": [
+            339620.3919399986,
+            1656753.8439967202,
+            339585.754811845
+          ],
+          "plus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "minus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "plus_fully_converged": [
+            false,
+            false,
+            false
+          ],
+          "minus_fully_converged": [
+            false,
+            false,
+            false
+          ]
+        }
+      ]
+    },
+    {
+      "tol": 1e-07,
+      "times_days": [
+        -0.025,
+        0.0,
+        0.025
+      ],
+      "analytic_q_s": {
+        "q": [
+          565518.2372408253,
+          -3013065.0807852284,
+          -1177847.2715153403
+        ],
+        "s": [
+          -61.47478659933895,
+          2.479630387169747,
+          66.9468895878745
+        ]
+      },
+      "analytic_valid": [
+        [
+          true,
+          true
+        ],
+        [
+          true,
+          true
+        ],
+        [
+          true,
+          true
+        ]
+      ],
+      "finite_differences": [
+        {
+          "parameter": "q",
+          "step": 1e-08,
+          "fd": [
+            565518.289386091,
+            -2531576.386445522,
+            -1177847.2847453258
+          ],
+          "analytic": [
+            565518.2372408253,
+            -3013065.0807852284,
+            -1177847.2715153403
+          ],
+          "fd_minus_analytic": [
+            0.05214526574127376,
+            481488.69433970656,
+            -0.013229985488578677
+          ],
+          "max_abs_difference": 481488.69433970656,
+          "estimated_fd_error": [
+            650.4622146284823,
+            4162.379319660058,
+            650.3472715559326
+          ],
+          "plus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "minus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "plus_fully_converged": [
+            false,
+            false,
+            false
+          ],
+          "minus_fully_converged": [
+            false,
+            false,
+            false
+          ]
+        },
+        {
+          "parameter": "q",
+          "step": 3e-09,
+          "fd": [
+            565518.187016778,
+            -2955134.7090546186,
+            -1177847.2991276581
+          ],
+          "analytic": [
+            565518.2372408253,
+            -3013065.0807852284,
+            -1177847.2715153403
+          ],
+          "fd_minus_analytic": [
+            -0.05022404727060348,
+            57930.3717306098,
+            -0.027612317819148302
+          ],
+          "max_abs_difference": 57930.3717306098,
+          "estimated_fd_error": [
+            2168.2155821161664,
+            38337.9609864684,
+            2167.9761559584667
+          ],
+          "plus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "minus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "plus_fully_converged": [
+            false,
+            false,
+            false
+          ],
+          "minus_fully_converged": [
+            false,
+            false,
+            false
+          ]
+        },
+        {
+          "parameter": "q",
+          "step": 1e-09,
+          "fd": [
+            565517.9231212059,
+            -3145020.484339511,
+            -1177847.152035838
+          ],
+          "analytic": [
+            565518.2372408253,
+            -3013065.0807852284,
+            -1177847.2715153403
+          ],
+          "fd_minus_analytic": [
+            -0.3141196194337681,
+            -131955.40355428262,
+            0.11947950231842697
+          ],
+          "max_abs_difference": 131955.40355428262,
+          "estimated_fd_error": [
+            6504.912537759037,
+            176830.32676696515,
+            6503.894497346377
+          ],
+          "plus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "minus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "plus_fully_converged": [
+            false,
+            false,
+            false
+          ],
+          "minus_fully_converged": [
+            false,
+            false,
+            false
+          ]
+        },
+        {
+          "parameter": "q",
+          "step": 3e-10,
+          "fd": [
+            565517.5048483822,
+            -3082571.888626262,
+            -1177847.7223363856
+          ],
+          "analytic": [
+            565518.2372408253,
+            -3013065.0807852284,
+            -1177847.2715153403
+          ],
+          "fd_minus_analytic": [
+            -0.7323924431111664,
+            -69506.80784103367,
+            -0.45082104532048106
+          ],
+          "max_abs_difference": 69506.80784103367,
+          "estimated_fd_error": [
+            21681.856538176406,
+            525105.422232971,
+            21679.384666685033
+          ],
+          "plus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "minus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "plus_fully_converged": [
+            false,
+            false,
+            false
+          ],
+          "minus_fully_converged": [
+            false,
+            false,
+            false
+          ]
+        },
+        {
+          "parameter": "q",
+          "step": 1e-10,
+          "fd": [
+            565522.0536482375,
+            -3210474.750403591,
+            -1177849.466387215
+          ],
+          "analytic": [
+            565518.2372408253,
+            -3013065.0807852284,
+            -1177847.2715153403
+          ],
+          "fd_minus_analytic": [
+            3.816407412174158,
+            -197409.66961836256,
+            -2.1948718747589737
+          ],
+          "max_abs_difference": 197409.66961836256,
+          "estimated_fd_error": [
+            65046.05631665755,
+            1711595.339768181,
+            65037.62566940757
+          ],
+          "plus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "minus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "plus_fully_converged": [
+            false,
+            false,
+            false
+          ],
+          "minus_fully_converged": [
+            false,
+            false,
+            false
+          ]
+        },
+        {
+          "parameter": "s",
+          "step": 1e-05,
+          "fd": [
+            -61.474327719679415,
+            -2.5496280159131857,
+            66.9464564197142
+          ],
+          "analytic": [
+            -61.47478659933895,
+            2.479630387169747,
+            66.9468895878745
+          ],
+          "fd_minus_analytic": [
+            0.0004588796595328404,
+            -5.029258403082933,
+            -0.0004331681602991466
+          ],
+          "max_abs_difference": 5.029258403082933,
+          "estimated_fd_error": [
+            0.650637437181296,
+            4.1941991390051125,
+            0.6505750967381299
+          ],
+          "plus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "minus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "plus_fully_converged": [
+            false,
+            false,
+            false
+          ],
+          "minus_fully_converged": [
+            false,
+            false,
+            false
+          ]
+        },
+        {
+          "parameter": "s",
+          "step": 3e-06,
+          "fd": [
+            -61.47490827856927,
+            -3.19082820017987,
+            66.94690828605114
+          ],
+          "analytic": [
+            -61.47478659933895,
+            2.479630387169747,
+            66.9468895878745
+          ],
+          "fd_minus_analytic": [
+            -0.00012167923032535555,
+            -5.670458587349617,
+            1.869817664612583e-05
+          ],
+          "max_abs_difference": 5.670458587349617,
+          "estimated_fd_error": [
+            2.168272503558,
+            52.15624595687404,
+            2.167969688220751
+          ],
+          "plus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "minus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "plus_fully_converged": [
+            false,
+            false,
+            false
+          ],
+          "minus_fully_converged": [
+            false,
+            false,
+            false
+          ]
+        },
+        {
+          "parameter": "s",
+          "step": 1e-06,
+          "fd": [
+            -61.47459106387032,
+            -21.21102954788512,
+            66.9470323657606
+          ],
+          "analytic": [
+            -61.47478659933895,
+            2.479630387169747,
+            66.9468895878745
+          ],
+          "fd_minus_analytic": [
+            0.00019553546862738358,
+            -23.690659935054867,
+            0.0001427778861113893
+          ],
+          "max_abs_difference": 23.690659935054867,
+          "estimated_fd_error": [
+            6.504527732127091,
+            170.5955113959033,
+            6.503675875702074
+          ],
+          "plus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "minus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "plus_fully_converged": [
+            false,
+            false,
+            false
+          ],
+          "minus_fully_converged": [
+            false,
+            false,
+            false
+          ]
+        },
+        {
+          "parameter": "s",
+          "step": 3e-07,
+          "fd": [
+            -61.473929141205495,
+            -23.344377192794735,
+            66.94571548374977
+          ],
+          "analytic": [
+            -61.47478659933895,
+            2.479630387169747,
+            66.9468895878745
+          ],
+          "fd_minus_analytic": [
+            0.0008574581334528375,
+            -25.82400757996448,
+            -0.0011741041247290696
+          ],
+          "max_abs_difference": 25.82400757996448,
+          "estimated_fd_error": [
+            21.681641493406612,
+            541.2506669395095,
+            21.67970791983202
+          ],
+          "plus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "minus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "plus_fully_converged": [
+            false,
+            false,
+            false
+          ],
+          "minus_fully_converged": [
+            false,
+            false,
+            false
+          ]
+        },
+        {
+          "parameter": "s",
+          "step": 1e-07,
+          "fd": [
+            -61.47368793563146,
+            3.229221192668774,
+            66.94574409493725
+          ],
+          "analytic": [
+            -61.47478659933895,
+            2.479630387169747,
+            66.9468895878745
+          ],
+          "fd_minus_analytic": [
+            0.0010986637074879013,
+            0.749590805499027,
+            -0.0011454929372405331
+          ],
+          "max_abs_difference": 0.749590805499027,
+          "estimated_fd_error": [
+            65.04297349847471,
+            1764.2701613146867,
+            65.03838913431396
+          ],
+          "plus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "minus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "plus_fully_converged": [
+            false,
+            false,
+            false
+          ],
+          "minus_fully_converged": [
+            false,
+            false,
+            false
+          ]
+        },
+        {
+          "parameter": "s",
+          "step": 3e-08,
+          "fd": [
+            -61.47762595295111,
+            2.4757165798898013,
+            66.93582577099733
+          ],
+          "analytic": [
+            -61.47478659933895,
+            2.479630387169747,
+            66.9468895878745
+          ],
+          "fd_minus_analytic": [
+            -0.0028393536121598117,
+            -0.003913807279945836,
+            -0.01106381687716862
+          ],
+          "max_abs_difference": 0.01106381687716862,
+          "estimated_fd_error": [
+            216.82548842363133,
+            5942.912222698955,
+            216.7860335152982
+          ],
+          "plus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "minus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "plus_fully_converged": [
+            false,
+            false,
+            false
+          ],
+          "minus_fully_converged": [
+            false,
+            false,
+            false
+          ]
+        },
+        {
+          "parameter": "s",
+          "step": 1e-08,
+          "fd": [
+            -61.47123201571958,
+            2.1158029994694516,
+            66.9290358246144
+          ],
+          "analytic": [
+            -61.47478659933895,
+            2.479630387169747,
+            66.9468895878745
+          ],
+          "fd_minus_analytic": [
+            0.0035545836193691116,
+            -0.36382738770029555,
+            -0.017853763260092137
+          ],
+          "max_abs_difference": 0.36382738770029555,
+          "estimated_fd_error": [
+            650.4870200158302,
+            17844.91247953132,
+            650.3893500992726
+          ],
+          "plus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "minus_value_converged": [
+            true,
+            true,
+            true
+          ],
+          "plus_fully_converged": [
+            false,
+            false,
+            false
+          ],
+          "minus_fully_converged": [
+            false,
+            false,
+            false
+          ]
+        }
+      ]
+    }
+  ]
+}

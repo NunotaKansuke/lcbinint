@@ -1,0 +1,165 @@
+{
+  "case": "historical_close_root_case",
+  "params": {
+    "t0": 0.0,
+    "tE": 10.0,
+    "u0": -1e-05,
+    "alpha": 0.5,
+    "s": 0.6,
+    "q": 0.0001,
+    "rho": 0.05
+  },
+  "limb_darkening_linear": 0.5,
+  "times": [
+    -0.704,
+    -0.7,
+    -0.696
+  ],
+  "analytic_sweep": [
+    {
+      "tol": 0.001,
+      "gradient": {
+        "u0": [
+          0.3920077519919687,
+          0.393246553999262,
+          0.394351689579878
+        ],
+        "alpha": [
+          -0.025063640161857137,
+          -0.024955247467580932,
+          -0.02483555665259285
+        ],
+        "s": [
+          0.006798244630999153,
+          0.007154569553677177,
+          0.007509507088294231
+        ]
+      },
+      "value_converged": [
+        true,
+        true,
+        true
+      ],
+      "support_certified": [
+        false,
+        false,
+        false
+      ],
+      "gradient_valid": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "tol": 1e-05,
+      "gradient": {
+        "u0": [
+          0.39200593526561534,
+          0.39323822663182284,
+          0.3943390040725774
+        ],
+        "alpha": [
+          -0.02506351227198067,
+          -0.024954664576551266,
+          -0.024834673882774716
+        ],
+        "s": [
+          0.006798254592808323,
+          0.00715464127169227,
+          0.007509315050376726
+        ]
+      },
+      "value_converged": [
+        true,
+        true,
+        true
+      ],
+      "support_certified": [
+        false,
+        false,
+        false
+      ],
+      "gradient_valid": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "tol": 1e-06,
+      "gradient": {
+        "u0": [
+          0.3920059348642013,
+          0.39323822536231035,
+          0.3943390076755833
+        ],
+        "alpha": [
+          -0.025063512243732156,
+          -0.024954664487690792,
+          -0.024834674133506596
+        ],
+        "s": [
+          0.006798254566329111,
+          0.007154641281360047,
+          0.007509315188641879
+        ]
+      },
+      "value_converged": [
+        true,
+        true,
+        true
+      ],
+      "support_certified": [
+        false,
+        false,
+        false
+      ],
+      "gradient_valid": [
+        true,
+        true,
+        true
+      ]
+    }
+  ],
+  "vbm_central_differences": [
+    {
+      "parameter": "alpha",
+      "step": 0.0001,
+      "fd": [
+        -0.025060959893963286,
+        -0.02495270273072947,
+        -0.024833608192054157
+      ]
+    },
+    {
+      "parameter": "alpha",
+      "step": 3e-05,
+      "fd": [
+        -0.025060960033111236,
+        -0.024952703103764406,
+        -0.024833608502916604
+      ]
+    },
+    {
+      "parameter": "alpha",
+      "step": 1e-05,
+      "fd": [
+        -0.02506095677645703,
+        -0.024952700350411302,
+        -0.024833607881191707
+      ]
+    }
+  ],
+  "vbm_settings": {
+    "Tol": 1e-10,
+    "RelTol": 1e-10,
+    "a1": 0.5,
+    "a2": 0.0
+  },
+  "gradient_module": "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/build-algebraic-boundary/fused-gradient/python/_lcbinint_holonomic_fused.cpython-310-x86_64-linux-gnu.so",
+  "gradient_module_sha256": "d610da31602364566a2870e0f7dd60031eb994eae1d1006a9f3f09b45e5c8d2a",
+  "native_module": "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/build-algebraic-boundary/python-api/lcbinint/_lcbinint.cpython-310-x86_64-linux-gnu.so",
+  "native_module_sha256": "b6ba4c1a395452784ac1a287986a2cc8dcd9372b32c13405775fc7a02499258d",
+  "existing_vbm_reference_csv": "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/evidence/holonomic/gradient_geometry_20261015/comparison.csv"
+}

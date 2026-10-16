@@ -1,0 +1,77 @@
+{
+  "id": "legacy_049",
+  "params": {
+    "s": 0.9944197729817639,
+    "q": 0.8410179281835469,
+    "rho": 0.0001258609521143389,
+    "t0": 0.0,
+    "tE": 10.0,
+    "u0": 0.0,
+    "alpha": 0.17141188871862933
+  },
+  "limb": 0.5,
+  "span_tau": 0.03,
+  "origin": "unresolved_or_stress_case_049_from_20261015",
+  "refine": true,
+  "reuse_probe": true,
+  "special_times_days": [],
+  "n_uniform": 25,
+  "tol": 0.001,
+  "status": "ok",
+  "n_epochs": 27,
+  "info_ms": 1.56593497376889,
+  "plain_call_ms": 0.1025110250338912,
+  "reverse_call_ms": 0.05577900446951389,
+  "gradient_ms": 8.521554060280323,
+  "finite_values": 27,
+  "value_converged": 27,
+  "fully_converged": 27,
+  "integral_epochs": 0,
+  "integral_support_certified": 0,
+  "finite_gradient_components": 189,
+  "gradient_components": 189,
+  "valid_gradient_components": 189,
+  "invalid_gradient_epochs": [],
+  "nan_gradient_components": 0,
+  "plain_info_exact": true,
+  "plain_info_max_abs": 0.0,
+  "max_order_abs_difference": 7.993605777301127e-15,
+  "max_order_relative_difference": 1.7791924107036012e-15,
+  "nodes_total": 27,
+  "nodes_max_epoch": 1,
+  "epoch_ms_median": 0.000701,
+  "epoch_ms_p95": 0.0013006999999999995,
+  "integral_epoch_ms_p95": 0.0,
+  "routes": {
+    "point_source": 27
+  },
+  "stops": {
+    "not_integrated": 27
+  },
+  "parameter_reuse": {
+    "max_abs_same_instance_vs_fresh": 0.0,
+    "exact_array_match": true
+  },
+  "tolerance_sweep": {
+    "tol": 1e-05,
+    "finite_values": 27,
+    "value_converged": 27,
+    "fully_converged": 27,
+    "finite_gradient_components": 189,
+    "valid_gradient_components": 189,
+    "max_abs_value_change": 1.7040703426118853e-07,
+    "max_scaled_value_change_in_tol_1e3": 3.761923539310016e-05,
+    "max_abs_gradient_change": 0.0,
+    "gradient_change_components_over_0p32_percent": 0
+  },
+  "peak_rss_kib": 46288,
+  "param_order": [
+    "t0",
+    "u0",
+    "tE",
+    "alpha",
+    "rho",
+    "q",
+    "s"
+  ]
+}

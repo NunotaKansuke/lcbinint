@@ -1,0 +1,78 @@
+{
+  "id": "stratified_00",
+  "params": {
+    "s": 1.000001,
+    "q": 1e-06,
+    "rho": 0.001,
+    "t0": 0.0,
+    "tE": 10.0,
+    "u0": 0.0,
+    "alpha": 0.0
+  },
+  "limb": 0.0,
+  "span_tau": 0.03,
+  "origin": "deterministic_stratified_seed_20261016",
+  "refine": true,
+  "reuse_probe": true,
+  "special_times_days": [],
+  "n_uniform": 25,
+  "tol": 0.001,
+  "status": "ok",
+  "n_epochs": 27,
+  "info_ms": 12.543243006803095,
+  "plain_call_ms": 10.025852941907942,
+  "reverse_call_ms": 9.890499990433455,
+  "gradient_ms": 1033.8032389990985,
+  "finite_values": 27,
+  "value_converged": 27,
+  "fully_converged": 0,
+  "integral_epochs": 27,
+  "integral_support_certified": 0,
+  "finite_gradient_components": 189,
+  "gradient_components": 189,
+  "valid_gradient_components": 189,
+  "invalid_gradient_epochs": [],
+  "nan_gradient_components": 0,
+  "plain_info_exact": true,
+  "plain_info_max_abs": 0.0,
+  "max_order_abs_difference": 0.0,
+  "max_order_relative_difference": 0.0,
+  "nodes_total": 2213,
+  "nodes_max_epoch": 157,
+  "epoch_ms_median": 0.247497,
+  "epoch_ms_p95": 0.7961923999999998,
+  "integral_epoch_ms_p95": 0.7961923999999998,
+  "routes": {
+    "algebraic_boundary_seeded_radial": 27
+  },
+  "stops": {
+    "frontier_coverage_unproven": 26,
+    "seed_support_unproven": 1
+  },
+  "parameter_reuse": {
+    "max_abs_same_instance_vs_fresh": 0.0,
+    "exact_array_match": true
+  },
+  "tolerance_sweep": {
+    "tol": 1e-05,
+    "finite_values": 27,
+    "value_converged": 27,
+    "fully_converged": 0,
+    "finite_gradient_components": 189,
+    "valid_gradient_components": 189,
+    "max_abs_value_change": 0.018409604954058523,
+    "max_scaled_value_change_in_tol_1e3": 0.04083106709728285,
+    "max_abs_gradient_change": 114093.58136478346,
+    "gradient_change_components_over_0p32_percent": 9
+  },
+  "peak_rss_kib": 51496,
+  "param_order": [
+    "t0",
+    "u0",
+    "tE",
+    "alpha",
+    "rho",
+    "q",
+    "s"
+  ]
+}

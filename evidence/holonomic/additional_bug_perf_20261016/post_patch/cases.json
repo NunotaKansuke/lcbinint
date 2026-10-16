@@ -1,0 +1,673 @@
+[
+  {
+    "id": "legacy_004",
+    "params": {
+      "s": 1.000001,
+      "q": 1.0,
+      "rho": 0.001753544435177877,
+      "t0": 0.0,
+      "tE": 10.0,
+      "u0": 0.0,
+      "alpha": 2.4528542030824507
+    },
+    "limb": 0.0,
+    "span_tau": 0.03,
+    "origin": "unresolved_or_stress_case_004_from_20261015",
+    "refine": true,
+    "reuse_probe": true,
+    "special_times_days": [],
+    "n_uniform": 25,
+    "tol": 0.001
+  },
+  {
+    "id": "legacy_025",
+    "params": {
+      "s": 0.7560223926420265,
+      "q": 0.00011289727526577515,
+      "rho": 0.14869772143505697,
+      "t0": 0.0,
+      "tE": 10.0,
+      "u0": 0.0,
+      "alpha": 0.7212762247380842
+    },
+    "limb": 0.5,
+    "span_tau": 0.29739544287011394,
+    "origin": "unresolved_or_stress_case_025_from_20261015",
+    "refine": true,
+    "reuse_probe": false,
+    "special_times_days": [],
+    "n_uniform": 25,
+    "tol": 0.001
+  },
+  {
+    "id": "legacy_033",
+    "params": {
+      "s": 1.099687863945755,
+      "q": 1.555471033863785e-06,
+      "rho": 1.648889061484618e-05,
+      "t0": 0.0,
+      "tE": 10.0,
+      "u0": 0.0,
+      "alpha": -1.2719072845402482
+    },
+    "limb": 0.5,
+    "span_tau": 0.03,
+    "origin": "unresolved_or_stress_case_033_from_20261015",
+    "refine": true,
+    "reuse_probe": true,
+    "special_times_days": [
+      -0.15,
+      0.15
+    ],
+    "n_uniform": 25,
+    "tol": 0.001
+  },
+  {
+    "id": "legacy_049",
+    "params": {
+      "s": 0.9944197729817639,
+      "q": 0.8410179281835469,
+      "rho": 0.0001258609521143389,
+      "t0": 0.0,
+      "tE": 10.0,
+      "u0": 0.0,
+      "alpha": 0.17141188871862933
+    },
+    "limb": 0.5,
+    "span_tau": 0.03,
+    "origin": "unresolved_or_stress_case_049_from_20261015",
+    "refine": true,
+    "reuse_probe": true,
+    "special_times_days": [],
+    "n_uniform": 25,
+    "tol": 0.001
+  },
+  {
+    "id": "legacy_064",
+    "params": {
+      "s": 0.16885958008392485,
+      "q": 1.4976150856725361e-05,
+      "rho": 0.024801833331394275,
+      "t0": 0.0,
+      "tE": 10.0,
+      "u0": 1e-09,
+      "alpha": 3.038722217890051
+    },
+    "limb": 0.0,
+    "span_tau": 0.04960366666278855,
+    "origin": "unresolved_or_stress_case_064_from_20261015",
+    "refine": true,
+    "reuse_probe": false,
+    "special_times_days": [],
+    "n_uniform": 25,
+    "tol": 0.001
+  },
+  {
+    "id": "legacy_089",
+    "params": {
+      "s": 0.2768860411108275,
+      "q": 1.2770567757878578e-05,
+      "rho": 0.06464722306885273,
+      "t0": 0.0,
+      "tE": 10.0,
+      "u0": -1e-05,
+      "alpha": 2.8222623031719882
+    },
+    "limb": 0.5,
+    "span_tau": 0.12929444613770547,
+    "origin": "unresolved_or_stress_case_089_from_20261015",
+    "refine": true,
+    "reuse_probe": false,
+    "special_times_days": [],
+    "n_uniform": 25,
+    "tol": 0.001
+  },
+  {
+    "id": "legacy_117",
+    "params": {
+      "s": 0.710053684596912,
+      "q": 7.886132346228951e-07,
+      "rho": 0.1671007233467463,
+      "t0": 0.0,
+      "tE": 10.0,
+      "u0": 1e-09,
+      "alpha": 1.186247434824958
+    },
+    "limb": 0.5,
+    "span_tau": 0.3342014466934926,
+    "origin": "unresolved_or_stress_case_117_from_20261015",
+    "refine": true,
+    "reuse_probe": false,
+    "special_times_days": [],
+    "n_uniform": 25,
+    "tol": 0.001
+  },
+  {
+    "id": "near_double_root",
+    "params": {
+      "s": 0.6,
+      "q": 0.0001,
+      "rho": 0.05,
+      "t0": 0.0,
+      "tE": 10.0,
+      "u0": -1e-05,
+      "alpha": 0.5
+    },
+    "limb": 0.5,
+    "span_tau": 0.08,
+    "origin": "previously_reported_close_pair",
+    "refine": true,
+    "reuse_probe": true,
+    "special_times_days": [
+      -0.704,
+      -0.7,
+      -0.696
+    ],
+    "n_uniform": 25,
+    "tol": 0.001
+  },
+  {
+    "id": "near_limb_contact_117",
+    "params": {
+      "s": 0.710053684596912,
+      "q": 7.886132346228951e-07,
+      "rho": 0.1671007233467463,
+      "t0": 0.0,
+      "tE": 10.0,
+      "u0": 1e-09,
+      "alpha": 1.186247434824958
+    },
+    "limb": 0.5,
+    "span_tau": 0.3342014466934926,
+    "origin": "latest_case117_exact_contact",
+    "refine": true,
+    "reuse_probe": true,
+    "special_times_days": [
+      -1.6710172334674631,
+      -1.671007233467463,
+      -1.670997233467463
+    ],
+    "n_uniform": 25,
+    "tol": 0.001
+  },
+  {
+    "id": "stratified_00",
+    "params": {
+      "s": 1.000001,
+      "q": 1e-06,
+      "rho": 0.001,
+      "t0": 0.0,
+      "tE": 10.0,
+      "u0": 0.0,
+      "alpha": 0.0
+    },
+    "limb": 0.0,
+    "span_tau": 0.03,
+    "origin": "deterministic_stratified_seed_20261016",
+    "refine": true,
+    "reuse_probe": true,
+    "special_times_days": [],
+    "n_uniform": 25,
+    "tol": 0.001
+  },
+  {
+    "id": "stratified_01",
+    "params": {
+      "s": 0.3,
+      "q": 1e-06,
+      "rho": 1e-05,
+      "t0": 0.0,
+      "tE": 10.0,
+      "u0": 1e-09,
+      "alpha": -0.01540786609650402
+    },
+    "limb": 0.5,
+    "span_tau": 0.03,
+    "origin": "deterministic_stratified_seed_20261016",
+    "refine": true,
+    "reuse_probe": false,
+    "special_times_days": [],
+    "n_uniform": 25,
+    "tol": 0.001
+  },
+  {
+    "id": "stratified_02",
+    "params": {
+      "s": 0.95,
+      "q": 0.01,
+      "rho": 1e-06,
+      "t0": 0.0,
+      "tE": 10.0,
+      "u0": -1e-05,
+      "alpha": -1.8890494698555882
+    },
+    "limb": 0.9,
+    "span_tau": 0.03,
+    "origin": "deterministic_stratified_seed_20261016",
+    "refine": true,
+    "reuse_probe": false,
+    "special_times_days": [],
+    "n_uniform": 25,
+    "tol": 0.001
+  },
+  {
+    "id": "stratified_03",
+    "params": {
+      "s": 0.15,
+      "q": 1e-06,
+      "rho": 1e-05,
+      "t0": 0.0,
+      "tE": 10.0,
+      "u0": 9.843697502763428e-06,
+      "alpha": 3.141592653589793
+    },
+    "limb": 0.999999,
+    "span_tau": 0.03,
+    "origin": "deterministic_stratified_seed_20261016",
+    "refine": true,
+    "reuse_probe": true,
+    "special_times_days": [],
+    "n_uniform": 25,
+    "tol": 0.001
+  },
+  {
+    "id": "stratified_04",
+    "params": {
+      "s": 3.0,
+      "q": 0.0001,
+      "rho": 0.0001,
+      "t0": 0.0,
+      "tE": 10.0,
+      "u0": 0.00010370679448857516,
+      "alpha": -3.050060112428666
+    },
+    "limb": 0.0,
+    "span_tau": 0.03,
+    "origin": "deterministic_stratified_seed_20261016",
+    "refine": true,
+    "reuse_probe": false,
+    "special_times_days": [],
+    "n_uniform": 25,
+    "tol": 0.001
+  },
+  {
+    "id": "stratified_05",
+    "params": {
+      "s": 0.6,
+      "q": 1.0,
+      "rho": 1.5,
+      "t0": 0.0,
+      "tE": 10.0,
+      "u0": -0.0013288527191245292,
+      "alpha": 2.763196886611566
+    },
+    "limb": 0.5,
+    "span_tau": 1.5,
+    "origin": "deterministic_stratified_seed_20261016",
+    "refine": true,
+    "reuse_probe": false,
+    "special_times_days": [],
+    "n_uniform": 25,
+    "tol": 0.001
+  },
+  {
+    "id": "stratified_06",
+    "params": {
+      "s": 0.6,
+      "q": 0.0001,
+      "rho": 0.2,
+      "t0": 0.0,
+      "tE": 10.0,
+      "u0": 0.0,
+      "alpha": 1.5707963267948966
+    },
+    "limb": 0.9,
+    "span_tau": 0.4,
+    "origin": "deterministic_stratified_seed_20261016",
+    "refine": true,
+    "reuse_probe": true,
+    "special_times_days": [],
+    "n_uniform": 25,
+    "tol": 0.001
+  },
+  {
+    "id": "stratified_07",
+    "params": {
+      "s": 3.0,
+      "q": 1e-06,
+      "rho": 0.0001,
+      "t0": 0.0,
+      "tE": 10.0,
+      "u0": 1e-09,
+      "alpha": -0.08124458167461368
+    },
+    "limb": 0.999999,
+    "span_tau": 0.03,
+    "origin": "deterministic_stratified_seed_20261016",
+    "refine": true,
+    "reuse_probe": false,
+    "special_times_days": [],
+    "n_uniform": 25,
+    "tol": 0.001
+  },
+  {
+    "id": "stratified_08",
+    "params": {
+      "s": 1.000001,
+      "q": 0.01,
+      "rho": 0.05,
+      "t0": 0.0,
+      "tE": 10.0,
+      "u0": -1e-05,
+      "alpha": 1.919457528446273
+    },
+    "limb": 0.0,
+    "span_tau": 0.1,
+    "origin": "deterministic_stratified_seed_20261016",
+    "refine": false,
+    "reuse_probe": false,
+    "special_times_days": [],
+    "n_uniform": 25,
+    "tol": 0.001
+  },
+  {
+    "id": "stratified_09",
+    "params": {
+      "s": 0.95,
+      "q": 1e-07,
+      "rho": 1e-06,
+      "t0": 0.0,
+      "tE": 10.0,
+      "u0": 9.846481110931334e-07,
+      "alpha": 0.5
+    },
+    "limb": 0.5,
+    "span_tau": 0.03,
+    "origin": "deterministic_stratified_seed_20261016",
+    "refine": false,
+    "reuse_probe": false,
+    "special_times_days": [],
+    "n_uniform": 25,
+    "tol": 0.001
+  },
+  {
+    "id": "stratified_10",
+    "params": {
+      "s": 10.0,
+      "q": 0.1,
+      "rho": 0.01,
+      "t0": 0.0,
+      "tE": 10.0,
+      "u0": 0.010283037266824,
+      "alpha": -2.105076817451871
+    },
+    "limb": 0.9,
+    "span_tau": 0.03,
+    "origin": "deterministic_stratified_seed_20261016",
+    "refine": false,
+    "reuse_probe": false,
+    "special_times_days": [],
+    "n_uniform": 25,
+    "tol": 0.001
+  },
+  {
+    "id": "stratified_11",
+    "params": {
+      "s": 0.999999,
+      "q": 1e-07,
+      "rho": 0.5,
+      "t0": 0.0,
+      "tE": 10.0,
+      "u0": 0.2350103964558744,
+      "alpha": 2.2700319375815345
+    },
+    "limb": 0.999999,
+    "span_tau": 1.0,
+    "origin": "deterministic_stratified_seed_20261016",
+    "refine": false,
+    "reuse_probe": false,
+    "special_times_days": [],
+    "n_uniform": 25,
+    "tol": 0.001
+  },
+  {
+    "id": "stratified_12",
+    "params": {
+      "s": 10.0,
+      "q": 0.0001,
+      "rho": 1e-06,
+      "t0": 0.0,
+      "tE": 10.0,
+      "u0": 0.0,
+      "alpha": 0.0
+    },
+    "limb": 0.0,
+    "span_tau": 0.03,
+    "origin": "deterministic_stratified_seed_20261016",
+    "refine": false,
+    "reuse_probe": false,
+    "special_times_days": [],
+    "n_uniform": 25,
+    "tol": 0.001
+  },
+  {
+    "id": "stratified_13",
+    "params": {
+      "s": 0.6,
+      "q": 1.0,
+      "rho": 1e-06,
+      "t0": 0.0,
+      "tE": 10.0,
+      "u0": 1e-09,
+      "alpha": 0.19026053636559803
+    },
+    "limb": 0.5,
+    "span_tau": 0.03,
+    "origin": "deterministic_stratified_seed_20261016",
+    "refine": false,
+    "reuse_probe": false,
+    "special_times_days": [],
+    "n_uniform": 25,
+    "tol": 0.001
+  },
+  {
+    "id": "stratified_14",
+    "params": {
+      "s": 1.5,
+      "q": 1e-06,
+      "rho": 0.2,
+      "t0": 0.0,
+      "tE": 10.0,
+      "u0": -1e-05,
+      "alpha": 1.8453808061507804
+    },
+    "limb": 0.9,
+    "span_tau": 0.4,
+    "origin": "deterministic_stratified_seed_20261016",
+    "refine": false,
+    "reuse_probe": false,
+    "special_times_days": [],
+    "n_uniform": 25,
+    "tol": 0.001
+  },
+  {
+    "id": "stratified_15",
+    "params": {
+      "s": 0.08,
+      "q": 1e-06,
+      "rho": 1e-05,
+      "t0": 0.0,
+      "tE": 10.0,
+      "u0": 9.50828273124133e-06,
+      "alpha": 3.141592653589793
+    },
+    "limb": 0.999999,
+    "span_tau": 0.03,
+    "origin": "deterministic_stratified_seed_20261016",
+    "refine": false,
+    "reuse_probe": false,
+    "special_times_days": [],
+    "n_uniform": 25,
+    "tol": 0.001
+  },
+  {
+    "id": "stratified_16",
+    "params": {
+      "s": 1.5,
+      "q": 1.0,
+      "rho": 0.001,
+      "t0": 0.0,
+      "tE": 10.0,
+      "u0": 0.0010220544985444161,
+      "alpha": 2.4874069986769207
+    },
+    "limb": 0.0,
+    "span_tau": 0.03,
+    "origin": "deterministic_stratified_seed_20261016",
+    "refine": false,
+    "reuse_probe": false,
+    "special_times_days": [],
+    "n_uniform": 25,
+    "tol": 0.001
+  },
+  {
+    "id": "stratified_17",
+    "params": {
+      "s": 1.5,
+      "q": 0.0001,
+      "rho": 0.01,
+      "t0": 0.0,
+      "tE": 10.0,
+      "u0": -0.40663268919462947,
+      "alpha": -1.8217590839683804
+    },
+    "limb": 0.5,
+    "span_tau": 0.03,
+    "origin": "deterministic_stratified_seed_20261016",
+    "refine": false,
+    "reuse_probe": false,
+    "special_times_days": [],
+    "n_uniform": 25,
+    "tol": 0.001
+  },
+  {
+    "id": "stratified_18",
+    "params": {
+      "s": 0.6,
+      "q": 0.01,
+      "rho": 0.2,
+      "t0": 0.0,
+      "tE": 10.0,
+      "u0": 0.0,
+      "alpha": 1.5707963267948966
+    },
+    "limb": 0.9,
+    "span_tau": 0.4,
+    "origin": "deterministic_stratified_seed_20261016",
+    "refine": false,
+    "reuse_probe": false,
+    "special_times_days": [],
+    "n_uniform": 25,
+    "tol": 0.001
+  },
+  {
+    "id": "stratified_19",
+    "params": {
+      "s": 3.0,
+      "q": 1e-08,
+      "rho": 1.5,
+      "t0": 0.0,
+      "tE": 10.0,
+      "u0": 1e-09,
+      "alpha": -3.0438272054361613
+    },
+    "limb": 0.999999,
+    "span_tau": 1.5,
+    "origin": "deterministic_stratified_seed_20261016",
+    "refine": false,
+    "reuse_probe": false,
+    "special_times_days": [],
+    "n_uniform": 25,
+    "tol": 0.001
+  },
+  {
+    "id": "stratified_20",
+    "params": {
+      "s": 1.000001,
+      "q": 1.0,
+      "rho": 0.5,
+      "t0": 0.0,
+      "tE": 10.0,
+      "u0": -1e-05,
+      "alpha": -3.0691417295824657
+    },
+    "limb": 0.0,
+    "span_tau": 1.0,
+    "origin": "deterministic_stratified_seed_20261016",
+    "refine": false,
+    "reuse_probe": false,
+    "special_times_days": [],
+    "n_uniform": 25,
+    "tol": 0.001
+  },
+  {
+    "id": "stratified_21",
+    "params": {
+      "s": 0.95,
+      "q": 0.1,
+      "rho": 0.5,
+      "t0": 0.0,
+      "tE": 10.0,
+      "u0": 0.488392776045466,
+      "alpha": 0.5
+    },
+    "limb": 0.5,
+    "span_tau": 1.0,
+    "origin": "deterministic_stratified_seed_20261016",
+    "refine": false,
+    "reuse_probe": false,
+    "special_times_days": [],
+    "n_uniform": 25,
+    "tol": 0.001
+  },
+  {
+    "id": "stratified_22",
+    "params": {
+      "s": 3.0,
+      "q": 0.0001,
+      "rho": 0.0001,
+      "t0": 0.0,
+      "tE": 10.0,
+      "u0": 0.00010469180807129624,
+      "alpha": 2.2413370877613783
+    },
+    "limb": 0.9,
+    "span_tau": 0.03,
+    "origin": "deterministic_stratified_seed_20261016",
+    "refine": false,
+    "reuse_probe": false,
+    "special_times_days": [],
+    "n_uniform": 25,
+    "tol": 0.001
+  },
+  {
+    "id": "stratified_23",
+    "params": {
+      "s": 0.95,
+      "q": 1e-06,
+      "rho": 1e-05,
+      "t0": 0.0,
+      "tE": 10.0,
+      "u0": -0.16085976255001078,
+      "alpha": -0.34970918837479115
+    },
+    "limb": 0.999999,
+    "span_tau": 0.03,
+    "origin": "deterministic_stratified_seed_20261016",
+    "refine": false,
+    "reuse_probe": false,
+    "special_times_days": [],
+    "n_uniform": 25,
+    "tol": 0.001
+  }
+]

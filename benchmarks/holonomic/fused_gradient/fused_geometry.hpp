@@ -8,7 +8,7 @@ using Q=__float128;
 }
 #include "fused_geometry_exact.hpp"
 namespace lcbinint::holonomic::geometry_experiment {
-struct Pair {double center=0,scale=0,left=0,right=0,band_lo=0,band_hi=0;bool real=false,existing=false;};
+struct Pair {double center=0,scale=0,left=0,right=0,band_lo=0,band_hi=0;bool real=false,existing=false,upper_edge=false;};
 // Existing support edges are normal image endpoints. Only mutually closest
 // INTERNAL physical folds are candidates for additional near-pair treatment.
 inline std::vector<Pair> known_internal_pairs(const PrimaryFrame&pf,const TopologyResult&topo,int resolution){
@@ -35,6 +35,61 @@ inline std::vector<Pair> known_internal_pairs(const PrimaryFrame&pf,const Topolo
  }
  return out;
 }
+// A physically isolated real fold pair can also sit at the outer support edge.
+// Keep this detector separate from internal-pair replay: the caller uses it to
+// select a regular radial chart for the contact derivative.
+inline std::vector<Pair> known_upper_edge_pairs(const PrimaryFrame&pf,
+        const TopologyResult&topo,int resolution,bool* unresolved_out=nullptr) {
+ std::vector<Pair> out;
+ if(unresolved_out)*unresolved_out=false;
+ if(resolution<=0)return out;
+ std::optional<ScreenBlocks<ScreenInterval>> blocks;
+ std::optional<ScreenBlocks<positive_detail::Ball>> precise;
+ auto isolated=[&](const auto&source,double center,double radius){
+  auto p=source.disk(pf,center,radius);double rest=0;
+  for(int k=0;k<=p.degree;++k)if(k!=2)
+   rest=screen_up(rest+screen_upper(p.c[k]));
+  return screen_lower(p.c[2])>rest;
+ };
+ for(size_t first=0;first<topo.cells.size();) {
+  if(topo.cells[first].kind==ArcKind::kEmpty){++first;continue;}
+  size_t last=first;
+  while(last+1<topo.cells.size()&&topo.cells[last+1].kind!=ArcKind::kEmpty)++last;
+  const double lo=topo.cells[first].r_lo,hi=topo.cells[last].r_hi;
+  std::vector<double> events;
+  for(const auto&e:topo.events)
+   if(e.physically_real&&e.radius>=lo&&e.radius<=hi)events.push_back(e.radius);
+  std::sort(events.begin(),events.end());
+  events.erase(std::unique(events.begin(),events.end()),events.end());
+  if(events.size()>=3) {
+   const double a=events[events.size()-2],b=events.back(),gap=b-a;
+   const double previous_gap=a-events[events.size()-3];
+   const double edge_tol=8*std::numeric_limits<double>::epsilon()*(1+std::fabs(hi));
+   if(a>lo&&gap>0&&gap<previous_gap&&hi>=b&&hi-b<=edge_tol&&
+      .5*gap<(hi-lo)/resolution) {
+    using Q=__float128;
+    const Q av=Q(a)*a,bv=Q(b)*b;
+    const double center=double((av+bv)/2);
+    const double radius=std::nextafter(double(bv-av),INFINITY);
+    if(!blocks)blocks.emplace(pf);
+    bool ok=isolated(*blocks,center,radius);
+    if(!ok) {
+     if(!precise)precise.emplace(pf);
+     ok=isolated(*precise,center,radius);
+    }
+    if(ok) {
+     Pair pair;pair.center=a+.5*gap;pair.scale=.5*gap;
+     pair.left=a;pair.right=b;pair.band_lo=lo;pair.band_hi=hi;
+     pair.real=true;pair.existing=true;pair.upper_edge=true;out.push_back(pair);
+    } else if(unresolved_out) {
+     *unresolved_out=true;
+    }
+   }
+  }
+  first=last+1;
+ }
+ return out;
+}
 // Stationary isolation is local to seeded support bands; it does not certify
 // global image support completeness. Solve D'(v)=0
 // before splitting its quadratic normal form; the stationary point is broad
@@ -44,6 +99,8 @@ inline std::vector<Pair> detect(const PrimaryFrame&pf,const TopologyResult&topo,
  bool completed=true;
  if(resolution<=0){if(complete_out)*complete_out=false;return {};}
  auto known=known_internal_pairs(pf,topo,resolution);
+ auto edge_pairs=known_upper_edge_pairs(pf,topo,resolution);
+ known.insert(known.end(),edge_pairs.begin(),edge_pairs.end());
  std::vector<bool> needs;
  const char* screen_setting=std::getenv("LCBININT_GEOMETRY_SCREEN");
  if(!screen_setting||screen_setting[0]!='0'){
@@ -148,8 +205,14 @@ inline std::vector<Pair> detect(const PrimaryFrame&pf,const TopologyResult&topo,
   for(Q v:stationary_roots){
    auto j=jet(v);if(j[2]==0)continue;
    const Q eta=2*j[0]/j[2];if(eta==0)continue;const Q b=sqrtq(fabsq(eta));
-   // Require the local quadratic pair to lie inside this support band.
-   if(!(v-b>vl&&v+b<vh))continue;
+   // A real close pair may terminate exactly at the outer support boundary.
+   // Admit only a binary64-sized enclosure there; the later interval and
+   // Newton checks still have to certify the pair itself.
+   const double edge_radius_tol=32*std::numeric_limits<double>::epsilon()*(1+std::fabs(hi));
+   const Q edge_v_tol=Q(2*hi+edge_radius_tol)*edge_radius_tol;
+   const Q pair_enclosure=2*b+edge_v_tol;
+   const bool real_upper_candidate=eta<0 && v-b<=vh+edge_v_tol && v+b>=vh-pair_enclosure;
+   if(!(v-b>vl && (v+b<vh || real_upper_candidate))){continue;}
    // Rouche: the quadratic term dominates all other Taylor terms on
    // |z-v|=2*b. Interval coefficients bound the original exact dyadic input.
    // This proves exactly two discriminant roots in the disk, and rejects
@@ -162,20 +225,23 @@ inline std::vector<Pair> detect(const PrimaryFrame&pf,const TopologyResult&topo,
     else remainder=remainder+I(0,fmaxq(fabsq(term.lo),fabsq(term.hi)));
     power=power*radius;
    }
-   if(!(main_lower>remainder.hi))continue;
+   if(!(main_lower>remainder.hi)){continue;}
    int known=0;for(const auto&e:topo.events)if(e.physically_real){Q rr=Q(e.radius)+e.radius_lo;if(fabsq(rr*rr-v)<2*b)++known;}
-   if(known>=2)continue;
+   if(known>=2){continue;}
    Cplx<Q> z[2]={eta>0?Cplx<Q>(v,b):Cplx<Q>(v-b,0),eta>0?Cplx<Q>(v,-b):Cplx<Q>(v+b,0)};
    bool good=true;
    for(auto&root:z){bool converged=false;for(int i=0;i<24;++i){auto f=poly_eval_c(descending.data(),degree,root),df=polyder_eval_c(descending.data(),degree,root);if(cabs2(df)==0)break;auto step=f/df;root=root-step;
      if(cabs(step)<1e-23Q*fmaxq(1,cabs(root))){converged=true;break;}}
-    good=good&&converged&&root.re>vl&&root.re<vh;
+    const bool inside=root.re>vl&&root.re<vh;
+    const bool enclosed_upper=eta<0&&root.re>=vh-edge_v_tol&&root.re<=vh+edge_v_tol;
+    good=good&&converged&&(inside||enclosed_upper);
    }
-   if(!good)continue;
+   if(!good){continue;}
    auto sqrtc=[](Cplx<Q> z){Q re=sqrtq((cabs(z)+z.re)/2);return Cplx<Q>(re,z.im/(2*re));};
    auto a=sqrtc(z[0]),broot=sqrtc(z[1]);Pair pair;pair.real=eta<0;
    pair.center=double((a.re+broot.re)/2);pair.scale=pair.real?double(fabsq(a.re-broot.re)/2):double(fabsq(a.im));
    pair.left=double(fminq(a.re,broot.re));pair.right=double(fmaxq(a.re,broot.re));pair.band_lo=lo;pair.band_hi=hi;
+   pair.upper_edge=pair.real&&std::fabs(pair.right-hi)<=edge_radius_tol;
    if(pair.real&&!(pair.left<pair.right)){completed=false;continue;}
    if(!(pair.scale>0&&pair.scale<.5*(hi-lo)))continue;
    // The Newton roots must retain the proposed real/conjugate pair structure.

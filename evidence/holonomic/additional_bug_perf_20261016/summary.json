@@ -1,0 +1,868 @@
+{
+  "branch": "experiment/algebraic_boundary",
+  "head": "65faef7a3f5ade838119c39b77634a5ccbdf1ee3",
+  "build": {
+    "native_sha256": "b6ba4c1a395452784ac1a287986a2cc8dcd9372b32c13405775fc7a02499258d",
+    "gradient_sha256": "d610da31602364566a2870e0f7dd60031eb994eae1d1006a9f3f09b45e5c8d2a",
+    "cpu": "INTEL(R) XEON(R) GOLD 6530",
+    "threads": 1
+  },
+  "screen": {
+    "cases": 33,
+    "epochs": 873,
+    "finite_values": 873,
+    "value_converged": 871,
+    "fully_converged": 425,
+    "finite_source_integral_epochs": 448,
+    "integral_support_certified": 0,
+    "gradient_components": 6111,
+    "finite_gradient_components": 6111,
+    "valid_gradient_components": 6041,
+    "invalid_gradient_epochs": 10,
+    "nan_gradient_components": 0,
+    "max_order_relative_difference": 5.863821867285748e-12,
+    "all_info_matches_plain": true,
+    "cases_with_reuse_probe": 8,
+    "reuse_exact": true,
+    "invalid_cases": [
+      {
+        "id": "stratified_02",
+        "value_converged": 25,
+        "epochs": 25,
+        "invalid_gradient_epochs_days": [
+          -0.275,
+          -0.24999999999999997,
+          -0.22499999999999998,
+          -0.19999999999999996,
+          -0.075,
+          -0.024999999999999988,
+          0.0,
+          0.025000000000000022
+        ],
+        "routes": {
+          "hexadecapole": 25
+        },
+        "value_route_stops": {
+          "not_integrated": 25
+        },
+        "gradient_stops_by_tol": {
+          "0.001": [
+            "TopologyUnresolved",
+            "TopologyUnresolved",
+            "TopologyUnresolved",
+            "TopologyUnresolved",
+            "TopologyUnresolved",
+            "TopologyUnresolved",
+            "TopologyUnresolved",
+            "TopologyUnresolved"
+          ],
+          "1e-05": [
+            "TopologyUnresolved",
+            "TopologyUnresolved",
+            "TopologyUnresolved",
+            "TopologyUnresolved",
+            "TopologyUnresolved",
+            "TopologyUnresolved",
+            "TopologyUnresolved",
+            "TopologyUnresolved"
+          ],
+          "1e-07": [
+            "TopologyUnresolved",
+            "TopologyUnresolved",
+            "TopologyUnresolved",
+            "TopologyUnresolved",
+            "TopologyUnresolved",
+            "TopologyUnresolved",
+            "TopologyUnresolved",
+            "TopologyUnresolved"
+          ]
+        }
+      },
+      {
+        "id": "stratified_09",
+        "value_converged": 25,
+        "epochs": 27,
+        "invalid_gradient_epochs_days": [
+          -1.7455113096375089e-06,
+          1.7455113096375089e-06
+        ],
+        "routes": {
+          "point_source": 4,
+          "hexadecapole": 20,
+          "algebraic_boundary_seeded_radial": 3
+        },
+        "value_route_stops": {
+          "not_integrated": 24,
+          "frontier_coverage_unproven": 3
+        },
+        "gradient_stops_by_tol": {
+          "0.001": [
+            "EventLocationLimited",
+            "Converged",
+            "TopologyUnresolved"
+          ],
+          "1e-05": [
+            "EventLocationLimited",
+            "TopologyUnresolved",
+            "TopologyUnresolved"
+          ],
+          "1e-07": [
+            "EventLocationLimited",
+            "TopologyUnresolved",
+            "TopologyUnresolved"
+          ]
+        }
+      }
+    ]
+  },
+  "tolerance_sensitivity_1e3_vs_1e5": [
+    {
+      "id": "legacy_025",
+      "max_abs_gradient_change_1e3_to_1e5": 0.0025937412357439626,
+      "components_over_0p32_percent": 30,
+      "finite_gradient_components": 182,
+      "fully_converged_epochs_at_1e3": 0,
+      "epochs": 26,
+      "max_scaled_value_change": 0.11629988800881634
+    },
+    {
+      "id": "legacy_033",
+      "max_abs_gradient_change_1e3_to_1e5": 14002529.52895236,
+      "components_over_0p32_percent": 17,
+      "finite_gradient_components": 189,
+      "fully_converged_epochs_at_1e3": 24,
+      "epochs": 27,
+      "max_scaled_value_change": 0.20875739590065698
+    },
+    {
+      "id": "legacy_064",
+      "max_abs_gradient_change_1e3_to_1e5": 0.030986499220773567,
+      "components_over_0p32_percent": 24,
+      "finite_gradient_components": 189,
+      "fully_converged_epochs_at_1e3": 0,
+      "epochs": 27,
+      "max_scaled_value_change": 0.04858707969086576
+    },
+    {
+      "id": "legacy_089",
+      "max_abs_gradient_change_1e3_to_1e5": 0.002341822671155569,
+      "components_over_0p32_percent": 49,
+      "finite_gradient_components": 189,
+      "fully_converged_epochs_at_1e3": 0,
+      "epochs": 27,
+      "max_scaled_value_change": 0.043249689676524664
+    },
+    {
+      "id": "legacy_117",
+      "max_abs_gradient_change_1e3_to_1e5": 0.21054520669218846,
+      "components_over_0p32_percent": 70,
+      "finite_gradient_components": 175,
+      "fully_converged_epochs_at_1e3": 0,
+      "epochs": 25,
+      "max_scaled_value_change": 0.1456363402592372
+    },
+    {
+      "id": "near_double_root",
+      "max_abs_gradient_change_1e3_to_1e5": 0.0025021462218148827,
+      "components_over_0p32_percent": 26,
+      "finite_gradient_components": 210,
+      "fully_converged_epochs_at_1e3": 0,
+      "epochs": 30,
+      "max_scaled_value_change": 0.036007764667081055
+    },
+    {
+      "id": "near_limb_contact_117",
+      "max_abs_gradient_change_1e3_to_1e5": 0.21054520669218846,
+      "components_over_0p32_percent": 70,
+      "finite_gradient_components": 189,
+      "fully_converged_epochs_at_1e3": 0,
+      "epochs": 27,
+      "max_scaled_value_change": 0.1456363402592372
+    },
+    {
+      "id": "stratified_00",
+      "max_abs_gradient_change_1e3_to_1e5": 114093.58136478346,
+      "components_over_0p32_percent": 9,
+      "finite_gradient_components": 189,
+      "fully_converged_epochs_at_1e3": 0,
+      "epochs": 27,
+      "max_scaled_value_change": 0.04083106709728285
+    },
+    {
+      "id": "stratified_01",
+      "max_abs_gradient_change_1e3_to_1e5": 278064473.4149704,
+      "components_over_0p32_percent": 13,
+      "finite_gradient_components": 189,
+      "fully_converged_epochs_at_1e3": 24,
+      "epochs": 27,
+      "max_scaled_value_change": 0.0030307281701080747
+    },
+    {
+      "id": "stratified_02",
+      "max_abs_gradient_change_1e3_to_1e5": 1284538.9204086915,
+      "components_over_0p32_percent": 91,
+      "finite_gradient_components": 175,
+      "fully_converged_epochs_at_1e3": 25,
+      "epochs": 25,
+      "max_scaled_value_change": 0.0
+    },
+    {
+      "id": "stratified_03",
+      "max_abs_gradient_change_1e3_to_1e5": 122953957.05934525,
+      "components_over_0p32_percent": 23,
+      "finite_gradient_components": 189,
+      "fully_converged_epochs_at_1e3": 24,
+      "epochs": 27,
+      "max_scaled_value_change": 0.10555947241955958
+    },
+    {
+      "id": "stratified_05",
+      "max_abs_gradient_change_1e3_to_1e5": 0.006170798822374923,
+      "components_over_0p32_percent": 29,
+      "finite_gradient_components": 189,
+      "fully_converged_epochs_at_1e3": 0,
+      "epochs": 27,
+      "max_scaled_value_change": 0.180493562048877
+    },
+    {
+      "id": "stratified_06",
+      "max_abs_gradient_change_1e3_to_1e5": 1.592645140546722,
+      "components_over_0p32_percent": 81,
+      "finite_gradient_components": 182,
+      "fully_converged_epochs_at_1e3": 0,
+      "epochs": 26,
+      "max_scaled_value_change": 0.0010393824456506333
+    },
+    {
+      "id": "stratified_07",
+      "max_abs_gradient_change_1e3_to_1e5": 9779.8673787117,
+      "components_over_0p32_percent": 11,
+      "finite_gradient_components": 189,
+      "fully_converged_epochs_at_1e3": 24,
+      "epochs": 27,
+      "max_scaled_value_change": 0.00320316951130033
+    }
+  ],
+  "tight_tolerance_followup": [
+    {
+      "id": "stratified_02",
+      "tolerance_sweep": [
+        {
+          "tol": 0.001,
+          "times_days": [
+            -0.275,
+            -0.25,
+            -0.225,
+            -0.2,
+            -0.075,
+            -0.025,
+            0.0,
+            0.025
+          ],
+          "stop": [
+            "TopologyUnresolved",
+            "TopologyUnresolved",
+            "TopologyUnresolved",
+            "TopologyUnresolved",
+            "TopologyUnresolved",
+            "TopologyUnresolved",
+            "TopologyUnresolved",
+            "TopologyUnresolved"
+          ],
+          "value_converged": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ],
+          "gradient_valid": [
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ]
+          ]
+        },
+        {
+          "tol": 1e-05,
+          "times_days": [
+            -0.275,
+            -0.25,
+            -0.225,
+            -0.2,
+            -0.075,
+            -0.025,
+            0.0,
+            0.025
+          ],
+          "stop": [
+            "TopologyUnresolved",
+            "TopologyUnresolved",
+            "TopologyUnresolved",
+            "TopologyUnresolved",
+            "TopologyUnresolved",
+            "TopologyUnresolved",
+            "TopologyUnresolved",
+            "TopologyUnresolved"
+          ],
+          "value_converged": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ],
+          "gradient_valid": [
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ]
+          ]
+        },
+        {
+          "tol": 1e-07,
+          "times_days": [
+            -0.275,
+            -0.25,
+            -0.225,
+            -0.2,
+            -0.075,
+            -0.025,
+            0.0,
+            0.025
+          ],
+          "stop": [
+            "TopologyUnresolved",
+            "TopologyUnresolved",
+            "TopologyUnresolved",
+            "TopologyUnresolved",
+            "TopologyUnresolved",
+            "TopologyUnresolved",
+            "TopologyUnresolved",
+            "TopologyUnresolved"
+          ],
+          "value_converged": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ],
+          "gradient_valid": [
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "stratified_09",
+      "tolerance_sweep": [
+        {
+          "tol": 0.001,
+          "times_days": [
+            -1.7455113096375089e-06,
+            0.0,
+            1.7455113096375089e-06
+          ],
+          "stop": [
+            "EventLocationLimited",
+            "Converged",
+            "TopologyUnresolved"
+          ],
+          "value_converged": [
+            false,
+            true,
+            false
+          ],
+          "gradient_valid": [
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            [
+              true,
+              true,
+              true,
+              true,
+              true,
+              true,
+              true
+            ],
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ]
+          ]
+        },
+        {
+          "tol": 1e-05,
+          "times_days": [
+            -1.7455113096375089e-06,
+            0.0,
+            1.7455113096375089e-06
+          ],
+          "stop": [
+            "EventLocationLimited",
+            "TopologyUnresolved",
+            "TopologyUnresolved"
+          ],
+          "value_converged": [
+            false,
+            false,
+            false
+          ],
+          "gradient_valid": [
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ]
+          ]
+        },
+        {
+          "tol": 1e-07,
+          "times_days": [
+            -1.7455113096375089e-06,
+            0.0,
+            1.7455113096375089e-06
+          ],
+          "stop": [
+            "EventLocationLimited",
+            "TopologyUnresolved",
+            "TopologyUnresolved"
+          ],
+          "value_converged": [
+            false,
+            false,
+            false
+          ],
+          "gradient_valid": [
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ]
+          ]
+        }
+      ]
+    }
+  ],
+  "stratified_00_fd_tolerance_probe": {
+    "path": "gradient_fd_tolerance_probe.json",
+    "fully_converged_fd_pairs": false,
+    "summary": "All perturbation values were value_converged but none of the finite-difference pairs were fully_converged; the reported value error estimates divided by the FD step exceed many derivative signals, so these FDs do not adjudicate the gradient."
+  },
+  "exact_axis_symmetry": {
+    "identity": "For a binary lens on the real axis, mu(xs,ys)=mu(xs,-ys); at ys=0, dmu/dys=0 if differentiable.",
+    "path": "symmetry_before.json and symmetry_after.json",
+    "du0_after_tol1e3": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "finite_difference_reflection_error_max": 9.821098803096958e-12
+  },
+  "performance_401_epochs": [
+    {
+      "id": "broad_source_uniform",
+      "lc_median_ms": 148.36051897145808,
+      "vbm_median_ms": 30.88441293220967,
+      "vbm_over_lcbinint": 0.20817137299277905,
+      "integral_epochs": 401,
+      "max_relative_value_difference": 0.00042708140722968546,
+      "tol": 0.001,
+      "epochs": 401
+    },
+    {
+      "id": "large_source_ld09",
+      "lc_median_ms": 155.541279935278,
+      "vbm_median_ms": 739.4253379898146,
+      "vbm_over_lcbinint": 4.753884874147207,
+      "integral_epochs": 401,
+      "max_relative_value_difference": 0.00030807019186290064,
+      "tol": 0.001,
+      "epochs": 401
+    },
+    {
+      "id": "large_source_uniform",
+      "lc_median_ms": 141.78075804375112,
+      "vbm_median_ms": 18.264878075569868,
+      "vbm_over_lcbinint": 0.12882480195185328,
+      "integral_epochs": 401,
+      "max_relative_value_difference": 8.06111505605949e-06,
+      "tol": 0.001,
+      "epochs": 401
+    },
+    {
+      "id": "notebook_alpha180",
+      "lc_median_ms": 16.83766394853592,
+      "vbm_median_ms": 31.725286971777678,
+      "vbm_over_lcbinint": 1.8841857794968213,
+      "integral_epochs": 45,
+      "max_relative_value_difference": 0.0005332099982012119,
+      "tol": 0.001,
+      "epochs": 401
+    },
+    {
+      "id": "ordinary_point",
+      "lc_median_ms": 0.3660790389403701,
+      "vbm_median_ms": 0.3556200535967946,
+      "vbm_over_lcbinint": 0.9714297071641976,
+      "integral_epochs": 0,
+      "max_relative_value_difference": 5.564917959511587e-15,
+      "tol": 0.001,
+      "epochs": 401
+    },
+    {
+      "id": "resonant_uniform",
+      "lc_median_ms": 34.27545807790011,
+      "vbm_median_ms": 24.60798097308725,
+      "vbm_over_lcbinint": 0.717947544775596,
+      "integral_epochs": 190,
+      "max_relative_value_difference": 0.00020667250655911578,
+      "tol": 0.001,
+      "epochs": 401
+    },
+    {
+      "id": "wide_caustic",
+      "lc_median_ms": 9.654209017753601,
+      "vbm_median_ms": 8.711758069694042,
+      "vbm_over_lcbinint": 0.9023792683246821,
+      "integral_epochs": 43,
+      "max_relative_value_difference": 0.00012264892601314433,
+      "tol": 0.001,
+      "epochs": 401
+    }
+  ],
+  "axis_skip_candidate": {
+    "decision": "rejected; source change and module restored",
+    "reason": "No full-curve speedup beyond timing noise; output gradients changed slightly in one existing case and exceeded 0.32 percent for one rho component.",
+    "repeat_measurements": [
+      {
+        "label": "baseline",
+        "module_sha256": "d610da31602364566a2870e0f7dd60031eb994eae1d1006a9f3f09b45e5c8d2a",
+        "cases": [
+          {
+            "id": "stratified_00",
+            "warm_median_ms": 1042.93969203718,
+            "output_stable": true
+          },
+          {
+            "id": "stratified_12",
+            "warm_median_ms": 472.75314398575574,
+            "output_stable": true
+          },
+          {
+            "id": "stratified_13",
+            "warm_median_ms": 149.2878469871357,
+            "output_stable": true
+          },
+          {
+            "id": "stratified_04",
+            "warm_median_ms": 7.039777934551239,
+            "output_stable": true
+          }
+        ]
+      },
+      {
+        "label": "axis_skip",
+        "module_sha256": "b73b0f03621c3575da2c723f0465648a9db37d54430e0ae32986004deb7d30f0",
+        "cases": [
+          {
+            "id": "stratified_00",
+            "warm_median_ms": 1038.1833729334176,
+            "output_stable": true
+          },
+          {
+            "id": "stratified_12",
+            "warm_median_ms": 469.4345350144431,
+            "output_stable": true
+          },
+          {
+            "id": "stratified_13",
+            "warm_median_ms": 148.85364100337029,
+            "output_stable": true
+          },
+          {
+            "id": "stratified_04",
+            "warm_median_ms": 7.023885031230748,
+            "output_stable": true
+          }
+        ]
+      }
+    ]
+  },
+  "profile": "gradient_cost_profile.json"
+}

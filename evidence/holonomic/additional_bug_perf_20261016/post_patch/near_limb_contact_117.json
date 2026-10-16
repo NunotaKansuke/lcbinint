@@ -1,0 +1,81 @@
+{
+  "id": "near_limb_contact_117",
+  "params": {
+    "s": 0.710053684596912,
+    "q": 7.886132346228951e-07,
+    "rho": 0.1671007233467463,
+    "t0": 0.0,
+    "tE": 10.0,
+    "u0": 1e-09,
+    "alpha": 1.186247434824958
+  },
+  "limb": 0.5,
+  "span_tau": 0.3342014466934926,
+  "origin": "latest_case117_exact_contact",
+  "refine": true,
+  "reuse_probe": true,
+  "special_times_days": [
+    -1.6710172334674631,
+    -1.671007233467463,
+    -1.670997233467463
+  ],
+  "n_uniform": 25,
+  "tol": 0.001,
+  "status": "ok",
+  "n_epochs": 27,
+  "info_ms": 19.567476003430784,
+  "plain_call_ms": 11.506464914418757,
+  "reverse_call_ms": 11.321892030537128,
+  "gradient_ms": 32.277355901896954,
+  "finite_values": 27,
+  "value_converged": 27,
+  "fully_converged": 0,
+  "integral_epochs": 27,
+  "integral_support_certified": 0,
+  "finite_gradient_components": 189,
+  "gradient_components": 189,
+  "valid_gradient_components": 189,
+  "invalid_gradient_epochs": [],
+  "nan_gradient_components": 0,
+  "plain_info_exact": true,
+  "plain_info_max_abs": 0.0,
+  "max_order_abs_difference": 0.0,
+  "max_order_relative_difference": 0.0,
+  "nodes_total": 1542,
+  "nodes_max_epoch": 69,
+  "epoch_ms_median": 0.41869599999999996,
+  "epoch_ms_p95": 2.0067777999999987,
+  "integral_epoch_ms_p95": 2.0067777999999987,
+  "routes": {
+    "algebraic_boundary_seeded_radial": 27
+  },
+  "stops": {
+    "frontier_coverage_unproven": 27
+  },
+  "parameter_reuse": {
+    "max_abs_same_instance_vs_fresh": 0.0,
+    "exact_array_match": true
+  },
+  "tolerance_sweep": {
+    "tol": 1e-05,
+    "finite_values": 27,
+    "value_converged": 27,
+    "fully_converged": 0,
+    "finite_gradient_components": 189,
+    "valid_gradient_components": 189,
+    "max_abs_value_change": 0.0010866879198614399,
+    "max_scaled_value_change_in_tol_1e3": 0.1456363402592372,
+    "max_abs_gradient_change": 0.21054520669218846,
+    "gradient_change_components_over_0p32_percent": 70
+  },
+  "peak_rss_kib": 52496,
+  "param_order": [
+    "t0",
+    "u0",
+    "tE",
+    "alpha",
+    "rho",
+    "q",
+    "s"
+  ]
+}

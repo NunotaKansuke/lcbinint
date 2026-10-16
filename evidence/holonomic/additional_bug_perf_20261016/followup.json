@@ -1,0 +1,1248 @@
+{
+  "head": "65faef7a3f5ade838119c39b77634a5ccbdf1ee3",
+  "native_sha256": "b6ba4c1a395452784ac1a287986a2cc8dcd9372b32c13405775fc7a02499258d",
+  "gradient_sha256": "d610da31602364566a2870e0f7dd60031eb994eae1d1006a9f3f09b45e5c8d2a",
+  "invalid_gradient_cases": [
+    {
+      "id": "stratified_02",
+      "params": {
+        "s": 0.95,
+        "q": 0.01,
+        "rho": 1e-06,
+        "t0": 0.0,
+        "tE": 10.0,
+        "u0": -1e-05,
+        "alpha": -1.8890494698555882
+      },
+      "limb": 0.9,
+      "tolerance_sweep": [
+        {
+          "tol": 0.001,
+          "times_days": [
+            -0.275,
+            -0.25,
+            -0.225,
+            -0.2,
+            -0.075,
+            -0.025,
+            0.0,
+            0.025
+          ],
+          "mu": [
+            52.999383959699564,
+            59.928523250971246,
+            68.66668687538764,
+            79.8114577630747,
+            162.89725695740628,
+            158.37683239956198,
+            144.76612981391347,
+            127.10387346527799
+          ],
+          "value_converged": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ],
+          "fully_converged": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ],
+          "stop": [
+            "TopologyUnresolved",
+            "TopologyUnresolved",
+            "TopologyUnresolved",
+            "TopologyUnresolved",
+            "TopologyUnresolved",
+            "TopologyUnresolved",
+            "TopologyUnresolved",
+            "TopologyUnresolved"
+          ],
+          "gradient_valid": [
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ]
+          ],
+          "gradient_finite": [
+            [
+              true,
+              true,
+              true,
+              true,
+              true,
+              true,
+              true
+            ],
+            [
+              true,
+              true,
+              true,
+              true,
+              true,
+              true,
+              true
+            ],
+            [
+              true,
+              true,
+              true,
+              true,
+              true,
+              true,
+              true
+            ],
+            [
+              true,
+              true,
+              true,
+              true,
+              true,
+              true,
+              true
+            ],
+            [
+              true,
+              true,
+              true,
+              true,
+              true,
+              true,
+              true
+            ],
+            [
+              true,
+              true,
+              true,
+              true,
+              true,
+              true,
+              true
+            ],
+            [
+              true,
+              true,
+              true,
+              true,
+              true,
+              true,
+              true
+            ],
+            [
+              true,
+              true,
+              true,
+              true,
+              true,
+              true,
+              true
+            ]
+          ],
+          "support_certified": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false
+          ],
+          "seed_support_proven": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ],
+          "center_image_count": [
+            5,
+            5,
+            5,
+            5,
+            5,
+            5,
+            5,
+            5
+          ],
+          "augmented_seed_count": [
+            5,
+            5,
+            5,
+            5,
+            5,
+            5,
+            5,
+            5
+          ]
+        },
+        {
+          "tol": 1e-05,
+          "times_days": [
+            -0.275,
+            -0.25,
+            -0.225,
+            -0.2,
+            -0.075,
+            -0.025,
+            0.0,
+            0.025
+          ],
+          "mu": [
+            52.999383959699564,
+            59.928523250971246,
+            68.66668687538764,
+            79.8114577630747,
+            162.89725695740628,
+            158.37683239956198,
+            144.76612981391347,
+            127.10387346527799
+          ],
+          "value_converged": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ],
+          "fully_converged": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ],
+          "stop": [
+            "TopologyUnresolved",
+            "TopologyUnresolved",
+            "TopologyUnresolved",
+            "TopologyUnresolved",
+            "TopologyUnresolved",
+            "TopologyUnresolved",
+            "TopologyUnresolved",
+            "TopologyUnresolved"
+          ],
+          "gradient_valid": [
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ]
+          ],
+          "gradient_finite": [
+            [
+              true,
+              true,
+              true,
+              true,
+              true,
+              true,
+              true
+            ],
+            [
+              true,
+              true,
+              true,
+              true,
+              true,
+              true,
+              true
+            ],
+            [
+              true,
+              true,
+              true,
+              true,
+              true,
+              true,
+              true
+            ],
+            [
+              true,
+              true,
+              true,
+              true,
+              true,
+              true,
+              true
+            ],
+            [
+              true,
+              true,
+              true,
+              true,
+              true,
+              true,
+              true
+            ],
+            [
+              true,
+              true,
+              true,
+              true,
+              true,
+              true,
+              true
+            ],
+            [
+              true,
+              true,
+              true,
+              true,
+              true,
+              true,
+              true
+            ],
+            [
+              true,
+              true,
+              true,
+              true,
+              true,
+              true,
+              true
+            ]
+          ],
+          "support_certified": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false
+          ],
+          "seed_support_proven": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ],
+          "center_image_count": [
+            5,
+            5,
+            5,
+            5,
+            5,
+            5,
+            5,
+            5
+          ],
+          "augmented_seed_count": [
+            5,
+            5,
+            5,
+            5,
+            5,
+            5,
+            5,
+            5
+          ]
+        },
+        {
+          "tol": 1e-07,
+          "times_days": [
+            -0.275,
+            -0.25,
+            -0.225,
+            -0.2,
+            -0.075,
+            -0.025,
+            0.0,
+            0.025
+          ],
+          "mu": [
+            52.999383959699564,
+            59.928523250971246,
+            68.66668687538764,
+            79.8114577630747,
+            162.89725695740628,
+            158.37683239956198,
+            144.76612981391347,
+            127.10387346527799
+          ],
+          "value_converged": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ],
+          "fully_converged": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ],
+          "stop": [
+            "TopologyUnresolved",
+            "TopologyUnresolved",
+            "TopologyUnresolved",
+            "TopologyUnresolved",
+            "TopologyUnresolved",
+            "TopologyUnresolved",
+            "TopologyUnresolved",
+            "TopologyUnresolved"
+          ],
+          "gradient_valid": [
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ]
+          ],
+          "gradient_finite": [
+            [
+              true,
+              true,
+              true,
+              true,
+              true,
+              true,
+              true
+            ],
+            [
+              true,
+              true,
+              true,
+              true,
+              true,
+              true,
+              true
+            ],
+            [
+              true,
+              true,
+              true,
+              true,
+              true,
+              true,
+              true
+            ],
+            [
+              true,
+              true,
+              true,
+              true,
+              true,
+              true,
+              true
+            ],
+            [
+              true,
+              true,
+              true,
+              true,
+              true,
+              true,
+              true
+            ],
+            [
+              true,
+              true,
+              true,
+              true,
+              true,
+              true,
+              true
+            ],
+            [
+              true,
+              true,
+              true,
+              true,
+              true,
+              true,
+              true
+            ],
+            [
+              true,
+              true,
+              true,
+              true,
+              true,
+              true,
+              true
+            ]
+          ],
+          "support_certified": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false
+          ],
+          "seed_support_proven": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ],
+          "center_image_count": [
+            5,
+            5,
+            5,
+            5,
+            5,
+            5,
+            5,
+            5
+          ],
+          "augmented_seed_count": [
+            5,
+            5,
+            5,
+            5,
+            5,
+            5,
+            5,
+            5
+          ]
+        }
+      ]
+    },
+    {
+      "id": "stratified_09",
+      "params": {
+        "s": 0.95,
+        "q": 1e-07,
+        "rho": 1e-06,
+        "t0": 0.0,
+        "tE": 10.0,
+        "u0": 9.846481110931334e-07,
+        "alpha": 0.5
+      },
+      "limb": 0.5,
+      "tolerance_sweep": [
+        {
+          "tol": 0.001,
+          "times_days": [
+            -1.7455113096375089e-06,
+            0.0,
+            1.7455113096375089e-06
+          ],
+          "mu": [
+            0.0,
+            1264847.0454553536,
+            1259523.0540179373
+          ],
+          "value_converged": [
+            false,
+            true,
+            false
+          ],
+          "fully_converged": [
+            false,
+            false,
+            false
+          ],
+          "stop": [
+            "EventLocationLimited",
+            "Converged",
+            "TopologyUnresolved"
+          ],
+          "gradient_valid": [
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            [
+              true,
+              true,
+              true,
+              true,
+              true,
+              true,
+              true
+            ],
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ]
+          ],
+          "gradient_finite": [
+            [
+              true,
+              true,
+              true,
+              true,
+              true,
+              true,
+              true
+            ],
+            [
+              true,
+              true,
+              true,
+              true,
+              true,
+              true,
+              true
+            ],
+            [
+              true,
+              true,
+              true,
+              true,
+              true,
+              true,
+              true
+            ]
+          ],
+          "support_certified": [
+            false,
+            false,
+            false
+          ],
+          "seed_support_proven": [
+            true,
+            true,
+            true
+          ],
+          "center_image_count": [
+            5,
+            5,
+            5
+          ],
+          "augmented_seed_count": [
+            168,
+            156,
+            106
+          ]
+        },
+        {
+          "tol": 1e-05,
+          "times_days": [
+            -1.7455113096375089e-06,
+            0.0,
+            1.7455113096375089e-06
+          ],
+          "mu": [
+            0.0,
+            1265020.2786558492,
+            1259522.9946647538
+          ],
+          "value_converged": [
+            false,
+            false,
+            false
+          ],
+          "fully_converged": [
+            false,
+            false,
+            false
+          ],
+          "stop": [
+            "EventLocationLimited",
+            "TopologyUnresolved",
+            "TopologyUnresolved"
+          ],
+          "gradient_valid": [
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ]
+          ],
+          "gradient_finite": [
+            [
+              true,
+              true,
+              true,
+              true,
+              true,
+              true,
+              true
+            ],
+            [
+              true,
+              true,
+              true,
+              true,
+              true,
+              true,
+              true
+            ],
+            [
+              true,
+              true,
+              true,
+              true,
+              true,
+              true,
+              true
+            ]
+          ],
+          "support_certified": [
+            false,
+            false,
+            false
+          ],
+          "seed_support_proven": [
+            true,
+            true,
+            true
+          ],
+          "center_image_count": [
+            5,
+            5,
+            5
+          ],
+          "augmented_seed_count": [
+            168,
+            156,
+            106
+          ]
+        },
+        {
+          "tol": 1e-07,
+          "times_days": [
+            -1.7455113096375089e-06,
+            0.0,
+            1.7455113096375089e-06
+          ],
+          "mu": [
+            0.0,
+            1265020.2737661563,
+            1259522.993515406
+          ],
+          "value_converged": [
+            false,
+            false,
+            false
+          ],
+          "fully_converged": [
+            false,
+            false,
+            false
+          ],
+          "stop": [
+            "EventLocationLimited",
+            "TopologyUnresolved",
+            "TopologyUnresolved"
+          ],
+          "gradient_valid": [
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ],
+            [
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ]
+          ],
+          "gradient_finite": [
+            [
+              true,
+              true,
+              true,
+              true,
+              true,
+              true,
+              true
+            ],
+            [
+              true,
+              true,
+              true,
+              true,
+              true,
+              true,
+              true
+            ],
+            [
+              true,
+              true,
+              true,
+              true,
+              true,
+              true,
+              true
+            ]
+          ],
+          "support_certified": [
+            false,
+            false,
+            false
+          ],
+          "seed_support_proven": [
+            true,
+            true,
+            true
+          ],
+          "center_image_count": [
+            5,
+            5,
+            5
+          ],
+          "augmented_seed_count": [
+            168,
+            156,
+            106
+          ]
+        }
+      ]
+    }
+  ],
+  "highly_sensitive_case": {
+    "id": "stratified_00",
+    "params": {
+      "s": 1.000001,
+      "q": 1e-06,
+      "rho": 0.001,
+      "t0": 0.0,
+      "tE": 10.0,
+      "u0": 0.0,
+      "alpha": 0.0
+    },
+    "limb": 0.0,
+    "times_days": [
+      -0.025,
+      0.0,
+      0.025
+    ],
+    "analytic_tolerance1e5": [
+      [
+        -17055.117404975346,
+        0.0,
+        42.637793512438364,
+        0.0,
+        16721.20721188638,
+        565516.7584904395,
+        -61.47710595864447
+      ],
+      [
+        0.33545319448745947,
+        0.0,
+        0.0,
+        0.0,
+        -1993745.3641742037,
+        -3127070.7682492672,
+        3.824500762872086
+      ],
+      [
+        17076.059069077757,
+        0.0,
+        42.690147672694394,
+        0.0,
+        20735.877626140995,
+        -1177848.7518056042,
+        66.94920796402589
+      ]
+    ],
+    "param_order": [
+      "t0",
+      "u0",
+      "tE",
+      "alpha",
+      "rho",
+      "q",
+      "s"
+    ],
+    "finite_difference_step_study": [
+      {
+        "parameter": "q",
+        "step": 1e-08,
+        "finite_difference": [
+          565516.8034394365,
+          -2574764.023836451,
+          -1177848.7601304732
+        ],
+        "analytic_tol1e5": [
+          565516.7584904395,
+          -3127070.7682492672,
+          -1177848.7518056042
+        ],
+        "max_abs_difference": 552306.7444128161,
+        "max_relative_difference": 0.21450771383307887
+      },
+      {
+        "parameter": "q",
+        "step": 3e-09,
+        "finite_difference": [
+          565516.7840359354,
+          -3043666.194116668,
+          -1177848.7199099648
+        ],
+        "analytic_tol1e5": [
+          565516.7584904395,
+          -3127070.7682492672,
+          -1177848.7518056042
+        ],
+        "max_abs_difference": 83404.5741325994,
+        "max_relative_difference": 0.02740266797121787
+      },
+      {
+        "parameter": "q",
+        "step": 1e-09,
+        "finite_difference": [
+          565516.4340794272,
+          -3240683.6179461605,
+          -1177848.779377655
+        ],
+        "analytic_tol1e5": [
+          565516.7584904395,
+          -3127070.7682492672,
+          -1177848.7518056042
+        ],
+        "max_abs_difference": 113612.84969689324,
+        "max_relative_difference": 0.03505829728879777
+      },
+      {
+        "parameter": "s",
+        "step": 1e-05,
+        "finite_difference": [
+          -61.47659564987861,
+          -2.50590176165133,
+          66.9488107774896
+        ],
+        "analytic_tol1e5": [
+          -61.47710595864447,
+          3.824500762872086,
+          66.94920796402589
+        ],
+        "max_abs_difference": 6.330402524523416,
+        "max_relative_difference": 2.5261974038247335
+      },
+      {
+        "parameter": "s",
+        "step": 3e-06,
+        "finite_difference": [
+          -61.477254954904005,
+          -15.108122397577972,
+          66.94930676568826
+        ],
+        "analytic_tol1e5": [
+          -61.47710595864447,
+          3.824500762872086,
+          66.94920796402589
+        ],
+        "max_abs_difference": 18.932623160450056,
+        "max_relative_difference": 1.253142029315648
+      },
+      {
+        "parameter": "s",
+        "step": 1e-06,
+        "finite_difference": [
+          -61.476761402445845,
+          -35.32318999077688,
+          66.9492791587345
+        ],
+        "analytic_tol1e5": [
+          -61.47710595864447,
+          3.824500762872086,
+          66.94920796402589
+        ],
+        "max_abs_difference": 39.147690753648966,
+        "max_relative_difference": 1.1082716697973962
+      },
+      {
+        "parameter": "s",
+        "step": 3e-07,
+        "finite_difference": [
+          -61.47755044594305,
+          428.19663084022375,
+          66.94883135575462
+        ],
+        "analytic_tol1e5": [
+          -61.47710595864447,
+          3.824500762872086,
+          66.94920796402589
+        ],
+        "max_abs_difference": 424.37213007735164,
+        "max_relative_difference": 0.9910683539116888
+      }
+    ]
+  }
+}

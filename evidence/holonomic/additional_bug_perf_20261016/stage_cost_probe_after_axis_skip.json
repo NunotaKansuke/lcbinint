@@ -1,0 +1,336 @@
+{
+  "head": "65faef7a3f5ade838119c39b77634a5ccbdf1ee3",
+  "native_sha256": "b6ba4c1a395452784ac1a287986a2cc8dcd9372b32c13405775fc7a02499258d",
+  "gradient_sha256": "b73b0f03621c3575da2c723f0465648a9db37d54430e0ae32986004deb7d30f0",
+  "cpu_affinity": [
+    0
+  ],
+  "tol": 0.001,
+  "warmup_repetitions": 1,
+  "rows": [
+    {
+      "case": "stratified_00",
+      "index": 0,
+      "point": "exact_axis",
+      "time_days": -0.3,
+      "source_x": -0.03,
+      "source_y": 0.0,
+      "trajectory_source_y": 0.0,
+      "rho": 0.001,
+      "routes": {
+        "evaluate_value": {
+          "call_ms": [
+            1.0900070192292333,
+            0.1303449971601367
+          ],
+          "warm_call_ms": 0.1303449971601367,
+          "stop": "Converged",
+          "value_converged": true,
+          "node_evaluations": 75,
+          "center_image_count": 3,
+          "augmented_seed_count": 3,
+          "support_certified": false
+        },
+        "evaluate": {
+          "call_ms": [
+            81.15649502724409,
+            80.0211780006066
+          ],
+          "warm_call_ms": 80.0211780006066,
+          "stop": "Converged",
+          "value_converged": true,
+          "node_evaluations": 75,
+          "center_image_count": 3,
+          "augmented_seed_count": 3,
+          "support_certified": false,
+          "gradient_valid_count": 5,
+          "mu": 33.93199769183534,
+          "grad_mu": [
+            1132.7664391004862,
+            -0.003573895000381552,
+            -823.4033405204005,
+            -5.761603415981588e-07,
+            21.45275278162335
+          ],
+          "gradient_valid": [
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        }
+      }
+    },
+    {
+      "case": "stratified_00",
+      "index": 0,
+      "point": "off_axis",
+      "time_days": -0.3,
+      "source_x": -0.03,
+      "source_y": 1e-06,
+      "trajectory_source_y": 0.0,
+      "rho": 0.001,
+      "routes": {
+        "evaluate_value": {
+          "call_ms": [
+            0.27199997566640377,
+            0.16973004676401615
+          ],
+          "warm_call_ms": 0.16973004676401615,
+          "stop": "Converged",
+          "value_converged": true,
+          "node_evaluations": 89,
+          "center_image_count": 3,
+          "augmented_seed_count": 3,
+          "support_certified": false
+        },
+        "evaluate": {
+          "call_ms": [
+            0.6270019803196192,
+            0.4992969334125519
+          ],
+          "warm_call_ms": 0.4992969334125519,
+          "stop": "Converged",
+          "value_converged": true,
+          "node_evaluations": 89,
+          "center_image_count": 3,
+          "augmented_seed_count": 3,
+          "support_certified": false,
+          "gradient_valid_count": 5,
+          "mu": 33.93199689450604,
+          "grad_mu": [
+            1132.7679520437864,
+            -1.4439982660246382,
+            -823.3784912449163,
+            -5.761599502786533e-07,
+            21.4527679678143
+          ],
+          "gradient_valid": [
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        }
+      }
+    },
+    {
+      "case": "stratified_12",
+      "index": 13,
+      "point": "exact_axis",
+      "time_days": 0.0,
+      "source_x": 0.0,
+      "source_y": 0.0,
+      "trajectory_source_y": 0.0,
+      "rho": 1e-06,
+      "routes": {
+        "evaluate_value": {
+          "call_ms": [
+            0.19747205078601837,
+            0.11240795720368624
+          ],
+          "warm_call_ms": 0.11240795720368624,
+          "stop": "Converged",
+          "value_converged": true,
+          "node_evaluations": 59,
+          "center_image_count": 3,
+          "augmented_seed_count": 3,
+          "support_certified": false
+        },
+        "evaluate": {
+          "call_ms": [
+            118.51373396348208,
+            118.41089697554708
+          ],
+          "warm_call_ms": 118.41089697554708,
+          "stop": "Converged",
+          "value_converged": true,
+          "node_evaluations": 59,
+          "center_image_count": 3,
+          "augmented_seed_count": 3,
+          "support_certified": false,
+          "gradient_valid_count": 5,
+          "mu": 1010.4693859326449,
+          "grad_mu": [
+            1021102.3449801042,
+            2253.8012469986575,
+            910.8435382544994,
+            0.10104181271644279,
+            -103.21758911877814
+          ],
+          "gradient_valid": [
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        }
+      }
+    },
+    {
+      "case": "stratified_12",
+      "index": 13,
+      "point": "off_axis",
+      "time_days": 0.0,
+      "source_x": 0.0,
+      "source_y": 1e-09,
+      "trajectory_source_y": 0.0,
+      "rho": 1e-06,
+      "routes": {
+        "evaluate_value": {
+          "call_ms": [
+            0.22850895766168833,
+            0.13131299056112766
+          ],
+          "warm_call_ms": 0.13131299056112766,
+          "stop": "Converged",
+          "value_converged": true,
+          "node_evaluations": 73,
+          "center_image_count": 3,
+          "augmented_seed_count": 3,
+          "support_certified": false
+        },
+        "evaluate": {
+          "call_ms": [
+            0.5877610528841615,
+            0.4619859391823411
+          ],
+          "warm_call_ms": 0.4619859391823411,
+          "stop": "Converged",
+          "value_converged": true,
+          "node_evaluations": 73,
+          "center_image_count": 3,
+          "augmented_seed_count": 3,
+          "support_certified": false,
+          "gradient_valid_count": 5,
+          "mu": 1010.4706307338596,
+          "grad_mu": [
+            1021111.2241171042,
+            39606.04855290265,
+            4649.615042107747,
+            0.1010426931300502,
+            -103.21844884478435
+          ],
+          "gradient_valid": [
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        }
+      }
+    },
+    {
+      "case": "stratified_13",
+      "index": 13,
+      "point": "exact_axis",
+      "time_days": 0.0,
+      "source_x": -1.8911473637823035e-10,
+      "source_y": 9.819549971788892e-10,
+      "trajectory_source_y": 9.819549971788892e-10,
+      "rho": 1e-06,
+      "routes": {
+        "evaluate_value": {
+          "call_ms": [
+            1.2667709961533546,
+            1.143123023211956
+          ],
+          "warm_call_ms": 1.143123023211956,
+          "stop": "TopologyUnresolved",
+          "value_converged": false,
+          "node_evaluations": 28,
+          "center_image_count": 5,
+          "augmented_seed_count": 5,
+          "support_certified": false
+        },
+        "evaluate": {
+          "call_ms": [
+            128.5189950140193,
+            128.15907306503505
+          ],
+          "warm_call_ms": 128.15907306503505,
+          "stop": "Converged",
+          "value_converged": true,
+          "node_evaluations": 108,
+          "center_image_count": 5,
+          "augmented_seed_count": 5,
+          "support_certified": false,
+          "gradient_valid_count": 5,
+          "mu": 11.21001221017376,
+          "grad_mu": [
+            -2.028719659816139e-07,
+            3.2608290156506283e-07,
+            0.00032310866204319057,
+            -1.1164850005993386e-08,
+            -36.67476195107757
+          ],
+          "gradient_valid": [
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        }
+      }
+    },
+    {
+      "case": "stratified_13",
+      "index": 13,
+      "point": "off_axis",
+      "time_days": 0.0,
+      "source_x": -1.8911473637823035e-10,
+      "source_y": 1e-08,
+      "trajectory_source_y": 9.819549971788892e-10,
+      "rho": 1e-06,
+      "routes": {
+        "evaluate_value": {
+          "call_ms": [
+            0.7882129866629839,
+            0.6929239025339484
+          ],
+          "warm_call_ms": 0.6929239025339484,
+          "stop": "Converged",
+          "value_converged": true,
+          "node_evaluations": 82,
+          "center_image_count": 5,
+          "augmented_seed_count": 5,
+          "support_certified": false
+        },
+        "evaluate": {
+          "call_ms": [
+            1.2201130157336593,
+            1.069761929102242
+          ],
+          "warm_call_ms": 1.069761929102242,
+          "stop": "Converged",
+          "value_converged": true,
+          "node_evaluations": 82,
+          "center_image_count": 5,
+          "augmented_seed_count": 5,
+          "support_certified": false,
+          "gradient_valid_count": 5,
+          "mu": 11.210007223927194,
+          "grad_mu": [
+            -110.63767896806444,
+            174.7743148054356,
+            -192.56166375945838,
+            -0.0001084487823680132,
+            -47.615763127131565
+          ],
+          "gradient_valid": [
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        }
+      }
+    }
+  ]
+}

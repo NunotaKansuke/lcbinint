@@ -2053,8 +2053,28 @@ inline AdaptiveResult flux_adaptive_integrate(const LensParams& p,double u,
         const auto& span=integration_plan.spans[i];const auto& c=span.cell;
         AdaptivePanel panel;panel.cell=span.first_source_cell;
         panel.cell_end=span.last_source_cell;panel.evaluator_cell=static_cast<int>(i);
-        panel.map={c.r_lo,c.r_hi,cfg.fold_maps&&physical(c.r_lo),cfg.fold_maps&&physical(c.r_hi)};if(physical(c.r_lo)){auto e=uncertainty(c.r_lo);panel.map.a=e.radius;panel.left_radius_lo=e.radius_lo;panel.left_uncertainty=e.uncertainty;}
-        if(physical(c.r_hi)){auto e=uncertainty(c.r_hi);panel.map.b=e.radius;panel.right_radius_lo=e.radius_lo;panel.right_uncertainty=e.uncertainty;}
+        const bool physical_left=cfg.fold_maps&&physical(c.r_lo);
+        const bool physical_right=cfg.fold_maps&&physical(c.r_hi);
+        panel.map={c.r_lo,c.r_hi,physical_left,physical_right};
+        // The ordinary radial map still benefits from the best event estimate
+        // as a cell split, but unlike the fold substitution it does not need a
+        // certified endpoint uncertainty. Retain the raw topology anchor if
+        // refinement is unresolved, and fail closed only when a fold map needs
+        // that uncertainty to place its singular endpoint.
+        if(physical(c.r_lo)) {
+            auto e=uncertainty(c.r_lo);
+            if(cfg.fold_maps || std::isfinite(e.radius)) {
+                panel.map.a=e.radius;panel.left_radius_lo=e.radius_lo;
+                if(cfg.fold_maps)panel.left_uncertainty=e.uncertainty;
+            }
+        }
+        if(physical(c.r_hi)) {
+            auto e=uncertainty(c.r_hi);
+            if(cfg.fold_maps || std::isfinite(e.radius)) {
+                panel.map.b=e.radius;panel.right_radius_lo=e.radius_lo;
+                if(cfg.fold_maps)panel.right_uncertainty=e.uncertainty;
+            }
+        }
         // A local correction may not jump across another cell/event.
         if(std::fabs(panel.map.a-c.r_lo)>.25*(c.r_hi-c.r_lo)||std::fabs(panel.map.b-c.r_hi)>.25*(c.r_hi-c.r_lo)||!(panel.map.a<panel.map.b)) return adaptive_detail::failure_result(AdaptiveStop::EventLocationLimited,policy);
         if(!std::isfinite(panel.left_uncertainty+panel.right_uncertainty)) return adaptive_detail::failure_result(AdaptiveStop::EventLocationLimited,policy);

@@ -1,0 +1,83 @@
+{
+  "id": "legacy_033",
+  "params": {
+    "s": 1.099687863945755,
+    "q": 1.555471033863785e-06,
+    "rho": 1.648889061484618e-05,
+    "t0": 0.0,
+    "tE": 10.0,
+    "u0": 0.0,
+    "alpha": -1.2719072845402482
+  },
+  "limb": 0.5,
+  "span_tau": 0.03,
+  "origin": "unresolved_or_stress_case_033_from_20261015",
+  "refine": true,
+  "reuse_probe": true,
+  "special_times_days": [
+    -0.15,
+    0.15
+  ],
+  "n_uniform": 25,
+  "tol": 0.001,
+  "status": "ok",
+  "n_epochs": 27,
+  "info_ms": 6.890203105285764,
+  "plain_call_ms": 4.484377917833626,
+  "reverse_call_ms": 4.437529016286135,
+  "gradient_ms": 17.224129056558013,
+  "finite_values": 27,
+  "value_converged": 27,
+  "fully_converged": 24,
+  "integral_epochs": 3,
+  "integral_support_certified": 0,
+  "finite_gradient_components": 189,
+  "gradient_components": 189,
+  "valid_gradient_components": 189,
+  "invalid_gradient_epochs": [],
+  "nan_gradient_components": 0,
+  "plain_info_exact": true,
+  "plain_info_max_abs": 0.0,
+  "max_order_abs_difference": 9.43600753089413e-12,
+  "max_order_relative_difference": 2.358280154322251e-14,
+  "nodes_total": 599,
+  "nodes_max_epoch": 148,
+  "epoch_ms_median": 0.057716,
+  "epoch_ms_p95": 1.1160874999999995,
+  "integral_epoch_ms_p95": 1.2547925,
+  "routes": {
+    "point_source": 2,
+    "hexadecapole": 22,
+    "algebraic_boundary_seeded_radial": 3
+  },
+  "stops": {
+    "not_integrated": 24,
+    "frontier_coverage_unproven": 3
+  },
+  "parameter_reuse": {
+    "max_abs_same_instance_vs_fresh": 0.0,
+    "exact_array_match": true
+  },
+  "tolerance_sweep": {
+    "tol": 1e-05,
+    "finite_values": 27,
+    "value_converged": 26,
+    "fully_converged": 24,
+    "finite_gradient_components": 189,
+    "valid_gradient_components": 182,
+    "max_abs_value_change": 16.488834103234694,
+    "max_scaled_value_change_in_tol_1e3": 0.20875739590065698,
+    "max_abs_gradient_change": 14002529.52895236,
+    "gradient_change_components_over_0p32_percent": 17
+  },
+  "peak_rss_kib": 51200,
+  "param_order": [
+    "t0",
+    "u0",
+    "tE",
+    "alpha",
+    "rho",
+    "q",
+    "s"
+  ]
+}

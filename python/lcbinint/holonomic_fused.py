@@ -201,6 +201,12 @@ def lightcurve_gradient(curve, times, params=None, *, mu_atol=1e-8, mu_rtol=1e-4
             vbm or center_of_mass))
     raw = np.asarray([r["grad_mu"] for r in result], dtype=float)
     raw_valid = np.asarray([r["gradient_valid"] for r in result], dtype=bool)
+    # For a differentiable magnification, reflection symmetry makes the
+    # source-plane normal derivative vanish on the real axis. Project only
+    # exact-axis rows; coarse value-selected radial meshes can leave a large
+    # odd quadrature residual. Keep raw_valid unchanged, so this identity does
+    # not turn an otherwise invalid gradient into a valid one.
+    raw[ys == 0.0, 1] = 0.0
     gx, gy, grho, gq, gs = raw.T
     grad = np.column_stack((
         gx*dx_dt0+gy*dy_dt0,

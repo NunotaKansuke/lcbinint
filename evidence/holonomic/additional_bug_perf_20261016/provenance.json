@@ -1,0 +1,30 @@
+{
+  "branch": "experiment/algebraic_boundary",
+  "head": "65faef7a3f5ade838119c39b77634a5ccbdf1ee3",
+  "tracked_modified": [
+    "example/compare-vbm/lcbinint_vbm_light_curve_comparison.ipynb"
+  ],
+  "python": "3.10.19 (main, Oct 21 2025, 16:43:05) [GCC 11.2.0]",
+  "platform": "Linux-5.14.0-570.23.1.el9_6.x86_64-x86_64-with-glibc2.34",
+  "cpu_model": "INTEL(R) XEON(R) GOLD 6530",
+  "cpu_affinity": [
+    0
+  ],
+  "threads": 1,
+  "numpy": "2.2.6",
+  "vbmicrolensing_version": "5.5",
+  "native_module": "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/build-algebraic-boundary/python-api/lcbinint/_lcbinint.cpython-310-x86_64-linux-gnu.so",
+  "native_module_sha256": "b6ba4c1a395452784ac1a287986a2cc8dcd9372b32c13405775fc7a02499258d",
+  "gradient_module": "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/build-algebraic-boundary/fused-gradient/python/_lcbinint_holonomic_fused.cpython-310-x86_64-linux-gnu.so",
+  "gradient_module_sha256": "d610da31602364566a2870e0f7dd60031eb994eae1d1006a9f3f09b45e5c8d2a",
+  "vbm_module": "/home/nunota/.miniconda3/envs/myenv/lib/python3.10/site-packages/VBMicrolensing/__init__.py",
+  "vbm_module_sha256": "638a7effe100143688eb98f17f7f2b09251c46ba9b5c6bf8c5618e08ffb606a1",
+  "screen_script_sha256": "7c4871ab1ae23cca0e9056cb949bec8d28de46087d060dc2e8c09341c6995925",
+  "limits": {
+    "screen_worker_timeout_s": 20,
+    "performance_worker_timeout_s": 45,
+    "sequential_workers": true,
+    "threads_per_worker": 1
+  },
+  "notebook_dirty_preserved": true
+}

@@ -1,0 +1,6 @@
+{
+  "elapsed_s": 9.096384525997564,
+  "cases": 33,
+  "timeout_seconds": 20,
+  "workers": "sequential, one pinned CPU"
+}

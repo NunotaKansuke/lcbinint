@@ -1,0 +1,80 @@
+{
+  "id": "stratified_03",
+  "params": {
+    "s": 0.15,
+    "q": 1e-06,
+    "rho": 1e-05,
+    "t0": 0.0,
+    "tE": 10.0,
+    "u0": 9.843697502763428e-06,
+    "alpha": 3.141592653589793
+  },
+  "limb": 0.999999,
+  "span_tau": 0.03,
+  "origin": "deterministic_stratified_seed_20261016",
+  "refine": true,
+  "reuse_probe": true,
+  "special_times_days": [],
+  "n_uniform": 25,
+  "tol": 0.001,
+  "status": "ok",
+  "n_epochs": 27,
+  "info_ms": 6.486005964688957,
+  "plain_call_ms": 5.159485968761146,
+  "reverse_call_ms": 5.0313560059294105,
+  "gradient_ms": 352.7055699378252,
+  "finite_values": 27,
+  "value_converged": 27,
+  "fully_converged": 24,
+  "integral_epochs": 3,
+  "integral_support_certified": 0,
+  "finite_gradient_components": 189,
+  "gradient_components": 189,
+  "valid_gradient_components": 189,
+  "invalid_gradient_epochs": [],
+  "nan_gradient_components": 0,
+  "plain_info_exact": true,
+  "plain_info_max_abs": 0.0,
+  "max_order_abs_difference": 3.410605131648481e-13,
+  "max_order_relative_difference": 2.5578981512806722e-15,
+  "nodes_total": 424,
+  "nodes_max_epoch": 50,
+  "epoch_ms_median": 0.056707,
+  "epoch_ms_p95": 1.3204912999999994,
+  "integral_epoch_ms_p95": 2.0934704999999996,
+  "routes": {
+    "point_source": 2,
+    "hexadecapole": 22,
+    "algebraic_boundary_seeded_radial": 3
+  },
+  "stops": {
+    "not_integrated": 24,
+    "frontier_coverage_unproven": 3
+  },
+  "parameter_reuse": {
+    "max_abs_same_instance_vs_fresh": 0.0,
+    "exact_array_match": true
+  },
+  "tolerance_sweep": {
+    "tol": 1e-05,
+    "finite_values": 27,
+    "value_converged": 27,
+    "fully_converged": 24,
+    "finite_gradient_components": 189,
+    "valid_gradient_components": 189,
+    "max_abs_value_change": 12.821584808654734,
+    "max_scaled_value_change_in_tol_1e3": 0.10555947241955958,
+    "max_abs_gradient_change": 122953957.05934525,
+    "gradient_change_components_over_0p32_percent": 23
+  },
+  "peak_rss_kib": 51200,
+  "param_order": [
+    "t0",
+    "u0",
+    "tE",
+    "alpha",
+    "rho",
+    "q",
+    "s"
+  ]
+}

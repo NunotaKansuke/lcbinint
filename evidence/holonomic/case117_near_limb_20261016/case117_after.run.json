@@ -1,0 +1,342 @@
+{
+  "case": "case_117",
+  "time": -1.671007233467463,
+  "parameter_setup": {
+    "s": 0.710053684596912,
+    "q": 7.886132346228951e-07,
+    "rho": 0.1671007233467463,
+    "t0": 0.0,
+    "tE": 10.0,
+    "u0": 1e-09,
+    "alpha": 1.186247434824958
+  },
+  "limb_darkening": 0.5,
+  "source_geometry": {
+    "x": -0.06268633544494343,
+    "y": -0.15489698218974404,
+    "rho": 0.1671007233467463,
+    "q_solver": 1268048.7165272941,
+    "center_distance_minus_rho": 2.7755575615628914e-17
+  },
+  "nearest_caustic_branches": [
+    {
+      "branch": 0,
+      "min_polyline_distance": 0.776635469667791,
+      "rho_minus_distance": -0.6095347463210447,
+      "bbox_diagonal": 0.0006713342599090792
+    },
+    {
+      "branch": 1,
+      "min_polyline_distance": 0.16709843487855291,
+      "rho_minus_distance": 2.288468193389903e-06,
+      "bbox_diagonal": 7.395043464381581e-06
+    },
+    {
+      "branch": 2,
+      "min_polyline_distance": 0.7759445220913277,
+      "rho_minus_distance": -0.6088437987445814,
+      "bbox_diagonal": 0.0006713342599090791
+    }
+  ],
+  "baseline_tol_1e-3": {
+    "gradient": {
+      "t0": -18.481774648253097,
+      "rho": 140.99008516184267,
+      "q": 33.97349834378293
+    },
+    "node_evaluations": 136
+  },
+  "gradient_tolerance_sweep": [
+    {
+      "tol": 0.001,
+      "mu": 7.4621682936227485,
+      "value_converged": true,
+      "support_certified": false,
+      "gradient_valid": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "gradient": {
+        "t0": -21.33392804853892,
+        "rho": 169.51704517504524,
+        "q": 60.97266277996165
+      }
+    },
+    {
+      "tol": 0.0001,
+      "mu": 7.461751544501479,
+      "value_converged": true,
+      "support_certified": false,
+      "gradient_valid": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "gradient": {
+        "t0": -21.333924298529826,
+        "rho": 169.5170076702809,
+        "q": 60.97266837060998
+      }
+    },
+    {
+      "tol": 1e-05,
+      "mu": 7.461759340554981,
+      "value_converged": true,
+      "support_certified": false,
+      "gradient_valid": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "gradient": {
+        "t0": -21.355039157547697,
+        "rho": 169.72759038173743,
+        "q": 60.936916200797846
+      }
+    },
+    {
+      "tol": 1e-06,
+      "mu": 7.461759533147852,
+      "value_converged": true,
+      "support_certified": false,
+      "gradient_valid": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "gradient": {
+        "t0": -21.355039149091397,
+        "rho": 169.7275902971542,
+        "q": 60.936916215177774
+      }
+    }
+  ],
+  "node_evaluations_after": [
+    {
+      "tol": 0.001,
+      "node_evaluations": 342,
+      "value_converged": true,
+      "support_certified": false,
+      "raw_gradient": [
+        80.03407775842504,
+        197.75792019285524,
+        169.51704517504524,
+        -3.7919559549857075e-11,
+        0.00014497101996502248
+      ]
+    },
+    {
+      "tol": 0.0001,
+      "node_evaluations": 534,
+      "value_converged": true,
+      "support_certified": false,
+      "raw_gradient": [
+        80.03406371617157,
+        197.75788542113258,
+        169.5170076702809,
+        -3.791956302674184e-11,
+        0.0001449630264154038
+      ]
+    },
+    {
+      "tol": 1e-05,
+      "node_evaluations": 2030,
+      "value_converged": true,
+      "support_certified": false,
+      "raw_gradient": [
+        80.11192806752923,
+        197.95415813653904,
+        169.72759038173743,
+        -3.789732836500302e-11,
+        0.0002264158623906869
+      ]
+    },
+    {
+      "tol": 1e-06,
+      "node_evaluations": 2696,
+      "value_converged": true,
+      "support_certified": false,
+      "raw_gradient": [
+        80.11192803575612,
+        197.95415805817208,
+        169.7275902971542,
+        -3.789732837394605e-11,
+        0.00022641586505173225
+      ]
+    }
+  ],
+  "finite_difference_tolerance": 1e-07,
+  "finite_differences": [
+    {
+      "parameter": "t0",
+      "fraction_of_scale": 1e-05,
+      "step": 1.671007233467463e-05,
+      "fd": -20.455771365584923,
+      "plus_value_converged": true,
+      "minus_value_converged": true,
+      "plus_support_certified": false,
+      "minus_support_certified": false
+    },
+    {
+      "parameter": "t0",
+      "fraction_of_scale": 3e-06,
+      "step": 5.013021700402389e-06,
+      "fd": -21.13626360692711,
+      "plus_value_converged": true,
+      "minus_value_converged": true,
+      "plus_support_certified": false,
+      "minus_support_certified": false
+    },
+    {
+      "parameter": "t0",
+      "fraction_of_scale": 1e-06,
+      "step": 1.671007233467463e-06,
+      "fd": -21.624955253121403,
+      "plus_value_converged": true,
+      "minus_value_converged": true,
+      "plus_support_certified": false,
+      "minus_support_certified": false
+    },
+    {
+      "parameter": "t0",
+      "fraction_of_scale": 3e-07,
+      "step": 5.013021700402389e-07,
+      "fd": -21.34994520920247,
+      "plus_value_converged": true,
+      "minus_value_converged": true,
+      "plus_support_certified": false,
+      "minus_support_certified": false
+    },
+    {
+      "parameter": "t0",
+      "fraction_of_scale": 1e-07,
+      "step": 1.671007233467463e-07,
+      "fd": -21.335139641120218,
+      "plus_value_converged": true,
+      "minus_value_converged": true,
+      "plus_support_certified": false,
+      "minus_support_certified": false
+    },
+    {
+      "parameter": "rho",
+      "fraction_of_scale": 1e-05,
+      "step": 1.6710072334674631e-06,
+      "fd": 160.7349715496358,
+      "plus_value_converged": true,
+      "minus_value_converged": true,
+      "plus_support_certified": false,
+      "minus_support_certified": false
+    },
+    {
+      "parameter": "rho",
+      "fraction_of_scale": 3e-06,
+      "step": 5.013021700402389e-07,
+      "fd": 167.53980676134086,
+      "plus_value_converged": true,
+      "minus_value_converged": true,
+      "plus_support_certified": false,
+      "minus_support_certified": false
+    },
+    {
+      "parameter": "rho",
+      "fraction_of_scale": 1e-06,
+      "step": 1.671007233467463e-07,
+      "fd": 172.42672468851492,
+      "plus_value_converged": true,
+      "minus_value_converged": true,
+      "plus_support_certified": false,
+      "minus_support_certified": false
+    },
+    {
+      "parameter": "rho",
+      "fraction_of_scale": 3e-07,
+      "step": 5.013021700402389e-08,
+      "fd": 169.6766339336708,
+      "plus_value_converged": true,
+      "minus_value_converged": true,
+      "plus_support_certified": false,
+      "minus_support_certified": false
+    },
+    {
+      "parameter": "rho",
+      "fraction_of_scale": 1e-07,
+      "step": 1.671007233467463e-08,
+      "fd": 169.52857905013238,
+      "plus_value_converged": true,
+      "minus_value_converged": true,
+      "plus_support_certified": false,
+      "minus_support_certified": false
+    },
+    {
+      "parameter": "q",
+      "fraction_of_scale": 0.1,
+      "step": 7.886132346228951e-08,
+      "fd": 60.98541556761715,
+      "plus_value_converged": true,
+      "minus_value_converged": true,
+      "plus_support_certified": false,
+      "minus_support_certified": false
+    },
+    {
+      "parameter": "q",
+      "fraction_of_scale": 0.03,
+      "step": 2.3658397038686853e-08,
+      "fd": 60.975210565836115,
+      "plus_value_converged": true,
+      "minus_value_converged": true,
+      "plus_support_certified": false,
+      "minus_support_certified": false
+    },
+    {
+      "parameter": "q",
+      "fraction_of_scale": 0.01,
+      "step": 7.886132346228952e-09,
+      "fd": 60.974316564574615,
+      "plus_value_converged": true,
+      "minus_value_converged": true,
+      "plus_support_certified": false,
+      "minus_support_certified": false
+    },
+    {
+      "parameter": "q",
+      "fraction_of_scale": 0.003,
+      "step": 2.3658397038686853e-09,
+      "fd": 60.97421411304744,
+      "plus_value_converged": true,
+      "minus_value_converged": true,
+      "plus_support_certified": false,
+      "minus_support_certified": false
+    },
+    {
+      "parameter": "q",
+      "fraction_of_scale": 0.001,
+      "step": 7.886132346228951e-10,
+      "fd": 60.97420360134805,
+      "plus_value_converged": true,
+      "minus_value_converged": true,
+      "plus_support_certified": false,
+      "minus_support_certified": false
+    }
+  ],
+  "native_extension": "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/build-algebraic-boundary/python-api/lcbinint/_lcbinint.cpython-310-x86_64-linux-gnu.so",
+  "native_sha256": "b6ba4c1a395452784ac1a287986a2cc8dcd9372b32c13405775fc7a02499258d",
+  "gradient_extension": "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/build-algebraic-boundary/fused-gradient/python/_lcbinint_holonomic_fused.cpython-310-x86_64-linux-gnu.so",
+  "gradient_sha256": "d610da31602364566a2870e0f7dd60031eb994eae1d1006a9f3f09b45e5c8d2a"
+}

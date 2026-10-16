@@ -73,13 +73,31 @@ inline bool evaluate(const LensParams&p,double limb,const FusedGradientOptions&o
  if(!repair_invalid && !near_axis && !cancellation_prone)return false;
  double clearance=finite.binary_caustic_clearance_lower_bound(p.a,p.q,{p.xs,p.ys});
  if(repair_invalid && !(clearance>p.rho)) {
-  struct RefinedCover {double separation=0,q=0;std::vector<magnification::detail::CausticEnclosureDisk> disks;};
+  struct RefinedCover {double separation=0,q=0;int intervals=0;std::vector<magnification::detail::CausticEnclosureDisk> disks;};
   static thread_local RefinedCover refined;
   if(refined.separation!=p.a||refined.q!=p.q){
-   refined.disks=magnification::detail::build_binary_caustic_enclosure(p.a,p.q,8,512);
-   refined.separation=p.a;refined.q=p.q;
+   refined.disks.clear();refined.intervals=0;refined.separation=p.a;refined.q=p.q;
   }
-  clearance=std::max(clearance,magnification::detail::binary_caustic_enclosure_clearance(refined.disks,{p.xs,p.ys}));
+  // A coarse phase cover can contain a source that is safely inside a broad
+  // caustic region even when it is far from the caustic curve itself. Refine
+  // only on this failed-gradient retry. Each disk cover encloses the complete
+  // continuous caustic, so a positive lower bound still certifies that the
+  // entire source disk is smooth before differentiating under the integral.
+  for(int intervals:{512,2048,8192}) {
+   if(refined.intervals<intervals) {
+    refined.disks=magnification::detail::build_binary_caustic_enclosure(
+        p.a,p.q,8,intervals);
+    refined.intervals=intervals;
+   }
+   // A cached finer cover already contains the requested coarser cover's
+   // information. In particular, do not rescan the 8192-disk cover three
+   // times on every later failed epoch.
+   if(refined.intervals>intervals)continue;
+   clearance=std::max(clearance,
+       magnification::detail::binary_caustic_enclosure_clearance(
+           refined.disks,{p.xs,p.ys}));
+   if(clearance>p.rho || refined.intervals>=8192)break;
+  }
  }
  // Separate smooth disks by the dimensionless radius/clearance. This is a
  // coordinate-selection gate, not a gradient accuracy or convergence test.

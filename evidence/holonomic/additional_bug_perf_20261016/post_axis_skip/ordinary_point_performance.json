@@ -1,0 +1,58 @@
+{
+  "id": "ordinary_point",
+  "params": {
+    "s": 1.2,
+    "q": 0.01,
+    "rho": 0.003,
+    "t0": 0.0,
+    "tE": 10.0,
+    "u0": 0.3,
+    "alpha": 0.0
+  },
+  "limb": 0.5,
+  "lo": -1.0,
+  "hi": 1.0,
+  "tol": 0.001,
+  "n_epochs": 401,
+  "status": "ok",
+  "metric": "constructor and parameter conversion excluded; one pinned CPU; five alternating warm calls; medians",
+  "info_cold_ms": 1.8468720372766256,
+  "plain_cold_ms": 0.39086397737264633,
+  "lc_warm_ms": [
+    0.3652760060504079,
+    0.3685449482873082,
+    0.3615310415625572,
+    0.3634280292317271,
+    0.3582410281524062
+  ],
+  "vbm_warm_ms": [
+    0.39269705303013325,
+    0.3559140022844076,
+    0.3517270088195801,
+    0.34986494574695826,
+    0.3527889493852854
+  ],
+  "lc_median_ms": 0.3634280292317271,
+  "vbm_median_ms": 0.3527889493852854,
+  "vbm_over_lc": 0.9707257586352589,
+  "info_plain_exact": true,
+  "info_plain_max_abs": 0.0,
+  "max_order_abs_difference": 9.769962616701378e-15,
+  "integral_epochs": 0,
+  "value_converged": 401,
+  "fully_converged": 401,
+  "support_certified_integral": 0,
+  "nodes_total": 401,
+  "nodes_max_epoch": 1,
+  "epoch_ms_median": 0.0007740000000000001,
+  "integral_epoch_ms_p95": 0.0,
+  "routes": {
+    "point_source": 401
+  },
+  "max_relative_vbm_difference": 5.564917959511587e-15,
+  "max_scaled_vbm_difference": 5.564917959511587e-12,
+  "scaled_vbm_difference_over_one": 0,
+  "vbm_finite_values": 401,
+  "lc_finite_values": 401,
+  "peak_rss_kib": 43924
+}
