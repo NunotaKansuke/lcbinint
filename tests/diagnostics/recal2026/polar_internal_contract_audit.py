@@ -150,16 +150,18 @@ def main():
     for geometry in (0, 15):
         for inp in extreme['inputs'][3*geometry:3*geometry+3]:
             for goal in (1e-3, 1e-4, 1e-5):
-                # The default now starts at2 and avoids the failed coarse
-                # lattice. Explicitly request4 to exercise the retry itself.
+                # Discovery is capped at2 even when the adaptive integration
+                # request starts at4, so the coarse retry is no longer needed.
                 options = dict(relative_tolerance=goal, initial_bins=4)
                 result = call(inp, **options)
                 ref = references[inp['id']]
-                record('discovery_retry_regression', contract(result, options) and
-                    result['discovery_retries'] == 1 and result['discovery_source_bins'] == 2 and
+                actual_error = (abs(result['magnification']/ref['value']-1)
+                                if ref['valid'] else None)
+                record('bounded_discovery_cap_regression', contract(result, options) and
+                    result['discovery_retries'] == 0 and result['discovery_source_bins'] == 2 and
                     (goal != 1e-3 or result['estimated_target_met']) and
                     (not result['estimated_target_met'] or not ref['valid'] or
-                     abs(result['magnification']/ref['value']-1) <= goal),
+                     actual_error <= goal),
                     id=inp['id'], options=options, result=result, reference=ref,
                     accuracy_reference_usable=ref['valid'])
 

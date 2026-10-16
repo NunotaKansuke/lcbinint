@@ -1,0 +1,36 @@
+{
+  "branch": "feature/polar-cost-cut",
+  "head": "e27f2663b3f2cebc3f3a6bf1196f7b2268f7e197",
+  "status": "dirty checkout; pre-existing changes preserved",
+  "integral_rerun": false,
+  "offline_route_replay": true,
+  "build_target": "lcbinint_magnification",
+  "files_sha256": {
+    "route_model": "68d4a528c6e7c1a1cc25bdf6355516097872007f45166412ba42ca1f2bc2332d",
+    "route_features": "405af77fdc4418e4fc458ec0e04bff1316c4035bd252640bd48eaf90e4be9535",
+    "route_selector": "1a962075505f944c0f55f38d01b538eb4dc17ddd011ce637af92e0e62ba71b21",
+    "magnification_source": "229ee82b77aad1fc59c8f7d6c495467c8ef7bf996e6418cd9dcac9cb172c5e52",
+    "update_script": "bc163b2fceff06fc2ebb852c9376ed3e6d09f84f53e74a9c6e72053a0505732b",
+    "campaign_manifest": "2151d512eabbf7aa823142fbd94e3e1d9b5c1cbeaf50759e7f763121e99d6c51",
+    "campaign_raw": "ad8b54beb06a58a0f014afd96375f3dfe52e98d5d8dfe037b2a3707149d113ee",
+    "method_joined": "2d8e8bc032870e99e5828fec685375cc56d953f52868d6cbcd8f814490e24cf0",
+    "route_features_saved": "e078f989c1fdf8287ed4c7f9095ee77ce66d7a31e4b8a7ae3a717c541bcf8433",
+    "built_magnification_library": "da94b4633d3ebc01cc43adc96979b0b3c1331144ac16f68d74eab0bf7e70861f"
+  },
+  "figures_sha256": {
+    "auto_linear_1e-03.md": "f0081a30cabd3afb97b1ebf840bbd709dbb807a1fe6efe201ca4d31eda64b77b",
+    "auto_linear_1e-03.pdf": "e7170f36b5b1bf088b6fdf68cc78039f0df9106a697c5380b722c6464296b52a",
+    "auto_linear_1e-03.png": "e0368083c5505b6e374a2b350b503a2bc2e13a1d21178c123a49d23926c87dc8",
+    "auto_linear_1e-04.md": "49ec9831755e48806bf4ca25eb2156d13ab37ef74fc8ef5afe95dd489780faae",
+    "auto_linear_1e-04.pdf": "8e0eae1efa6f0b0ab64037f7ba8ae8f839288b7975fa4e49ae0e84071db9df92",
+    "auto_linear_1e-04.png": "40004ab8463b6e1d3a7767750be9825f154fdc728008d52857ea81eebe3a86c5",
+    "auto_uniform_1e-03.md": "67cb0fa9650ff1959c425292ea36679d72398945479eab220878f93b2e6fc813",
+    "auto_uniform_1e-03.pdf": "36216eb5af8be2026ee0474540ffeac86a84ef7093262896c7ba6ab5567db14d",
+    "auto_uniform_1e-03.png": "05bb0193d27b6b4725b0283bf01acd4df6d91a69fb0c02b8e79381a1b101b1ec",
+    "auto_uniform_1e-04.md": "16741dc3f55e664ab0807bd449442147a168f765bde1f8efbbfa0c230084b385",
+    "auto_uniform_1e-04.pdf": "75f1401fe136999e1dc9cf322358a9908afcbfd6dcbafb6f609932f5d643bada",
+    "auto_uniform_1e-04.png": "3dc2f45a561151679a87b1d3f6bfa0dedaa50a59fc495bc78a9477ebe07aac39"
+  },
+  "summary_sha256": "9e1a9511cef5fceb1d43a94db0c37476724c5d239de649eb2ed65df5b63d8b7e",
+  "integrated_joined_sha256": "b8c55e0fff752b13f072b72cdca54228ac92911648048304672de9028be812d0"
+}

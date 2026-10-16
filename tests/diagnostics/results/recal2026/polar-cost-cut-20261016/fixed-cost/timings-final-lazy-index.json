@@ -1,0 +1,763 @@
+{
+  "warm_scope": "Warm cache lookup plus returned seed-vector copy/checksum; population excluded; CPU pinned; 300000 operations per phase; alternating paired order.",
+  "cold_population_scope": "Fresh process: construct point images, populate 1024 distinct seed-cache entries, request all retained entries for exact identity verification (the first repeated pass), and run three single-hit checks. Process startup included; integration map excluded.",
+  "input_unique_positions": 1024,
+  "repeats": 5,
+  "native_source_sha256": "32eb7d3e4ff2c29ac02b35c4922e7f8c6cc505ae61e1ecd0b5fd9d9027462790",
+  "native_header_sha256": "d07e86b8036c974528d0fa4beae286f6fd859d1e93df9202cccd84159a093b46",
+  "probe_source_sha256": "62bbe8d51e18c20ca613e5e47d12a8ee373a5251ebed3586a88efd1f347073d8",
+  "benchmark_script_sha256": "a0d0e4c50bbe6576500cbf68d990b73cc692f6ef9eb6ce68c741106a34996d9d",
+  "input_sha256": "5c127603b2294183a5c5574c1254ec09178b203d78b8fac4ce04e86726b03903",
+  "binaries_sha256": {
+    "vector": "9172d6565b4f0eff509f765c3d10acb420bbcb9cb4456dad237e53670ad167ef",
+    "lazy_index": "843189c78e0bafc4266b3bd0dacf41d11b8d1d2fa3ac65edbca8321a1efa15b7"
+  },
+  "warm_lookup": {
+    "1": {
+      "oldest_hit": {
+        "vector_median_ns": 15.5247566667,
+        "lazy_index_median_ns": 17.5805566667,
+        "paired_median_ratio": 1.1343335004415092,
+        "vector_samples_ns": [
+          15.6796066667,
+          15.3929833333,
+          15.5247566667,
+          15.41849,
+          15.95045
+        ],
+        "lazy_index_samples_ns": [
+          17.5805566667,
+          17.4607766667,
+          17.8143666667,
+          17.8902133333,
+          17.1140866667
+        ]
+      },
+      "newest_hit": {
+        "vector_median_ns": 15.6185733333,
+        "lazy_index_median_ns": 17.67149,
+        "paired_median_ratio": 1.1418873498338373,
+        "vector_samples_ns": [
+          15.28793,
+          15.6346566667,
+          15.6185733333,
+          15.41323,
+          16.1114066667
+        ],
+        "lazy_index_samples_ns": [
+          17.6483566667,
+          17.8530166667,
+          17.49525,
+          17.67149,
+          17.75923
+        ]
+      },
+      "cyclic_hits": {
+        "vector_median_ns": 15.6151066667,
+        "lazy_index_median_ns": 17.31168,
+        "paired_median_ratio": 1.1064586089288446,
+        "vector_samples_ns": [
+          15.6151066667,
+          15.55722,
+          15.54383,
+          15.9013866667,
+          15.8567733333
+        ],
+        "lazy_index_samples_ns": [
+          17.31168,
+          17.21342,
+          16.6025933333,
+          17.6695533333,
+          17.50426
+        ]
+      }
+    },
+    "4": {
+      "oldest_hit": {
+        "vector_median_ns": 15.7904933333,
+        "lazy_index_median_ns": 17.4956466667,
+        "paired_median_ratio": 1.0971162283610525,
+        "vector_samples_ns": [
+          15.6434966667,
+          15.77846,
+          16.0790966667,
+          15.7904933333,
+          15.94694
+        ],
+        "lazy_index_samples_ns": [
+          17.6308566667,
+          17.94678,
+          17.43812,
+          17.22436,
+          17.4956466667
+        ]
+      },
+      "newest_hit": {
+        "vector_median_ns": 17.7068033333,
+        "lazy_index_median_ns": 19.3338866667,
+        "paired_median_ratio": 1.0919890261175031,
+        "vector_samples_ns": [
+          18.1855266667,
+          17.4015533333,
+          17.3011233333,
+          17.7068033333,
+          18.0914333333
+        ],
+        "lazy_index_samples_ns": [
+          19.3338866667,
+          19.4908533333,
+          19.28688,
+          19.3257333333,
+          19.7556466667
+        ]
+      },
+      "cyclic_hits": {
+        "vector_median_ns": 16.5256566667,
+        "lazy_index_median_ns": 18.22204,
+        "paired_median_ratio": 1.0985278842322228,
+        "vector_samples_ns": [
+          16.5256566667,
+          16.58769,
+          16.8381566667,
+          16.51083,
+          16.4715266667
+        ],
+        "lazy_index_samples_ns": [
+          18.23392,
+          18.22204,
+          17.79649,
+          18.0457766667,
+          18.3036566667
+        ]
+      }
+    },
+    "8": {
+      "oldest_hit": {
+        "vector_median_ns": 15.78679,
+        "lazy_index_median_ns": 17.7608266667,
+        "paired_median_ratio": 1.129256974478996,
+        "vector_samples_ns": [
+          15.7196933333,
+          15.78679,
+          15.9148666667,
+          15.2681833333,
+          16.3286433333
+        ],
+        "lazy_index_samples_ns": [
+          17.7515733333,
+          17.75416,
+          17.7683866667,
+          17.7608266667,
+          27.6995433333
+        ]
+      },
+      "newest_hit": {
+        "vector_median_ns": 21.05853,
+        "lazy_index_median_ns": 22.20834,
+        "paired_median_ratio": 1.067072224901846,
+        "vector_samples_ns": [
+          21.1596166667,
+          20.6735066667,
+          20.7801366667,
+          21.05853,
+          21.1897633333
+        ],
+        "lazy_index_samples_ns": [
+          22.20834,
+          22.6952833333,
+          22.1739066667,
+          21.9288466667,
+          32.2537566667
+        ]
+      },
+      "cyclic_hits": {
+        "vector_median_ns": 17.7374333333,
+        "lazy_index_median_ns": 20.08157,
+        "paired_median_ratio": 1.1266421845785237,
+        "vector_samples_ns": [
+          17.68329,
+          17.8634,
+          17.7374333333,
+          17.6595433333,
+          17.9287866667
+        ],
+        "lazy_index_samples_ns": [
+          19.91465,
+          20.12566,
+          20.08157,
+          19.8552633333,
+          30.2104033333
+        ]
+      }
+    },
+    "16": {
+      "oldest_hit": {
+        "vector_median_ns": 15.63128,
+        "lazy_index_median_ns": 17.56096,
+        "paired_median_ratio": 1.136236323536243,
+        "vector_samples_ns": [
+          15.28447,
+          15.5330066667,
+          15.63128,
+          16.2250566667,
+          16.1898166667
+        ],
+        "lazy_index_samples_ns": [
+          17.36677,
+          18.03702,
+          18.01323,
+          17.56096,
+          17.49111
+        ]
+      },
+      "newest_hit": {
+        "vector_median_ns": 30.6497233333,
+        "lazy_index_median_ns": 30.9457333333,
+        "paired_median_ratio": 1.0069816171490975,
+        "vector_samples_ns": [
+          30.73118,
+          30.6480766667,
+          30.48286,
+          30.7865,
+          30.6497233333
+        ],
+        "lazy_index_samples_ns": [
+          30.9457333333,
+          30.60254,
+          31.3974466667,
+          30.8111833333,
+          31.32544
+        ]
+      },
+      "cyclic_hits": {
+        "vector_median_ns": 22.3952166667,
+        "lazy_index_median_ns": 23.2939633333,
+        "paired_median_ratio": 1.0404649209920782,
+        "vector_samples_ns": [
+          22.3952166667,
+          22.3880333333,
+          22.47667,
+          22.4782866667,
+          22.38741
+        ],
+        "lazy_index_samples_ns": [
+          23.4313433333,
+          23.2939633333,
+          23.0569966667,
+          23.9088066667,
+          23.1270333333
+        ]
+      }
+    },
+    "20": {
+      "oldest_hit": {
+        "vector_median_ns": 15.9715,
+        "lazy_index_median_ns": 17.71789,
+        "paired_median_ratio": 1.1093442104062134,
+        "vector_samples_ns": [
+          16.1546733333,
+          15.8100766667,
+          15.9715,
+          16.0059033333,
+          15.75708
+        ],
+        "lazy_index_samples_ns": [
+          17.9210933333,
+          17.70322,
+          17.6394633333,
+          17.71789,
+          17.8192533333
+        ]
+      },
+      "newest_hit": {
+        "vector_median_ns": 36.4759133333,
+        "lazy_index_median_ns": 36.6800666667,
+        "paired_median_ratio": 1.006405606493202,
+        "vector_samples_ns": [
+          36.3869866667,
+          36.4759133333,
+          36.5138466667,
+          36.70685,
+          36.44072
+        ],
+        "lazy_index_samples_ns": [
+          36.79752,
+          36.0764133333,
+          36.74774,
+          36.26068,
+          36.6800666667
+        ]
+      },
+      "cyclic_hits": {
+        "vector_median_ns": 25.8430666667,
+        "lazy_index_median_ns": 25.7583533333,
+        "paired_median_ratio": 0.9935871728541956,
+        "vector_samples_ns": [
+          25.9246033333,
+          25.66116,
+          25.9642133333,
+          25.8430666667,
+          25.79068
+        ],
+        "lazy_index_samples_ns": [
+          25.7583533333,
+          25.2923766667,
+          25.7713133333,
+          25.7087066667,
+          25.8990133333
+        ]
+      }
+    },
+    "24": {
+      "oldest_hit": {
+        "vector_median_ns": 15.7076733333,
+        "lazy_index_median_ns": 17.8660833333,
+        "paired_median_ratio": 1.131719358895196,
+        "vector_samples_ns": [
+          15.7076733333,
+          15.6054,
+          15.5001766667,
+          15.89688,
+          16.0900633333
+        ],
+        "lazy_index_samples_ns": [
+          18.0842133333,
+          18.0382433333,
+          17.54185,
+          17.6917466667,
+          17.8660833333
+        ]
+      },
+      "newest_hit": {
+        "vector_median_ns": 40.8402833333,
+        "lazy_index_median_ns": 40.9928,
+        "paired_median_ratio": 1.0039469391873557,
+        "vector_samples_ns": [
+          41.0026533333,
+          41.16544,
+          40.67181,
+          40.8402833333,
+          40.83164
+        ],
+        "lazy_index_samples_ns": [
+          42.4704066667,
+          41.14118,
+          40.9755133333,
+          40.74421,
+          40.9928
+        ]
+      },
+      "cyclic_hits": {
+        "vector_median_ns": 28.2373933333,
+        "lazy_index_median_ns": 28.4585366667,
+        "paired_median_ratio": 1.010035092776458,
+        "vector_samples_ns": [
+          28.05217,
+          28.17579,
+          28.25739,
+          28.2373933333,
+          28.2706866667
+        ],
+        "lazy_index_samples_ns": [
+          29.9016166667,
+          28.4585366667,
+          28.2775933333,
+          28.9274066667,
+          28.1985633333
+        ]
+      }
+    },
+    "32": {
+      "oldest_hit": {
+        "vector_median_ns": 15.7915533333,
+        "lazy_index_median_ns": 18.0827366667,
+        "paired_median_ratio": 1.130708757011974,
+        "vector_samples_ns": [
+          15.6042,
+          15.7915533333,
+          15.7410966667,
+          16.2034266667,
+          16.0345033333
+        ],
+        "lazy_index_samples_ns": [
+          17.8855233333,
+          17.6925433333,
+          18.0827366667,
+          18.1715266667,
+          18.1303533333
+        ]
+      },
+      "newest_hit": {
+        "vector_median_ns": 51.5795666667,
+        "lazy_index_median_ns": 50.72197,
+        "paired_median_ratio": 0.9862974408721015,
+        "vector_samples_ns": [
+          51.4168966667,
+          53.1055866667,
+          51.4266466667,
+          51.5795666667,
+          52.11122
+        ],
+        "lazy_index_samples_ns": [
+          50.7244833333,
+          50.65834,
+          50.72197,
+          50.6889766667,
+          52.8158666667
+        ]
+      },
+      "cyclic_hits": {
+        "vector_median_ns": 33.8357333333,
+        "lazy_index_median_ns": 33.6889433333,
+        "paired_median_ratio": 0.9988000057341675,
+        "vector_samples_ns": [
+          33.4834933333,
+          34.24171,
+          33.0767766667,
+          33.8357333333,
+          34.5477966667
+        ],
+        "lazy_index_samples_ns": [
+          33.4433133333,
+          33.8244966667,
+          33.6621366667,
+          33.6889433333,
+          36.1359166667
+        ]
+      }
+    },
+    "48": {
+      "oldest_hit": {
+        "vector_median_ns": 16.40208,
+        "lazy_index_median_ns": 17.7130833333,
+        "paired_median_ratio": 1.0799290902922067,
+        "vector_samples_ns": [
+          16.3763166667,
+          15.86276,
+          16.40208,
+          17.4081366667,
+          17.3398666667
+        ],
+        "lazy_index_samples_ns": [
+          27.74952,
+          17.83134,
+          17.7130833333,
+          17.0476966667,
+          17.6109733333
+        ]
+      },
+      "newest_hit": {
+        "vector_median_ns": 74.70078,
+        "lazy_index_median_ns": 71.08593,
+        "paired_median_ratio": 0.9520061682528617,
+        "vector_samples_ns": [
+          77.9872366667,
+          71.2391266667,
+          71.4495,
+          74.70078,
+          76.2941
+        ],
+        "lazy_index_samples_ns": [
+          71.9201266667,
+          71.08593,
+          71.05356,
+          71.1156033333,
+          70.9641666667
+        ]
+      },
+      "cyclic_hits": {
+        "vector_median_ns": 47.4409133333,
+        "lazy_index_median_ns": 46.65938,
+        "paired_median_ratio": 0.9812599869852008,
+        "vector_samples_ns": [
+          47.2591566667,
+          47.0962933333,
+          47.4409133333,
+          52.2918966667,
+          47.5294633333
+        ],
+        "lazy_index_samples_ns": [
+          53.0708966667,
+          46.65938,
+          46.55187,
+          47.9909433333,
+          45.8259466667
+        ]
+      }
+    },
+    "64": {
+      "oldest_hit": {
+        "vector_median_ns": 15.89206,
+        "lazy_index_median_ns": 39.1151533333,
+        "paired_median_ratio": 2.504025266985086,
+        "vector_samples_ns": [
+          16.05694,
+          15.81579,
+          15.89206,
+          16.1743033333,
+          15.62091
+        ],
+        "lazy_index_samples_ns": [
+          39.09569,
+          39.87342,
+          39.0152466667,
+          57.2935533333,
+          39.1151533333
+        ]
+      },
+      "newest_hit": {
+        "vector_median_ns": 91.5406666667,
+        "lazy_index_median_ns": 38.92704,
+        "paired_median_ratio": 0.4248552555871617,
+        "vector_samples_ns": [
+          91.5406666667,
+          91.6818566667,
+          91.57446,
+          91.3573066667,
+          91.45366
+        ],
+        "lazy_index_samples_ns": [
+          38.8915333333,
+          38.92704,
+          38.7438433333,
+          57.3579533333,
+          39.1750166667
+        ]
+      },
+      "cyclic_hits": {
+        "vector_median_ns": 61.1770666667,
+        "lazy_index_median_ns": 42.3175266667,
+        "paired_median_ratio": 0.6904543750590142,
+        "vector_samples_ns": [
+          61.1770666667,
+          61.6423733333,
+          60.8829766667,
+          62.20296,
+          61.1095966667
+        ],
+        "lazy_index_samples_ns": [
+          42.2399733333,
+          42.3175266667,
+          42.4289466667,
+          56.8057633333,
+          42.1717
+        ]
+      }
+    },
+    "256": {
+      "oldest_hit": {
+        "vector_median_ns": 15.6583866667,
+        "lazy_index_median_ns": 39.27522,
+        "paired_median_ratio": 2.5203343639435816,
+        "vector_samples_ns": [
+          15.3297233333,
+          15.6583866667,
+          16.1808366667,
+          15.7255,
+          15.4764833333
+        ],
+        "lazy_index_samples_ns": [
+          39.27522,
+          39.46437,
+          39.65182,
+          39.1002433333,
+          39.1325966667
+        ]
+      },
+      "newest_hit": {
+        "vector_median_ns": 355.979223333,
+        "lazy_index_median_ns": 40.30505,
+        "paired_median_ratio": 0.11329690238719306,
+        "vector_samples_ns": [
+          356.526616667,
+          356.24475,
+          355.979223333,
+          355.444613333,
+          355.456293333
+        ],
+        "lazy_index_samples_ns": [
+          40.0246,
+          40.3614266667,
+          40.0908833333,
+          40.30505,
+          40.3328433333
+        ]
+      },
+      "cyclic_hits": {
+        "vector_median_ns": 195.270646667,
+        "lazy_index_median_ns": 43.7406766667,
+        "paired_median_ratio": 0.2237364999742264,
+        "vector_samples_ns": [
+          195.500853333,
+          195.628436667,
+          195.00249,
+          194.769576667,
+          195.270646667
+        ],
+        "lazy_index_samples_ns": [
+          43.7406766667,
+          44.1174233333,
+          43.4388266667,
+          43.54967,
+          43.9651366667
+        ]
+      }
+    },
+    "1024": {
+      "oldest_hit": {
+        "vector_median_ns": 15.8262466667,
+        "lazy_index_median_ns": 39.43782,
+        "paired_median_ratio": 2.491925017381481,
+        "vector_samples_ns": [
+          15.3392,
+          15.8262466667,
+          15.8315833333,
+          15.6681866667,
+          16.2848966667
+        ],
+        "lazy_index_samples_ns": [
+          56.40521,
+          39.43782,
+          38.8943366667,
+          39.5246333333,
+          38.3672466667
+        ]
+      },
+      "newest_hit": {
+        "vector_median_ns": 1349.99731333,
+        "lazy_index_median_ns": 38.6391866667,
+        "paired_median_ratio": 0.028592231356376663,
+        "vector_samples_ns": [
+          1352.40876333,
+          1349.99731333,
+          1357.90353,
+          1349.30194333,
+          1349.44225333
+        ],
+        "lazy_index_samples_ns": [
+          55.70367,
+          38.8740033333,
+          38.6391866667,
+          38.5795533333,
+          38.3496266667
+        ]
+      },
+      "cyclic_hits": {
+        "vector_median_ns": 693.16487,
+        "lazy_index_median_ns": 48.8442266667,
+        "paired_median_ratio": 0.07037389278049856,
+        "vector_samples_ns": [
+          693.16487,
+          694.067426667,
+          693.247773333,
+          692.54379,
+          692.174313333
+        ],
+        "lazy_index_samples_ns": [
+          62.08012,
+          48.8442266667,
+          48.7322866667,
+          48.9027833333,
+          48.4083433333
+        ]
+      }
+    }
+  },
+  "cold_population_wall_ms": {
+    "vector_median_ms": 8.378921076655388,
+    "lazy_index_median_ms": 8.521558018401265,
+    "paired_median_ratio": 0.9857741896112967,
+    "vector_samples_ms": [
+      8.355911006219685,
+      8.445688057690859,
+      8.335312944836915,
+      8.400331949815154,
+      8.378921076655388
+    ],
+    "lazy_index_samples_ms": [
+      8.471001056022942,
+      8.533312939107418,
+      8.506811107508838,
+      8.521558018401265,
+      8.55496700387448
+    ]
+  },
+  "first_replay_wall_ms": {
+    "64": {
+      "vector_median_ms": 4.653248004615307,
+      "lazy_index_median_ms": 4.707920015789568,
+      "paired_median_ratio": 0.9883872259955775,
+      "vector_samples_ms": [
+        4.690208006650209,
+        4.635751014575362,
+        4.653248004615307,
+        4.635908058844507,
+        4.7082529636099935
+      ],
+      "lazy_index_samples_ms": [
+        4.64647903572768,
+        4.747475031763315,
+        4.707920015789568,
+        4.708140040747821,
+        4.652334027923644
+      ]
+    },
+    "128": {
+      "vector_median_ms": 4.861440975219011,
+      "lazy_index_median_ms": 4.903783090412617,
+      "paired_median_ratio": 0.9888548116231,
+      "vector_samples_ms": [
+        4.858294036239386,
+        4.861440975219011,
+        4.819832043722272,
+        4.886458977125585,
+        4.868749994784594
+      ],
+      "lazy_index_samples_ms": [
+        4.913050914183259,
+        4.928320064209402,
+        4.903783090412617,
+        4.892296972684562,
+        4.834354040212929
+      ]
+    },
+    "256": {
+      "vector_median_ms": 5.250909016467631,
+      "lazy_index_median_ms": 5.306593026034534,
+      "paired_median_ratio": 0.9947563584950759,
+      "vector_samples_ms": [
+        5.235672928392887,
+        5.229130038060248,
+        5.294230068102479,
+        5.307749030180275,
+        5.250909016467631
+      ],
+      "lazy_index_samples_ms": [
+        5.3862499771639705,
+        5.312707042321563,
+        5.306593026034534,
+        5.269490065984428,
+        5.278588039800525
+      ]
+    },
+    "1024": {
+      "vector_median_ms": 8.386366069316864,
+      "lazy_index_median_ms": 8.490458014421165,
+      "paired_median_ratio": 0.9842665953551519,
+      "vector_samples_ms": [
+        8.403737912885845,
+        8.396535995416343,
+        8.326870971359313,
+        8.386366069316864,
+        8.355387020856142
+      ],
+      "lazy_index_samples_ms": [
+        8.490458014421165,
+        8.614768972620368,
+        8.461244986392558,
+        8.518852991983294,
+        8.488947059959173
+      ]
+    }
+  }
+}

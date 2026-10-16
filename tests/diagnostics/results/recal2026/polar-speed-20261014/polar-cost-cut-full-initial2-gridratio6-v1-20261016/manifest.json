@@ -1,0 +1,41 @@
+{
+  "inputs_sha256": "829cb5a54a444583cf75d6d475d206f684cf40005009f539d3c01cf2bfe0fe49",
+  "baseline_sha256": "4d1035f90b8ab9def3e943774e0ff6f9783af9d0b7228f408db16f1b7e37ef3b",
+  "candidate_sha256": "d386c20d7c77d99b72edb832d1cec62e35f9b6d3a131ffe666b93f053a04070c",
+  "source_sha256": "b630b106edf2473abd7fa994c8f38bbc7b57780369425dda6df395818cf6ba13",
+  "source_files": {
+    "src/lcbinint/magnification/adaptive_polar_impl.inc": "b630b106edf2473abd7fa994c8f38bbc7b57780369425dda6df395818cf6ba13",
+    "src/lcbinint/magnification/adaptive_polar_polynomial.hpp": "ffce88cfda98a4b215b5b124ca7e31d5e7777452724c4952e4d5c2a0a2cc05de",
+    "src/lcbinint/magnification/adaptive_polar_roots.hpp": "8b4b86424e8930d37e6c87d6b93fdeda64e82ca3cc64107497938c5539894fda",
+    "src/lcbinint/magnification/finite_source_magnifier.cpp": "4775e2f208938620009d4077881a687908de09d403b4ff2957ebf7a7ef7a719a",
+    "src/lcbinint/magnification/probe_diagnostics.hpp": "96d9112aca56b3ac6c88f71c3e6b04f3edeaa4a80a42cd578dc504d13894c318",
+    "python/bind_lc.cpp": "09e8f3af82d57309e52471d572cd9d291fabce61a38a4e4e293ed5aa5da41a7f",
+    "tests/diagnostics/recal2026/polar_adaptive_six_panel_runner.cpp": "9c2e03d9b2049a8043b50b762dabfef17069c0fb0e196d27e9e1829aafc2611e"
+  },
+  "compiler_command": [
+    "/usr/bin/c++",
+    "-O3",
+    "-DNDEBUG",
+    "-std=gnu++17",
+    "-fopenmp",
+    "-I/rogue1_8/nunota/lcbinint/include",
+    "-I/rogue1_8/nunota/lcbinint/src",
+    "/rogue1_8/nunota/lcbinint/tests/diagnostics/recal2026/polar_adaptive_six_panel_runner.cpp",
+    "-o",
+    "/rogue1_8/nunota/lcbinint/tests/diagnostics/results/recal2026/polar-speed-20261014/polar-cost-cut-full-initial2-gridratio6-v1-20261016/runner",
+    "-Wl,--start-group",
+    "/rogue1_8/nunota/lcbinint/build-adaptive-production/liblcbinint_lightcurve.a",
+    "/rogue1_8/nunota/lcbinint/build-adaptive-production/liblcbinint_magnification.a",
+    "-Wl,--end-group",
+    "-Wl,-rpath,/home/nunota/.miniconda3/envs/myenv/lib",
+    "/home/nunota/.miniconda3/envs/myenv/lib/libgsl.so",
+    "/home/nunota/.miniconda3/envs/myenv/lib/libgslcblas.so",
+    "-lm",
+    "-lquadmath"
+  ],
+  "cpu_affinity": [
+    0
+  ],
+  "threads": 1,
+  "timing": "same preplanned entry, one warmup per target, median of three; alternating executable order by 32-input shard"
+}

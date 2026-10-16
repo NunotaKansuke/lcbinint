@@ -143,13 +143,20 @@ double adaptive_polar_from_support(
         + std::hypot(wide_source_x, wide_source_y) + rho + 4.0;
     const double root_tolerance = std::max(rho * 1e-11,
         rho * std::min(1e-3, target / (norm * std::max(1.0, std::abs(coarse_magnification)))) * 0.002);
-    std::set<int> active;
     const int stride = std::max(1, static_cast<int>(work.initial_angular_ratio / 2.0));
     const int groups = static_cast<int>((static_cast<std::int64_t>(support.phi_bins) + stride - 1) / stride);
     const double panel_dphi = 2.0 * kPi / groups;
+    std::vector<unsigned char> active(groups, 0);
+    std::size_t active_count = 0;
+    const auto add_active = [&](int index) {
+        if (!active[static_cast<std::size_t>(index)]) {
+            active[static_cast<std::size_t>(index)] = 1;
+            ++active_count;
+        }
+    };
     for (const auto& run : support.support_runs) {
         const int group = static_cast<int>(static_cast<std::int64_t>(run.iphi) * groups / support.phi_bins);
-        for (int d = -1; d <= 1; ++d) active.insert(static_cast<int>((static_cast<std::int64_t>(group) + d + groups) % groups));
+        for (int d = -1; d <= 1; ++d) add_active(static_cast<int>((static_cast<std::int64_t>(group) + d + groups) % groups));
     }
     // A centre image can be thinner than a coarse radial cell. Preserve its
     // actual angle as a refinement guard even when flood fill finds no cell.
@@ -161,7 +168,7 @@ double adaptive_polar_from_support(
         double phi = std::atan2(seed.y, seed.x);
         if (phi < 0.0) phi += 2.0 * kPi;
         const int index = std::min(groups - 1, static_cast<int>(phi / panel_dphi));
-        for (int d = -1; d <= 1; ++d) active.insert(static_cast<int>((static_cast<std::int64_t>(index) + d + groups) % groups));
+        for (int d = -1; d <= 1; ++d) add_active(static_cast<int>((static_cast<std::int64_t>(index) + d + groups) % groups));
         const double ux = -seed.y / r, uy = seed.x / r;
         double dx = ux, dy = uy;
         const double rx = seed.x / r, ry = seed.y / r;
@@ -183,7 +190,7 @@ double adaptive_polar_from_support(
         const double angular_extent = rho * std::hypot(jrx, jry) / std::max(r * std::abs(determinant), 1e-300);
         seed_angles.push_back({phi, std::min(kPi, angular_extent), r});
     }
-    if (active.empty() || !(target > 0.0)) {
+    if (active_count == 0 || !(target > 0.0)) {
         work.stop_reason = "unresolved_support";
         work.error_indicator = std::numeric_limits<double>::infinity();
         return coarse_magnification;
@@ -1156,7 +1163,8 @@ double adaptive_polar_from_support(
             : norm * work.absolute_tolerance;
     };
     try {
-        std::deque<int> discovery(active.begin(), active.end());
+        std::deque<int> discovery;
+        for (int i = 0; i < groups; ++i) if (active[static_cast<std::size_t>(i)]) discovery.push_back(i);
         while (!discovery.empty()) {
             const int i = discovery.front(); discovery.pop_front();
             const auto a = i * ticks;
@@ -1168,7 +1176,10 @@ double adaptive_polar_from_support(
             for (int side : {-1, 1}) {
                 if (column(side < 0 ? a : b).flux <= 0.0) continue;
                 const int next = static_cast<int>((static_cast<std::int64_t>(i) + side + groups) % groups);
-                if (active.insert(next).second) discovery.push_back(next);
+                if (!active[static_cast<std::size_t>(next)]) {
+                    active[static_cast<std::size_t>(next)] = 1;
+                    discovery.push_back(next);
+                }
             }
         }
         initialized = true;

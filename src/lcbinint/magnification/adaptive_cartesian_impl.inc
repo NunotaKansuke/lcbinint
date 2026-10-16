@@ -291,11 +291,9 @@ adaptive_detail::CartesianRunFillResult fill_adaptive_cartesian_run_union(
             const double x = static_cast<double>(ix) * incr;
             const double y = static_cast<double>(iy) * row_spacing;
             if(auto* work=retained_work) {
-                if (work->depth > 0) work->mapped.materialize();
-                const std::array<double,2> key{x,y};const auto [saved,inserted]=work->mapped.access(key,work->new_maps<work->budget);
-                if(!saved)throw AdaptiveFluxBudgetExhausted{};
-                if(!inserted){++work->reused_maps;return AdaptiveRunCellState{*saved};}
-                *saved=mapped_lens_distance2(mapper,x,y,source);++work->new_maps;return AdaptiveRunCellState{*saved};
+                if(work->new_maps>=work->budget)throw AdaptiveFluxBudgetExhausted{};
+                ++work->new_maps;
+                return AdaptiveRunCellState{mapped_lens_distance2(mapper,x,y,source)};
             }
             return AdaptiveRunCellState {
                 mapped_lens_distance2(mapper, x, y, source),

@@ -7,6 +7,7 @@
 
 #include <cmath>
 #include <cstddef>
+#include <functional>
 #include <limits>
 #include <memory>
 #include <string>
@@ -253,6 +254,18 @@ public:
         double caustic_distance,
         const std::vector<SourcePosition>* center_image_seeds,
         bool* support_proven) const;
+    // Internal hot paths can hold this view through one finite-source
+    // evaluation and avoid copying the cached seed vector. The view is valid
+    // until the next seed-cache operation on this magnifier.
+    const std::vector<SourcePosition>& cached_binary_image_seeds_view(
+        const PointSourceMagnifier& point_magnifier,
+        double separation,
+        double mass_ratio,
+        SourcePosition source,
+        double source_radius,
+        double caustic_distance,
+        const std::vector<SourcePosition>* center_image_seeds,
+        bool* support_proven) const;
     // Diagnostic control: force the next source evaluation through the seed
     // builder while retaining reusable caustic geometry. Production callers
     // should keep the normal epoch caches enabled.
@@ -353,17 +366,57 @@ private:
     mutable std::vector<std::pair<SourcePosition, double>> caustic_enclosure_;
     mutable SourcePosition caustic_clearance_source_ {};
     mutable double caustic_clearance_witness_ = 0.0;
-    struct BinarySeedCacheEntry {
+    struct BinarySeedCacheKey {
         double separation;
         double mass_ratio;
         SourcePosition source;
         double source_radius;
         double caustic_distance;
         bool has_center_image_seeds;
+        bool operator==(const BinarySeedCacheKey& other) const noexcept
+        {
+            return separation == other.separation && mass_ratio == other.mass_ratio &&
+                source.x == other.source.x && source.y == other.source.y &&
+                source_radius == other.source_radius &&
+                caustic_distance == other.caustic_distance &&
+                has_center_image_seeds == other.has_center_image_seeds;
+        }
+    };
+    struct BinarySeedCacheKeyHash {
+        std::size_t operator()(const BinarySeedCacheKey& key) const noexcept
+        {
+            std::size_t value = 0;
+            const auto combine = [&value](std::size_t part) {
+                value ^= part + std::size_t{0x9e3779b9} + (value << 6) + (value >> 2);
+            };
+            combine(std::hash<double>{}(key.separation));
+            combine(std::hash<double>{}(key.mass_ratio));
+            combine(std::hash<double>{}(key.source.x));
+            combine(std::hash<double>{}(key.source.y));
+            combine(std::hash<double>{}(key.source_radius));
+            combine(std::hash<double>{}(key.caustic_distance));
+            combine(std::hash<bool>{}(key.has_center_image_seeds));
+            return value;
+        }
+    };
+    struct BinarySeedCacheEntry {
+        BinarySeedCacheKey key;
         std::vector<SourcePosition> seeds;
         bool support_proven;
     };
-    mutable std::vector<BinarySeedCacheEntry> binary_seed_cache_;
+    static constexpr std::size_t binary_seed_cache_index_minimum_entries_ = 64;
+    static constexpr std::size_t binary_seed_cache_maximum_entries_ = 1024;
+    static constexpr std::size_t binary_seed_cache_index_slots_ = 2048;
+    static constexpr std::size_t binary_seed_cache_empty_slot_ =
+        std::numeric_limits<std::size_t>::max();
+    std::size_t find_binary_seed_cache_entry(const BinarySeedCacheKey& key) const;
+    void insert_binary_seed_cache_index(std::size_t entry_index) const;
+    void erase_binary_seed_cache_index(std::size_t entry_index) const;
+    mutable std::vector<BinarySeedCacheEntry> binary_seed_cache_entries_;
+    mutable std::vector<std::size_t> binary_seed_cache_index_;
+    mutable std::size_t binary_seed_cache_oldest_ = 0;
+    mutable std::vector<std::vector<std::size_t>> binary_seed_vertex_selection_scratch_;
+    mutable std::vector<SourcePosition> binary_seed_uncached_scratch_;
     mutable bool result_cache_valid_ = false;
     mutable double result_cache_separation_ = 0.0;
     mutable double result_cache_mass_ratio_ = 0.0;

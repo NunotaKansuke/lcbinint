@@ -35,7 +35,6 @@
 #include <memory>
 #include <numeric>
 #include <queue>
-#include <set>
 #include <string>
 #include <type_traits>
 #include <unordered_map>
@@ -2607,10 +2606,11 @@ double inverse_ray_polar_core(
             PolarAreaDiagnostics support;
             support.collect_support = true;
             auto coarse_settings = settings;
-            // Wide angular jumps can disconnect a coarse radial flood fill.
-            // Discover at the existing ratio, then coarsen angular panels
-            // independently while retaining the discovered radial support.
-            coarse_settings.polar_grid_ratio = std::min(4.0, work->initial_angular_ratio);
+            // Discover support with at most two radial bins and a coarser
+            // angular lattice (tangential cells up to six times wider than a
+            // radial step). The adaptive integrator checks retained support
+            // against image, footprint, and boundary probes.
+            coarse_settings.polar_grid_ratio = std::min(6.0, work->initial_angular_ratio);
             struct DiscoveryScope {
                 AdaptivePolarRequest& work;
                 std::size_t saved_budget;
@@ -2619,7 +2619,8 @@ double inverse_ray_polar_core(
                 ~DiscoveryScope() { work.discovering = false; work.budget=saved_budget; }
             };
             double coarse;
-            const int discovery_bins=active_polar_source_bins(coarse_settings);
+            const int discovery_bins=std::min(active_polar_source_bins(coarse_settings),2);
+            coarse_settings.source_bins=coarse_settings.polar_source_bins=discovery_bins;
             const bool can_retry=discovery_bins>2;
             for(int attempt=0;;++attempt) {
                 // Reserve room for a coarser flood fill and integration.
@@ -7002,8 +7003,10 @@ FiniteSourceResult fixed_inverse_ray_binary(
         std::numeric_limits<double>::quiet_NaN())
 {
     bool support_proven = true;
-    auto seeds = finite_magnifier != nullptr
-        ? finite_magnifier->cached_binary_image_seeds(
+    std::vector<SourcePosition> owned_seeds;
+    const std::vector<SourcePosition>* seed_view = nullptr;
+    if (finite_magnifier != nullptr) {
+        seed_view = &finite_magnifier->cached_binary_image_seeds_view(
             point_magnifier,
             separation,
             mass_ratio,
@@ -7011,8 +7014,9 @@ FiniteSourceResult fixed_inverse_ray_binary(
             source_radius,
             caustic_distance,
             seed_hints,
-            &support_proven)
-        : augmented_image_seeds(
+            &support_proven);
+    } else {
+        owned_seeds = augmented_image_seeds(
             point_magnifier,
             make_binary_lens_mapper(separation, mass_ratio),
             separation,
@@ -7023,6 +7027,8 @@ FiniteSourceResult fixed_inverse_ray_binary(
             seed_hints,
             nullptr,
             &support_proven);
+        seed_view = &owned_seeds;
+    }
     if (decision.method == FiniteSourceMethod::inverse_ray_polar) {
         if (auto* work = adaptive_polar_request(); work && !support_proven) {
             // A large source disk can contain a caustic far narrower than
@@ -7058,9 +7064,13 @@ FiniteSourceResult fixed_inverse_ray_binary(
                         ++work->support_probe_extensions;
                     }
                 }
+                if (seed_view != &owned_seeds) {
+                    owned_seeds = *seed_view;
+                    seed_view = &owned_seeds;
+                }
                 support_proven = append_certified_component_seeds(point_magnifier,
                     make_binary_lens_mapper(separation, mass_ratio), separation,
-                    mass_ratio, source, source_radius, descriptor, seeds);
+                    mass_ratio, source, source_radius, descriptor, owned_seeds);
                 ++work->support_refinement_attempts;
                 work->support_caustic_bins = finer_settings.caustic_bins;
             }
@@ -7071,7 +7081,7 @@ FiniteSourceResult fixed_inverse_ray_binary(
             [&](const FiniteSourceSettings& active, PolarAreaDiagnostics* diagnostics) {
                 return inverse_ray_polar_boundary_binary(
                     point_magnifier, separation, mass_ratio, source, source_radius,
-                    active, finite_magnifier, &seeds, diagnostics);
+                    active, finite_magnifier, seed_view, diagnostics);
             },
             false);
         if (!std::isfinite(evaluation.magnification)) {
@@ -7093,7 +7103,7 @@ FiniteSourceResult fixed_inverse_ray_binary(
     LegacyAreaDiagnostics diagnostics;
     double magnification = inverse_ray_cartesian_binary_mag(
         point_magnifier, separation, mass_ratio, source, source_radius,
-        active_settings, finite_magnifier, &seeds, &diagnostics,
+        active_settings, finite_magnifier, seed_view, &diagnostics,
         point_source_magnification_hint);
     if (!std::isfinite(magnification)) {
         return {magnification, 0, decision, std::nan(""), 0, false};
@@ -7152,7 +7162,7 @@ FiniteSourceResult fixed_inverse_ray_binary(
     auto evaluate_at = [&](const FiniteSourceSettings& grid) {
         return inverse_ray_cartesian_binary_mag(
             point_magnifier, separation, mass_ratio, source, source_radius,
-            grid, finite_magnifier, &seeds, nullptr,
+            grid, finite_magnifier, seed_view, nullptr,
             point_source_magnification_hint);
     };
     // Fixed-grid explicit-tolerance calls retain one independent
@@ -7696,12 +7706,18 @@ FiniteSourceResult fixed_inverse_ray_spine_binary(
     // Generate the same centre-plus-certificate seed set as every other
     // public binary route.  All fallback paths reuse it.
     const auto mapper = make_binary_lens_mapper(separation, mass_ratio);
-    auto seeds = finite_magnifier != nullptr
-        ? finite_magnifier->cached_binary_image_seeds(
+    std::vector<SourcePosition> owned_seeds;
+    const std::vector<SourcePosition>* seed_view = nullptr;
+    if (finite_magnifier != nullptr) {
+        seed_view = &finite_magnifier->cached_binary_image_seeds_view(
             point_magnifier, separation, mass_ratio, source, source_radius,
-            std::numeric_limits<double>::infinity(), nullptr, nullptr)
-        : augmented_image_seeds(
+            std::numeric_limits<double>::infinity(), nullptr, nullptr);
+    } else {
+        owned_seeds = augmented_image_seeds(
             point_magnifier, mapper, separation, mass_ratio, source, source_radius);
+        seed_view = &owned_seeds;
+    }
+    const auto& seeds = *seed_view;
 
     const int n_ps = static_cast<int>(
         point_magnifier.binary_images(separation, mass_ratio, source).size());
@@ -7721,7 +7737,7 @@ FiniteSourceResult fixed_inverse_ray_spine_binary(
         };
         const double mag = inverse_ray_cartesian_binary_mag(
             point_magnifier, separation, mass_ratio, source, source_radius,
-            settings, finite_magnifier, &seeds);
+            settings, finite_magnifier, seed_view);
         if (!std::isfinite(mag)) return {mag, 0, fb, std::nan(""), 0, false};
         return {mag, 0, fb, 0.0, 0, true};
     }
@@ -8001,6 +8017,71 @@ FiniteSourceMagnifier::FiniteSourceMagnifier(FiniteSourceSettings settings)
 {
 }
 
+std::size_t FiniteSourceMagnifier::find_binary_seed_cache_entry(
+    const BinarySeedCacheKey& key) const
+{
+    if (binary_seed_cache_index_.empty()) return binary_seed_cache_empty_slot_;
+    const std::size_t mask = binary_seed_cache_index_.size() - 1;
+    std::size_t slot = BinarySeedCacheKeyHash{}(key) & mask;
+    for (std::size_t probes = 0; probes < binary_seed_cache_index_.size(); ++probes) {
+        const std::size_t entry_index = binary_seed_cache_index_[slot];
+        if (entry_index == binary_seed_cache_empty_slot_) return entry_index;
+        if (binary_seed_cache_entries_[entry_index].key == key) return entry_index;
+        slot = (slot + 1) & mask;
+    }
+    return binary_seed_cache_empty_slot_;
+}
+
+void FiniteSourceMagnifier::insert_binary_seed_cache_index(std::size_t entry_index) const
+{
+    const std::size_t mask = binary_seed_cache_index_.size() - 1;
+    std::size_t slot = BinarySeedCacheKeyHash{}(
+        binary_seed_cache_entries_[entry_index].key) & mask;
+    for (std::size_t probes = 0; probes < binary_seed_cache_index_.size(); ++probes) {
+        const std::size_t existing = binary_seed_cache_index_[slot];
+        if (existing == binary_seed_cache_empty_slot_) {
+            binary_seed_cache_index_[slot] = entry_index;
+            return;
+        }
+        if (binary_seed_cache_entries_[existing].key ==
+            binary_seed_cache_entries_[entry_index].key) {
+            binary_seed_cache_index_[slot] = entry_index;
+            return;
+        }
+        slot = (slot + 1) & mask;
+    }
+}
+
+void FiniteSourceMagnifier::erase_binary_seed_cache_index(std::size_t entry_index) const
+{
+    const std::size_t mask = binary_seed_cache_index_.size() - 1;
+    std::size_t hole = BinarySeedCacheKeyHash{}(
+        binary_seed_cache_entries_[entry_index].key) & mask;
+    bool found = false;
+    for (std::size_t probes = 0; probes < binary_seed_cache_index_.size(); ++probes) {
+        if (binary_seed_cache_index_[hole] == entry_index) {
+            found = true;
+            break;
+        }
+        if (binary_seed_cache_index_[hole] == binary_seed_cache_empty_slot_) return;
+        hole = (hole + 1) & mask;
+    }
+    if (!found) return;
+
+    std::size_t scan = (hole + 1) & mask;
+    while (binary_seed_cache_index_[scan] != binary_seed_cache_empty_slot_) {
+        const std::size_t candidate = binary_seed_cache_index_[scan];
+        const std::size_t home = BinarySeedCacheKeyHash{}(
+            binary_seed_cache_entries_[candidate].key) & mask;
+        if (((scan - home) & mask) >= ((scan - hole) & mask)) {
+            binary_seed_cache_index_[hole] = candidate;
+            hole = scan;
+        }
+        scan = (scan + 1) & mask;
+    }
+    binary_seed_cache_index_[hole] = binary_seed_cache_empty_slot_;
+}
+
 std::vector<SourcePosition> FiniteSourceMagnifier::cached_binary_image_seeds(
     const PointSourceMagnifier& point_magnifier,
     double separation,
@@ -8011,21 +8092,60 @@ std::vector<SourcePosition> FiniteSourceMagnifier::cached_binary_image_seeds(
     const std::vector<SourcePosition>* center_image_seeds,
     bool* support_proven) const
 {
-    for (const auto& entry : binary_seed_cache_) {
-        const bool center_seeds_match =
-            entry.has_center_image_seeds == (center_image_seeds != nullptr);
-        if (entry.separation == separation &&
-            entry.mass_ratio == mass_ratio &&
-            entry.source.x == source.x && entry.source.y == source.y &&
-            entry.source_radius == source_radius &&
-            entry.caustic_distance == caustic_distance &&
-            center_seeds_match) {
-            if (support_proven != nullptr) {
-                *support_proven = entry.support_proven;
+    return cached_binary_image_seeds_view(
+        point_magnifier, separation, mass_ratio, source, source_radius,
+        caustic_distance, center_image_seeds, support_proven);
+}
+
+const std::vector<SourcePosition>& FiniteSourceMagnifier::cached_binary_image_seeds_view(
+    const PointSourceMagnifier& point_magnifier,
+    double separation,
+    double mass_ratio,
+    SourcePosition source,
+    double source_radius,
+    double caustic_distance,
+    const std::vector<SourcePosition>* center_image_seeds,
+    bool* support_proven) const
+{
+    const auto matches = [&](const BinarySeedCacheEntry& entry) {
+        const auto& key = entry.key;
+        return key.separation == separation && key.mass_ratio == mass_ratio &&
+            key.source.x == source.x && key.source.y == source.y &&
+            key.source_radius == source_radius &&
+            key.caustic_distance == caustic_distance &&
+            key.has_center_image_seeds == (center_image_seeds != nullptr);
+    };
+    if (binary_seed_cache_index_.empty()) {
+        for (std::size_t i = 0; i < binary_seed_cache_entries_.size(); ++i) {
+            const auto& entry = binary_seed_cache_entries_[i];
+            if (matches(entry)) {
+                if (support_proven != nullptr) *support_proven = entry.support_proven;
+                return entry.seeds;
             }
-            return entry.seeds;
+        }
+    } else {
+        // NaNs never compared equal in the old cache scan. Avoid passing a
+        // non-reflexive key to the open-addressing index.
+        const BinarySeedCacheKey cache_key{
+            separation, mass_ratio, source, source_radius, caustic_distance,
+            center_image_seeds != nullptr};
+        const bool has_nan = std::isnan(separation) || std::isnan(mass_ratio) ||
+            std::isnan(source.x) || std::isnan(source.y) ||
+            std::isnan(source_radius) || std::isnan(caustic_distance);
+        if (!has_nan) {
+            const std::size_t found = find_binary_seed_cache_entry(cache_key);
+            if (found != binary_seed_cache_empty_slot_) {
+                if (support_proven != nullptr)
+                    *support_proven = binary_seed_cache_entries_[found].support_proven;
+                return binary_seed_cache_entries_[found].seeds;
+            }
         }
     }
+    // Keep invalid NaN queries uncached, as their exact-value keys cannot
+    // match under the original == comparisons.
+    const bool cacheable = !(std::isnan(separation) || std::isnan(mass_ratio) ||
+        std::isnan(source.x) || std::isnan(source.y) ||
+        std::isnan(source_radius) || std::isnan(caustic_distance));
 
     const auto& branches = binary_caustic_branches(separation, mass_ratio);
     // Reuse the vertex index already built with the caustics.
@@ -8034,7 +8154,9 @@ std::vector<SourcePosition> FiniteSourceMagnifier::cached_binary_image_seeds(
     // The curvature term is at most 2*max_segment_length, plus roundoff.
     // A blind segment crossing also has an endpoint within rho+max_length.
     // Thus querying this padded source box retains both kinds of candidate.
-    std::vector<std::vector<std::size_t>> selected(branches.size());
+    auto& selected = binary_seed_vertex_selection_scratch_;
+    selected.resize(branches.size());
+    for (auto& branch_vertices : selected) branch_vertices.clear();
     const std::vector<std::vector<std::size_t>>* selection = nullptr;
     const double coord_scale = std::max({1.0,std::fabs(caustic_cache_min_x_),
         std::fabs(caustic_cache_max_x_),std::fabs(caustic_cache_min_y_),std::fabs(caustic_cache_max_y_),std::fabs(source.x),std::fabs(source.y),source_radius});
@@ -8063,8 +8185,8 @@ std::vector<SourcePosition> FiniteSourceMagnifier::cached_binary_image_seeds(
         const int yl = cell(std::nextafter(source.y-reach,-INFINITY),caustic_cache_min_y_,caustic_cache_grid_step_y_,-1);
         const int yh = cell(std::nextafter(source.y+reach,INFINITY),caustic_cache_min_y_,caustic_cache_grid_step_y_,1);
         if (xl != 0 || xh != caustic_cache_grid_size_-1 || yl != 0 || yh != caustic_cache_grid_size_-1) {
-            std::size_t count = 0,total = 0;
-            for (const auto& branch : branches) total += branch.size();
+            std::size_t count = 0;
+            const std::size_t total = caustic_cache_points_.size();
             const double bound2 = std::nextafter(reach*reach*(1+16*std::numeric_limits<double>::epsilon()),INFINITY);
             for (int iy=yl;iy<=yh;++iy) for(int ix=xl;ix<=xh;++ix)
                 for(const auto& ref:caustic_cache_branch_grid_[iy*caustic_cache_grid_size_+ix]) {
@@ -8096,29 +8218,53 @@ std::vector<SourcePosition> FiniteSourceMagnifier::cached_binary_image_seeds(
         &branches,
         &proven, nullptr, selection);
 
-    constexpr std::size_t maximum_entries = 1024;
-    if (binary_seed_cache_.size() >= maximum_entries) {
-        binary_seed_cache_.erase(binary_seed_cache_.begin());
+    if (cacheable) {
+        const BinarySeedCacheKey cache_key{
+            separation, mass_ratio, source, source_radius, caustic_distance,
+            center_image_seeds != nullptr};
+        const std::size_t cache_size = binary_seed_cache_entries_.size();
+        std::size_t entry_index = 0;
+        if (cache_size < binary_seed_cache_maximum_entries_) {
+            binary_seed_cache_entries_.push_back(
+                {cache_key, std::move(seeds), proven});
+            entry_index = binary_seed_cache_entries_.size() - 1;
+        } else {
+            entry_index = binary_seed_cache_oldest_;
+            if (!binary_seed_cache_index_.empty())
+                erase_binary_seed_cache_index(entry_index);
+            binary_seed_cache_entries_[entry_index] =
+                {cache_key, std::move(seeds), proven};
+            binary_seed_cache_oldest_ =
+                (binary_seed_cache_oldest_ + 1) % binary_seed_cache_maximum_entries_;
+        }
+        if (!binary_seed_cache_index_.empty()) {
+            insert_binary_seed_cache_index(entry_index);
+        } else if (binary_seed_cache_entries_.size() >=
+                   binary_seed_cache_index_minimum_entries_) {
+            // Unique source epochs are common in fitted light curves, so a
+            // cache with no exact hits must not keep paying a growing linear
+            // scan. Promote the complete bounded history once it is large
+            // enough to amortize the fixed 2,048-slot table allocation.
+            binary_seed_cache_index_.assign(
+                binary_seed_cache_index_slots_, binary_seed_cache_empty_slot_);
+            for (std::size_t i = 0; i < binary_seed_cache_entries_.size(); ++i)
+                insert_binary_seed_cache_index(i);
+        }
+        if (support_proven != nullptr) *support_proven = proven;
+        return binary_seed_cache_entries_[entry_index].seeds;
     }
-    binary_seed_cache_.push_back({
-        separation,
-        mass_ratio,
-        source,
-        source_radius,
-        caustic_distance,
-        center_image_seeds != nullptr,
-        seeds,
-        proven,
-    });
     if (support_proven != nullptr) {
         *support_proven = proven;
     }
-    return seeds;
+    binary_seed_uncached_scratch_ = std::move(seeds);
+    return binary_seed_uncached_scratch_;
 }
 
 void FiniteSourceMagnifier::clear_binary_image_seed_cache_for_diagnostics() const
 {
-    binary_seed_cache_.clear();
+    binary_seed_cache_entries_.clear();
+    binary_seed_cache_index_.clear();
+    binary_seed_cache_oldest_ = 0;
 }
 
 void FiniteSourceMagnifier::clear_binary_epoch_caches() const
@@ -8131,7 +8277,9 @@ void FiniteSourceMagnifier::clear_binary_epoch_caches() const
     caustic_cache_points_.clear();
     caustic_cache_grid_.clear();
     caustic_cache_branch_grid_.clear();
-    binary_seed_cache_.clear();
+    binary_seed_cache_entries_.clear();
+    binary_seed_cache_index_.clear();
+    binary_seed_cache_oldest_ = 0;
     result_cache_valid_ = false;
 }
 
