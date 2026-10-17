@@ -141,6 +141,15 @@ class TriplePointSourceResult(NamedTuple):
     root_failure: jax.Array
 
 
+class AlgebraicBoundaryBatchResult(NamedTuple):
+    """Finite magnifications and their value/support diagnostics."""
+
+    magnification: object
+    value_converged: object
+    support_certified: object
+    support_required: object
+
+
 class FfiTrajectoryResult(NamedTuple):
     magnification: jax.Array
     method: jax.Array
@@ -443,7 +452,12 @@ def _algebraic_boundary_batch_call(
     include_jacobian,
 ):
     count = source_x.shape[0]
-    outputs = (jax.ShapeDtypeStruct((count,), jnp.float64),)
+    outputs = (
+        jax.ShapeDtypeStruct((count,), jnp.float64),
+        jax.ShapeDtypeStruct((count,), jnp.bool_),
+        jax.ShapeDtypeStruct((count,), jnp.bool_),
+        jax.ShapeDtypeStruct((count,), jnp.bool_),
+    )
     if include_jacobian:
         outputs += (jax.ShapeDtypeStruct((count, 5), jnp.float64),)
     return jax.ffi.ffi_call(target, outputs)(
@@ -471,7 +485,7 @@ def _algebraic_boundary_batch_transformable(
     mass_ratio,
     source_radius,
 ):
-    return _algebraic_boundary_batch_call(
+    return AlgebraicBoundaryBatchResult(*_algebraic_boundary_batch_call(
         _FFI_ALGEBRAIC_BOUNDARY_BATCH_TARGET,
         source_x,
         source_y,
@@ -483,7 +497,7 @@ def _algebraic_boundary_batch_transformable(
         absolute_tolerance,
         relative_tolerance,
         include_jacobian=False,
-    )[0]
+    ))
 
 
 @_algebraic_boundary_batch_transformable.defjvp
@@ -492,7 +506,13 @@ def _algebraic_boundary_batch_jvp(*arguments):
     reject_higher_order_ad(primals)
     source_x, source_y, separation, mass_ratio, source_radius = primals
     source_x_dot, source_y_dot, separation_dot, mass_ratio_dot, source_radius_dot = tangents
-    magnification, jacobian = _algebraic_boundary_batch_call(
+    (
+        magnification,
+        value_converged,
+        support_certified,
+        support_required,
+        jacobian,
+    ) = _algebraic_boundary_batch_call(
         _FFI_ALGEBRAIC_BOUNDARY_BATCH_JACOBIAN_TARGET,
         source_x,
         source_y,
@@ -512,7 +532,15 @@ def _algebraic_boundary_batch_jvp(*arguments):
         + jacobian[:, 3] * mass_ratio_dot
         + jacobian[:, 4] * source_radius_dot
     )
-    return magnification, tangent
+    status_tangent = jnp.zeros(value_converged.shape, dtype=jax.dtypes.float0)
+    return (
+        AlgebraicBoundaryBatchResult(
+            magnification, value_converged, support_certified, support_required
+        ),
+        AlgebraicBoundaryBatchResult(
+            tangent, status_tangent, status_tangent, status_tangent
+        ),
+    )
 
 
 def binary_algebraic_boundary_batch_ffi(
@@ -526,6 +554,7 @@ def binary_algebraic_boundary_batch_ffi(
     limb_d=0.0,
     absolute_tolerance=1.0e-4,
     relative_tolerance=1.0e-3,
+    return_info=False,
 ):
     """Evaluate one static-binary curve through the CPU algebraic kernel.
 
@@ -560,7 +589,7 @@ def binary_algebraic_boundary_batch_ffi(
     if any(value.ndim != 0 for value in scalars):
         raise ValueError("separation, mass_ratio and source_radius must be scalars")
     _register_algebraic_boundary_batch_ffi()
-    return _algebraic_boundary_batch_transformable(
+    result = _algebraic_boundary_batch_transformable(
         limb_c,
         limb_d,
         absolute_tolerance,
@@ -570,6 +599,7 @@ def binary_algebraic_boundary_batch_ffi(
         *scalars[:2],
         scalars[2],
     )
+    return result if return_info else result.magnification
 
 
 def cpp_polar_epoch_ffi_available():

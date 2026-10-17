@@ -783,6 +783,37 @@ class LightCurve:
                     support_certified=support,
                     diagnostics=raw,
                 )
+            if self._options.finite_source_backend == "algebraic_boundary":
+                from .jax_backend import algebraic_boundary_info
+
+                raw = algebraic_boundary_info(
+                    self._native, self._options, time_array, merged
+                )
+                estimates = jnp.where(
+                    jnp.isfinite(raw.magnification) & (raw.magnification > 0.0),
+                    raw.magnification,
+                    1.0,
+                )
+                accepted = raw.value_converged & (
+                    ~raw.support_required | raw.support_certified
+                )
+                status = jnp.where(
+                    accepted,
+                    LightCurveInfo.OK,
+                    jnp.where(
+                        raw.support_required & ~raw.support_certified,
+                        LightCurveInfo.SUPPORT_UNPROVEN,
+                        LightCurveInfo.UNCONVERGED,
+                    ),
+                ).astype(jnp.int8)
+                return LightCurveInfo(
+                    times=time_array,
+                    magnifications=estimates,
+                    status=status,
+                    value_converged=raw.value_converged,
+                    support_certified=raw.support_certified,
+                    diagnostics=raw,
+                )
             values = magnification(
                 self._native,
                 self._options,
@@ -1045,10 +1076,7 @@ class LightCurve:
         """Return the native seven-parameter Jacobian for accepted epochs."""
         import numpy as np
 
-        if (
-            self._options.jax
-            or self._options.finite_source_backend != "algebraic_boundary"
-        ):
+        if self._options.finite_source_backend != "algebraic_boundary":
             return None
         model = self._native.model
         if (

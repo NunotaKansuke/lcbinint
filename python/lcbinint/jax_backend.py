@@ -982,7 +982,7 @@ def _binary_source_magnification(
     return (first + flux_ratio * second) / (1.0 + flux_ratio)
 
 
-def _algebraic_boundary_magnification(
+def _algebraic_boundary_result(
     native_curve, options, time, parameters
 ):
     import jax.numpy as jnp
@@ -1028,7 +1028,22 @@ def _algebraic_boundary_magnification(
         limb_d=limb_d,
         absolute_tolerance=absolute_tolerance,
         relative_tolerance=relative_tolerance,
+        return_info=True,
     )
+
+
+def _algebraic_boundary_magnification(
+    native_curve, options, time, parameters
+):
+    return _algebraic_boundary_result(
+        native_curve, options, time, parameters
+    ).magnification
+
+
+def algebraic_boundary_info(native_curve, options, time, parameters):
+    """Return the public value and status record for the algebraic backend."""
+
+    return _algebraic_boundary_result(native_curve, options, time, parameters)
 
 
 def magnification(

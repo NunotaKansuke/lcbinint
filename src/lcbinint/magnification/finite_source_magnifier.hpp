@@ -201,7 +201,9 @@ public:
         double mass_ratio,
         SourcePosition source,
         double source_radius,
-        const AlgebraicBoundarySettings& algebraic_settings = {}) const;
+        const AlgebraicBoundarySettings& algebraic_settings = {},
+        FiniteSourceResult* value_result = nullptr,
+        double* point_source_magnification = nullptr) const;
     autodiff::AlgebraicBoundaryJacobian experimental_algebraic_boundary_binary_jacobian(
         double separation,
         double mass_ratio,

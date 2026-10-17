@@ -7438,16 +7438,22 @@ AlgebraicBoundaryResult FiniteSourceMagnifier::experimental_algebraic_boundary_b
     double mass_ratio,
     SourcePosition source,
     double source_radius,
-    const AlgebraicBoundarySettings& algebraic_settings) const
+    const AlgebraicBoundarySettings& algebraic_settings,
+    FiniteSourceResult* value_result,
+    double* point_source_magnification) const
 {
     PointSourceMagnifier point_magnifier;
     const double point_mag = point_magnifier.binary_mag0(
         separation, mass_ratio, source).magnification;
+    if (point_source_magnification != nullptr)
+        *point_source_magnification = point_mag;
     const auto value = binary_mag(
         separation, mass_ratio, source, source_radius, point_mag,
         nullptr, true, &point_magnifier, true,
         algebraic_settings.absolute_tolerance,
         algebraic_settings.relative_tolerance);
+    if (value_result != nullptr)
+        *value_result = value;
     AlgebraicBoundaryResult result;
     result.magnification = value.magnification;
     // Both FiniteSourceResult and AlgebraicBoundaryResult report absolute

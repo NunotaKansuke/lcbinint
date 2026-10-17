@@ -414,7 +414,7 @@ struct AlgebraicBoundaryJacobian {
     // d(magnification)/d(parameter) row. This is directly comparable with the
     // caller's absolute grad_tol, including the rho normalization derivative.
     double grad_error = 0.0;
-    bool grad_reliable = false;        // false => caller should NaN the row
+    bool grad_reliable = false;        // false => caller must mark the row invalid
     AlgebraicBoundaryDiagnostics diagnostics{};
 };
 
