@@ -1,0 +1,311 @@
+[
+  {
+    "case": 81,
+    "time": -0.075,
+    "parameter": "u0",
+    "gradient": -365.30529863839024,
+    "steps": [
+      1.0084906049971507e-05,
+      3.025471814991452e-05,
+      0.00010084906049971507
+    ],
+    "finite_differences": [
+      -365.30522146557877,
+      -365.30535264977,
+      -365.30670653386375
+    ],
+    "reference_flags": [
+      {
+        "value_converged": true,
+        "support_certified": false
+      },
+      {
+        "value_converged": true,
+        "support_certified": false
+      },
+      {
+        "value_converged": true,
+        "support_certified": false
+      }
+    ],
+    "gradient_valid": true
+  },
+  {
+    "case": 81,
+    "time": -0.075,
+    "parameter": "rho",
+    "gradient": 17.96590206908877,
+    "steps": [
+      1.0084906049971507e-05,
+      3.025471814991452e-05,
+      0.00010084906049971507
+    ],
+    "finite_differences": [
+      17.967095361446276,
+      17.967300271327368,
+      17.967943600664388
+    ],
+    "reference_flags": [
+      {
+        "value_converged": true,
+        "support_certified": false
+      },
+      {
+        "value_converged": true,
+        "support_certified": false
+      },
+      {
+        "value_converged": true,
+        "support_certified": false
+      }
+    ],
+    "gradient_valid": true
+  },
+  {
+    "case": 117,
+    "time": -1.6710172334674631,
+    "parameter": "t0",
+    "gradient": -21.43759563607005,
+    "steps": [
+      1e-06,
+      3e-06,
+      1e-05
+    ],
+    "finite_differences": [
+      -21.709641925493628,
+      -21.290215577766485,
+      -20.61153230212831
+    ],
+    "reference_flags": [
+      {
+        "value_converged": true,
+        "support_certified": false
+      },
+      {
+        "value_converged": true,
+        "support_certified": false
+      },
+      {
+        "value_converged": true,
+        "support_certified": false
+      }
+    ],
+    "gradient_valid": true
+  },
+  {
+    "case": 117,
+    "time": -1.6710172334674631,
+    "parameter": "q",
+    "gradient": 81.56030824094448,
+    "steps": [
+      7.886132346228951e-10,
+      2.3658397038686853e-09,
+      7.886132346228952e-09
+    ],
+    "finite_differences": [
+      81.5519346543864,
+      81.55297399866274,
+      81.56483008808232
+    ],
+    "reference_flags": [
+      {
+        "value_converged": true,
+        "support_certified": false
+      },
+      {
+        "value_converged": true,
+        "support_certified": false
+      },
+      {
+        "value_converged": true,
+        "support_certified": false
+      }
+    ],
+    "gradient_valid": true
+  },
+  {
+    "case": 117,
+    "time": -1.6710172334674631,
+    "parameter": "alpha",
+    "gradient": 8.322175044028768e-05,
+    "steps": [
+      0.0001,
+      0.0003,
+      0.001
+    ],
+    "finite_differences": [
+      7.874613405789432e-05,
+      7.874618438800478e-05,
+      7.87467553386989e-05
+    ],
+    "reference_flags": [
+      {
+        "value_converged": true,
+        "support_certified": false
+      },
+      {
+        "value_converged": true,
+        "support_certified": false
+      },
+      {
+        "value_converged": true,
+        "support_certified": false
+      }
+    ],
+    "gradient_valid": true
+  },
+  {
+    "case": 117,
+    "time": -1.6710172334674631,
+    "parameter": "s",
+    "gradient": 0.00029155236962113615,
+    "steps": [
+      0.000710053684596912,
+      0.002130161053790736,
+      0.00710053684596912
+    ],
+    "finite_differences": [
+      0.00029311911503318154,
+      0.0002931532679148697,
+      0.0002935533123818049
+    ],
+    "reference_flags": [
+      {
+        "value_converged": true,
+        "support_certified": false
+      },
+      {
+        "value_converged": true,
+        "support_certified": false
+      },
+      {
+        "value_converged": true,
+        "support_certified": false
+      }
+    ],
+    "gradient_valid": true
+  },
+  {
+    "case": "former_spike",
+    "times": [
+      -0.704,
+      -0.7,
+      -0.696
+    ],
+    "parameter": "u0",
+    "gradient": [
+      -6.994492258649565e-05,
+      -6.893051044792875e-05,
+      -6.79161866910527e-05
+    ],
+    "steps": [
+      0.0001,
+      0.0003,
+      0.001
+    ],
+    "finite_differences": [
+      [
+        -5.7032121247857503e-05,
+        -5.605552910736833e-05,
+        -5.5079354410736414e-05
+      ],
+      [
+        -5.703221894748368e-05,
+        -5.605562532669713e-05,
+        -5.507944618917312e-05
+      ],
+      [
+        -5.7033299860620446e-05,
+        -5.6056700170614704e-05,
+        -5.508051614810938e-05
+      ]
+    ],
+    "gradient_valid": [
+      true,
+      true,
+      true
+    ]
+  },
+  {
+    "case": "former_spike",
+    "times": [
+      -0.704,
+      -0.7,
+      -0.696
+    ],
+    "parameter": "alpha",
+    "gradient": [
+      1.3111404866577442e-05,
+      1.2965584061330748e-05,
+      1.2820586415385193e-05
+    ],
+    "steps": [
+      0.0001,
+      0.0003,
+      0.001
+    ],
+    "finite_differences": [
+      [
+        1.2202434618302505e-05,
+        1.2064416132773204e-05,
+        1.1927223653174224e-05
+      ],
+      [
+        1.2202430177410408e-05,
+        1.2064419093367936e-05,
+        1.1927228094066324e-05
+      ],
+      [
+        1.2202421295626209e-05,
+        1.2064412135970315e-05,
+        1.1927220100460545e-05
+      ]
+    ],
+    "gradient_valid": [
+      true,
+      true,
+      true
+    ]
+  },
+  {
+    "case": "former_spike",
+    "times": [
+      -0.704,
+      -0.7,
+      -0.696
+    ],
+    "parameter": "s",
+    "gradient": [
+      7.593573111196782e-06,
+      7.807125214293344e-06,
+      8.019898578883824e-06
+    ],
+    "steps": [
+      0.0001,
+      0.0003,
+      0.001
+    ],
+    "finite_differences": [
+      [
+        9.474998563518966e-06,
+        9.675424905708496e-06,
+        9.875136264270168e-06
+      ],
+      [
+        9.475151034147682e-06,
+        9.675580336931945e-06,
+        9.875285774304151e-06
+      ],
+      [
+        9.476891715820557e-06,
+        9.677326495705074e-06,
+        9.877037410177536e-06
+      ]
+    ],
+    "gradient_valid": [
+      true,
+      true,
+      true
+    ]
+  }
+]

@@ -11,6 +11,30 @@ performance-oriented development are strongly informed by
 This is an early developer release.  The Python API is intended to provide
 lightweight, reusable callables for repeated model evaluation.
 
+## Experimental algebraic-boundary route
+
+On `experiment/algebraic_boundary`, static single-source binary curves use one
+shared C++ controller for values and optional gradients: the common point/hex
+selector followed by caustic-aware seeded radial-frontier / nested-Fejer
+integration. Gradient mode retains the normalized source-disk coordinate repair
+for smooth cancellation-prone disks. It does not switch to the legacy image-boundary
+integrator or a separate gradient extension. The supported LD laws are uniform
+and linear; numerical convergence, support coverage and gradient usability are
+reported separately.
+
+The implementation lives in `src/lcbinint/magnification/algebraic_boundary/`;
+its private `tangent/` kernel is compiled directly, without generated source
+overlays. The separate Holonomic backend, its Python reference package, and
+legacy image-boundary/Gauss–Kronrod solvers have been removed from this branch.
+Historical documents and evidence retain their original paths and terminology;
+the retired research programs are recoverable from Git history.
+Finite value and gradient candidates are returned even when diagnostic flags
+are false. A missing finite numerical candidate raises an explicit error rather
+than returning NaN or an invented replacement.
+
+See the [final backend and validation report](evidence/backend_cleanup_20261018/REPORT.md)
+and the [value/gradient comparison notebook](example/compare-vbm/lcbinint_vbm_light_curve_comparison.ipynb).
+
 ## Documentation
 
 Start with the example-led [Python documentation](docs/python/readme.md).
@@ -134,6 +158,7 @@ mag = result.magnifications
 gradient_result = curve(times, params, with_gradient=True)
 gradient = gradient_result.gradients
 gradient_parameters = gradient_result.gradient_parameters
+diagnostic_result = curve(times, params, with_diagnostics=True)
 
 def loss(u0):
     active = dict(params)
@@ -143,8 +168,19 @@ def loss(u0):
 value, derivative = jax.jit(jax.value_and_grad(loss))(params["u0"])
 ```
 
-`curve.info(...)` remains a compatibility alias for the same result. The
-likelihood batch supports the native Gaussian and Student-t distributions and
+The ordinary call always returns its finite magnification estimates and the
+per-epoch value status. Detailed backend diagnostics are opt-in through
+`with_diagnostics=True` on the same call. A requested gradient call returns
+the computed candidate for every epoch; `gradient_valid` separately reports
+whether the candidate passed the backend's reliability checks. If the
+analytic pass has no finite row, the API computes a finite-difference
+candidate from the same value route. Diagnostics never replace a candidate
+with zero or `None`.
+
+`curve.info(...)` remains a compatibility alias and keeps detailed diagnostics
+enabled by default for existing callers; new code can request them through
+`curve(..., with_diagnostics=True)` on the ordinary call. The likelihood batch
+supports the native Gaussian and Student-t distributions and
 fit, sample, and Gaussian marginalize flux modes; its JAX arrays remain
 differentiable through both the magnification and analytic flux fit. Batched
 likelihood and `magnification_batch` currently use the standard router, so

@@ -1,17 +1,6 @@
 #pragma once
 
-// Forward-mode analytic derivatives for the experimental polar
-// algebraic-boundary finite-source kernel.
-//
-// The primal (`experimental_algebraic_boundary_integral`) runs unchanged in
-// `double` and fixes every discrete decision (band count, interval
-// classification, real-quartic-vs-Skowron path, adaptive panel partition).
-// This header provides the smooth pieces -- the boundary trig-quartic and its
-// angular derivatives -- templated on a scalar type so the same code path can
-// be re-evaluated with a forward-mode `ForwardJet` to carry parameter
-// derivatives d(.)/d(source_x, source_y, rho, q, separation).
-//
-// See docs/design/algebraic-boundary-autodiff-20260828.md.
+// Forward-mode primitives and point/hex tangents for algebraic boundary.
 
 #include "lcbinint/magnification/algebraic_boundary.hpp"
 #include "lcbinint/types.hpp"
@@ -253,7 +242,7 @@ ForwardJet<N> scalar_max0(const ForwardJet<N>& a)
     return a.value > 0.0 ? a : ForwardJet<N>(0.0);
 }
 
-// Binary lens map, templated. Mirrors `map_lens` in algebraic_boundary.cpp with
+// Binary lens map, templated. Uses the shared binary-lens convention with
 // lens {a, m1, m2} and the native -a*m1 source-frame shift folded in.
 template <typename Scalar>
 void map_lens_jet(
@@ -384,16 +373,7 @@ Scalar trig_second(const BoundaryTrigForm<Scalar>& q, double theta)
 }
 
 // ---------------------------------------------------------------------------
-// Analytic Jacobian driver.
-//
-// Consumes the frozen discrete plan of the primal
-// (`experimental_algebraic_boundary_integral`) -- radial bands, per-radius
-// boundary-angle classification, real-quartic-vs-Skowron decision -- and runs
-// one forward-mode pass to produce d(mag)/d(source_x, source_y, rho, q_raw,
-// separation_raw). Any measure-zero transition (F'(theta_k) ~ 0, a singular
-// band-endpoint tangency system, or a two-form derivative disagreement over
-// `grad_tol`) marks the whole-epoch row unreliable.
-// ---------------------------------------------------------------------------
+// Value/tangent result shared with the radial controller.
 
 struct AlgebraicBoundaryJacobian {
     bool success = false;
@@ -418,18 +398,6 @@ struct AlgebraicBoundaryJacobian {
     AlgebraicBoundaryDiagnostics diagnostics{};
 };
 
-// params: [source_x, source_y, rho, q_raw, separation_raw].
-// grad_tol < 0 selects the automatic budget (10 * relative_tolerance, clamped
-// to [1e-4, 1e-1]).
-AlgebraicBoundaryJacobian experimental_algebraic_boundary_jacobian(
-    const std::array<double, 5>& params,
-    const FrozenLensBranch& branch,
-    double limb_darkening_c,
-    double limb_darkening_d,
-    const std::vector<SourcePosition>& certified_image_seeds,
-    const AlgebraicBoundarySettings& settings = {},
-    double grad_tol = -1.0);
-
 // Analytic Jacobian of the shared point-source / hexadecapole approximation.
 // Used when binary_mag()'s shared routing resolves the epoch without a deep
 // inverse-ray solve: the derivative is a ForwardJet<5> pass over the same
@@ -438,7 +406,7 @@ AlgebraicBoundaryJacobian experimental_algebraic_boundary_jacobian(
 // is copied through verbatim; only the derivative row is computed here.
 // `use_hexadecapole == false` selects the bare point-source stencil.
 // params: [source_x, source_y, rho, q_raw, separation_raw].
-AlgebraicBoundaryJacobian experimental_algebraic_boundary_multipole_jacobian(
+AlgebraicBoundaryJacobian algebraic_boundary_multipole_jacobian(
     const std::array<double, 5>& params,
     const FrozenLensBranch& branch,
     double limb_darkening_c,
@@ -449,7 +417,7 @@ AlgebraicBoundaryJacobian experimental_algebraic_boundary_multipole_jacobian(
 // Point-source Jacobian using the already validated physical images from the
 // value router. This keeps the eager value+gradient path from solving the same
 // quintic a second time.
-AlgebraicBoundaryJacobian experimental_algebraic_boundary_point_jacobian(
+AlgebraicBoundaryJacobian algebraic_boundary_point_jacobian(
     const std::array<double, 5>& params,
     const FrozenLensBranch& branch,
     const std::vector<SourcePosition>& frozen_images,

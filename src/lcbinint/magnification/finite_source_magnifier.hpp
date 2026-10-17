@@ -13,21 +13,9 @@
 #include <utility>
 #include <vector>
 
-namespace lcbinint::holonomic {
-struct PreparedEpochGeometry;
-}
-
 namespace lcbinint::magnification {
 
 class PointSourceMagnifier;
-
-// Allocate an empty rolling PreparedEpochGeometry for a trajectory that will
-// evaluate FiniteSourceMethod::holonomic_binary across many nearby epochs.
-// Attach the returned handle to every holonomic MagnificationExecutionPlan
-// entry for that trajectory (MagnificationExecutionPlan::prepared_geometry) so
-// consecutive epochs reuse the D14 root set / cell plan (L2 warm-seeded D14,
-// exact-parity, fail-closed -- checkpoint sec.21 / Phase C step 2 part 3).
-std::shared_ptr<holonomic::PreparedEpochGeometry> make_prepared_epoch_geometry();
 
 enum class FiniteSourceMethod {
     point_source,
@@ -36,17 +24,10 @@ enum class FiniteSourceMethod {
     inverse_ray_polar,
     inverse_ray_spine,
     source_plane_quadrature,
-    // ATPT holonomic binary finite-source engine (fused value + 5-Jacobian
-    // radial pass; header-only, src/lcbinint/magnification/holonomic/).  Wired
-    // through binary_mag_preplanned only -- selected by LightCurve.warmup()
-    // where the engine is reference-validated and faster (Phase C step 2).
-    // The ordinary routing cascade never picks it; a non-OK holonomic Status
-    // fails closed (converged = false), never a silent approximation.
-    holonomic_binary,
     // Result method for the algebraic image-boundary finite-source integrator.
     // The request sentinel preserves point/hex routing and replaces the terminal
     // inverse-ray solve with the exact image-boundary integral.
-    algebraic_boundary,
+    algebraic_boundary = 7, // Keep diagnostic method IDs stable; 6 is retired.
     algebraic_boundary_auto,
 };
 
@@ -195,23 +176,27 @@ public:
         double algebraic_boundary_atol = std::numeric_limits<double>::quiet_NaN(),
         double algebraic_boundary_rtol = std::numeric_limits<double>::quiet_NaN(),
         bool barycentric_frame = false,
-        bool multipole_only_probe = false) const;
-    AlgebraicBoundaryResult experimental_algebraic_boundary_binary_mag(
+        bool multipole_only_probe = false,
+        autodiff::AlgebraicBoundaryJacobian* jacobian_out = nullptr) const;
+    AlgebraicBoundaryResult algebraic_boundary_binary_mag(
         double separation,
         double mass_ratio,
         SourcePosition source,
         double source_radius,
         const AlgebraicBoundarySettings& algebraic_settings = {},
         FiniteSourceResult* value_result = nullptr,
-        double* point_source_magnification = nullptr) const;
-    autodiff::AlgebraicBoundaryJacobian experimental_algebraic_boundary_binary_jacobian(
+        double* point_source_magnification = nullptr,
+        bool barycentric_frame = false) const;
+    autodiff::AlgebraicBoundaryJacobian algebraic_boundary_binary_jacobian(
         double separation,
         double mass_ratio,
         SourcePosition source,
         double source_radius,
         const AlgebraicBoundarySettings& algebraic_settings = {},
         FiniteSourceResult* value_result = nullptr,
-        double* point_source_magnification = nullptr) const;
+        double* point_source_magnification = nullptr,
+        bool barycentric_frame = false,
+        const PointSourceMagnifier* point_hint = nullptr) const;
     // Execute a route selected and reference-validated by LightCurve.warmup().
     // The caller may reuse the plan across a nearby inference neighbourhood;
     // this entry deliberately skips the normal routing cascade.
@@ -224,8 +209,7 @@ public:
         FiniteSourceMethod method,
         int resolution,
         const std::vector<SourcePosition>* center_image_seeds = nullptr,
-        const PointSourceMagnifier* point_magnifier_hint = nullptr,
-        holonomic::PreparedEpochGeometry* rolling_prepared = nullptr) const;
+        const PointSourceMagnifier* point_magnifier_hint = nullptr) const;
     FiniteSourceResult triple_mag(
         const model::TripleLensGeometry& geometry,
         SourcePosition source,
@@ -319,7 +303,9 @@ private:
         SourcePosition source,
         double source_radius,
         const std::vector<SourcePosition>& center_image_seeds,
-        const AlgebraicBoundarySettings& algebraic_settings) const;
+        const AlgebraicBoundarySettings& algebraic_settings,
+        bool barycentric_frame,
+        autodiff::AlgebraicBoundaryJacobian* jacobian_out) const;
     FiniteSourceResult inverse_ray_polar_binary_mag(
         double separation,
         double mass_ratio,

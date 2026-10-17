@@ -333,8 +333,7 @@ MagnificationResult LensModel::magnification_source(
         plan.method,
         plan.resolution,
         &center_image_seeds,
-        &point_magnifier_,
-        plan.prepared_geometry.get());
+        &point_magnifier_);
     result.magnification = finite_result.magnification;
     result.finite_source_magnification = finite_result.magnification;
     result.finite_source_error_estimate = finite_result.error_estimate;
@@ -563,8 +562,7 @@ MagnificationResult LensModel::magnification_impl(
                 plan->method,
                 plan->resolution,
                 &center_image_seeds,
-                &point_magnifier_,
-                plan->prepared_geometry.get());
+                &point_magnifier_);
         result.magnification = finite_result.magnification;
         result.finite_source_magnification = finite_result.magnification;
         result.finite_source_error_estimate = finite_result.error_estimate;

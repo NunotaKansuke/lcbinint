@@ -51,7 +51,7 @@ def test_remote_ghost_veto_is_resolved_without_detailed_caustic():
     curve = lcbinint.LightCurve(lens="binary", options=lcbinint.Options(
         param_type="vbm", nbin="auto", finite_source_tol=1e-3, finite_source_reltol=1e-3))
     times = np.linspace(-1, 1, 201)
-    info = curve.info(times, params)
+    info = curve(times, params, with_diagnostics=True)
     assert set(info.finite_source_method_names) == {"point_source"}
     # Preserve the calibrated ghost veto. The alternate topology witness,
     # rather than a weakened constant, permits this remote point.
@@ -73,7 +73,7 @@ def test_lightcurve_api_shares_selector_and_reports_uncertified_support():
         param_type="vbm", nbin="auto", finite_source_tol=1e-3, finite_source_reltol=1e-3))
     params = dict(t0=0., u0=.3, tE=1., alpha=0., rho=.003, q=.01, s=1.2)
     times = np.linspace(-1, 1, 201)
-    result = curve(times, params)
+    result = curve(times, params, with_diagnostics=True)
     diagnostic = result.diagnostics
     np.testing.assert_allclose(
         result.magnifications, diagnostic["mu"], rtol=2e-12, atol=2e-12
@@ -84,9 +84,9 @@ def test_lightcurve_api_shares_selector_and_reports_uncertified_support():
     # state. Unproven support keeps a finite estimate and is reported by status.
     crossing = dict(params, u0=.03, alpha=-.08)
     crossing_times = np.linspace(-.2, .8, 201)
-    crossing_result = curve(crossing_times, crossing)
+    crossing_result = curve(crossing_times, crossing, with_diagnostics=True)
     assert np.any(crossing_result.diagnostics["integrator_used"])
-    assert not np.all(crossing_result.value_converged)
+    assert np.any(~crossing_result.support_certified[crossing_result.diagnostics["integrator_used"]])
     assert np.all(np.isfinite(crossing_result.magnifications))
     assert np.any(crossing_result.status != lcbinint.LightCurveInfo.OK)
 
@@ -106,11 +106,11 @@ def test_lightcurve_api_exposes_algebraic_boundary_values_and_support_diagnostic
 
     params = dict(t0=0., u0=.03, tE=1., alpha=-.08, rho=.003, q=.01, s=1.2)
     times = np.linspace(-.2, .8, 201)
-    info = curve(times, params)
+    info = curve(times, params, with_diagnostics=True)
 
     assert np.any(info.diagnostics["integrator_used"])
     assert "algebraic_boundary" in set(info.finite_source_method_name)
-    assert np.any(~info.value_converged)
+    assert np.all(info.value_converged)
     assert np.any(~info.support_certified)
     assert np.all(np.isfinite(info.magnifications))
     np.testing.assert_allclose(
@@ -158,7 +158,7 @@ def test_algebraic_boundary_backend_integrates_with_public_jax_grad():
             finite_source_backend="algebraic_boundary",
         ),
     )
-    native_result = native_curve(np.asarray(times), params)
+    native_result = native_curve(np.asarray(times), params, with_diagnostics=True)
     native = native_result.diagnostics
     assert native["finite_source_method_name"] == ["point_source"]
     np.testing.assert_allclose(values, native["mu"], rtol=2e-12, atol=2e-12)
@@ -197,11 +197,12 @@ def test_algebraic_boundary_backend_integrates_with_public_jax_grad():
         options=lcbinint.Options(**deep_options),
         limb_darkening=deep_ld,
     )
-    deep_result = deep_native(np.asarray(deep_times), deep_params)
+    deep_result = deep_native(np.asarray(deep_times), deep_params, with_diagnostics=True)
     deep_info = deep_result.diagnostics
     assert deep_info["finite_source_method_name"] == ["algebraic_boundary"]
     assert deep_info["value_converged"].tolist() == [True]
-    assert deep_info["support_certified"].tolist() == [True]
+    # Frontier value convergence does not certify global support coverage.
+    assert deep_info["support_certified"].tolist() == [False]
     np.testing.assert_allclose(
         deep_value, deep_result.magnifications, rtol=1e-8, atol=2e-8
     )
@@ -363,10 +364,13 @@ def test_native_algebraic_boundary_lightcurve_gradient_contract():
     np.testing.assert_array_equal(
         failed_gradient.support_certified, failed_value.support_certified
     )
-    assert failed_gradient.status.tolist() == [lcbinint.LightCurveInfo.UNCONVERGED]
+    assert failed_gradient.status.tolist() == [lcbinint.LightCurveInfo.SUPPORT_UNPROVEN]
     assert np.all(np.isfinite(failed_gradient.magnifications))
-    assert failed_gradient.gradient_valid.tolist() == [False]
-    assert np.all(failed_gradient.gradients == 0.)
+    # The old ForwardJet path failed here. The shared seeded tangent is usable,
+    # independently of the still-unproved global support certificate.
+    assert failed_gradient.gradient_valid.tolist() == [True]
+    assert failed_gradient.gradients.shape == (1, 7)
+    assert np.all(np.isfinite(failed_gradient.gradients))
 
 
 @pytest.mark.parametrize("ordering", ["forward", "reverse", "interleaved"])
@@ -389,7 +393,7 @@ def test_point_strip_route_handles_reversed_and_jumping_trajectories(ordering):
     reference.Tol = reference.RelTol = 1e-3
     vp = [math.log(1.2), math.log(.01), .3, 0., math.log(.003), 0., 0.]
     expected = reference.BinaryLightCurve(vp, times.tolist())[0]
-    result = curve(times, params)
+    result = curve(times, params, with_diagnostics=True)
     np.testing.assert_allclose(
         result.magnifications, expected, rtol=2e-12, atol=2e-12
     )

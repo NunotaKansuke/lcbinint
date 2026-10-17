@@ -8537,7 +8537,7 @@ ffi::Error algebraic_boundary_batch_forward_ffi_impl(
           std::isfinite(relative_tolerance) && relative_tolerance >= 0.0 &&
           std::isfinite(limb_c) && std::isfinite(limb_d) &&
           *separation.typed_data() > 0.0 && *mass_ratio.typed_data() > 0.0 &&
-          *source_radius.typed_data() > 0.0)) {
+          *source_radius.typed_data() >= 0.0)) {
         return ffi::Error::InvalidArgument(
             "algebraic-boundary scalars must be finite and physical");
     }
@@ -8546,8 +8546,9 @@ ffi::Error algebraic_boundary_batch_forward_ffi_impl(
     lcbinint::magnification::AlgebraicBoundarySettings algebraic_settings;
     algebraic_settings.absolute_tolerance = absolute_tolerance;
     algebraic_settings.relative_tolerance = relative_tolerance;
-    algebraic_settings.critical_mass_ratio = *mass_ratio.typed_data();
+
     const lcbinint::magnification::FiniteSourceMagnifier magnifier(settings);
+    magnifier.clear_binary_epoch_caches();
     const auto count = source_x.dimensions()[0];
     if (value_converged->dimensions()[0] != count ||
         support_certified->dimensions()[0] != count ||
@@ -8558,11 +8559,11 @@ ffi::Error algebraic_boundary_batch_forward_ffi_impl(
     for (std::int64_t index = 0; index < count; ++index) {
         lcbinint::magnification::FiniteSourceResult value_result;
         double point_source_magnification = std::numeric_limits<double>::quiet_NaN();
-        const auto value = magnifier.experimental_algebraic_boundary_binary_mag(
+        const auto value = magnifier.algebraic_boundary_binary_mag(
             *separation.typed_data(), *mass_ratio.typed_data(),
             {source_x.typed_data()[index], source_y.typed_data()[index]},
             *source_radius.typed_data(), algebraic_settings,
-            &value_result, &point_source_magnification);
+            &value_result, &point_source_magnification, true);
         const bool integrated = value_result.decision.method ==
             lcbinint::magnification::FiniteSourceMethod::algebraic_boundary;
         value_converged->typed_data()[index] = integrated
@@ -8570,12 +8571,7 @@ ffi::Error algebraic_boundary_batch_forward_ffi_impl(
         support_certified->typed_data()[index] =
             value_result.integral_support_certified;
         support_required->typed_data()[index] = integrated;
-        const double estimate = std::isfinite(value.magnification) &&
-                value.magnification > 0.0
-            ? value.magnification
-            : std::isfinite(point_source_magnification) &&
-                    point_source_magnification > 0.0
-                ? point_source_magnification : 1.0;
+        const double estimate = value_result.magnification;
         magnification->typed_data()[index] = estimate;
     }
     return ffi::Error::Success();
@@ -8633,7 +8629,7 @@ ffi::Error algebraic_boundary_batch_jacobian_ffi_impl(
           std::isfinite(relative_tolerance) && relative_tolerance >= 0.0 &&
           std::isfinite(limb_c) && std::isfinite(limb_d) &&
           *separation.typed_data() > 0.0 && *mass_ratio.typed_data() > 0.0 &&
-          *source_radius.typed_data() > 0.0)) {
+          *source_radius.typed_data() >= 0.0)) {
         return ffi::Error::InvalidArgument(
             "algebraic-boundary scalars must be finite and physical");
     }
@@ -8642,16 +8638,18 @@ ffi::Error algebraic_boundary_batch_jacobian_ffi_impl(
     lcbinint::magnification::AlgebraicBoundarySettings algebraic_settings;
     algebraic_settings.absolute_tolerance = absolute_tolerance;
     algebraic_settings.relative_tolerance = relative_tolerance;
-    algebraic_settings.critical_mass_ratio = *mass_ratio.typed_data();
+
     const lcbinint::magnification::FiniteSourceMagnifier magnifier(settings);
+    magnifier.clear_binary_epoch_caches();
+    lcbinint::magnification::PointSourceMagnifier point;
     for (std::int64_t index = 0; index < count; ++index) {
         lcbinint::magnification::FiniteSourceResult value_result;
         double point_source_magnification = std::numeric_limits<double>::quiet_NaN();
-        const auto result = magnifier.experimental_algebraic_boundary_binary_jacobian(
+        const auto result = magnifier.algebraic_boundary_binary_jacobian(
             *separation.typed_data(), *mass_ratio.typed_data(),
             {source_x.typed_data()[index], source_y.typed_data()[index]},
             *source_radius.typed_data(), algebraic_settings,
-            &value_result, &point_source_magnification);
+            &value_result, &point_source_magnification, true, &point);
         const bool integrated = value_result.decision.method ==
             lcbinint::magnification::FiniteSourceMethod::algebraic_boundary;
         value_converged->typed_data()[index] = integrated
@@ -8659,26 +8657,20 @@ ffi::Error algebraic_boundary_batch_jacobian_ffi_impl(
         support_certified->typed_data()[index] =
             value_result.integral_support_certified;
         support_required->typed_data()[index] = integrated;
-        const double value = std::isfinite(value_result.magnification) &&
-                value_result.magnification > 0.0
-            ? value_result.magnification
-            : std::isfinite(point_source_magnification) &&
-                    point_source_magnification > 0.0
-                ? point_source_magnification : 1.0;
+        const double value = value_result.magnification;
         magnification->typed_data()[index] = value;
         auto* row = jacobian->typed_data() + index * algebraic_boundary_jacobian_size;
         const std::array<double, algebraic_boundary_jacobian_size> mapped{
             result.jacobian[0], result.jacobian[1], result.jacobian[4],
             result.jacobian[3], result.jacobian[2]};
-        bool gradient_valid = value_result.converged && result.success &&
-            result.grad_reliable;
-        for (const double component : mapped)
-            gradient_valid = gradient_valid && std::isfinite(component);
-        if (gradient_valid) {
-            std::copy(mapped.begin(), mapped.end(), row);
-        } else {
-            std::fill(row, row + algebraic_boundary_jacobian_size, 0.0);
-        }
+        // The JAX derivative callback returns the computed candidate. The
+        // convergence/reliability diagnostics must not replace it with a
+        // zero row; the value and derivative candidates remain available to
+        // normal inference even when the certificate is false.
+        const bool candidate_available = result.success &&
+            std::all_of(mapped.begin(), mapped.end(),
+                [](double component) { return std::isfinite(component); });
+        std::copy(mapped.begin(), mapped.end(), row);
     }
     return ffi::Error::Success();
 }

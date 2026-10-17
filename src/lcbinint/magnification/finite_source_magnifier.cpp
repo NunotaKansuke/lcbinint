@@ -1,6 +1,8 @@
 #include "lcbinint/magnification/finite_source_magnifier.hpp"
 #include "lcbinint/magnification/algebraic_boundary.hpp"
 #include "lcbinint/magnification/algebraic_boundary_autodiff.hpp"
+#include "lcbinint/magnification/algebraic_boundary/fused_gradient.hpp"
+#include "lcbinint/magnification/algebraic_boundary/source_disk_gradient.hpp"
 #include "lcbinint/magnification/cartesian_run_fill.hpp"
 #include "lcbinint/magnification/component_certificate.hpp"
 #include "lcbinint/magnification/binary_caustic_enclosure.hpp"
@@ -9,11 +11,7 @@
 #include "lcbinint/magnification/probe_diagnostics.hpp"
 #include "lcbinint/math/polynomial_roots.hpp"
 
-// ATPT holonomic binary engine -- header-only, same leaf layer (no model/lc/obs
-// dependency).  Reached only from binary_mag_preplanned for the
-// FiniteSourceMethod::holonomic_binary plan (Phase C step 2).
-#include "lcbinint/magnification/holonomic/finite_source_binary.hpp"
-#include "lcbinint/magnification/holonomic/seeded_radial_frontier_value.hpp"
+#include "lcbinint/magnification/algebraic_boundary/seeded_radial_frontier_value.hpp"
 
 #include <algorithm>
 #include <array>
@@ -6783,6 +6781,7 @@ std::vector<SourcePosition> FiniteSourceMagnifier::cached_binary_image_seeds(
 
 void FiniteSourceMagnifier::clear_binary_epoch_caches() const
 {
+    algebraic_boundary::source_disk_detail::clear_epoch_cache();
     caustic_enclosure_attempted_ = false;
     caustic_clearance_witness_ = 0.0;
     caustic_enclosure_.clear();
@@ -7421,8 +7420,6 @@ const char* finite_source_method_name(FiniteSourceMethod method)
         return "inverse_ray_spine";
     case FiniteSourceMethod::source_plane_quadrature:
         return "source_plane_quadrature";
-    case FiniteSourceMethod::holonomic_binary:
-        return "holonomic_binary";
     case FiniteSourceMethod::algebraic_boundary:
         return "algebraic_boundary";
     case FiniteSourceMethod::algebraic_boundary_auto:
@@ -7433,14 +7430,15 @@ const char* finite_source_method_name(FiniteSourceMethod method)
 }
 
 
-AlgebraicBoundaryResult FiniteSourceMagnifier::experimental_algebraic_boundary_binary_mag(
+AlgebraicBoundaryResult FiniteSourceMagnifier::algebraic_boundary_binary_mag(
     double separation,
     double mass_ratio,
     SourcePosition source,
     double source_radius,
     const AlgebraicBoundarySettings& algebraic_settings,
     FiniteSourceResult* value_result,
-    double* point_source_magnification) const
+    double* point_source_magnification,
+    bool barycentric_frame) const
 {
     PointSourceMagnifier point_magnifier;
     const double point_mag = point_magnifier.binary_mag0(
@@ -7451,7 +7449,9 @@ AlgebraicBoundaryResult FiniteSourceMagnifier::experimental_algebraic_boundary_b
         separation, mass_ratio, source, source_radius, point_mag,
         nullptr, true, &point_magnifier, true,
         algebraic_settings.absolute_tolerance,
-        algebraic_settings.relative_tolerance);
+        algebraic_settings.relative_tolerance, barycentric_frame);
+    if (!std::isfinite(value.magnification))
+        throw std::runtime_error("algebraic_boundary: no finite value candidate");
     if (value_result != nullptr)
         *value_result = value;
     AlgebraicBoundaryResult result;
@@ -7466,168 +7466,162 @@ AlgebraicBoundaryResult FiniteSourceMagnifier::experimental_algebraic_boundary_b
 }
 
 autodiff::AlgebraicBoundaryJacobian
-FiniteSourceMagnifier::experimental_algebraic_boundary_binary_jacobian(
-    double separation,
-    double mass_ratio,
-    SourcePosition source,
-    double source_radius,
-    const AlgebraicBoundarySettings& algebraic_settings,
-    FiniteSourceResult* value_result,
-    double* point_source_magnification) const
+FiniteSourceMagnifier::algebraic_boundary_binary_jacobian(
+    double separation, double mass_ratio, SourcePosition source,
+    double source_radius, const AlgebraicBoundarySettings& algebraic_settings,
+    FiniteSourceResult* value_result, double* point_source_magnification,
+    bool barycentric_frame, const PointSourceMagnifier* point_hint) const
 {
-    const PointSourceMagnifier point_magnifier;
-    const double point_mag = point_magnifier.binary_safety_diagnostic_cached(
+    PointSourceMagnifier local_point;
+    const auto& point = point_hint ? *point_hint : local_point;
+    const double point_mu = point.binary_safety_diagnostic_cached(
         separation, mass_ratio, source).magnification;
-    if (point_source_magnification != nullptr)
-        *point_source_magnification = point_mag;
-    const auto route = binary_mag(
-        separation, mass_ratio, source, source_radius, point_mag,
-        nullptr, true, &point_magnifier, true,
-        std::numeric_limits<double>::quiet_NaN(),
-        std::numeric_limits<double>::quiet_NaN(),
-        false, true);
-
+    if (point_source_magnification) *point_source_magnification = point_mu;
+    autodiff::AlgebraicBoundaryJacobian jacobian;
+    jacobian.jacobian.fill(std::numeric_limits<double>::quiet_NaN());
+    auto value = binary_mag(separation, mass_ratio, source, source_radius,
+        point_mu, nullptr, true, &point, true,
+        algebraic_settings.absolute_tolerance, algebraic_settings.relative_tolerance,
+        barycentric_frame, false, &jacobian);
+    const std::array<double, 5> params{
+        source.x, source.y, source_radius, std::abs(mass_ratio), std::abs(separation)};
     autodiff::FrozenLensBranch branch;
     branch.separation_sign = separation < 0.0 ? -1.0 : 1.0;
     branch.q_below_one = std::abs(mass_ratio) < 1.0;
-    const std::array<double, 5> params{
-        source.x, source.y, source_radius,
-        std::abs(mass_ratio), std::abs(separation)};
-
-    if (route.decision.method == FiniteSourceMethod::point_source) {
-        const auto images = point_magnifier.binary_images(
-            separation, mass_ratio, source);
-        std::vector<SourcePosition> frozen_images;
-        frozen_images.reserve(images.size());
-        for (const auto& image : images) frozen_images.push_back(image.position);
-        auto jacobian = autodiff::experimental_algebraic_boundary_point_jacobian(
-            params, branch, frozen_images, route.magnification);
-        if (value_result != nullptr) *value_result = route;
-        return jacobian;
-    }
-    if (route.decision.method == FiniteSourceMethod::hexadecapole) {
-        auto jacobian = autodiff::experimental_algebraic_boundary_multipole_jacobian(
+    if (value.decision.method == FiniteSourceMethod::point_source) {
+        std::vector<SourcePosition> images;
+        for (const auto& image : point.binary_images(separation, mass_ratio, source))
+            images.push_back(image.position);
+        jacobian = autodiff::algebraic_boundary_point_jacobian(
+            params, branch, images, value.magnification);
+    } else if (value.decision.method == FiniteSourceMethod::hexadecapole) {
+        jacobian = autodiff::algebraic_boundary_multipole_jacobian(
             params, branch, settings_.limb_darkening_c, settings_.limb_darkening_d,
-            route.decision.method == FiniteSourceMethod::hexadecapole,
-            route.magnification);
-        if (value_result != nullptr) *value_result = route;
-        return jacobian;
+            true, value.magnification);
     }
-
-    const auto mapper = make_binary_lens_mapper(separation, mass_ratio);
-    bool support_proven = true;
-    std::size_t center_image_count = 0;
-    auto seeds = augmented_image_seeds(
-        point_magnifier, mapper, separation, mass_ratio, source, source_radius,
-        std::numeric_limits<double>::infinity(), nullptr,
-        &binary_caustic_branches(separation, mass_ratio), &support_proven,
-        &center_image_count, &binary_probe_magnifiers_);
-    if (!support_proven || seeds.size() < 5) {
-        autodiff::AlgebraicBoundaryJacobian rejected;
-        rejected.unsafe_reason =
-            "algebraic-boundary image support was not certified";
-        if (value_result != nullptr) {
-            FiniteSourceResult value;
-            value.decision = {
-                FiniteSourceMethod::algebraic_boundary, 0,
-                "algebraic-boundary image support was not certified",
-            };
-            value.seed_support_proven = support_proven;
-            value.center_image_count = static_cast<int>(center_image_count);
-            value.augmented_seed_count = static_cast<int>(seeds.size());
-            value.diagnostic_stop = rejected.unsafe_reason;
-            value.converged = false;
-            value.value_converged = false;
-            *value_result = std::move(value);
-        }
-        return rejected;
-    }
-    auto jacobian = autodiff::experimental_algebraic_boundary_jacobian(
-        params, branch, settings_.limb_darkening_c, settings_.limb_darkening_d,
-        seeds, algebraic_settings, std::numeric_limits<double>::infinity());
-    if (value_result != nullptr) {
-        const double abs_error = jacobian.primal_error;
-        const bool value_converged = jacobian.primal_success &&
-            finite_source_error_within_budget(
-                settings_, jacobian.primal_magnification, abs_error);
-        FiniteSourceResult value;
-        value.magnification = jacobian.primal_magnification;
-        value.image_count = static_cast<int>(center_image_count);
-        value.decision = {
-            FiniteSourceMethod::algebraic_boundary,
-            jacobian.diagnostics.lens_evaluation_count,
-            "algebraic image-boundary finite-source integral",
-        };
-        value.error_estimate = abs_error;
-        value.converged = value_converged && support_proven &&
-            jacobian.support_certified;
-        value.value_converged = value_converged;
-        value.seed_support_proven = support_proven;
-        value.frontier_discovery_completed = jacobian.support_certified;
-        value.integral_support_certified = jacobian.support_certified;
-        value.center_image_count = static_cast<int>(center_image_count);
-        value.augmented_seed_count = static_cast<int>(seeds.size());
-        value.diagnostic_stop = !support_proven
-            ? "algebraic-boundary image support was not certified"
-            : !jacobian.primal_success
-                ? jacobian.primal_stop
-                : value.converged
-                    ? "converged"
-                    : "finite_source_error_budget_exceeded";
-        *value_result = std::move(value);
-    }
+    if (!std::isfinite(value.magnification) ||
+        !std::all_of(jacobian.jacobian.begin(), jacobian.jacobian.end(),
+            [](double component) { return std::isfinite(component); }))
+        throw std::runtime_error("algebraic_boundary: no finite value/derivative candidate");
+    if (value_result) *value_result = std::move(value);
     return jacobian;
 }
 
 FiniteSourceResult FiniteSourceMagnifier::algebraic_boundary_deep_solve(
-    const PointSourceMagnifier& point_magnifier,
-    double separation,
-    double mass_ratio,
-    SourcePosition source,
-    double source_radius,
+    const PointSourceMagnifier& point_magnifier, double separation,
+    double mass_ratio, SourcePosition source, double source_radius,
     const std::vector<SourcePosition>& center_image_seeds,
-    const AlgebraicBoundarySettings& algebraic_settings) const
+    const AlgebraicBoundarySettings& algebraic_settings, bool barycentric_frame,
+    autodiff::AlgebraicBoundaryJacobian* jacobian_out) const
 {
-    const auto mapper = make_binary_lens_mapper(separation, mass_ratio);
-    bool support_proven = true;
-    std::size_t center_image_count = 0;
-    auto seeds = augmented_image_seeds(
-        point_magnifier, mapper, separation, mass_ratio, source, source_radius,
-        std::numeric_limits<double>::infinity(), &center_image_seeds,
-        &binary_caustic_branches(separation, mass_ratio), &support_proven,
-        &center_image_count, &binary_probe_magnifiers_);
-
-    AlgebraicBoundaryResult algebraic;
-    if (support_proven && seeds.size() >= 5) {
-        algebraic = experimental_algebraic_boundary_integral(
-            {mapper.separation.real(), mapper.m1, mapper.m2}, source, source_radius,
-            settings_.limb_darkening_c, settings_.limb_darkening_d,
-            seeds, algebraic_settings);
-    } else {
-        algebraic.unsafe_reason = "algebraic-boundary image support was not certified";
-    }
-    const double abs_error = algebraic.error_estimate;
-    const bool converged = algebraic.success &&
-        finite_source_error_within_budget(settings_, algebraic.magnification, abs_error);
     FiniteSourceResult result;
-    result.magnification = algebraic.magnification;
-    result.image_count = static_cast<int>(center_image_count);
-    result.decision = {
-        FiniteSourceMethod::algebraic_boundary,
-        algebraic.diagnostics.lens_evaluation_count,
-        "algebraic image-boundary finite-source integral",
+    result.decision = {FiniteSourceMethod::algebraic_boundary, 0,
+        "seeded_radial_frontier_nested_fejer"};
+    if (settings_.limb_darkening_d != 0.0)
+        throw std::invalid_argument(
+            "algebraic_boundary supports uniform and linear limb darkening; d must be zero");
+    std::optional<algebraic_boundary::CausticAwareBinarySeeds> prepared_seeds;
+    const auto seeds_for_frontier = [&]() -> const algebraic_boundary::CausticAwareBinarySeeds& {
+        if (!prepared_seeds) prepared_seeds = algebraic_boundary::make_caustic_aware_binary_seeds(
+            *this, point_magnifier, separation, mass_ratio, source,
+            source_radius, &center_image_seeds);
+        return *prepared_seeds;
     };
-    result.error_estimate = abs_error;
-    result.converged = converged;
-    result.value_converged = converged;
-    result.seed_support_proven = support_proven;
-    result.frontier_discovery_completed = algebraic.support_certified;
-    result.integral_support_certified = algebraic.support_certified;
-    result.center_image_count = static_cast<int>(center_image_count);
-    result.augmented_seed_count = static_cast<int>(seeds.size());
-    result.diagnostic_stop = algebraic.success
-        ? (converged ? "converged" : "finite_source_error_budget_exceeded")
-        : algebraic.unsafe_reason;
+    // The shared point solver and seed builder receive source positions in
+    // their COM lens frame. User trajectory conventions have already been
+    // converted by LensModel (including the wide-binary origin offset).
+    const algebraic_boundary::LensParams params{
+        source.x, source.y, source_radius, mass_ratio, separation, true};
+    bool value_converged = false;
+    if (jacobian_out) {
+        const algebraic_boundary::FusedGradientOptions options{
+            algebraic_settings.absolute_tolerance, algebraic_settings.relative_tolerance};
+        algebraic_boundary::FusedGradientResult integral;
+        int smooth_images = 0;
+        bool smooth_chart = algebraic_boundary::source_disk_detail::evaluate(
+            params, settings_.limb_darkening_c, options, *this, point_magnifier,
+            integral, smooth_images);
+        if (!smooth_chart) {
+            const auto& seeds = seeds_for_frontier();
+            std::vector<std::array<double, 2>> positions;
+            positions.reserve(seeds.radial_seeds.size());
+            for (const auto& z : seeds.radial_seeds) positions.push_back({z.re, z.im});
+            integral = algebraic_boundary::epoch_fused_gradient(
+                params, settings_.limb_darkening_c, positions, options);
+            if (integral.reliability_retried || !std::all_of(
+                    integral.gradient_valid.begin(), integral.gradient_valid.end(),
+                    [](bool valid) { return valid; })) {
+                smooth_chart = algebraic_boundary::source_disk_detail::evaluate(
+                    params, settings_.limb_darkening_c, options, *this, point_magnifier,
+                    integral, smooth_images, true);
+            }
+        }
+        if (smooth_chart) {
+            result.seed_support_proven = true; // complete smooth disk, no missing fold pair
+            result.image_count = smooth_images;
+        }
+        result.magnification = integral.mu;
+        result.error_estimate = integral.value_error_estimate;
+        result.integral_support_certified = integral.support_certified;
+        result.frontier_discovery_completed = integral.frontier_discovery_completed;
+        result.decision.estimated_evaluations = static_cast<int>(integral.node_evaluations);
+        result.diagnostic_stop = integral.stop +
+            (smooth_chart ? "; tangent_chart=smooth_source_disk" : "; tangent_chart=radial_frontier");
+        value_converged = integral.value_converged;
+        auto& jacobian = *jacobian_out;
+        jacobian.jacobian = integral.grad_mu;
+        jacobian.success = std::all_of(integral.grad_mu.begin(), integral.grad_mu.end(),
+            [](double g) { return std::isfinite(g); });
+        jacobian.grad_reliable = jacobian.success &&
+            (smooth_chart || seeds_for_frontier().support_proven) &&
+            integral.value_converged && std::all_of(
+                integral.gradient_valid.begin(), integral.gradient_valid.end(),
+                [](bool valid) { return valid; });
+        if (!jacobian.grad_reliable) {
+            jacobian.unsafe_reason = !jacobian.success ? "nonfinite_tangent_candidate"
+                : !(smooth_chart || seeds_for_frontier().support_proven)
+                    ? "seed_support_unproven"
+                    : !integral.value_converged ? integral.stop
+                    : "radial_tangent_unreliable:" + integral.stop;
+        }
+    } else {
+        const auto& seeds = seeds_for_frontier();
+        algebraic_boundary::AdaptiveWorkspace workspace;
+        const auto integral = algebraic_boundary::epoch_seeded_radial_frontier_value(
+            params, settings_.limb_darkening_c, seeds.radial_seeds,
+            algebraic_settings.absolute_tolerance, algebraic_settings.relative_tolerance,
+            workspace);
+        result.magnification = integral.integral.mu;
+        result.error_estimate = integral.integral.estimated_abs_error_mu;
+        result.integral_support_certified = integral.frontier.coverage_certified;
+        result.frontier_discovery_completed = integral.frontier.discovery_completed;
+        result.decision.estimated_evaluations =
+            static_cast<int>(integral.integral.stats.node_evaluations);
+        result.diagnostic_stop = algebraic_boundary::adaptive_stop_name(integral.integral.stop);
+        value_converged = integral.integral.value_converged;
+    }
+    if (prepared_seeds) {
+        result.image_count = static_cast<int>(prepared_seeds->center_images.size());
+        result.augmented_seed_count = static_cast<int>(prepared_seeds->radial_seeds.size());
+        result.seed_support_proven = result.seed_support_proven || prepared_seeds->support_proven;
+    }
+    if (!std::isfinite(result.magnification))
+        throw std::runtime_error("algebraic_boundary: no finite value candidate");
+    result.center_image_count = result.image_count;
+    result.value_converged = value_converged &&
+        std::isfinite(result.magnification) && result.magnification > 0.0 &&
+        finite_source_error_within_budget(settings_, result.magnification, result.error_estimate);
+    result.converged = result.value_converged && result.seed_support_proven &&
+        result.integral_support_certified;
+    if (jacobian_out) {
+        auto& jacobian = *jacobian_out;
+        jacobian.magnification = jacobian.primal_magnification = result.magnification;
+        jacobian.value_error = jacobian.primal_error = result.error_estimate;
+        jacobian.primal_success = result.value_converged;
+        jacobian.support_certified = result.integral_support_certified;
+        jacobian.primal_stop = result.diagnostic_stop;
+        jacobian.grad_reliable = jacobian.grad_reliable && result.value_converged;
+    }
     return result;
 }
 
@@ -8022,115 +8016,6 @@ HexadecapoleDiagnosticResult diagnostic_hexadecapole_binary(
     return {result.magnification, result.relative_error, derivative_relative_error};
 }
 
-namespace {
-
-// FiniteSourceMethod::holonomic_binary dispatch (Phase C step 2).
-//
-// Frame: `source` is the centre-of-mass source position and `separation`/
-// `mass_ratio` the trajectory-resolved binary; this is the convention the
-// ATPT reference was A/B-validated against (binary_ray_shooting, holonomic_ref
-// solver._ray_shooting_mu).  For a wide binary evaluated with
-// options.center_of_mass == 0 the caller has folded a constant x offset into
-// `source`; the holonomic value then simply disagrees with the reference and
-// LightCurve.warmup() does not select this method for that epoch (fail open to
-// the inverse-ray route, never a wrong answer).
-//
-// Failure is a Status -> converged = false (never a silent approximation).
-// The holonomic engine is linear-limb-darkening only; a non-zero quadratic
-// coefficient (_d) also fails closed.
-//
-// rolling_prepared (Phase C step 2 part 3): when non-null, the caller owns a
-// per-trajectory PreparedEpochGeometry and consecutive epochs take the
-// prepared route (finite_source_binary_prepared -> epoch_jacobian_prepared,
-// default_reuse_config = L2 warm-seeded D14 ON / L1 verbatim reuse OFF).
-// state.valid == false on the first epoch => cold build; every completeness /
-// residual gate stays intact and a stale seed fails closed inside solve_d14.
-// Null -> every epoch runs the stateless cold route (bit-identical to before).
-FiniteSourceResult holonomic_binary_preplanned(
-    double separation,
-    double mass_ratio,
-    SourcePosition source,
-    double source_radius,
-    double limb_darkening_c,
-    double limb_darkening_d,
-    int resolution,
-    holonomic::PreparedEpochGeometry* rolling_prepared)
-{
-    FiniteSourceDecision decision{
-        FiniteSourceMethod::holonomic_binary, 0, "preplanned holonomic binary"};
-
-    const double s = std::abs(separation);
-    const double q = mass_ratio;
-    const bool inputs_ok =
-        std::isfinite(s) && s > 0.0 &&
-        std::isfinite(q) && q > 0.0 && q <= 1.0 &&
-        std::isfinite(source_radius) && source_radius > 0.0 &&
-        std::isfinite(source.x) && std::isfinite(source.y) &&
-        std::isfinite(limb_darkening_c) &&
-        limb_darkening_d == 0.0;
-    if (!inputs_ok) {
-        decision.reason = "holonomic preconditions unmet";
-        return {std::numeric_limits<double>::quiet_NaN(), 0, decision,
-                0.0, 0, /*converged=*/false};
-    }
-
-    holonomic::FiniteSourceRequest req;
-    req.params = holonomic::LensParams{
-        source.x, source.y, source_radius, q, s, /*barycentric=*/true};
-    req.u = limb_darkening_c;
-    req.output = holonomic::RequestedOutput::kValue;
-    req.n_r = resolution > 0 ? resolution : 64;
-
-    const holonomic::FiniteSourceOutcome outcome =
-        rolling_prepared != nullptr
-            ? holonomic::finite_source_binary_prepared(
-                  req, *rolling_prepared, holonomic::default_reuse_config())
-            : holonomic::finite_source_binary(req);
-
-    // The value is trustworthy for OK / estimated / locally-referenced /
-    // gradient-only-unreliable outcomes; every hard topology / conditioning
-    // failure fails closed.
-    bool value_ok = std::isfinite(outcome.mu) && outcome.mu > 0.0;
-    switch (outcome.status) {
-    case holonomic::Status::OK:
-    case holonomic::Status::OK_VALIDATED:
-    case holonomic::Status::OK_ESTIMATED:
-    case holonomic::Status::LOCAL_REFERENCE_USED:
-    case holonomic::Status::GRADIENT_UNRELIABLE:
-        break;
-    default:
-        value_ok = false;
-        break;
-    }
-
-    decision.estimated_evaluations = req.n_r;
-    const char* prov =
-        rolling_prepared == nullptr ? "cold"
-        : outcome.provenance == holonomic::PreparedEpochGeometry::kColdOracle
-            ? "prepared:cold-build"
-        : outcome.provenance == holonomic::PreparedEpochGeometry::kTopologyReused
-            ? "prepared:L1-reuse"
-        : outcome.provenance == holonomic::PreparedEpochGeometry::kWarmRecomputed
-            ? "prepared:L2-warm-D14"
-            : "prepared:L3-cold-recompute";
-    decision.reason = std::string("preplanned holonomic binary [") +
-                      holonomic::to_string(outcome.status) + ", " + prov + "]";
-
-    FiniteSourceResult result{
-        outcome.mu, 0, decision, 0.0, 0, value_ok};
-    if (!value_ok) result.magnification = std::numeric_limits<double>::quiet_NaN();
-    return result;
-}
-
-}  // namespace
-
-std::shared_ptr<holonomic::PreparedEpochGeometry> make_prepared_epoch_geometry()
-{
-    // Empty (valid == false) => the first holonomic epoch builds cold, then the
-    // sec.8 fail-closed reuse ladder governs every subsequent epoch.
-    return std::make_shared<holonomic::PreparedEpochGeometry>();
-}
-
 FiniteSourceResult FiniteSourceMagnifier::binary_mag_preplanned(
     double separation,
     double mass_ratio,
@@ -8140,8 +8025,7 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag_preplanned(
     FiniteSourceMethod method,
     int resolution,
     const std::vector<SourcePosition>* center_image_seeds,
-    const PointSourceMagnifier* point_magnifier_hint,
-    holonomic::PreparedEpochGeometry* rolling_prepared) const
+    const PointSourceMagnifier* point_magnifier_hint) const
 {
     PointSourceMagnifier local_point_magnifier;
     const PointSourceMagnifier& point_magnifier = point_magnifier_hint != nullptr
@@ -8188,13 +8072,6 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag_preplanned(
             0,
             std::isfinite(value),
         };
-    }
-
-    if (method == FiniteSourceMethod::holonomic_binary) {
-        return holonomic_binary_preplanned(
-            separation, mass_ratio, source, source_radius,
-            settings_.limb_darkening_c, settings_.limb_darkening_d, resolution,
-            rolling_prepared);
     }
 
     if (method == FiniteSourceMethod::inverse_ray_cartesian ||
@@ -8261,7 +8138,8 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
     double algebraic_boundary_atol,
     double algebraic_boundary_rtol,
     bool barycentric_frame,
-    bool multipole_only_probe) const
+    bool multipole_only_probe,
+    autodiff::AlgebraicBoundaryJacobian* jacobian_out) const
 {
     const double default_algebraic_boundary_atol =
         has_explicit_finite_source_tolerance(settings_)
@@ -8275,7 +8153,7 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
         algebraic_boundary_atol >= 0.0 ? algebraic_boundary_atol : default_algebraic_boundary_atol;
     const double effective_algebraic_boundary_rtol = std::isfinite(algebraic_boundary_rtol) &&
         algebraic_boundary_rtol >= 0.0 ? algebraic_boundary_rtol : default_algebraic_boundary_rtol;
-    if (!multipole_only_probe && result_cache_valid_ && result_cache_separation_ == separation &&
+    if (!multipole_only_probe && jacobian_out == nullptr && result_cache_valid_ && result_cache_separation_ == separation &&
         result_cache_mass_ratio_ == mass_ratio && result_cache_source_x_ == source.x &&
         result_cache_source_y_ == source.y && result_cache_source_radius_ == source_radius &&
         result_cache_point_magnification_ == point_source_magnification &&
@@ -8618,7 +8496,7 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
         algebraic_settings.relative_tolerance = effective_algebraic_boundary_rtol;
         auto result = algebraic_boundary_deep_solve(
             point_magnifier, separation, mass_ratio, source, source_radius,
-            *center_image_seeds, algebraic_settings);
+            *center_image_seeds, algebraic_settings, barycentric_frame, jacobian_out);
         return cache_and_return(std::move(result));
     }
 

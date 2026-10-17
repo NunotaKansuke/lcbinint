@@ -291,8 +291,7 @@ py::array_t<double> compute(
 
 std::vector<lcbinint::model::MagnificationExecutionPlan> execution_plan_from(
     const std::vector<int>& methods,
-    const std::vector<int>& resolutions,
-    bool reuse_prepared_geometry = false)
+    const std::vector<int>& resolutions)
 {
     if (methods.size() != resolutions.size()) {
         throw std::invalid_argument(
@@ -304,28 +303,14 @@ std::vector<lcbinint::model::MagnificationExecutionPlan> execution_plan_from(
     for (std::size_t i = 0; i < methods.size(); ++i) {
         if (methods[i] < 0 ||
             methods[i] > static_cast<int>(Method::algebraic_boundary_auto) ||
-            methods[i] == static_cast<int>(Method::algebraic_boundary)) {
+            (methods[i] > static_cast<int>(Method::source_plane_quadrature) &&
+             methods[i] != static_cast<int>(Method::algebraic_boundary_auto))) {
             throw std::invalid_argument("invalid warm-up finite-source method");
         }
         plan.push_back({
             static_cast<Method>(methods[i]),
             resolutions[i],
         });
-    }
-    // Phase C step 2 part 3: attach ONE per-trajectory rolling
-    // PreparedEpochGeometry to every FiniteSourceMethod::holonomic_binary entry
-    // so consecutive epochs reuse the D14 root set / cell plan (L2 warm-seeded,
-    // exact-parity, fail-closed).  Opt-in -- the default keeps the cold route so
-    // an A/B benchmark can measure both through the same entry point.
-    if (reuse_prepared_geometry) {
-        std::shared_ptr<lcbinint::holonomic::PreparedEpochGeometry> rolling;
-        for (auto& entry : plan) {
-            if (entry.method != Method::holonomic_binary) continue;
-            if (!rolling) {
-                rolling = lcbinint::magnification::make_prepared_epoch_geometry();
-            }
-            entry.prepared_geometry = rolling;
-        }
     }
     return plan;
 }
@@ -348,20 +333,16 @@ std::vector<lcbinint::model::MagnificationExecutionPlan> algebraic_boundary_exec
     return plan;
 }
 
+py::dict compute_algebraic_boundary_diagnostic(
+    const lcbinint::lc::LightCurve& lc, const TimesArray& times,
+    const lcbi_params& params, double mu_atol, double mu_rtol);
+
 py::array_t<double> compute_algebraic_boundary_magnification(
     const lcbinint::lc::LightCurve& lc, const TimesArray& times,
     const lcbi_params& params, double mu_atol, double mu_rtol)
 {
-    const auto tv = times_from_array(times);
-    const auto plan = algebraic_boundary_execution_plan(tv.size(), mu_atol, mu_rtol);
-    std::vector<double> values;
-    {
-        py::gil_scoped_release release;
-        // Same selector, seed builder and cold-geometry boundary as the
-        // diagnostic API, with the ordinary scalar convergence contract.
-        values = lc.magnification_preplanned(tv, params, plan);
-    }
-    return vec_to_numpy(std::move(values));
+    return compute_algebraic_boundary_diagnostic(lc, times, params, mu_atol, mu_rtol)
+        ["mu"].cast<py::array_t<double>>();
 }
 
 py::dict compute_algebraic_boundary_diagnostic(
@@ -383,7 +364,8 @@ py::dict compute_algebraic_boundary_diagnostic(
     std::vector<int> converged, value_converged, support_certified;
     std::vector<int> frontier_discovery_completed, seed_support_proven;
     std::vector<int> center_image_count, augmented_seed_count, node_evaluations;
-    std::vector<int> methods;
+    std::vector<int> methods, safety_flags;
+    std::vector<double> caustic_distances;
     std::vector<std::string> method_names, stops;
     const auto count = results.size();
     magnifications.reserve(count); point_source_magnifications.reserve(count);
@@ -394,16 +376,8 @@ py::dict compute_algebraic_boundary_diagnostic(
     node_evaluations.reserve(count); methods.reserve(count);
     method_names.reserve(count); stops.reserve(count);
     for (const auto& result : results) {
-        const double estimate = std::isfinite(result.magnification) &&
-                result.magnification > 0.0
-            ? result.magnification
-            : (std::isfinite(result.finite_source_magnification) &&
-                    result.finite_source_magnification > 0.0
-                ? result.finite_source_magnification
-                : (std::isfinite(result.point_source_magnification) &&
-                        result.point_source_magnification > 0.0
-                    ? result.point_source_magnification
-                    : 1.0));
+        const double estimate = std::isfinite(result.magnification)
+            ? result.magnification : result.finite_source_magnification;
         magnifications.push_back(estimate);
         point_source_magnifications.push_back(result.point_source_magnification);
         errors.push_back(result.finite_source_error_estimate);
@@ -423,6 +397,8 @@ py::dict compute_algebraic_boundary_diagnostic(
         augmented_seed_count.push_back(result.augmented_seed_count);
         node_evaluations.push_back(result.finite_source_evaluations);
         methods.push_back(result.finite_source_method);
+        safety_flags.push_back(result.point_source_safety_flags);
+        caustic_distances.push_back(result.caustic_distance);
         method_names.emplace_back(lcbinint::magnification::finite_source_method_name(
             static_cast<Method>(result.finite_source_method)));
         stops.push_back(result.finite_source_stop.empty()
@@ -443,9 +419,15 @@ py::dict compute_algebraic_boundary_diagnostic(
     output["augmented_seed_count"] = vec_to_numpy(std::move(augmented_seed_count));
     output["node_evaluations"] = vec_to_numpy(std::move(node_evaluations));
     output["finite_source_method"] = vec_to_numpy(std::move(methods));
+    std::vector<std::string> backends;
+    for (const auto& name : method_names) backends.push_back(
+        name == "algebraic_boundary" ? "seeded_radial_frontier_nested_fejer" : name);
+    output["integrator_backend"] = py::cast(std::move(backends));
     output["finite_source_method_name"] = py::cast(std::move(method_names));
     output["stop"] = py::cast(std::move(stops));
     output["seconds"] = vec_to_numpy(std::move(epoch_seconds));
+    output["point_source_safety_flags"] = vec_to_numpy(std::move(safety_flags));
+    output["caustic_distances"] = vec_to_numpy(std::move(caustic_distances));
     return output;
 }
 
@@ -518,9 +500,10 @@ py::dict compute_algebraic_boundary_value_gradient(
     std::vector<int> value_converged, converged, support_certified;
     std::vector<int> frontier_discovery_completed, seed_support_proven;
     std::vector<int> center_image_count, augmented_seed_count, node_evaluations;
-    std::vector<int> methods, gradient_valid;
+    std::vector<int> methods, gradient_valid, safety_flags;
+    std::vector<double> caustic_distances;
     std::vector<double> gradients, epoch_seconds;
-    std::vector<std::string> method_names, stops;
+    std::vector<std::string> method_names, stops, gradient_stops;
     const auto count = geometry.size();
     magnifications.reserve(count); point_source_magnifications.reserve(count);
     errors.reserve(count); value_converged.reserve(count); converged.reserve(count);
@@ -532,6 +515,10 @@ py::dict compute_algebraic_boundary_value_gradient(
     method_names.reserve(count); stops.reserve(count);
 
     auto& magnifier = cached_binding_finite_source_magnifier(settings);
+    magnifier.clear_binary_epoch_caches();
+    lcbinint::magnification::PointSourceMagnifier point;
+    const bool barycentric = lc.options().vbm_compatible != 0 ||
+        lc.options().center_of_mass != 0;
     {
         py::gil_scoped_release release;
         for (std::size_t i = 0; i < count; ++i) {
@@ -539,23 +526,19 @@ py::dict compute_algebraic_boundary_value_gradient(
             lcbinint::magnification::AlgebraicBoundarySettings ad_settings;
             ad_settings.absolute_tolerance = absolute_tolerance;
             ad_settings.relative_tolerance = relative_tolerance;
-            ad_settings.critical_mass_ratio = geometry[i].mass_ratio;
+
             lcbinint::magnification::FiniteSourceResult value;
             double point_magnification = std::numeric_limits<double>::quiet_NaN();
-            const auto jacobian = magnifier.experimental_algebraic_boundary_binary_jacobian(
+            const auto jacobian = magnifier.algebraic_boundary_binary_jacobian(
                 geometry[i].separation,
                 geometry[i].mass_ratio,
                 geometry[i].source,
                 geometry[i].source_radius,
                 ad_settings,
                 &value,
-                &point_magnification);
+                &point_magnification, barycentric, &point);
 
-            const double estimate = std::isfinite(value.magnification) &&
-                    value.magnification > 0.0
-                ? value.magnification
-                : std::isfinite(point_magnification) && point_magnification > 0.0
-                    ? point_magnification : 1.0;
+            const double estimate = value.magnification;
             magnifications.push_back(estimate);
             point_source_magnifications.push_back(point_magnification);
             errors.push_back(value.error_estimate);
@@ -571,13 +554,20 @@ py::dict compute_algebraic_boundary_value_gradient(
             augmented_seed_count.push_back(value.augmented_seed_count);
             node_evaluations.push_back(value.decision.estimated_evaluations);
             methods.push_back(static_cast<int>(value.decision.method));
+            safety_flags.push_back(value.point_source_safety_flags);
+            caustic_distances.push_back(value.caustic_distance);
             method_names.emplace_back(
                 lcbinint::magnification::finite_source_method_name(value.decision.method));
             stops.push_back(value.diagnostic_stop.empty()
                 ? "not_integrated" : value.diagnostic_stop);
 
-            const bool valid = value.converged && jacobian.success &&
-                jacobian.grad_reliable;
+            const bool valid = (integral_route ? value.value_converged : value.converged) &&
+                jacobian.success && jacobian.grad_reliable;
+            bool candidate_available = true;
+            for (const auto derivative : jacobian.jacobian)
+                candidate_available = candidate_available && std::isfinite(derivative);
+            gradient_stops.push_back(jacobian.grad_reliable
+                ? "usable_uncertified" : jacobian.unsafe_reason);
             const bool vbm = lc.options().vbm_compatible != 0;
             const bool center_of_mass = lc.options().center_of_mass != 0;
             const double t0 = resolved_params.t0;
@@ -618,11 +608,11 @@ py::dict compute_algebraic_boundary_value_gradient(
                 offset_s = q / (1.0 + q) *
                     (1.0 + 1.0 / (separation * separation));
             }
-            const double gx = valid ? jacobian.jacobian[0] : 0.0;
-            const double gy = valid ? jacobian.jacobian[1] : 0.0;
-            const double grho = valid ? jacobian.jacobian[2] : 0.0;
-            const double gq = valid ? jacobian.jacobian[3] : 0.0;
-            const double gs = valid ? jacobian.jacobian[4] : 0.0;
+            const double gx = candidate_available ? jacobian.jacobian[0] : 0.0;
+            const double gy = candidate_available ? jacobian.jacobian[1] : 0.0;
+            const double grho = candidate_available ? jacobian.jacobian[2] : 0.0;
+            const double gq = candidate_available ? jacobian.jacobian[3] : 0.0;
+            const double gs = candidate_available ? jacobian.jacobian[4] : 0.0;
             std::array<double, 7> mapped{
                 gx * dx_dt0 + gy * dy_dt0,
                 gx * dx_du0 + gy * dy_du0,
@@ -632,13 +622,14 @@ py::dict compute_algebraic_boundary_value_gradient(
                 gq * (vbm ? -1.0 / (q * q) : 1.0) - gx * offset_q,
                 gs - gx * offset_s,
             };
-            bool mapped_finite = true;
+            bool mapped_finite = candidate_available;
             for (const auto derivative : mapped)
                 mapped_finite = mapped_finite && std::isfinite(derivative);
-            const bool accepted_gradient = valid && mapped_finite;
-            gradient_valid.push_back(accepted_gradient ? 1 : 0);
+            gradient_valid.push_back(valid && mapped_finite ? 1 : 0);
+            if (!mapped_finite)
+                throw std::runtime_error("algebraic_boundary: no finite mapped derivative candidate");
             for (const auto derivative : mapped)
-                gradients.push_back(accepted_gradient ? derivative : 0.0);
+                gradients.push_back(derivative);
             const auto elapsed = std::chrono::steady_clock::now() - started;
             epoch_seconds.push_back(std::chrono::duration<double>(elapsed).count());
         }
@@ -659,12 +650,20 @@ py::dict compute_algebraic_boundary_value_gradient(
     output["augmented_seed_count"] = vec_to_numpy(std::move(augmented_seed_count));
     output["node_evaluations"] = vec_to_numpy(std::move(node_evaluations));
     output["finite_source_method"] = vec_to_numpy(std::move(methods));
+    std::vector<std::string> backends;
+    for (const auto& name : method_names) backends.push_back(
+        name == "algebraic_boundary" ? "seeded_radial_frontier_nested_fejer" : name);
+    output["integrator_backend"] = py::cast(std::move(backends));
     output["finite_source_method_name"] = py::cast(std::move(method_names));
     output["stop"] = py::cast(std::move(stops));
     output["seconds"] = vec_to_numpy(std::move(epoch_seconds));
     output["gradients"] = matrix_to_numpy(
         std::move(gradients), static_cast<py::ssize_t>(count), 7);
     output["gradient_valid"] = vec_to_numpy(std::move(gradient_valid));
+    output["gradient_stop"] = py::cast(std::move(gradient_stops));
+    output["gradient_precision_checked"] = false;
+    output["point_source_safety_flags"] = vec_to_numpy(std::move(safety_flags));
+    output["caustic_distances"] = vec_to_numpy(std::move(caustic_distances));
     return output;
 }
 
@@ -690,7 +689,9 @@ py::dict compute_algebraic_boundary_jacobian(
     }
 
     constexpr std::size_t kJacobianSize = 5;
-    std::vector<double> jacobians(geometry.size() * kJacobianSize, 0.0);
+    std::vector<double> jacobians(
+        geometry.size() * kJacobianSize,
+        std::numeric_limits<double>::quiet_NaN());
     std::vector<int> gradient_valid(geometry.size(), 0);
     lcbinint::magnification::FiniteSourceMagnifier magnifier(settings);
     {
@@ -699,7 +700,7 @@ py::dict compute_algebraic_boundary_jacobian(
             lcbinint::magnification::AlgebraicBoundarySettings ad_settings;
             ad_settings.absolute_tolerance = absolute_tolerance;
             ad_settings.relative_tolerance = relative_tolerance;
-            ad_settings.critical_mass_ratio = geometry[i].mass_ratio;
+
             lcbinint::magnification::autodiff::AlgebraicBoundaryJacobian row;
             const auto method = static_cast<
                 lcbinint::magnification::FiniteSourceMethod>(route_methods[i]);
@@ -716,22 +717,27 @@ py::dict compute_algebraic_boundary_jacobian(
                     std::abs(geometry[i].separation),
                 };
                 row = lcbinint::magnification::autodiff::
-                    experimental_algebraic_boundary_multipole_jacobian(
+                    algebraic_boundary_multipole_jacobian(
                         local_params, branch,
                         settings.limb_darkening_c,
                         settings.limb_darkening_d,
                         method == lcbinint::magnification::FiniteSourceMethod::hexadecapole,
                         authoritative_magnifications[i]);
             } else {
-                row = magnifier.experimental_algebraic_boundary_binary_jacobian(
+                row = magnifier.algebraic_boundary_binary_jacobian(
                     geometry[i].separation,
                     geometry[i].mass_ratio,
                     geometry[i].source,
                     geometry[i].source_radius,
-                    ad_settings);
+                    ad_settings, nullptr, nullptr,
+                    lc.options().vbm_compatible != 0 || lc.options().center_of_mass != 0);
             }
-            if (!row.success || !row.grad_reliable) continue;
-            gradient_valid[i] = 1;
+            bool candidate_available = true;
+            for (const double derivative : row.jacobian)
+                candidate_available = candidate_available && std::isfinite(derivative);
+            if (!candidate_available)
+                throw std::runtime_error("algebraic_boundary: no finite derivative candidate");
+            gradient_valid[i] = row.grad_reliable ? 1 : 0;
             std::copy(row.jacobian.begin(), row.jacobian.end(),
                       jacobians.begin() + i * kJacobianSize);
         }
@@ -750,12 +756,11 @@ py::array_t<double> compute_preplanned(
     const TimesArray& times,
     const lcbi_params& params,
     const std::vector<int>& methods,
-    const std::vector<int>& resolutions,
-    bool reuse_prepared_geometry)
+    const std::vector<int>& resolutions)
 {
     const std::vector<double> tv = times_from_array(times);
     const auto plan =
-        execution_plan_from(methods, resolutions, reuse_prepared_geometry);
+        execution_plan_from(methods, resolutions);
     std::vector<double> magnifications;
     {
         py::gil_scoped_release release;
@@ -769,12 +774,11 @@ py::dict compute_preplanned_diagnostic(
     const TimesArray& times,
     const lcbi_params& params,
     const std::vector<int>& methods,
-    const std::vector<int>& resolutions,
-    bool reuse_prepared_geometry)
+    const std::vector<int>& resolutions)
 {
     const std::vector<double> tv = times_from_array(times);
     const auto plan =
-        execution_plan_from(methods, resolutions, reuse_prepared_geometry);
+        execution_plan_from(methods, resolutions);
     std::vector<lcbinint::MagnificationResult> results;
     std::vector<double> epoch_seconds;
     {
@@ -813,13 +817,12 @@ py::dict compute_preplanned_xy_diagnostic(
     const TimesArray& source_y,
     const lcbi_params& params,
     const std::vector<int>& methods,
-    const std::vector<int>& resolutions,
-    bool reuse_prepared_geometry)
+    const std::vector<int>& resolutions)
 {
     const std::vector<double> xv = times_from_array(source_x);
     const std::vector<double> yv = times_from_array(source_y);
     const auto plan =
-        execution_plan_from(methods, resolutions, reuse_prepared_geometry);
+        execution_plan_from(methods, resolutions);
     std::vector<lcbinint::MagnificationResult> results;
     std::vector<double> epoch_seconds;
     {
@@ -2272,27 +2275,21 @@ LightCurves with a ground Site apply the terrestrial correction.)")
         .def("_magnification_preplanned",
             [&](const LC& lc, const TimesArray& times, py::dict d,
                 const std::vector<int>& methods,
-                const std::vector<int>& resolutions,
-                bool reuse_prepared_geometry) {
+                const std::vector<int>& resolutions) {
                 return compute_preplanned(
-                    lc, times, params_from_dict(d), methods, resolutions,
-                    reuse_prepared_geometry);
+                    lc, times, params_from_dict(d), methods, resolutions);
             },
             py::arg("times"), py::arg("params"), py::arg("methods"),
-            py::arg("resolutions"),
-            py::arg("reuse_prepared_geometry") = false)
+            py::arg("resolutions"))
         .def("_evaluate_preplanned",
             [&](const LC& lc, const TimesArray& times, py::dict d,
                 const std::vector<int>& methods,
-                const std::vector<int>& resolutions,
-                bool reuse_prepared_geometry) {
+                const std::vector<int>& resolutions) {
                 return compute_preplanned_diagnostic(
-                    lc, times, params_from_dict(d), methods, resolutions,
-                    reuse_prepared_geometry);
+                    lc, times, params_from_dict(d), methods, resolutions);
             },
             py::arg("times"), py::arg("params"), py::arg("methods"),
-            py::arg("resolutions"),
-            py::arg("reuse_prepared_geometry") = false)
+            py::arg("resolutions"))
         .def("_evaluate_algebraic_boundary",
             [&](const LC& lc, const TimesArray& times, py::dict d,
                 double mu_atol, double mu_rtol, bool with_gradient) {
@@ -2324,15 +2321,13 @@ LightCurves with a ground Site apply the terrestrial correction.)")
         .def("_evaluate_preplanned_xy",
             [&](const LC& lc, const TimesArray& source_x, const TimesArray& source_y,
                 py::dict d, const std::vector<int>& methods,
-                const std::vector<int>& resolutions,
-                bool reuse_prepared_geometry) {
+                const std::vector<int>& resolutions) {
                 return compute_preplanned_xy_diagnostic(
                     lc, source_x, source_y, params_from_dict(d), methods,
-                    resolutions, reuse_prepared_geometry);
+                    resolutions);
             },
             py::arg("source_x"), py::arg("source_y"), py::arg("params"),
-            py::arg("methods"), py::arg("resolutions"),
-            py::arg("reuse_prepared_geometry") = false)
+            py::arg("methods"), py::arg("resolutions"))
         .def("_binary_resolution_hint",
             [](const LC&, int method, double point_magnification,
                 double absolute_tolerance, double relative_tolerance,

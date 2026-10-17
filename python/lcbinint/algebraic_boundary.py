@@ -1,7 +1,7 @@
 """Value and convergence diagnostics for the algebraic-boundary backend.
 
 The existing point-source/hexadecapole selector remains shared with the native
-LightCurve router. Deep finite-source rows use the algebraic image-boundary integral.
+LightCurve router. Deep finite-source rows use caustic-aware seeds and nested-Fejer radial frontiers.
 """
 
 import math
@@ -10,7 +10,9 @@ import numpy as np
 
 
 def _validated_value_request(curve, times, params, mu_atol, mu_rtol):
-    values = curve._merge_params(params)
+    # Match lcbi_default_params rather than requiring optional trajectory keys.
+    values = dict(t0=0., u0=0., tE=1., alpha=0., rho=0., q=1., s=1.)
+    values.update(curve._merge_params(params))
     names = ("t0", "u0", "tE", "alpha", "rho", "q", "s")
     missing = [name for name in names if name not in values]
     if missing:
@@ -18,8 +20,8 @@ def _validated_value_request(curve, times, params, mu_atol, mu_rtol):
     t0, u0, tE, alpha, rho, q, separation = (float(values[name]) for name in names)
     if not all(math.isfinite(x) for x in (t0, u0, tE, alpha, rho, q, separation)):
         raise ValueError("light-curve parameters must be finite")
-    if tE == 0 or rho <= 0 or q <= 0 or separation <= 0:
-        raise ValueError("tE, rho, q and s must be positive (tE nonzero)")
+    if tE == 0 or rho < 0 or q <= 0 or separation <= 0:
+        raise ValueError("rho must be nonnegative; q and s positive; tE nonzero")
     model = curve._native.model
     if curve.parallax or model.xallarap != "none":
         raise ValueError("algebraic-boundary light curves require no parallax or xallarap")
@@ -27,6 +29,12 @@ def _validated_value_request(curve, times, params, mu_atol, mu_rtol):
         raise ValueError("algebraic-boundary light curves require a static binary")
     if model.lens != "binary" or model.source != "single":
         raise ValueError("algebraic-boundary light curves require a binary lens")
+
+    limb_d = float(curve._native.ld_d)
+    if curve._native.ld_c == 0.0 and limb_d == 0.0:
+        limb_d = float(values.get("limb_darkening_d", 0.0))
+    if limb_d != 0.0:
+        raise ValueError("algebraic_boundary supports uniform and linear limb darkening; d must be zero")
 
     options = curve.options
     option_atol = float(options.finite_source_tol)
@@ -78,6 +86,9 @@ def lightcurve_value(
     ):
         if key in output:
             output[key] = np.asarray(output[key])
+    for key in ("mu", "gradients"):
+        if key in output and not np.all(np.isfinite(output[key])):
+            raise RuntimeError("algebraic_boundary: no finite " + key + " candidate")
     output["value_converged"] = output["value_converged"].astype(bool)
     output["fully_converged"] = output["fully_converged"].astype(bool)
     output["frontier_discovery_completed"] = output[
@@ -97,11 +108,9 @@ def lightcurve_value(
         output["finite_source_method"] == 7
     )
     if scalar:
-        for key in output:
-            if key not in ("stop", "finite_source_method_name"):
-                output[key] = output[key][0]
-        output["stop"] = output["stop"][0]
-        output["finite_source_method_name"] = output["finite_source_method_name"][0]
+        for key, value in tuple(output.items()):
+            if isinstance(value, (list, tuple)) or (isinstance(value, np.ndarray) and value.ndim):
+                output[key] = value[0]
     else:
         output["stop"] = list(output["stop"])
         output["finite_source_method_name"] = list(
@@ -111,9 +120,9 @@ def lightcurve_value(
 
 
 def lightcurve_magnification(curve, times, params=None, *, mu_atol=None, mu_rtol=None):
-    """Return scalar-only routed values, requiring value convergence.
+    """Return routed value candidates; use lightcurve_value for status flags.
 
-    Uses the same selector and algebraic-boundary integral as
+    Uses the same selector and seeded radial-frontier integral as
     ``lightcurve_value``. Diagnostics remain available there.
     """
     t, values, requested_atol, requested_rtol, scalar = _validated_value_request(

@@ -1,0 +1,21 @@
+cell 1 OK Python: /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/python/lcbinint/__init__.py
+Native: /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/build-route-unified/lcbinint/_lcbinint.cpython-310-x86_64-linux-gnu.so
+
+cell 2 OK
+cell 3 OK lcbinint algebraic boundary: 38.29 ms
+VBMicrolensing:     133.93 ms
+VBM / algebraic boundary:    3.50x
+Relative difference max / p99 / median: 6.24e-05 / 3.94e-05 / 7.41e-06
+Largest difference at t=0.0280: lcbinint=99.638972, VBM=99.645192
+Routes: {'hexadecapole': 354, 'algebraic_boundary': 47}
+value converged: 401/401
+integral support certified: 0/47
+fully converged: 354/401
+Stops: {'not_integrated': 354, 'Converged': 47}
+
+cell 4 OK Value + gradients: 73.72 ms
+Gradient / value time: 1.93x
+Usable gradient rows: 401/401
+Value-only / fused maximum relative difference: 3.4959470840932904e-09
+
+All code cells executed; figure captured. No socket-based Jupyter kernel used.

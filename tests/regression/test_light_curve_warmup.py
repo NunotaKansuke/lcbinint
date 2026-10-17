@@ -24,6 +24,7 @@ TIMES = np.asarray([-0.02, 0.0, 0.02])
 def _curve(reltol=1.0e-3, max_source_bins=400):
     return lcbinint.LightCurve(
         options=lcbinint.Options(
+            finite_source_backend="default",
             nbin="auto", reltol=reltol, max_source_bins=max_source_bins
         )
     )
@@ -92,7 +93,7 @@ def test_shared_model_changes_invalidate_warmup_plan():
     model = lcbinint.Model()
     curve = lcbinint.LightCurve(
         model=model,
-        options=lcbinint.Options(nbin="auto", reltol=1.0e-3),
+        options=lcbinint.Options(finite_source_backend="default", nbin="auto", reltol=1.0e-3),
     )
     curve.warmup(TIMES, PARAMETERS)
 
@@ -104,7 +105,7 @@ def test_shared_model_changes_invalidate_warmup_plan():
     assert not curve._matching_warmup(TIMES, PARAMETERS)
     expected = lcbinint.LightCurve(
         model=model,
-        options=lcbinint.Options(nbin="auto", reltol=1.0e-3),
+        options=lcbinint.Options(finite_source_backend="default", nbin="auto", reltol=1.0e-3),
     )(TIMES, PARAMETERS)
     np.testing.assert_allclose(
         curve(TIMES, PARAMETERS), expected, rtol=0.0, atol=0.0
@@ -205,6 +206,7 @@ def test_jax_warmup_aligns_auto_route_and_compiles_value():
     jax = pytest.importorskip("jax")
     curve = lcbinint.LightCurve(
         options=lcbinint.Options(
+            finite_source_backend="default",
             coordinates="vbm",
             nbin="auto",
             reltol=1.0e-3,
@@ -238,3 +240,9 @@ def test_jax_warmup_aligns_auto_route_and_compiles_value():
         (jax.numpy.ones(TIMES.shape),),
     )
     assert np.all(np.isfinite(np.asarray(derivative)))
+
+
+def test_retired_solver_method_is_rejected_instead_of_reinterpreted():
+    model = _curve()
+    with pytest.raises(ValueError, match="invalid warm-up finite-source method"):
+        model._native._evaluate_preplanned(TIMES, PARAMETERS, [6]*len(TIMES), [0]*len(TIMES))

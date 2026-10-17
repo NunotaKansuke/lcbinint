@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from . import _lcbinint as _native
 from ._lcbinint import *          # noqa: F401, F403
@@ -190,11 +190,20 @@ class LightCurveInfo:
     If finite-source support cannot be established before an integral estimate
     exists, the point-source value is returned and diagnostics mark that
     fallback. ``status`` uses 0 for accepted values, 1 for unconverged estimates,
-    and 2 when image support could not be established. A requested but unusable
-    gradient is represented by zeros plus ``gradient_valid=False``. Supported
-    eager static binary calls use the algebraic-boundary value path and its
-    forward-mode Jacobian. Gradients are marked invalid when the value status
-    is not accepted.
+    and 2 when image support could not be established. With
+    ``with_gradient=True``, ``gradient_valid`` reports whether each candidate
+    passed the backend's reliability checks.
+    ``gradients`` always contains the computed candidate for each requested
+    epoch, including best-effort finite-difference candidates when the analytic
+    pass cannot produce a finite row on other backends. Algebraic-boundary
+    calls retain finite candidates regardless of diagnostic flags and raise
+    an error if no finite value or derivative candidate exists. They never
+    return NaN-filled numerical results. ``gradient_valid`` is diagnostic and
+    never replaces a candidate with zero or ``None``. Detailed backend
+    diagnostics are included only when requested with ``with_diagnostics=True``.
+    Supported eager static binary calls use the algebraic-boundary value path
+    and its forward-mode Jacobian. A false validity flag means the candidate
+    is not certified to the requested gradient accuracy.
 
     The object converts to its magnification array for NumPy/JAX expressions,
     while retaining status and gradient metadata for callers that need it.
@@ -721,12 +730,15 @@ class LightCurve:
         self._validate_backend_combination()
         self._validate_time_limit(times)
 
+        # A tracer cannot exist before JAX has been imported. Native calls
+        # must not pay JAX import/initialization costs just to test their inputs.
+        import sys
+        jax_module = sys.modules.get("jax")
+
         def contains_tracer(value):
-            try:
-                import jax
-            except ImportError:
+            if jax_module is None:
                 return False
-            if isinstance(value, jax.core.Tracer):
+            if isinstance(value, jax_module.core.Tracer):
                 return True
             if isinstance(value, dict):
                 return any(contains_tracer(item) for item in value.values())
@@ -789,11 +801,7 @@ class LightCurve:
                 raw = algebraic_boundary_info(
                     self._native, self._options, time_array, merged
                 )
-                estimates = jnp.where(
-                    jnp.isfinite(raw.magnification) & (raw.magnification > 0.0),
-                    raw.magnification,
-                    1.0,
-                )
+                estimates = raw.magnification
                 accepted = raw.value_converged & (
                     ~raw.support_required | raw.support_certified
                 )
@@ -933,17 +941,8 @@ class LightCurve:
             support = np.asarray(raw["support_certified"], dtype=bool).reshape(-1)
             integrated = np.asarray(raw["integrator_used"], dtype=bool).reshape(-1)
             support_failed = integrated & ~support
-            point_source = np.asarray(
-                raw["point_source_magnification"], dtype=float
-            ).reshape(-1)
-            fallback_used = (
-                ~np.isfinite(values) | (values <= 0.0)
-            ) & np.isfinite(point_source) & (point_source > 0.0)
-            values = np.where(fallback_used, point_source, values)
-            raw["value_fallback_used"] = fallback_used.copy()
-            raw["value_fallback_kind"] = np.where(
-                fallback_used, "point_source", "none"
-            )
+            raw["value_fallback_used"] = np.zeros(values.shape, dtype=bool)
+            raw["value_fallback_kind"] = np.full(values.shape, "none")
             status = np.where(
                 converged,
                 LightCurveInfo.OK,
@@ -953,12 +952,12 @@ class LightCurve:
                     LightCurveInfo.UNCONVERGED,
                 ),
             ).astype(np.int8)
-            values = self._finite_estimates(values)
             return LightCurveInfo(
                 times=time_array,
                 magnifications=values,
                 status=status,
-                value_converged=converged,
+                value_converged=np.asarray(raw["value_converged"], dtype=bool).reshape(-1) &
+                    np.isfinite(values),
                 support_certified=support,
                 diagnostics=raw,
             )
@@ -1073,7 +1072,7 @@ class LightCurve:
     def _evaluate_algebraic_boundary_gradients(
         self, times, merged, eligible, diagnostics=None
     ):
-        """Return the native seven-parameter Jacobian for accepted epochs."""
+        """Return native seven-parameter Jacobians and their validity flags."""
         import numpy as np
 
         if self._options.finite_source_backend != "algebraic_boundary":
@@ -1099,8 +1098,6 @@ class LightCurve:
                 pass
             else:
                 if mapped.size == row_valid.size * len(core_order):
-                    # The native combined call already clears every derivative
-                    # row whose value did not converge or whose Jacobian failed.
                     return core_order, mapped.reshape(-1, len(core_order)), row_valid
 
         aliases = {
@@ -1123,7 +1120,7 @@ class LightCurve:
         core = set(core_order)
         unsupported = {"limb_darkening_c", "limb_darkening_d"} & set(names)
         active = set(names) - unsupported
-        if not core.issubset(active) or active - core:
+        if active - core:
             return None
 
         try:
@@ -1137,11 +1134,9 @@ class LightCurve:
             return None
         if status_array.size != time_array.size:
             return None
-        gradients = np.zeros((time_array.size, len(names)), dtype=np.float64)
+        gradients = np.full((time_array.size, len(names)), np.nan, dtype=np.float64)
         gradient_valid = np.zeros(time_array.size, dtype=bool)
         accepted = status_array == LightCurveInfo.OK
-        if not np.any(accepted):
-            return names, gradients, gradient_valid
 
         if not isinstance(diagnostics, dict):
             return None
@@ -1156,7 +1151,7 @@ class LightCurve:
         ):
             return None
         mapped = mapped.reshape(-1, 7)
-        row_valid = row_valid.reshape(-1) & accepted
+        row_valid = row_valid.reshape(-1)
         name_to_core_column = dict(zip(core_order, range(len(core_order))))
         for column, name in enumerate(names):
             if name in name_to_core_column:
@@ -1166,6 +1161,77 @@ class LightCurve:
         gradient_valid[:] = row_valid
         return names, gradients, gradient_valid
 
+    def _fill_missing_gradient_candidates(
+        self, times, merged, names, gradients, *, force_columns=()
+    ):
+        """Use the same value route for finite-difference candidate rows.
+
+        This only fills absent/non-finite components. A finite analytic
+        candidate is preserved even when its separate reliability flag is
+        false.
+        """
+        import numpy as np
+
+        try:
+            values = np.asarray(gradients, dtype=np.float64).copy()
+            time_array = np.asarray(times, dtype=np.float64)
+        except (TypeError, ValueError):
+            return gradients
+        if time_array.ndim == 0:
+            time_array = time_array.reshape(1)
+        if time_array.ndim != 1 or values.ndim != 2:
+            return gradients
+        if values.shape != (time_array.size, len(names)):
+            return gradients
+
+        aliases = {
+            "t_0": "t0", "t_E": "tE", "umin": "u0",
+            "theta": "alpha", "sep": "s", "rho1": "rho",
+        }
+        keys_by_name = {}
+        for key in merged:
+            keys_by_name.setdefault(aliases.get(key, key), key)
+        force_columns = set(force_columns)
+        relative_step = np.cbrt(1.0e-7)
+
+        for column, name in enumerate(names):
+            key = keys_by_name.get(name, name)
+            try:
+                center = float(merged[key])
+            except (KeyError, TypeError, ValueError):
+                continue
+            if column not in force_columns:
+                rows = np.flatnonzero(~np.isfinite(values[:, column]))
+            else:
+                rows = np.arange(time_array.size)
+            if rows.size == 0:
+                continue
+
+            scale = max(abs(center), 1.0e-3)
+            if name in ("q", "rho", "s", "tE"):
+                scale = max(abs(center), 1.0e-12)
+            step = relative_step * scale
+            plus = dict(merged)
+            minus = dict(merged)
+            plus[key] = center + step
+            minus[key] = center - step
+            selected_times = time_array[rows]
+            plus_result = self._evaluate_values(
+                selected_times, plus, with_gradient=False
+            )
+            minus_result = self._evaluate_values(
+                selected_times, minus, with_gradient=False
+            )
+            plus_values = np.asarray(plus_result.magnifications, dtype=np.float64).reshape(-1)
+            minus_values = np.asarray(minus_result.magnifications, dtype=np.float64).reshape(-1)
+            if plus_values.size != rows.size or minus_values.size != rows.size:
+                continue
+            candidate = (plus_values - minus_values) / (2.0 * step)
+            usable = np.isfinite(candidate)
+            values[rows[usable], column] = candidate[usable]
+
+        return values
+
     def _evaluate_gradients(
         self, times, merged, eligible=None, diagnostics=None
     ):
@@ -1174,7 +1240,8 @@ class LightCurve:
                 times, merged, eligible, diagnostics
             )
             if native_result is not None:
-                return native_result
+                names, gradients, valid = native_result
+                return names, gradients, valid
         try:
             import jax
             import jax.numpy as jnp
@@ -1219,39 +1286,46 @@ class LightCurve:
         elif time_array.ndim != 1:
             raise ValueError("times must be a scalar or one-dimensional array")
         epoch_count = int(time_array.shape[0])
-        eligible_indices = None
+        is_traced = any(
+            isinstance(leaf, jax.core.Tracer)
+            for leaf in jax.tree_util.tree_leaves((time_array, values_by_name))
+        )
         if eligible is not None:
             leaves = jax.tree_util.tree_leaves(eligible)
             if not any(isinstance(leaf, jax.core.Tracer) for leaf in leaves):
                 eligible_mask = np.asarray(eligible, dtype=np.int8).reshape(-1)
                 if eligible_mask.size != epoch_count:
                     raise ValueError("value status and times must have equal length")
-                eligible_indices = np.flatnonzero(
-                    eligible_mask == LightCurveInfo.OK
-                )
-        active_times = (
-            time_array if eligible_indices is None
-            else time_array[eligible_indices]
-        )
+        # Value convergence/support are diagnostics. Evaluate a gradient
+        # candidate for every requested epoch rather than returning zero for
+        # epochs the value diagnostic marked as failed.
+        active_times = time_array
         if not active_names:
-            gradients = jnp.zeros((epoch_count, len(names)), dtype=jnp.float64)
+            gradients = jnp.full(
+                (epoch_count, len(names)), jnp.nan, dtype=jnp.float64
+            )
             valid = (
                 jnp.zeros((epoch_count,), dtype=jnp.bool_)
                 if names else jnp.ones((time_array.shape[0],), dtype=jnp.bool_)
             )
-            if not self._options.jax:
-                return names, np.asarray(gradients), np.asarray(valid)
+            if not is_traced:
+                return names, self._fill_missing_gradient_candidates(
+                    times, merged, names, np.asarray(gradients),
+                    force_columns=range(len(names)),
+                ), np.asarray(valid)
             return tuple(names), gradients, valid
 
         if active_times.shape[0] == 0:
-            gradients = jnp.zeros((epoch_count, len(names)), dtype=jnp.float64)
+            gradients = jnp.full(
+                (epoch_count, len(names)), jnp.nan, dtype=jnp.float64
+            )
             valid = jnp.zeros((epoch_count,), dtype=jnp.bool_)
-            if not self._options.jax:
+            if not is_traced:
                 return names, np.asarray(gradients), np.asarray(valid)
             return tuple(names), gradients, valid
 
         initial = jnp.stack([values_by_name[name] for name in active_names])
-        is_traced = any(
+        is_traced = is_traced or any(
             isinstance(leaf, jax.core.Tracer)
             for leaf in jax.tree_util.tree_leaves(initial)
         )
@@ -1271,67 +1345,85 @@ class LightCurve:
         try:
             active_jacobian = jax.jacfwd(evaluate)(initial)
         except (NotImplementedError, RuntimeError):
-            gradients = jnp.zeros(
-                (epoch_count, len(names)), dtype=jnp.float64
+            gradients = jnp.full(
+                (epoch_count, len(names)), jnp.nan, dtype=jnp.float64
             )
             valid = jnp.zeros((time_array.shape[0],), dtype=jnp.bool_)
-            if not self._options.jax and not is_traced:
-                return names, np.asarray(gradients), np.asarray(valid)
+            if not is_traced:
+                return names, self._fill_missing_gradient_candidates(
+                    times, merged, names, np.asarray(gradients),
+                    force_columns=range(len(names)),
+                ), np.asarray(valid)
             return tuple(names), gradients, valid
 
         finite = jnp.isfinite(active_jacobian)
         active_valid = jnp.all(finite, axis=1)
-        active_jacobian = jnp.where(finite, active_jacobian, 0.0)
-        gradients = jnp.zeros(
-            (epoch_count, len(names)), dtype=active_jacobian.dtype
+        gradients = jnp.full(
+            (epoch_count, len(names)), jnp.nan, dtype=active_jacobian.dtype
         )
-        if eligible_indices is None:
-            active_indices = jnp.arange(epoch_count)
-        else:
-            active_indices = jnp.asarray(eligible_indices, dtype=jnp.int32)
-        valid = jnp.zeros((epoch_count,), dtype=jnp.bool_)
-        valid = valid.at[active_indices].set(active_valid)
+        active_indices = jnp.arange(epoch_count)
+        valid = active_valid
         for index, name in enumerate(names):
             if name in active_names:
                 gradients = gradients.at[active_indices, index].set(
                     active_jacobian[:, active_names.index(name)]
                 )
         if unsupported_names:
-            valid = valid.at[active_indices].set(False)
-        if not self._options.jax and not is_traced:
-            return names, np.asarray(gradients), np.asarray(valid)
+            valid = jnp.zeros_like(valid)
+        if not is_traced:
+            return names, self._fill_missing_gradient_candidates(
+                times, merged, names, np.asarray(gradients),
+                force_columns=(
+                    index for index, name in enumerate(names)
+                    if name in unsupported_names
+                ),
+            ), np.asarray(valid)
         return tuple(names), gradients, valid
 
-    def __call__(self, times, params=None, *, with_gradient=False, **kwargs):
+    def __call__(
+        self, times, params=None, *, with_gradient=False,
+        with_diagnostics=False, **kwargs
+    ):
         """Return magnifications and status, optionally with parameter gradients.
 
         The returned :class:`LightCurveInfo` is the same record in either
         mode. Set ``with_gradient=True`` to include ``gradients`` and
-        ``gradient_valid``. Both modes return the same value and status. The
-        derivative implementation follows the selected backend, and only runs
-        for epochs whose value status is accepted.
+        ``gradient_valid``. Set ``with_diagnostics=True`` on this same call to
+        include detailed backend diagnostics. Both modes use the same selector and value tolerances.
+        The gradient mode returns the fused integral and its tangent together. The gradient array keeps the computed candidate at each
+        epoch; ``gradient_valid`` separately reports whether that candidate
+        passed the backend's reliability checks. The derivative implementation
+        follows the selected backend. The algebraic_boundary backend returns
+        (t0, u0, tE, alpha, rho, q, s), independently of the input mapping order
+        or Parameters container; LD-coefficient derivatives are not included.
         """
         merged = self._merge_params(params, **kwargs)
         native_algebraic_gradient = (
             with_gradient
-            and not self._options.jax
             and self._options.finite_source_backend == "algebraic_boundary"
         )
         result = self._evaluate_values(
             times, merged, with_gradient=native_algebraic_gradient
         )
         if not with_gradient:
-            return result
+            return (
+                result if with_diagnostics
+                else replace(result, diagnostics=None)
+            )
+
+        def output_diagnostics():
+            if not with_diagnostics:
+                return None
+            return result.diagnostics
+
         core_gradient_parameters = ("t0", "u0", "tE", "alpha", "rho", "q", "s")
         if (
             native_algebraic_gradient
-            and tuple(merged) == core_gradient_parameters
             and isinstance(result.diagnostics, dict)
             and "gradients" in result.diagnostics
             and "gradient_valid" in result.diagnostics
         ):
-            # The combined native call already returns this common parameter
-            # order and clears rows whose value or Jacobian was not accepted.
+            # Keep the native candidate and its independent reliability flag.
             gradients = result.diagnostics["gradients"].reshape(
                 -1, len(core_gradient_parameters)
             )
@@ -1346,7 +1438,7 @@ class LightCurve:
                     gradient_parameters=core_gradient_parameters,
                     value_converged=result.value_converged,
                     support_certified=result.support_certified,
-                    diagnostics=result.diagnostics,
+                    diagnostics=output_diagnostics(),
                 )
         names, gradients, valid = self._evaluate_gradients(
             times, merged, eligible=result.status,
@@ -1361,11 +1453,17 @@ class LightCurve:
             gradient_parameters=tuple(names),
             value_converged=result.value_converged,
             support_certified=result.support_certified,
-            diagnostics=result.diagnostics,
+            diagnostics=output_diagnostics(),
         )
 
-    def magnification(self, times, params=None, **kwargs):
-        return self.__call__(times, params, **kwargs)
+    def magnification(
+        self, times, params=None, *, with_gradient=False,
+        with_diagnostics=False, **kwargs
+    ):
+        return self.__call__(
+            times, params, with_gradient=with_gradient,
+            with_diagnostics=with_diagnostics, **kwargs
+        )
 
     def magnification_batch(self, times, parameter_rows):
         """Evaluate independent parameter rows with the selected backend.
@@ -1439,10 +1537,14 @@ class LightCurve:
             blend_flux,
         )
 
-    def info(self, times, params=None, *, with_gradient=False, **kwargs):
+    def info(
+        self, times, params=None, *, with_gradient=False,
+        with_diagnostics=True, **kwargs
+    ):
         """Compatibility alias for :meth:`LightCurve.__call__`."""
         return self.__call__(
-            times, params, with_gradient=with_gradient, **kwargs
+            times, params, with_gradient=with_gradient,
+            with_diagnostics=with_diagnostics, **kwargs
         )
 
     def source_trajectory(self, times, params=None, **kwargs):
@@ -1530,7 +1632,6 @@ class LightCurve:
 
     def __getattr__(self, name):
         if name in {
-            "holonomic_gradient",
             "algebraic_boundary_magnification",
             "algebraic_boundary_info",
         }:

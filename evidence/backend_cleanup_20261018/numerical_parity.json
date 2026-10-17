@@ -1,0 +1,3006 @@
+{
+  "native": "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/build-route-unified/lcbinint/_lcbinint.cpython-310-x86_64-linux-gnu.so",
+  "native_sha256": "25985acc63737e0ff3196624b63410694aa4b4323cd3d73df62628be0f60e250",
+  "cases": [
+    {
+      "case": "case_000",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 9.046181803569198,
+      "gradient_ms": 39.334479020908475,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_001",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 16.46474306471646,
+      "gradient_ms": 41.146956849843264,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_002",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 0.1394080463796854,
+      "gradient_ms": 0.13505807146430016,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_003",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 0.1378520391881466,
+      "gradient_ms": 0.13045198284089565,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_004",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 0.264815054833889,
+      "gradient_ms": 0.24779699742794037,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_005",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 27.349403128027916,
+      "gradient_ms": 90.26864194311202,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_006",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 0.1348659861832857,
+      "gradient_ms": 0.11816807091236115,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_007",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 15.49540413543582,
+      "gradient_ms": 92.16546290554106,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_008",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 15.055055962875485,
+      "gradient_ms": 28.693628031760454,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_009",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 4.028037888929248,
+      "gradient_ms": 42.906631948426366,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_010",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 20.639544120058417,
+      "gradient_ms": 237.79650288634002,
+      "value_converged": 33,
+      "gradient_valid": 27
+    },
+    {
+      "case": "case_011",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 6.373703945428133,
+      "gradient_ms": 118.1587940081954,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_012",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 18.916752189397812,
+      "gradient_ms": 178.6486490163952,
+      "value_converged": 33,
+      "gradient_valid": 25
+    },
+    {
+      "case": "case_013",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 17.5342399161309,
+      "gradient_ms": 44.276170898228884,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_014",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 10.252282954752445,
+      "gradient_ms": 337.4150129966438,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_015",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 4.1920579969882965,
+      "gradient_ms": 37.50983509235084,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_016",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 9.267843095585704,
+      "gradient_ms": 40.31884018331766,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_017",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 0.24763494729995728,
+      "gradient_ms": 0.2331659197807312,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_018",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 2.1414190996438265,
+      "gradient_ms": 2.669998910278082,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_019",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 17.61984289623797,
+      "gradient_ms": 74.29259805940092,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_020",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 15.851425006985664,
+      "gradient_ms": 40.56090395897627,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_021",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 4.009026102721691,
+      "gradient_ms": 5.290474044159055,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_022",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 11.73462113365531,
+      "gradient_ms": 363.63053997047246,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_023",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 11.381467804312706,
+      "gradient_ms": 83.49290792830288,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_024",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 4.15089912712574,
+      "gradient_ms": 42.40999207831919,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_025",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 15.482568880543113,
+      "gradient_ms": 42.13029891252518,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_026",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 16.141755040735006,
+      "gradient_ms": 36.514858016744256,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_027",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 2.481267787516117,
+      "gradient_ms": 2.8303719591349363,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_028",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 3.847765037789941,
+      "gradient_ms": 23.539571091532707,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_029",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 0.2110500354319811,
+      "gradient_ms": 0.17694709822535515,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_030",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 4.611153854057193,
+      "gradient_ms": 15.122924000024796,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_031",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 15.206043142825365,
+      "gradient_ms": 31.72662202268839,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_032",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 12.991977157071233,
+      "gradient_ms": 291.6904389858246,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_033",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 3.715669037774205,
+      "gradient_ms": 34.28341797553003,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_034",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 19.446894992142916,
+      "gradient_ms": 50.294024869799614,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_035",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 14.952180907130241,
+      "gradient_ms": 39.21953309327364,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_036",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 12.062807800248265,
+      "gradient_ms": 367.18625016510487,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_037",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 3.3919878769665956,
+      "gradient_ms": 4.002533154562116,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_038",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 4.003145964816213,
+      "gradient_ms": 18.822955898940563,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_039",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 4.482085118070245,
+      "gradient_ms": 18.168268958106637,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_040",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 4.564550006762147,
+      "gradient_ms": 37.65710908919573,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_041",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 0.17256918363273144,
+      "gradient_ms": 0.16107200644910336,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_042",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 0.20149792544543743,
+      "gradient_ms": 0.1892999280244112,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_043",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 0.16454490832984447,
+      "gradient_ms": 0.15285401605069637,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_044",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 11.556255863979459,
+      "gradient_ms": 167.89406700991094,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_045",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 12.839475879445672,
+      "gradient_ms": 477.3089359514415,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_046",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 6.227327045053244,
+      "gradient_ms": 91.3901999592781,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_047",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 12.802061857655644,
+      "gradient_ms": 29.51052808202803,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_048",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 4.550147103145719,
+      "gradient_ms": 22.525938926264644,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_049",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 0.6399520207196474,
+      "gradient_ms": 0.2059340476989746,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_050",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 3.6167840007692575,
+      "gradient_ms": 3.58418608084321,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_051",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 14.30819509550929,
+      "gradient_ms": 37.751132156699896,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_052",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 0.18583913333714008,
+      "gradient_ms": 0.18368614837527275,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_053",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 0.1302468590438366,
+      "gradient_ms": 0.11956784874200821,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_054",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 3.8849750999361277,
+      "gradient_ms": 30.243773013353348,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_055",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 6.152930902317166,
+      "gradient_ms": 36.36309807188809,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_056",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 14.154077041894197,
+      "gradient_ms": 30.327022075653076,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_057",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 4.4073560275137424,
+      "gradient_ms": 9.897060925140977,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_058",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 11.013448005542159,
+      "gradient_ms": 46.176226111128926,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_059",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 9.621503995731473,
+      "gradient_ms": 328.3300269395113,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_060",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 4.090667003765702,
+      "gradient_ms": 69.67758806422353,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_061",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 4.007251001894474,
+      "gradient_ms": 40.69222486577928,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_062",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 3.9676630403846502,
+      "gradient_ms": 37.424937123432755,
+      "value_converged": 33,
+      "gradient_valid": 32
+    },
+    {
+      "case": "case_063",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 3.0677360482513905,
+      "gradient_ms": 3.494036151096225,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_064",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 13.207857962697744,
+      "gradient_ms": 157.10051893256605,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_065",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 3.5296310670673847,
+      "gradient_ms": 4.201089963316917,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_066",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 7.658012909814715,
+      "gradient_ms": 93.56463002040982,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_067",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 3.8622638676315546,
+      "gradient_ms": 30.668793944641948,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_068",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 1.6990930307656527,
+      "gradient_ms": 1.7065478023141623,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_069",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 3.579189069569111,
+      "gradient_ms": 55.22194900549948,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_070",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 0.1567371655255556,
+      "gradient_ms": 0.15204190276563168,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_071",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 4.0877030696719885,
+      "gradient_ms": 52.248958963900805,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_072",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 3.3232609275728464,
+      "gradient_ms": 4.8491680063307285,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_073",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 17.388736130669713,
+      "gradient_ms": 44.71220984123647,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_074",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 2.615286037325859,
+      "gradient_ms": 2.9359660111367702,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_075",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 0.16222591511905193,
+      "gradient_ms": 0.1658040564507246,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_076",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 10.456065880134702,
+      "gradient_ms": 93.20817491970956,
+      "value_converged": 33,
+      "gradient_valid": 32
+    },
+    {
+      "case": "case_077",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 2.1707487758249044,
+      "gradient_ms": 2.5253340136259794,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_078",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 6.143499864265323,
+      "gradient_ms": 92.67834899947047,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_079",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 13.35933804512024,
+      "gradient_ms": 333.1107199192047,
+      "value_converged": 33,
+      "gradient_valid": 17
+    },
+    {
+      "case": "case_080",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 11.90255000256002,
+      "gradient_ms": 28.2537208404392,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_081",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 3.8907479029148817,
+      "gradient_ms": 5.844910861924291,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_082",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 3.359972033649683,
+      "gradient_ms": 4.732797155156732,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_083",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 0.19128411076962948,
+      "gradient_ms": 0.17578690312802792,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_084",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 7.940802024677396,
+      "gradient_ms": 52.944839000701904,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_085",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 4.142546094954014,
+      "gradient_ms": 24.434442864730954,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_086",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 0.22255186922848225,
+      "gradient_ms": 0.2115389797836542,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_087",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 13.183907838538289,
+      "gradient_ms": 44.2292639054358,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_088",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 19.79819592088461,
+      "gradient_ms": 258.5658810567111,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_089",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 15.526589937508106,
+      "gradient_ms": 48.50020003505051,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_090",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 10.674237972125411,
+      "gradient_ms": 58.76508913934231,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_091",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 5.5741427931934595,
+      "gradient_ms": 16.935131046921015,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_092",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 2.135257003828883,
+      "gradient_ms": 2.5390200316905975,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_093",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 12.933701975271106,
+      "gradient_ms": 46.01815389469266,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_094",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 2.819736022502184,
+      "gradient_ms": 3.93279897980392,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_095",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 12.910790042951703,
+      "gradient_ms": 509.1604390181601,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_096",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 0.21813716739416122,
+      "gradient_ms": 0.19798194989562035,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_097",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 13.84650100953877,
+      "gradient_ms": 30.9688460547477,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_098",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 15.049743000417948,
+      "gradient_ms": 38.17743598483503,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_099",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 0.199953094124794,
+      "gradient_ms": 0.18885801546275616,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_100",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 3.607572056353092,
+      "gradient_ms": 4.005654016509652,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_101",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 3.5877740010619164,
+      "gradient_ms": 4.690391942858696,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_102",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 12.29233993217349,
+      "gradient_ms": 79.45505203679204,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_103",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 12.446935987100005,
+      "gradient_ms": 167.55290399305522,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_104",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 0.23928796872496605,
+      "gradient_ms": 0.2062399871647358,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_105",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 4.14924998767674,
+      "gradient_ms": 65.00915414653718,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_106",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 6.25459011644125,
+      "gradient_ms": 17.86938402801752,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_107",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 0.19437097944319248,
+      "gradient_ms": 0.17405999824404716,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_108",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 14.732868876308203,
+      "gradient_ms": 95.61049588955939,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_109",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 14.210282126441598,
+      "gradient_ms": 32.221498899161816,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_110",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 0.1783610787242651,
+      "gradient_ms": 0.18193991854786873,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_111",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 5.30845089815557,
+      "gradient_ms": 106.74234898760915,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_112",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 3.91175108961761,
+      "gradient_ms": 28.409156017005444,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_113",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 3.257035044953227,
+      "gradient_ms": 3.6354479379951954,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_114",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 12.182846898213029,
+      "gradient_ms": 55.54105783812702,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_115",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 4.5195219572633505,
+      "gradient_ms": 23.85038696229458,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_116",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 2.692829119041562,
+      "gradient_ms": 3.533228999003768,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_117",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 15.57308784686029,
+      "gradient_ms": 102.47357795014977,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_118",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 15.370296081528068,
+      "gradient_ms": 31.456985045224428,
+      "value_converged": 33,
+      "gradient_valid": 33
+    },
+    {
+      "case": "case_119",
+      "differences": {
+        "value": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradients": {
+          "exact": true,
+          "max_abs": 0.0
+        },
+        "gradient_valid": {
+          "exact": true,
+          "max_abs": 0.0
+        }
+      },
+      "value_ms": 3.029735991731286,
+      "gradient_ms": 3.061671042814851,
+      "value_converged": 33,
+      "gradient_valid": 33
+    }
+  ]
+}

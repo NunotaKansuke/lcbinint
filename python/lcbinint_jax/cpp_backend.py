@@ -571,6 +571,8 @@ def binary_algebraic_boundary_batch_ffi(
             "algebraic-boundary JAX gradients do not support limb-darkening tangents"
         )
     limb_c, limb_d = float(limb_c), float(limb_d)
+    if limb_d != 0.0:
+        raise ValueError("algebraic_boundary supports uniform and linear limb darkening; d must be zero")
     absolute_tolerance = float(absolute_tolerance)
     relative_tolerance = float(relative_tolerance)
     if not all(
