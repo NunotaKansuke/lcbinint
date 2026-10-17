@@ -107,11 +107,18 @@ lc = lcbinint.LightCurve(
     limb_darkening=lcbinint.LimbDarkening.linear(0.5),
 )
 
-mag = lc(times, params)
+result = lc(times, params)
+mag = result.magnifications
 ```
 
-Use the same public API with the differentiable CPU/JAX backend by selecting it
-in `Options`:
+On this branch, a static single-source binary `LightCurve` uses the
+algebraic-boundary backend by default, with or without gradients. Models
+outside that backend's supported scope keep the standard router. To request
+the standard router explicitly for a supported binary, set
+`finite_source_backend="default"` in `Options`.
+
+Request values and gradients through the same call. The result always carries
+per-epoch status; gradient columns are named in `gradient_parameters`:
 
 ```python
 import jax
@@ -121,23 +128,27 @@ import lcbinint
 jax.config.update("jax_enable_x64", True)
 
 times = jnp.linspace(-0.5, 0.5, 200)
-curve = lcbinint.LightCurve(options=lcbinint.Options(jax=True))
+curve = lcbinint.LightCurve()
+result = curve(times, params)
+mag = result.magnifications
+gradient_result = curve(times, params, with_gradient=True)
+gradient = gradient_result.gradients
+gradient_parameters = gradient_result.gradient_parameters
 
 def loss(u0):
     active = dict(params)
     active["u0"] = u0
-    return jnp.sum(curve(times, active))
+    return jnp.sum(curve(times, active).magnifications)
 
-magnification = curve(times, params)
 value, derivative = jax.jit(jax.value_and_grad(loss))(params["u0"])
 ```
 
-The backend selector also applies to `magnification_batch()`,
-`light_curve_log_likelihood_batch()`, `info()`, trajectory/geometry helpers,
-and static `binary_source_components()`. The likelihood batch supports the
-native Gaussian and Student-t distributions and fit, sample, and Gaussian
-marginalize flux modes; its JAX arrays remain differentiable through both the
-magnification and analytic flux fit.
+`curve.info(...)` remains a compatibility alias for the same result. The
+likelihood batch supports the native Gaussian and Student-t distributions and
+fit, sample, and Gaussian marginalize flux modes; its JAX arrays remain
+differentiable through both the magnification and analytic flux fit. Batched
+likelihood and `magnification_batch` currently use the standard router, so
+construct those curves with `finite_source_backend="default"`.
 
 The same callable can be used directly inside a NumPyro model. For HMC/NUTS,
 enable JAX 64-bit mode before constructing the curve and standardize physical
@@ -154,7 +165,8 @@ conventions and limb-darkening coefficients. Annual, terrestrial, and
 space-site parallax, binary-lens circular/Kepler orbital motion, and all
 single- or binary-source xallarap parameterizations use the same entry point.
 Parameters may be JAX tracers inside a dictionary. Higher-order trajectories
-currently require VBM-compatible coordinates.
+currently require VBM-compatible coordinates. Models outside algebraic-boundary
+support use the standard router automatically.
 
 Physical model choices are separate from numerical options:
 
@@ -212,20 +224,28 @@ derivative = jax.grad(
 An explicit `jax=True` or `jax=False` takes precedence over
 `Options(jax=...)`, just as it does for `LightCurve`.
 
-For binary finite-source inverse-ray calculations, `nbin="auto"` selects the
-Cartesian/polar grid and resolution per source position from the frozen
-empirical law, rounds the continuous prediction upward, and evaluates that
-grid once. The embedded area indicator remains diagnostic only; it does not
-change the selected `nbin`. Fixed integer `nbin` is also one-shot. The
-calibration experiment and frozen artifacts are documented in
+When the standard router is selected, `nbin="auto"` chooses its binary
+finite-source inverse-ray grid and resolution
+per source position from the frozen empirical law, rounds the continuous
+prediction upward, and evaluates that grid once. The embedded area indicator
+remains diagnostic only; it does not change the selected `nbin`. Fixed integer
+`nbin` is also one-shot. The calibration experiment and frozen artifacts are
+documented in
 [`docs/finite-source-auto-calibration.md`](docs/finite-source-auto-calibration.md).
 
-For repeated native evaluations of one fixed binary parameter vector and the
-same epoch array, build and retain a specialized execution plan once:
+For repeated standard-router native evaluations of one fixed binary parameter vector and the same epoch array, build and retain a specialized execution plan once:
 
 ```python
-report = lc.warmup(times, params)
-mag = lc(times, params)  # automatically reuses the plan
+standard_lc = lcbinint.LightCurve(
+    options=lcbinint.Options(
+        coordinates="vbm",
+        nbin="auto",
+        finite_source_backend="default",
+    ),
+    limb_darkening=lcbinint.LimbDarkening.linear(0.5),
+)
+report = standard_lc.warmup(times, params)
+mag = standard_lc(times, params)  # automatically reuses the plan
 ```
 
 The plan is exact-keyed; changed times, parameters, options, or limb darkening
@@ -243,7 +263,10 @@ the scalar API:
 
 ```python
 rows = [params_a, params_b, params_c]  # dict or lcbinint.Parameters
-magnifications = lc.magnification_batch(times, rows)
+standard_lc = lcbinint.LightCurve(
+    options=lcbinint.Options(finite_source_backend="default"),
+)
+magnifications = standard_lc.magnification_batch(times, rows)
 # shape: (len(rows), len(times))
 ```
 

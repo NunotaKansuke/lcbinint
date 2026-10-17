@@ -20,10 +20,10 @@ struct MagnificationExecutionPlan {
     magnification::FiniteSourceMethod method =
         magnification::FiniteSourceMethod::point_source;
     int resolution = 0;
-    // Tolerances for the opt-in holonomic_auto request. NaN uses the
+    // Tolerances for the opt-in algebraic_boundary_auto request. NaN uses the
     // LightCurve's existing finite-source error budget.
-    double holonomic_mu_atol = std::numeric_limits<double>::quiet_NaN();
-    double holonomic_mu_rtol = std::numeric_limits<double>::quiet_NaN();
+    double algebraic_boundary_atol = std::numeric_limits<double>::quiet_NaN();
+    double algebraic_boundary_rtol = std::numeric_limits<double>::quiet_NaN();
     // Clear shared binary caustic/seed/result caches once at the start of a
     // diagnostic light curve, so repeated benchmark calls measure cold input.
     bool clear_binary_epoch_caches_before = false;

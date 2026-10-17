@@ -1,0 +1,2338 @@
+{
+  "input_hash": "285a1dde5309fde307d735912b553ebf1cfb0a935978bc6ca0a63f6614630c8f",
+  "script_sha256": "73207550d062396830d1a78077da5328663ad6d5a3fcd7f07546723ab58741be",
+  "metadata": {
+    "created_utc": "2026-10-16T03:24:06Z",
+    "host": "rogue1",
+    "platform": "Linux-5.14.0-570.23.1.el9_6.x86_64-x86_64-with-glibc2.34",
+    "python": "3.10.19 (main, Oct 21 2025, 16:43:05) [GCC 11.2.0]",
+    "cpu": "x86_64",
+    "cpu_affinity": [
+      0
+    ],
+    "threads": {
+      "OMP_NUM_THREADS": "1",
+      "OPENBLAS_NUM_THREADS": "1",
+      "MKL_NUM_THREADS": "1",
+      "NUMEXPR_NUM_THREADS": "1",
+      "JAX_PLATFORMS": "cpu",
+      "JAX_ENABLE_X64": "true"
+    },
+    "tolerance": {
+      "common": 0.001,
+      "microjax": "CPU public backend exposes fixed settings; no tolerance argument"
+    },
+    "trajectory_convention": {
+      "input_cases": "VBMicrolensing convention: y1=u0*sin(alpha)-tau*cos(alpha), y2=-u0*cos(alpha)-tau*sin(alpha)",
+      "microlux_microjax": "add pi to alpha to map the same physical trajectory to their (tau+i*u0)*exp(i*alpha) convention",
+      "autodiff_vbm_lcbinint": "use input alpha directly"
+    },
+    "value_api": {
+      "microlux": "microlux.model.binary_mag(times and physical parameters, vector call)",
+      "microjax": "microjax.inverse_ray.lightcurve.mag_binary(w_points,...,backend='cpu'); vectorized JAX time-to-w transform in same call",
+      "vbm": "VBMicrolensing.VBMicrolensing.BinaryLightCurve(params,times)",
+      "autodiff_vbm": "AutodiffVBM.BinaryLightCurve(params,times)",
+      "lcbinint": "lcbinint.LightCurve(times,params), algebraic_boundary"
+    },
+    "value_plus_gradient_api": {
+      "microlux": "jax.jacfwd(has_aux=True) of the vector-valued public binary_mag call",
+      "microjax": "jax.jacfwd(has_aux=True) of the vector-valued public mag_binary CPU call",
+      "autodiff_vbm": "jax.jacfwd(has_aux=True) of the vector-valued public BinaryLightCurve call",
+      "lcbinint": "single public holonomic_gradient batch call returning both mu and grad_mu",
+      "vbm": null
+    },
+    "workload_modes": [
+      "value_only",
+      "value_plus_gradient"
+    ],
+    "versions": {
+      "microlux": {
+        "version": "0.3.0",
+        "branch": "develop",
+        "head": "711245b6f557e5b1548b8e27d85ced7384c13418",
+        "module": "/rogue1_8/nunota/microlux/src/microlux/model.py",
+        "module_sha256": "d3e11b2bd2c29d5d900c7cdfcefd50a22e9175898ab423d68bdd8807dec3cd0e"
+      },
+      "microjax": {
+        "version": "0.2.0",
+        "distribution": "0.1.1",
+        "branch": "develop",
+        "head": "326cb0dd14617e5716a9d652b510709902d27b5b",
+        "module": "/rogue1_8/nunota/microjax/src/microjax/__init__.py"
+      },
+      "vbm": {
+        "version": "5.6.1",
+        "head": "49d8ac969f754beb5ae990a9fa40db8df3a10082",
+        "module": "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/evidence/library_comparison_20261016/vbm561/VBMicrolensing/__init__.py",
+        "native": "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/evidence/library_comparison_20261016/vbm561/VBMicrolensing/VBMicrolensing.so"
+      },
+      "autodiff_vbm": {
+        "version": "0.1.0",
+        "branch": "eco-system/integration",
+        "head": "69002603035eaddcdbad3d3b62e4f570a7cf9b85",
+        "module": "/rogue1_8/nunota/moasarc-ecosystem/integration/autodiff-vbm/src/autodiff_vbm/__init__.py",
+        "native": "/rogue1_8/nunota/moasarc-ecosystem/integration/autodiff-vbm/src/autodiff_vbm/_autodiff_vbm_native.cpython-310-x86_64-linux-gnu.so",
+        "native_sha256": "af20535770c8949e349c0636161cb718b8b3127e5023526c585bc5df40c976f6",
+        "vendored_vbm": "5.5"
+      },
+      "lcbinint": {
+        "branch": "experiment/algebraic_boundary",
+        "head": "40e66e510799f9d3d15b459be2b38694daad52ee",
+        "native": "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/build-algebraic-boundary/python-api/lcbinint/_lcbinint.cpython-310-x86_64-linux-gnu.so",
+        "native_sha256": "e6f7ef220adaa30b9b2086cb723c3d18eb2a472014b200b4c9e6c8f53bffa1ac",
+        "gradient_native": "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/build-algebraic-boundary/fused-gradient/python/_lcbinint_holonomic_fused.cpython-310-x86_64-linux-gnu.so",
+        "gradient_native_sha256": "bbe47aac03502b063aa3411df24d79d83ec1d491cfbcf20f747cdc395adfafe4",
+        "python_source_sha256": "e5217bb09d5514f347c867e5c0e53261a60c8bf7a70275cb7504aa5d92619435",
+        "gradient_source_sha256": "2aa9b6c630068122d78ceb8d95c64e7c9f2b2fe39d256b61ad2feb2dbfdd9869"
+      }
+    },
+    "input_hash": "285a1dde5309fde307d735912b553ebf1cfb0a935978bc6ca0a63f6614630c8f",
+    "script_sha256": "73207550d062396830d1a78077da5328663ad6d5a3fcd7f07546723ab58741be",
+    "repetitions": 15,
+    "consensus_is_reference": false,
+    "comparison_modes": [
+      "value_only",
+      "value_plus_gradient"
+    ],
+    "selected_cases": [
+      "ordinary_point",
+      "wide_caustic",
+      "large_source_ld09",
+      "large_source_ld05_user",
+      "near_limb_contact_117",
+      "near_double_root"
+    ],
+    "skipped_libraries": [
+      "lcbinint",
+      "microjax",
+      "microlux"
+    ],
+    "value_plus_gradient_skipped_libraries": [
+      "autodiff_vbm"
+    ],
+    "note": "VBM and autodiff-vbm share the VBM solver family; they are collapsed to one value family for consensus."
+  },
+  "case_count": 6,
+  "total_epochs": 1661,
+  "overall": {
+    "vbm_value": {
+      "epochs": 1661,
+      "sum_of_per_curve_medians_ms": 1447.3030600929633,
+      "weighted_epochs_per_second": 1147.6518262134473
+    },
+    "autodiff_vbm_value": {
+      "epochs": 1661,
+      "sum_of_per_curve_medians_ms": 1107.8444469021633,
+      "weighted_epochs_per_second": 1499.3079620921612
+    },
+    "lcbinint_value": {
+      "epochs": 1661,
+      "sum_of_per_curve_medians_ms": 350.77765688765794,
+      "weighted_epochs_per_second": 4735.19326954157
+    },
+    "lcbinint_value_plus_gradient": {
+      "epochs": 1661,
+      "sum_of_per_curve_medians_ms": 797.2736649680883,
+      "weighted_epochs_per_second": 2083.349887226594
+    }
+  },
+  "cases": {
+    "ordinary_point": {
+      "n_epochs": 401,
+      "value_consensus": {
+        "definition": "per-epoch median of microlux, microjax, lcbinint, and one VBM-family median (VBM + autodiff-vbm)",
+        "finite_epochs": 401,
+        "by_library": {
+          "vbm": {
+            "finite_epochs": 401,
+            "median_abs": 8.881784197001252e-16,
+            "p95_abs": 4.440892098500626e-15,
+            "max_abs": 7.993605777301127e-15,
+            "median_rel": 3.9192861446000173e-16,
+            "p95_rel": 1.845781543648849e-15
+          },
+          "microlux": {
+            "finite_epochs": 0,
+            "median_abs": null,
+            "p95_abs": null,
+            "max_abs": null,
+            "median_rel": null,
+            "p95_rel": null
+          },
+          "microjax": {
+            "finite_epochs": 0,
+            "median_abs": null,
+            "p95_abs": null,
+            "max_abs": null,
+            "median_rel": null,
+            "p95_rel": null
+          },
+          "autodiff_vbm": {
+            "finite_epochs": 401,
+            "median_abs": 8.881784197001252e-16,
+            "p95_abs": 7.105427357601002e-15,
+            "max_abs": 1.5987211554602254e-14,
+            "median_rel": 4.998080768364438e-16,
+            "p95_rel": 3.069571976669626e-15
+          },
+          "lcbinint": {
+            "finite_epochs": 401,
+            "median_abs": 6.661338147750939e-16,
+            "p95_abs": 3.9968028886505635e-15,
+            "max_abs": 7.105427357601002e-15,
+            "median_rel": 3.4360766568991157e-16,
+            "p95_rel": 1.4358301601306406e-15
+          }
+        },
+        "pairwise_family_max_rel": 6.1822114308804694e-15
+      },
+      "value_plus_gradient_consistency": {
+        "microlux": {
+          "finite_epochs": 0,
+          "median_abs": null,
+          "p95_abs": null,
+          "max_abs": null,
+          "max_rel": null
+        },
+        "microjax": {
+          "finite_epochs": 0,
+          "median_abs": null,
+          "p95_abs": null,
+          "max_abs": null,
+          "max_rel": null
+        },
+        "autodiff_vbm": {
+          "finite_epochs": 0,
+          "median_abs": null,
+          "p95_abs": null,
+          "max_abs": null,
+          "max_rel": null
+        },
+        "lcbinint": {
+          "finite_epochs": 401,
+          "median_abs": 4.925965488844497e-06,
+          "p95_abs": 3.7919411685738424e-05,
+          "max_abs": 3.9630006566149234e-05,
+          "max_rel": 1.1537419321006528e-05
+        }
+      },
+      "gradient_consensus": {
+        "definition": "per-epoch/parameter median of finite gradients; invalid lcbinint components are excluded",
+        "finite_components": 2807,
+        "by_library": {
+          "microlux": {
+            "parameters": {
+              "log_s": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "log_q": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "u0": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "alpha_rad": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "log_rho": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "log_tE": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "t0": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              }
+            }
+          },
+          "microjax": {
+            "parameters": {
+              "log_s": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "log_q": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "u0": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "alpha_rad": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "log_rho": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "log_tE": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "t0": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              }
+            }
+          },
+          "autodiff_vbm": {
+            "parameters": {
+              "log_s": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "log_q": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "u0": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "alpha_rad": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "log_rho": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "log_tE": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "t0": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              }
+            }
+          },
+          "lcbinint": {
+            "parameters": {
+              "log_s": {
+                "finite_epochs": 401,
+                "median_abs": 0.0,
+                "p95_abs": 0.0,
+                "max_abs": 0.0,
+                "median_rel_nonzero": 0.0,
+                "p95_rel_nonzero": 0.0
+              },
+              "log_q": {
+                "finite_epochs": 401,
+                "median_abs": 0.0,
+                "p95_abs": 0.0,
+                "max_abs": 0.0,
+                "median_rel_nonzero": 0.0,
+                "p95_rel_nonzero": 0.0
+              },
+              "u0": {
+                "finite_epochs": 401,
+                "median_abs": 0.0,
+                "p95_abs": 0.0,
+                "max_abs": 0.0,
+                "median_rel_nonzero": 0.0,
+                "p95_rel_nonzero": 0.0
+              },
+              "alpha_rad": {
+                "finite_epochs": 401,
+                "median_abs": 0.0,
+                "p95_abs": 0.0,
+                "max_abs": 0.0,
+                "median_rel_nonzero": 0.0,
+                "p95_rel_nonzero": 0.0
+              },
+              "log_rho": {
+                "finite_epochs": 401,
+                "median_abs": 0.0,
+                "p95_abs": 0.0,
+                "max_abs": 0.0,
+                "median_rel_nonzero": 0.0,
+                "p95_rel_nonzero": 0.0
+              },
+              "log_tE": {
+                "finite_epochs": 401,
+                "median_abs": 0.0,
+                "p95_abs": 0.0,
+                "max_abs": 0.0,
+                "median_rel_nonzero": 0.0,
+                "p95_rel_nonzero": 0.0
+              },
+              "t0": {
+                "finite_epochs": 401,
+                "median_abs": 0.0,
+                "p95_abs": 0.0,
+                "max_abs": 0.0,
+                "median_rel_nonzero": 0.0,
+                "p95_rel_nonzero": 0.0
+              }
+            }
+          }
+        }
+      },
+      "timing": {
+        "vbm_value": {
+          "first_call_ms": 0.449727987870574,
+          "steady_median_ms": 0.38277998100966215,
+          "steady_p95_ms": 0.41297659045085305,
+          "repetitions": 15
+        },
+        "autodiff_vbm_value": {
+          "first_call_ms": 62.64155195094645,
+          "steady_median_ms": 0.3969731042161584,
+          "steady_p95_ms": 0.41546759894117713,
+          "repetitions": 15,
+          "first_call_includes_new_jit_graph": true
+        },
+        "lcbinint_value": {
+          "first_call_ms": 0.8084350265562534,
+          "steady_median_ms": 0.3584349760785699,
+          "steady_p95_ms": 0.3711177734658122,
+          "repetitions": 15
+        },
+        "lcbinint_value_plus_gradient": {
+          "first_call_ms": 63.20032407529652,
+          "steady_median_ms": 55.31154898926616,
+          "steady_p95_ms": 55.557716521434486,
+          "repetitions": 15,
+          "first_call_includes_new_jit_graph": false
+        }
+      },
+      "status": {
+        "vbm_value_finite": 401,
+        "microlux_skipped": "targeted VBM versus autodiff-vbm value-only timing audit",
+        "microjax_skipped": "targeted VBM versus autodiff-vbm value-only timing audit",
+        "autodiff_vbm_value_finite": 401,
+        "autodiff_vbm_value_plus_gradient_skipped": "targeted VBM versus autodiff-vbm value-only timing audit",
+        "lcbinint_value_finite": 401,
+        "lcbinint_value_plus_gradient_finite": 401,
+        "lcbinint_gradient_valid": 2807,
+        "lcbinint_gradient_components": 2807,
+        "lcbinint_gradient_finite_valid": 2807
+      }
+    },
+    "wide_caustic": {
+      "n_epochs": 401,
+      "value_consensus": {
+        "definition": "per-epoch median of microlux, microjax, lcbinint, and one VBM-family median (VBM + autodiff-vbm)",
+        "finite_epochs": 401,
+        "by_library": {
+          "vbm": {
+            "finite_epochs": 401,
+            "median_abs": 2.2648549702353193e-14,
+            "p95_abs": 0.00021117432941863967,
+            "max_abs": 0.004790568181036292,
+            "median_rel": 1.0523631634860005e-14,
+            "p95_rel": 3.2777659148398245e-05
+          },
+          "microlux": {
+            "finite_epochs": 0,
+            "median_abs": null,
+            "p95_abs": null,
+            "max_abs": null,
+            "median_rel": null,
+            "p95_rel": null
+          },
+          "microjax": {
+            "finite_epochs": 0,
+            "median_abs": null,
+            "p95_abs": null,
+            "max_abs": null,
+            "median_rel": null,
+            "p95_rel": null
+          },
+          "autodiff_vbm": {
+            "finite_epochs": 401,
+            "median_abs": 2.7977620220553945e-14,
+            "p95_abs": 0.00021117432474504483,
+            "max_abs": 0.00479056808040923,
+            "median_rel": 1.0379033408186771e-14,
+            "p95_rel": 3.2777659269537055e-05
+          },
+          "lcbinint": {
+            "finite_epochs": 401,
+            "median_abs": 2.042810365310288e-14,
+            "p95_abs": 0.00021117432707917771,
+            "max_abs": 0.004790568130701445,
+            "median_rel": 7.99266626766169e-15,
+            "p95_rel": 3.27776592090941e-05
+          }
+        },
+        "pairwise_family_max_rel": 0.00012264140445067582
+      },
+      "value_plus_gradient_consistency": {
+        "microlux": {
+          "finite_epochs": 0,
+          "median_abs": null,
+          "p95_abs": null,
+          "max_abs": null,
+          "max_rel": null
+        },
+        "microjax": {
+          "finite_epochs": 0,
+          "median_abs": null,
+          "p95_abs": null,
+          "max_abs": null,
+          "max_rel": null
+        },
+        "autodiff_vbm": {
+          "finite_epochs": 0,
+          "median_abs": null,
+          "p95_abs": null,
+          "max_abs": null,
+          "max_rel": null
+        },
+        "lcbinint": {
+          "finite_epochs": 401,
+          "median_abs": 3.754023954583019e-06,
+          "p95_abs": 0.0001450006450403052,
+          "max_abs": 0.0002847630252835742,
+          "max_rel": 7.426734547457167e-05
+        }
+      },
+      "gradient_consensus": {
+        "definition": "per-epoch/parameter median of finite gradients; invalid lcbinint components are excluded",
+        "finite_components": 2807,
+        "by_library": {
+          "microlux": {
+            "parameters": {
+              "log_s": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "log_q": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "u0": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "alpha_rad": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "log_rho": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "log_tE": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "t0": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              }
+            }
+          },
+          "microjax": {
+            "parameters": {
+              "log_s": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "log_q": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "u0": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "alpha_rad": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "log_rho": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "log_tE": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "t0": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              }
+            }
+          },
+          "autodiff_vbm": {
+            "parameters": {
+              "log_s": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "log_q": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "u0": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "alpha_rad": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "log_rho": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "log_tE": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "t0": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              }
+            }
+          },
+          "lcbinint": {
+            "parameters": {
+              "log_s": {
+                "finite_epochs": 401,
+                "median_abs": 0.0,
+                "p95_abs": 0.0,
+                "max_abs": 0.0,
+                "median_rel_nonzero": 0.0,
+                "p95_rel_nonzero": 0.0
+              },
+              "log_q": {
+                "finite_epochs": 401,
+                "median_abs": 0.0,
+                "p95_abs": 0.0,
+                "max_abs": 0.0,
+                "median_rel_nonzero": 0.0,
+                "p95_rel_nonzero": 0.0
+              },
+              "u0": {
+                "finite_epochs": 401,
+                "median_abs": 0.0,
+                "p95_abs": 0.0,
+                "max_abs": 0.0,
+                "median_rel_nonzero": 0.0,
+                "p95_rel_nonzero": 0.0
+              },
+              "alpha_rad": {
+                "finite_epochs": 401,
+                "median_abs": 0.0,
+                "p95_abs": 0.0,
+                "max_abs": 0.0,
+                "median_rel_nonzero": 0.0,
+                "p95_rel_nonzero": 0.0
+              },
+              "log_rho": {
+                "finite_epochs": 401,
+                "median_abs": 0.0,
+                "p95_abs": 0.0,
+                "max_abs": 0.0,
+                "median_rel_nonzero": 0.0,
+                "p95_rel_nonzero": 0.0
+              },
+              "log_tE": {
+                "finite_epochs": 401,
+                "median_abs": 0.0,
+                "p95_abs": 0.0,
+                "max_abs": 0.0,
+                "median_rel_nonzero": 0.0,
+                "p95_rel_nonzero": 0.0
+              },
+              "t0": {
+                "finite_epochs": 401,
+                "median_abs": 0.0,
+                "p95_abs": 0.0,
+                "max_abs": 0.0,
+                "median_rel_nonzero": 0.0,
+                "p95_rel_nonzero": 0.0
+              }
+            }
+          }
+        }
+      },
+      "timing": {
+        "vbm_value": {
+          "first_call_ms": 9.654680034145713,
+          "steady_median_ms": 9.573946008458734,
+          "steady_p95_ms": 9.593869745731354,
+          "repetitions": 15
+        },
+        "autodiff_vbm_value": {
+          "first_call_ms": 72.78595096431673,
+          "steady_median_ms": 8.569604950025678,
+          "steady_p95_ms": 8.63962845178321,
+          "repetitions": 15,
+          "first_call_includes_new_jit_graph": true
+        },
+        "lcbinint_value": {
+          "first_call_ms": 11.882271035574377,
+          "steady_median_ms": 9.752335958182812,
+          "steady_p95_ms": 9.89100243896246,
+          "repetitions": 15
+        },
+        "lcbinint_value_plus_gradient": {
+          "first_call_ms": 66.6656430112198,
+          "steady_median_ms": 64.28095803130418,
+          "steady_p95_ms": 65.47355726361275,
+          "repetitions": 15,
+          "first_call_includes_new_jit_graph": false
+        }
+      },
+      "status": {
+        "vbm_value_finite": 401,
+        "microlux_skipped": "targeted VBM versus autodiff-vbm value-only timing audit",
+        "microjax_skipped": "targeted VBM versus autodiff-vbm value-only timing audit",
+        "autodiff_vbm_value_finite": 401,
+        "autodiff_vbm_value_plus_gradient_skipped": "targeted VBM versus autodiff-vbm value-only timing audit",
+        "lcbinint_value_finite": 401,
+        "lcbinint_value_plus_gradient_finite": 401,
+        "lcbinint_gradient_valid": 2807,
+        "lcbinint_gradient_components": 2807,
+        "lcbinint_gradient_finite_valid": 2807
+      }
+    },
+    "large_source_ld09": {
+      "n_epochs": 401,
+      "value_consensus": {
+        "definition": "per-epoch median of microlux, microjax, lcbinint, and one VBM-family median (VBM + autodiff-vbm)",
+        "finite_epochs": 401,
+        "by_library": {
+          "vbm": {
+            "finite_epochs": 401,
+            "median_abs": 0.0010896179709698472,
+            "p95_abs": 0.0016539635801207098,
+            "max_abs": 0.0018394296783723618,
+            "median_rel": 0.00023149700775687806,
+            "p95_rel": 0.000350429878323068
+          },
+          "microlux": {
+            "finite_epochs": 0,
+            "median_abs": null,
+            "p95_abs": null,
+            "max_abs": null,
+            "median_rel": null,
+            "p95_rel": null
+          },
+          "microjax": {
+            "finite_epochs": 0,
+            "median_abs": null,
+            "p95_abs": null,
+            "max_abs": null,
+            "median_rel": null,
+            "p95_rel": null
+          },
+          "autodiff_vbm": {
+            "finite_epochs": 401,
+            "median_abs": 0.0038838454218597107,
+            "p95_abs": 0.005163410390355061,
+            "max_abs": 0.0052356434023064224,
+            "median_rel": 0.000825105482392346,
+            "p95_rel": 0.0010939864034294187
+          },
+          "lcbinint": {
+            "finite_epochs": 401,
+            "median_abs": 0.0013926220650555265,
+            "p95_abs": 0.001815290210944731,
+            "max_abs": 0.0018602521040520514,
+            "median_rel": 0.0002958561781663302,
+            "p95_rel": 0.0003846972135580211
+          }
+        },
+        "pairwise_family_max_rel": 0.0007895144983982983
+      },
+      "value_plus_gradient_consistency": {
+        "microlux": {
+          "finite_epochs": 0,
+          "median_abs": null,
+          "p95_abs": null,
+          "max_abs": null,
+          "max_rel": null
+        },
+        "microjax": {
+          "finite_epochs": 0,
+          "median_abs": null,
+          "p95_abs": null,
+          "max_abs": null,
+          "max_rel": null
+        },
+        "autodiff_vbm": {
+          "finite_epochs": 0,
+          "median_abs": null,
+          "p95_abs": null,
+          "max_abs": null,
+          "max_rel": null
+        },
+        "lcbinint": {
+          "finite_epochs": 401,
+          "median_abs": 0.0,
+          "p95_abs": 0.0,
+          "max_abs": 0.0006833402541737144,
+          "max_rel": 0.0001453298589197984
+        }
+      },
+      "gradient_consensus": {
+        "definition": "per-epoch/parameter median of finite gradients; invalid lcbinint components are excluded",
+        "finite_components": 2807,
+        "by_library": {
+          "microlux": {
+            "parameters": {
+              "log_s": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "log_q": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "u0": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "alpha_rad": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "log_rho": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "log_tE": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "t0": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              }
+            }
+          },
+          "microjax": {
+            "parameters": {
+              "log_s": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "log_q": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "u0": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "alpha_rad": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "log_rho": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "log_tE": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "t0": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              }
+            }
+          },
+          "autodiff_vbm": {
+            "parameters": {
+              "log_s": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "log_q": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "u0": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "alpha_rad": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "log_rho": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "log_tE": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "t0": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              }
+            }
+          },
+          "lcbinint": {
+            "parameters": {
+              "log_s": {
+                "finite_epochs": 401,
+                "median_abs": 0.0,
+                "p95_abs": 0.0,
+                "max_abs": 0.0,
+                "median_rel_nonzero": 0.0,
+                "p95_rel_nonzero": 0.0
+              },
+              "log_q": {
+                "finite_epochs": 401,
+                "median_abs": 0.0,
+                "p95_abs": 0.0,
+                "max_abs": 0.0,
+                "median_rel_nonzero": 0.0,
+                "p95_rel_nonzero": 0.0
+              },
+              "u0": {
+                "finite_epochs": 401,
+                "median_abs": 0.0,
+                "p95_abs": 0.0,
+                "max_abs": 0.0,
+                "median_rel_nonzero": 0.0,
+                "p95_rel_nonzero": 0.0
+              },
+              "alpha_rad": {
+                "finite_epochs": 401,
+                "median_abs": 0.0,
+                "p95_abs": 0.0,
+                "max_abs": 0.0,
+                "median_rel_nonzero": 0.0,
+                "p95_rel_nonzero": 0.0
+              },
+              "log_rho": {
+                "finite_epochs": 401,
+                "median_abs": 0.0,
+                "p95_abs": 0.0,
+                "max_abs": 0.0,
+                "median_rel_nonzero": 0.0,
+                "p95_rel_nonzero": 0.0
+              },
+              "log_tE": {
+                "finite_epochs": 401,
+                "median_abs": 0.0,
+                "p95_abs": 0.0,
+                "max_abs": 0.0,
+                "median_rel_nonzero": 0.0,
+                "p95_rel_nonzero": 0.0
+              },
+              "t0": {
+                "finite_epochs": 401,
+                "median_abs": 0.0,
+                "p95_abs": 0.0,
+                "max_abs": 0.0,
+                "median_rel_nonzero": 0.0,
+                "p95_rel_nonzero": 0.0
+              }
+            }
+          }
+        }
+      },
+      "timing": {
+        "vbm_value": {
+          "first_call_ms": 761.0471710795537,
+          "steady_median_ms": 757.6047190232202,
+          "steady_p95_ms": 760.7886891928501,
+          "repetitions": 15
+        },
+        "autodiff_vbm_value": {
+          "first_call_ms": 330.8174660196528,
+          "steady_median_ms": 268.7772490317002,
+          "steady_p95_ms": 269.17252462590113,
+          "repetitions": 15,
+          "first_call_includes_new_jit_graph": true
+        },
+        "lcbinint_value": {
+          "first_call_ms": 157.30036492459476,
+          "steady_median_ms": 155.37079807836562,
+          "steady_p95_ms": 156.30576361436397,
+          "repetitions": 15
+        },
+        "lcbinint_value_plus_gradient": {
+          "first_call_ms": 276.37167007196695,
+          "steady_median_ms": 272.87017507478595,
+          "steady_p95_ms": 287.9927697940729,
+          "repetitions": 15,
+          "first_call_includes_new_jit_graph": false
+        }
+      },
+      "status": {
+        "vbm_value_finite": 401,
+        "microlux_skipped": "targeted VBM versus autodiff-vbm value-only timing audit",
+        "microjax_skipped": "targeted VBM versus autodiff-vbm value-only timing audit",
+        "autodiff_vbm_value_finite": 401,
+        "autodiff_vbm_value_plus_gradient_skipped": "targeted VBM versus autodiff-vbm value-only timing audit",
+        "lcbinint_value_finite": 401,
+        "lcbinint_value_plus_gradient_finite": 401,
+        "lcbinint_gradient_valid": 2807,
+        "lcbinint_gradient_components": 2807,
+        "lcbinint_gradient_finite_valid": 2807
+      }
+    },
+    "large_source_ld05_user": {
+      "n_epochs": 401,
+      "value_consensus": {
+        "definition": "per-epoch median of microlux, microjax, lcbinint, and one VBM-family median (VBM + autodiff-vbm)",
+        "finite_epochs": 401,
+        "by_library": {
+          "vbm": {
+            "finite_epochs": 401,
+            "median_abs": 0.000786934414045426,
+            "p95_abs": 0.0019950151287311257,
+            "max_abs": 0.0021043759810801532,
+            "median_rel": 0.00017905928461698647,
+            "p95_rel": 0.00045688790230558946
+          },
+          "microlux": {
+            "finite_epochs": 0,
+            "median_abs": null,
+            "p95_abs": null,
+            "max_abs": null,
+            "median_rel": null,
+            "p95_rel": null
+          },
+          "microjax": {
+            "finite_epochs": 0,
+            "median_abs": null,
+            "p95_abs": null,
+            "max_abs": null,
+            "median_rel": null,
+            "p95_rel": null
+          },
+          "autodiff_vbm": {
+            "finite_epochs": 401,
+            "median_abs": 0.0028807976072497965,
+            "p95_abs": 0.00673095488122577,
+            "max_abs": 0.007104663646746445,
+            "median_rel": 0.0006553980155107081,
+            "p95_rel": 0.0015414871551225578
+          },
+          "lcbinint": {
+            "finite_epochs": 401,
+            "median_abs": 0.0010466557218062889,
+            "p95_abs": 0.0023676114591646424,
+            "max_abs": 0.002500143832833146,
+            "median_rel": 0.0002380985203535012,
+            "p95_rel": 0.0005422176670360682
+          }
+        },
+        "pairwise_family_max_rel": 0.0011440969328612887
+      },
+      "value_plus_gradient_consistency": {
+        "microlux": {
+          "finite_epochs": 0,
+          "median_abs": null,
+          "p95_abs": null,
+          "max_abs": null,
+          "max_rel": null
+        },
+        "microjax": {
+          "finite_epochs": 0,
+          "median_abs": null,
+          "p95_abs": null,
+          "max_abs": null,
+          "max_rel": null
+        },
+        "autodiff_vbm": {
+          "finite_epochs": 0,
+          "median_abs": null,
+          "p95_abs": null,
+          "max_abs": null,
+          "max_rel": null
+        },
+        "lcbinint": {
+          "finite_epochs": 401,
+          "median_abs": 0.0,
+          "p95_abs": 0.0,
+          "max_abs": 0.00031889211861457767,
+          "max_rel": 7.266114111216534e-05
+        }
+      },
+      "gradient_consensus": {
+        "definition": "per-epoch/parameter median of finite gradients; invalid lcbinint components are excluded",
+        "finite_components": 2807,
+        "by_library": {
+          "microlux": {
+            "parameters": {
+              "log_s": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "log_q": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "u0": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "alpha_rad": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "log_rho": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "log_tE": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "t0": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              }
+            }
+          },
+          "microjax": {
+            "parameters": {
+              "log_s": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "log_q": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "u0": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "alpha_rad": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "log_rho": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "log_tE": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "t0": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              }
+            }
+          },
+          "autodiff_vbm": {
+            "parameters": {
+              "log_s": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "log_q": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "u0": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "alpha_rad": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "log_rho": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "log_tE": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "t0": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              }
+            }
+          },
+          "lcbinint": {
+            "parameters": {
+              "log_s": {
+                "finite_epochs": 401,
+                "median_abs": 0.0,
+                "p95_abs": 0.0,
+                "max_abs": 0.0,
+                "median_rel_nonzero": 0.0,
+                "p95_rel_nonzero": 0.0
+              },
+              "log_q": {
+                "finite_epochs": 401,
+                "median_abs": 0.0,
+                "p95_abs": 0.0,
+                "max_abs": 0.0,
+                "median_rel_nonzero": 0.0,
+                "p95_rel_nonzero": 0.0
+              },
+              "u0": {
+                "finite_epochs": 401,
+                "median_abs": 0.0,
+                "p95_abs": 0.0,
+                "max_abs": 0.0,
+                "median_rel_nonzero": 0.0,
+                "p95_rel_nonzero": 0.0
+              },
+              "alpha_rad": {
+                "finite_epochs": 401,
+                "median_abs": 0.0,
+                "p95_abs": 0.0,
+                "max_abs": 0.0,
+                "median_rel_nonzero": 0.0,
+                "p95_rel_nonzero": 0.0
+              },
+              "log_rho": {
+                "finite_epochs": 401,
+                "median_abs": 0.0,
+                "p95_abs": 0.0,
+                "max_abs": 0.0,
+                "median_rel_nonzero": 0.0,
+                "p95_rel_nonzero": 0.0
+              },
+              "log_tE": {
+                "finite_epochs": 401,
+                "median_abs": 0.0,
+                "p95_abs": 0.0,
+                "max_abs": 0.0,
+                "median_rel_nonzero": 0.0,
+                "p95_rel_nonzero": 0.0
+              },
+              "t0": {
+                "finite_epochs": 401,
+                "median_abs": 0.0,
+                "p95_abs": 0.0,
+                "max_abs": 0.0,
+                "median_rel_nonzero": 0.0,
+                "p95_rel_nonzero": 0.0
+              }
+            }
+          }
+        }
+      },
+      "timing": {
+        "vbm_value": {
+          "first_call_ms": 617.0975929126143,
+          "steady_median_ms": 616.4319070521742,
+          "steady_p95_ms": 619.1515486454591,
+          "repetitions": 15
+        },
+        "autodiff_vbm_value": {
+          "first_call_ms": 244.36340807005763,
+          "steady_median_ms": 244.15813491214067,
+          "steady_p95_ms": 244.50915683992207,
+          "repetitions": 15,
+          "first_call_includes_new_jit_graph": false
+        },
+        "lcbinint_value": {
+          "first_call_ms": 156.60827001556754,
+          "steady_median_ms": 155.7960850186646,
+          "steady_p95_ms": 156.82352122385055,
+          "repetitions": 15
+        },
+        "lcbinint_value_plus_gradient": {
+          "first_call_ms": 276.28342097159475,
+          "steady_median_ms": 272.8226059116423,
+          "steady_p95_ms": 274.071313359309,
+          "repetitions": 15,
+          "first_call_includes_new_jit_graph": false
+        }
+      },
+      "status": {
+        "vbm_value_finite": 401,
+        "microlux_skipped": "targeted VBM versus autodiff-vbm value-only timing audit",
+        "microjax_skipped": "targeted VBM versus autodiff-vbm value-only timing audit",
+        "autodiff_vbm_value_finite": 401,
+        "autodiff_vbm_value_plus_gradient_skipped": "targeted VBM versus autodiff-vbm value-only timing audit",
+        "lcbinint_value_finite": 401,
+        "lcbinint_value_plus_gradient_finite": 401,
+        "lcbinint_gradient_valid": 2807,
+        "lcbinint_gradient_components": 2807,
+        "lcbinint_gradient_finite_valid": 2807
+      }
+    },
+    "near_limb_contact_117": {
+      "n_epochs": 27,
+      "value_consensus": {
+        "definition": "per-epoch median of microlux, microjax, lcbinint, and one VBM-family median (VBM + autodiff-vbm)",
+        "finite_epochs": 27,
+        "by_library": {
+          "vbm": {
+            "finite_epochs": 27,
+            "median_abs": 0.001319380492729394,
+            "p95_abs": 0.04629394857715309,
+            "max_abs": 1.5472727529350703,
+            "median_rel": 0.00022397168314886547,
+            "p95_rel": 0.0061962591483268326
+          },
+          "microlux": {
+            "finite_epochs": 0,
+            "median_abs": null,
+            "p95_abs": null,
+            "max_abs": null,
+            "median_rel": null,
+            "p95_rel": null
+          },
+          "microjax": {
+            "finite_epochs": 0,
+            "median_abs": null,
+            "p95_abs": null,
+            "max_abs": null,
+            "median_rel": null,
+            "p95_rel": null
+          },
+          "autodiff_vbm": {
+            "finite_epochs": 27,
+            "median_abs": 0.0010070230547505332,
+            "p95_abs": 0.033551378647373654,
+            "max_abs": 0.5149070994506522,
+            "median_rel": 9.375741119149199e-05,
+            "p95_rel": 0.002866954469291671
+          },
+          "lcbinint": {
+            "finite_epochs": 27,
+            "median_abs": 0.00040575143944554526,
+            "p95_abs": 0.015711622500593322,
+            "max_abs": 0.5161828267422086,
+            "median_rel": 8.19514316609556e-05,
+            "p95_rel": 0.0021028985235920627
+          }
+        },
+        "pairwise_family_max_rel": 0.12939269286003366
+      },
+      "value_plus_gradient_consistency": {
+        "microlux": {
+          "finite_epochs": 0,
+          "median_abs": null,
+          "p95_abs": null,
+          "max_abs": null,
+          "max_rel": null
+        },
+        "microjax": {
+          "finite_epochs": 0,
+          "median_abs": null,
+          "p95_abs": null,
+          "max_abs": null,
+          "max_rel": null
+        },
+        "autodiff_vbm": {
+          "finite_epochs": 0,
+          "median_abs": null,
+          "p95_abs": null,
+          "max_abs": null,
+          "max_rel": null
+        },
+        "lcbinint": {
+          "finite_epochs": 27,
+          "median_abs": 8.881784197001252e-16,
+          "p95_abs": 0.0003190399619187542,
+          "max_abs": 0.0005511085029201723,
+          "max_rel": 7.384800797555488e-05
+        }
+      },
+      "gradient_consensus": {
+        "definition": "per-epoch/parameter median of finite gradients; invalid lcbinint components are excluded",
+        "finite_components": 189,
+        "by_library": {
+          "microlux": {
+            "parameters": {
+              "log_s": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "log_q": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "u0": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "alpha_rad": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "log_rho": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "log_tE": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "t0": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              }
+            }
+          },
+          "microjax": {
+            "parameters": {
+              "log_s": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "log_q": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "u0": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "alpha_rad": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "log_rho": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "log_tE": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "t0": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              }
+            }
+          },
+          "autodiff_vbm": {
+            "parameters": {
+              "log_s": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "log_q": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "u0": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "alpha_rad": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "log_rho": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "log_tE": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "t0": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              }
+            }
+          },
+          "lcbinint": {
+            "parameters": {
+              "log_s": {
+                "finite_epochs": 27,
+                "median_abs": 0.0,
+                "p95_abs": 0.0,
+                "max_abs": 0.0,
+                "median_rel_nonzero": 0.0,
+                "p95_rel_nonzero": 0.0
+              },
+              "log_q": {
+                "finite_epochs": 27,
+                "median_abs": 0.0,
+                "p95_abs": 0.0,
+                "max_abs": 0.0,
+                "median_rel_nonzero": 0.0,
+                "p95_rel_nonzero": 0.0
+              },
+              "u0": {
+                "finite_epochs": 27,
+                "median_abs": 0.0,
+                "p95_abs": 0.0,
+                "max_abs": 0.0,
+                "median_rel_nonzero": 0.0,
+                "p95_rel_nonzero": 0.0
+              },
+              "alpha_rad": {
+                "finite_epochs": 27,
+                "median_abs": 0.0,
+                "p95_abs": 0.0,
+                "max_abs": 0.0,
+                "median_rel_nonzero": 0.0,
+                "p95_rel_nonzero": 0.0
+              },
+              "log_rho": {
+                "finite_epochs": 27,
+                "median_abs": 0.0,
+                "p95_abs": 0.0,
+                "max_abs": 0.0,
+                "median_rel_nonzero": 0.0,
+                "p95_rel_nonzero": 0.0
+              },
+              "log_tE": {
+                "finite_epochs": 27,
+                "median_abs": 0.0,
+                "p95_abs": 0.0,
+                "max_abs": 0.0,
+                "median_rel_nonzero": 0.0,
+                "p95_rel_nonzero": 0.0
+              },
+              "t0": {
+                "finite_epochs": 27,
+                "median_abs": 0.0,
+                "p95_abs": 0.0,
+                "max_abs": 0.0,
+                "median_rel_nonzero": 0.0,
+                "p95_rel_nonzero": 0.0
+              }
+            }
+          }
+        }
+      },
+      "timing": {
+        "vbm_value": {
+          "first_call_ms": 26.419554953463376,
+          "steady_median_ms": 26.2710900278762,
+          "steady_p95_ms": 26.301006320863962,
+          "repetitions": 15
+        },
+        "autodiff_vbm_value": {
+          "first_call_ms": 645.9955630125478,
+          "steady_median_ms": 565.2115299599245,
+          "steady_p95_ms": 577.6009591878392,
+          "repetitions": 15,
+          "first_call_includes_new_jit_graph": true
+        },
+        "lcbinint_value": {
+          "first_call_ms": 16.929644043557346,
+          "steady_median_ms": 11.506564915180206,
+          "steady_p95_ms": 11.61605006782338,
+          "repetitions": 15
+        },
+        "lcbinint_value_plus_gradient": {
+          "first_call_ms": 82.46780501212925,
+          "steady_median_ms": 82.03951502218843,
+          "steady_p95_ms": 82.76834052521735,
+          "repetitions": 15,
+          "first_call_includes_new_jit_graph": false
+        }
+      },
+      "status": {
+        "vbm_value_finite": 27,
+        "microlux_skipped": "targeted VBM versus autodiff-vbm value-only timing audit",
+        "microjax_skipped": "targeted VBM versus autodiff-vbm value-only timing audit",
+        "autodiff_vbm_value_finite": 27,
+        "autodiff_vbm_value_plus_gradient_skipped": "targeted VBM versus autodiff-vbm value-only timing audit",
+        "lcbinint_value_finite": 27,
+        "lcbinint_value_plus_gradient_finite": 27,
+        "lcbinint_gradient_valid": 189,
+        "lcbinint_gradient_components": 189,
+        "lcbinint_gradient_finite_valid": 189
+      }
+    },
+    "near_double_root": {
+      "n_epochs": 30,
+      "value_consensus": {
+        "definition": "per-epoch median of microlux, microjax, lcbinint, and one VBM-family median (VBM + autodiff-vbm)",
+        "finite_epochs": 30,
+        "by_library": {
+          "vbm": {
+            "finite_epochs": 30,
+            "median_abs": 0.00423713084981614,
+            "p95_abs": 0.04022921730903262,
+            "max_abs": 0.053698933656647796,
+            "median_rel": 0.00022578912658947166,
+            "p95_rel": 0.0011528731337495971
+          },
+          "microlux": {
+            "finite_epochs": 0,
+            "median_abs": null,
+            "p95_abs": null,
+            "max_abs": null,
+            "median_rel": null,
+            "p95_rel": null
+          },
+          "microjax": {
+            "finite_epochs": 0,
+            "median_abs": null,
+            "p95_abs": null,
+            "max_abs": null,
+            "median_rel": null,
+            "p95_rel": null
+          },
+          "autodiff_vbm": {
+            "finite_epochs": 30,
+            "median_abs": 0.002173091316485909,
+            "p95_abs": 0.11067591704665264,
+            "max_abs": 0.14031996004741387,
+            "median_rel": 6.972452877113925e-05,
+            "p95_rel": 0.0029838288950697883
+          },
+          "lcbinint": {
+            "finite_epochs": 30,
+            "median_abs": 0.0020063685446611856,
+            "p95_abs": 0.03564655666549252,
+            "max_abs": 0.043310513195379485,
+            "median_rel": 0.0001004320573763697,
+            "p95_rel": 0.0009164163915142378
+          }
+        },
+        "pairwise_family_max_rel": 0.0022548083404573846
+      },
+      "value_plus_gradient_consistency": {
+        "microlux": {
+          "finite_epochs": 0,
+          "median_abs": null,
+          "p95_abs": null,
+          "max_abs": null,
+          "max_rel": null
+        },
+        "microjax": {
+          "finite_epochs": 0,
+          "median_abs": null,
+          "p95_abs": null,
+          "max_abs": null,
+          "max_rel": null
+        },
+        "autodiff_vbm": {
+          "finite_epochs": 0,
+          "median_abs": null,
+          "p95_abs": null,
+          "max_abs": null,
+          "max_rel": null
+        },
+        "lcbinint": {
+          "finite_epochs": 30,
+          "median_abs": 0.0,
+          "p95_abs": 2.2460255877376736e-12,
+          "max_abs": 0.000506652426844667,
+          "max_rel": 3.2760524614664805e-05
+        }
+      },
+      "gradient_consensus": {
+        "definition": "per-epoch/parameter median of finite gradients; invalid lcbinint components are excluded",
+        "finite_components": 210,
+        "by_library": {
+          "microlux": {
+            "parameters": {
+              "log_s": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "log_q": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "u0": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "alpha_rad": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "log_rho": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "log_tE": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "t0": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              }
+            }
+          },
+          "microjax": {
+            "parameters": {
+              "log_s": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "log_q": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "u0": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "alpha_rad": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "log_rho": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "log_tE": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "t0": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              }
+            }
+          },
+          "autodiff_vbm": {
+            "parameters": {
+              "log_s": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "log_q": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "u0": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "alpha_rad": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "log_rho": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "log_tE": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              },
+              "t0": {
+                "finite_epochs": 0,
+                "median_abs": null,
+                "p95_abs": null,
+                "max_abs": null,
+                "median_rel_nonzero": null,
+                "p95_rel_nonzero": null
+              }
+            }
+          },
+          "lcbinint": {
+            "parameters": {
+              "log_s": {
+                "finite_epochs": 30,
+                "median_abs": 0.0,
+                "p95_abs": 0.0,
+                "max_abs": 0.0,
+                "median_rel_nonzero": 0.0,
+                "p95_rel_nonzero": 0.0
+              },
+              "log_q": {
+                "finite_epochs": 30,
+                "median_abs": 0.0,
+                "p95_abs": 0.0,
+                "max_abs": 0.0,
+                "median_rel_nonzero": 0.0,
+                "p95_rel_nonzero": 0.0
+              },
+              "u0": {
+                "finite_epochs": 30,
+                "median_abs": 0.0,
+                "p95_abs": 0.0,
+                "max_abs": 0.0,
+                "median_rel_nonzero": 0.0,
+                "p95_rel_nonzero": 0.0
+              },
+              "alpha_rad": {
+                "finite_epochs": 30,
+                "median_abs": 0.0,
+                "p95_abs": 0.0,
+                "max_abs": 0.0,
+                "median_rel_nonzero": 0.0,
+                "p95_rel_nonzero": 0.0
+              },
+              "log_rho": {
+                "finite_epochs": 30,
+                "median_abs": 0.0,
+                "p95_abs": 0.0,
+                "max_abs": 0.0,
+                "median_rel_nonzero": 0.0,
+                "p95_rel_nonzero": 0.0
+              },
+              "log_tE": {
+                "finite_epochs": 30,
+                "median_abs": 0.0,
+                "p95_abs": 0.0,
+                "max_abs": 0.0,
+                "median_rel_nonzero": 0.0,
+                "p95_rel_nonzero": 0.0
+              },
+              "t0": {
+                "finite_epochs": 30,
+                "median_abs": 0.0,
+                "p95_abs": 0.0,
+                "max_abs": 0.0,
+                "median_rel_nonzero": 0.0,
+                "p95_rel_nonzero": 0.0
+              }
+            }
+          }
+        }
+      },
+      "timing": {
+        "vbm_value": {
+          "first_call_ms": 37.18946105800569,
+          "steady_median_ms": 37.03861800022423,
+          "steady_p95_ms": 37.30222744634375,
+          "repetitions": 15
+        },
+        "autodiff_vbm_value": {
+          "first_call_ms": 80.84621105808765,
+          "steady_median_ms": 20.73095494415611,
+          "steady_p95_ms": 20.805308199487627,
+          "repetitions": 15,
+          "first_call_includes_new_jit_graph": true
+        },
+        "lcbinint_value": {
+          "first_call_ms": 18.753201002255082,
+          "steady_median_ms": 17.99343794118613,
+          "steady_p95_ms": 18.227470945566893,
+          "repetitions": 15
+        },
+        "lcbinint_value_plus_gradient": {
+          "first_call_ms": 53.393019014038146,
+          "steady_median_ms": 49.948861938901246,
+          "steady_p95_ms": 50.03832032671198,
+          "repetitions": 15,
+          "first_call_includes_new_jit_graph": false
+        }
+      },
+      "status": {
+        "vbm_value_finite": 30,
+        "microlux_skipped": "targeted VBM versus autodiff-vbm value-only timing audit",
+        "microjax_skipped": "targeted VBM versus autodiff-vbm value-only timing audit",
+        "autodiff_vbm_value_finite": 30,
+        "autodiff_vbm_value_plus_gradient_skipped": "targeted VBM versus autodiff-vbm value-only timing audit",
+        "lcbinint_value_finite": 30,
+        "lcbinint_value_plus_gradient_finite": 30,
+        "lcbinint_gradient_valid": 210,
+        "lcbinint_gradient_components": 210,
+        "lcbinint_gradient_finite_valid": 210
+      }
+    }
+  },
+  "errors": {}
+}

@@ -1,0 +1,91 @@
+{
+  "run_signature": "9e23bc6055177d3d7f980a17598ad8b30ed20d018de5bf7a4fd2b5122fbbd16d",
+  "input_hash": "05583c2c142018bf47462b5e94f3414f6991bea37796e70983bb10c752af45c1",
+  "completed": {
+    "stratified_09": {
+      "n_epochs": 27,
+      "limb": 0.5,
+      "params": {
+        "s": 0.95,
+        "q": 1e-07,
+        "rho": 1e-06,
+        "t0": 0.0,
+        "tE": 10.0,
+        "u0": 9.846481110931334e-07,
+        "alpha": 0.5
+      },
+      "source": "stratified_09_lcbinint_only/inputs.json",
+      "timing": {
+        "microlux_value": {
+          "first_call_ms": 22270.33454598859,
+          "steady_median_ms": 237.04265209380537,
+          "steady_p95_ms": 237.44436245178804,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": true
+        },
+        "microlux_value_plus_gradient": {
+          "first_call_ms": 28933.672928018495,
+          "steady_median_ms": 961.8695669341832,
+          "steady_p95_ms": 962.2427672962658,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": true
+        },
+        "microjax_value": {
+          "first_call_ms": 9502.085431013256,
+          "steady_median_ms": 15.674622962251306,
+          "steady_p95_ms": 15.79749642405659,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": true
+        },
+        "microjax_value_plus_gradient": {
+          "first_call_ms": 19765.78459504526,
+          "steady_median_ms": 39.28611206356436,
+          "steady_p95_ms": 39.41447357647121,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": true
+        },
+        "lcbinint_value": {
+          "first_call_ms": 4.457904025912285,
+          "steady_median_ms": 3.845948027446866,
+          "steady_p95_ms": 3.9298441726714373,
+          "repetitions": 3
+        },
+        "lcbinint_value_plus_gradient": {
+          "first_call_ms": 546.2654429720715,
+          "steady_median_ms": 22.468017996288836,
+          "steady_p95_ms": 22.795690060593188,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": true
+        }
+      },
+      "status": {
+        "vbm_skipped": "bounded shared run: official VBM 5.6.1 value did not emit a result in about 50 seconds; autodiff-vbm value did not emit a result in 5 minutes",
+        "microlux_value_finite": 27,
+        "microlux_value_plus_gradient_finite": 27,
+        "microlux_gradient_finite": 189,
+        "microjax_value_finite": 27,
+        "microjax_value_plus_gradient_finite": 27,
+        "microjax_gradient_finite": 189,
+        "autodiff_vbm_skipped": "bounded shared run: official VBM 5.6.1 value did not emit a result in about 50 seconds; autodiff-vbm value did not emit a result in 5 minutes",
+        "lcbinint_value_finite": 27,
+        "lcbinint_value_status_counts": {
+          "0": 24,
+          "2": 3
+        },
+        "lcbinint_value_plus_gradient_finite": 27,
+        "lcbinint_value_status_matches_gradient_mode": true,
+        "lcbinint_gradient_valid": 168,
+        "lcbinint_gradient_components": 189,
+        "lcbinint_gradient_finite_valid": 168
+      },
+      "value_gradient_consistency_lcbinint": {
+        "finite_epochs": 27,
+        "median_abs": 0.0,
+        "p95_abs": 0.0,
+        "max_abs": 0.0,
+        "max_rel": 0.0
+      }
+    }
+  },
+  "errors": {}
+}

@@ -1,0 +1,12 @@
+{
+  "case_id": "stratified_09",
+  "selected_indices": [12, 13, 14],
+  "selected_times": [-1.7455113096375089e-06, 0.0, 1.7455113096375089e-06],
+  "requested_backend": "default",
+  "resolved_backend": "legacy inverse-ray router",
+  "command": "timeout --signal=INT --kill-after=3s 90s python evidence/library_comparison_20261016/audit_issue5_fallback_route_20261017.py --backend default",
+  "timeout_seconds": 90,
+  "result": "No result was emitted before the timeout; timeout sent SIGINT, then SIGKILL after the 3-second grace period (exit code 137).",
+  "interpretation": "This bounded attempt does not show which individual epoch was blocking. It only establishes that the three-epoch legacy route did not complete within 90 seconds.",
+  "reproduction_script": "../audit_issue5_fallback_route_20261017.py"
+}

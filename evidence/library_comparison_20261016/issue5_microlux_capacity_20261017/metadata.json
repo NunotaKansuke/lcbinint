@@ -1,0 +1,109 @@
+{
+  "created_utc": "2026-10-17T01:25:46Z",
+  "host": "rogue1",
+  "python": "3.10.19 (main, Oct 21 2025, 16:43:05) [GCC 11.2.0]",
+  "cpu_affinity": [
+    0
+  ],
+  "case_id": "stratified_09",
+  "indices": [
+    12,
+    13,
+    14
+  ],
+  "times": [
+    -1.7455113096375089e-06,
+    0.0,
+    1.7455113096375089e-06
+  ],
+  "params": {
+    "s": 0.95,
+    "q": 1e-07,
+    "rho": 1e-06,
+    "t0": 0.0,
+    "tE": 10.0,
+    "u0": 9.846481110931334e-07,
+    "alpha": 0.5
+  },
+  "limb_darkening_coefficient": 0.5,
+  "tolerance": 0.001,
+  "source": "/rogue1_8/nunota/microlux/src/microlux/model.py",
+  "source_revision": "711245b6f557e5b1548b8e27d85ced7384c13418",
+  "rows": {
+    "saved_default": {
+      "default_strategy": [
+        30,
+        30,
+        60,
+        120,
+        240
+      ],
+      "max_length": 480,
+      "values": [
+        1630758.7938190019,
+        10192560.693871146,
+        6968977.700491528
+      ],
+      "elapsed_seconds_including_compile": 22.135680871084332,
+      "warnings": [
+        "No enough space to insert new samplings, which may cause the error larger than the tolerance. Current length vs max length: 534 vs 478. Consider incresing default_strategy parameters.",
+        "No enough space to insert new samplings, which may cause the error larger than the tolerance. Current length vs max length: 549 vs 478. Consider incresing default_strategy parameters.",
+        "No enough space to insert new samplings, which may cause the error larger than the tolerance. Current length vs max length: 521 vs 478. Consider incresing default_strategy parameters.",
+        "No enough space to insert new samplings, which may cause the error larger than the tolerance. Current length vs max length: 582 vs 478. Consider incresing default_strategy parameters.",
+        "No enough space to insert new samplings, which may cause the error larger than the tolerance. Current length vs max length: 589 vs 478. Consider incresing default_strategy parameters.",
+        "No enough space to insert new samplings, which may cause the error larger than the tolerance. Current length vs max length: 527 vs 478. Consider incresing default_strategy parameters.",
+        "No enough space to insert new samplings, which may cause the error larger than the tolerance. Current length vs max length: 541 vs 478. Consider incresing default_strategy parameters.",
+        "No enough space to insert new samplings, which may cause the error larger than the tolerance. Current length vs max length: 635 vs 478. Consider incresing default_strategy parameters.",
+        "No enough space to insert new samplings, which may cause the error larger than the tolerance. Current length vs max length: 605 vs 478. Consider incresing default_strategy parameters.",
+        "No enough space to insert new samplings, which may cause the error larger than the tolerance. Current length vs max length: 646 vs 478. Consider incresing default_strategy parameters.",
+        "No enough space to insert new samplings, which may cause the error larger than the tolerance. Current length vs max length: 538 vs 478. Consider incresing default_strategy parameters.",
+        "No enough space to insert new samplings, which may cause the error larger than the tolerance. Current length vs max length: 503 vs 478. Consider incresing default_strategy parameters.",
+        "No enough space to insert new samplings, which may cause the error larger than the tolerance. Current length vs max length: 541 vs 478. Consider incresing default_strategy parameters.",
+        "No enough space to insert new samplings, which may cause the error larger than the tolerance. Current length vs max length: 571 vs 478. Consider incresing default_strategy parameters.",
+        "No enough space to insert new samplings, which may cause the error larger than the tolerance. Current length vs max length: 572 vs 478. Consider incresing default_strategy parameters.",
+        "No enough space to insert new samplings, which may cause the error larger than the tolerance. Current length vs max length: 603 vs 478. Consider incresing default_strategy parameters.",
+        "No enough space to insert new samplings, which may cause the error larger than the tolerance. Current length vs max length: 538 vs 478. Consider incresing default_strategy parameters.",
+        "No enough space to insert new samplings, which may cause the error larger than the tolerance. Current length vs max length: 540 vs 478. Consider incresing default_strategy parameters.",
+        "No enough space to insert new samplings, which may cause the error larger than the tolerance. Current length vs max length: 509 vs 478. Consider incresing default_strategy parameters.",
+        "No enough space to insert new samplings, which may cause the error larger than the tolerance. Current length vs max length: 548 vs 478. Consider incresing default_strategy parameters.",
+        "No enough space to insert new samplings, which may cause the error larger than the tolerance. Current length vs max length: 536 vs 478. Consider incresing default_strategy parameters.",
+        "No enough space to insert new samplings, which may cause the error larger than the tolerance. Current length vs max length: 526 vs 478. Consider incresing default_strategy parameters.",
+        "No enough space to insert new samplings, which may cause the error larger than the tolerance. Current length vs max length: 554 vs 478. Consider incresing default_strategy parameters.",
+        "No enough space to insert new samplings, which may cause the error larger than the tolerance. Current length vs max length: 552 vs 478. Consider incresing default_strategy parameters.",
+        "No enough space to insert new samplings, which may cause the error larger than the tolerance. Current length vs max length: 634 vs 478. Consider incresing default_strategy parameters.",
+        "No enough space to insert new samplings, which may cause the error larger than the tolerance. Current length vs max length: 640 vs 478. Consider incresing default_strategy parameters.",
+        "No enough space to insert new samplings, which may cause the error larger than the tolerance. Current length vs max length: 562 vs 478. Consider incresing default_strategy parameters.",
+        "No enough space to insert new samplings, which may cause the error larger than the tolerance. Current length vs max length: 620 vs 478. Consider incresing default_strategy parameters.",
+        "No enough space to insert new samplings, which may cause the error larger than the tolerance. Current length vs max length: 539 vs 478. Consider incresing default_strategy parameters.",
+        "No enough space to insert new samplings, which may cause the error larger than the tolerance. Current length vs max length: 588 vs 478. Consider incresing default_strategy parameters."
+      ]
+    },
+    "expanded_capacity": {
+      "default_strategy": [
+        30,
+        30,
+        60,
+        120,
+        2160
+      ],
+      "max_length": 2400,
+      "values": [
+        1184871.572711553,
+        1266235.8064559996,
+        1428366.588997965
+      ],
+      "elapsed_seconds_including_compile": 24.74852743500378,
+      "warnings": [
+        "No enough space to insert new samplings, which may cause the error larger than the tolerance. Current length vs max length: 2476 vs 2398. Consider incresing default_strategy parameters.",
+        "No enough space to insert new samplings, which may cause the error larger than the tolerance. Current length vs max length: 2891 vs 2398. Consider incresing default_strategy parameters.",
+        "No enough space to insert new samplings, which may cause the error larger than the tolerance. Current length vs max length: 2455 vs 2398. Consider incresing default_strategy parameters.",
+        "No enough space to insert new samplings, which may cause the error larger than the tolerance. Current length vs max length: 2800 vs 2398. Consider incresing default_strategy parameters.",
+        "No enough space to insert new samplings, which may cause the error larger than the tolerance. Current length vs max length: 3322 vs 2398. Consider incresing default_strategy parameters.",
+        "No enough space to insert new samplings, which may cause the error larger than the tolerance. Current length vs max length: 2583 vs 2398. Consider incresing default_strategy parameters.",
+        "No enough space to insert new samplings, which may cause the error larger than the tolerance. Current length vs max length: 2661 vs 2398. Consider incresing default_strategy parameters.",
+        "No enough space to insert new samplings, which may cause the error larger than the tolerance. Current length vs max length: 2536 vs 2398. Consider incresing default_strategy parameters."
+      ]
+    }
+  },
+  "note": "The expanded sampling capacity is a diagnostic rerun, not a new validated tolerance guarantee."
+}

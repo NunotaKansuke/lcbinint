@@ -1,0 +1,59 @@
+{
+  "run_signature": "1a095b2f15a07801638dae8463ed4a1b6596bf3fc99435bff63fa92517fab4d4",
+  "input_hash": "05583c2c142018bf47462b5e94f3414f6991bea37796e70983bb10c752af45c1",
+  "completed": {
+    "stratified_09": {
+      "n_epochs": 27,
+      "limb": 0.5,
+      "params": {
+        "s": 0.95,
+        "q": 1e-07,
+        "rho": 1e-06,
+        "t0": 0.0,
+        "tE": 10.0,
+        "u0": 9.846481110931334e-07,
+        "alpha": 0.5
+      },
+      "source": "stratified_09_lcbinint_only/inputs.json",
+      "timing": {
+        "lcbinint_value": {
+          "first_call_ms": 4.384001949802041,
+          "steady_median_ms": 3.8527529686689377,
+          "steady_p95_ms": 3.8920407299883664,
+          "repetitions": 3
+        },
+        "lcbinint_value_plus_gradient": {
+          "first_call_ms": 552.7213900350034,
+          "steady_median_ms": 22.56449789274484,
+          "steady_p95_ms": 22.987990197725594,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": true
+        }
+      },
+      "status": {
+        "vbm_skipped": "lcbinint fallback contract verification",
+        "microlux_skipped": "lcbinint fallback contract verification",
+        "microjax_skipped": "lcbinint fallback contract verification",
+        "autodiff_vbm_skipped": "lcbinint fallback contract verification",
+        "lcbinint_value_finite": 27,
+        "lcbinint_value_status_counts": {
+          "0": 24,
+          "2": 3
+        },
+        "lcbinint_value_plus_gradient_finite": 27,
+        "lcbinint_value_status_matches_gradient_mode": true,
+        "lcbinint_gradient_valid": 168,
+        "lcbinint_gradient_components": 189,
+        "lcbinint_gradient_finite_valid": 168
+      },
+      "value_gradient_consistency_lcbinint": {
+        "finite_epochs": 27,
+        "median_abs": 0.0,
+        "p95_abs": 0.0,
+        "max_abs": 0.0,
+        "max_rel": 0.0
+      }
+    }
+  },
+  "errors": {}
+}

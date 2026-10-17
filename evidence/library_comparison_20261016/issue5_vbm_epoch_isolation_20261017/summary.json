@@ -1,0 +1,74 @@
+{
+  "case_id": "stratified_09",
+  "epoch_count": 27,
+  "completed_epochs": {
+    "vbm": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26
+    ],
+    "autodiff_vbm": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26
+    ]
+  },
+  "timed_out_epochs": {
+    "vbm": [
+      12,
+      13,
+      14
+    ],
+    "autodiff_vbm": [
+      12,
+      13,
+      14
+    ]
+  },
+  "both_completed_epochs": 24,
+  "max_abs_difference_vbm_vs_autodiff_vbm": 8.815501360004419e-07,
+  "max_relative_difference_vbm_vs_autodiff_vbm": 2.203608551589962e-09,
+  "note": "The two VBM-family implementations are not independent references; the central three epochs timed out in both."
+}

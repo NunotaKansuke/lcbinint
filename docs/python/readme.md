@@ -29,7 +29,8 @@ params = {
 t = np.linspace(t0 - tE, t0 + tE, 300)
 
 curve = lcbinint.LightCurve(options=lcbinint.Options(tol=1e-3, reltol=1e-3))
-magnifications = curve(t, params)
+result = curve(t, params)
+magnifications = result.magnifications
 trajectory = curve.source_trajectory(t, params)
 ```
 

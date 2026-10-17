@@ -1,0 +1,1135 @@
+{
+  "run_signature": "58a8a8807ffa19c2a2cbd39dbac1eef636bb05d74cd1266650d94d419e788341",
+  "input_hash": "c29e3125af79fcbae70dd45a7a38b946197841ebf01e0be7b7ec91daed11a51c",
+  "completed": {
+    "ordinary_point": {
+      "n_epochs": 401,
+      "limb": 0.5,
+      "params": {
+        "s": 1.2,
+        "q": 0.01,
+        "rho": 0.003,
+        "t0": 0.0,
+        "tE": 10.0,
+        "u0": 0.3,
+        "alpha": 0.0
+      },
+      "source": "existing:post_axis_skip/ordinary_point_performance.npz",
+      "timing": {
+        "vbm_value": {
+          "first_call_ms": 0.43815793469548225,
+          "steady_median_ms": 0.3827339969575405,
+          "steady_p95_ms": 0.3903111326508224,
+          "repetitions": 3
+        },
+        "microlux_value": {
+          "first_call_ms": 22073.1202600291,
+          "steady_median_ms": 9.41074499860406,
+          "steady_p95_ms": 9.845597192179412,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": true
+        },
+        "microlux_value_plus_gradient": {
+          "first_call_ms": 28384.52540501021,
+          "steady_median_ms": 45.82731693517417,
+          "steady_p95_ms": 46.27666814485565,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": true
+        },
+        "microjax_value": {
+          "first_call_ms": 9599.328355980106,
+          "steady_median_ms": 4.586908034980297,
+          "steady_p95_ms": 4.862826352473348,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": true
+        },
+        "microjax_value_plus_gradient": {
+          "first_call_ms": 19968.595332000405,
+          "steady_median_ms": 21.025200956501067,
+          "steady_p95_ms": 21.183576702605933,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": true
+        },
+        "autodiff_vbm_value": {
+          "first_call_ms": 61.06316403020173,
+          "steady_median_ms": 0.4664990119636059,
+          "steady_p95_ms": 0.5990032805129886,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": true
+        },
+        "autodiff_vbm_value_plus_gradient": {
+          "first_call_ms": 99.43391301203519,
+          "steady_median_ms": 0.4139849916100502,
+          "steady_p95_ms": 0.4239128320477903,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": true
+        },
+        "lcbinint_value": {
+          "first_call_ms": 2.4768580915406346,
+          "steady_median_ms": 0.37129793781787157,
+          "steady_p95_ms": 0.38808846147730947,
+          "repetitions": 3
+        },
+        "lcbinint_value_plus_gradient": {
+          "first_call_ms": 62.82357301097363,
+          "steady_median_ms": 55.63358310610056,
+          "steady_p95_ms": 55.85182219510898,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": false
+        }
+      },
+      "status": {
+        "vbm_value_finite": 401,
+        "microlux_value_finite": 401,
+        "microlux_value_plus_gradient_finite": 401,
+        "microlux_gradient_finite": 2807,
+        "microjax_value_finite": 401,
+        "microjax_value_plus_gradient_finite": 401,
+        "microjax_gradient_finite": 2807,
+        "autodiff_vbm_value_finite": 401,
+        "autodiff_vbm_value_plus_gradient_finite": 401,
+        "autodiff_vbm_gradient_finite": 2807,
+        "lcbinint_value_finite": 401,
+        "lcbinint_value_plus_gradient_finite": 401,
+        "lcbinint_gradient_valid": 2807,
+        "lcbinint_gradient_components": 2807,
+        "lcbinint_gradient_finite_valid": 2807
+      }
+    },
+    "wide_caustic": {
+      "n_epochs": 401,
+      "limb": 0.0,
+      "params": {
+        "s": 1.2,
+        "q": 0.01,
+        "rho": 0.003,
+        "t0": 0.0,
+        "tE": 10.0,
+        "u0": 0.03,
+        "alpha": -0.08
+      },
+      "source": "existing:post_axis_skip/wide_caustic_performance.npz",
+      "timing": {
+        "vbm_value": {
+          "first_call_ms": 9.315988048911095,
+          "steady_median_ms": 9.102831012569368,
+          "steady_p95_ms": 9.107139310799539,
+          "repetitions": 3
+        },
+        "microlux_value": {
+          "first_call_ms": 20165.820404072292,
+          "steady_median_ms": 163.6536279693246,
+          "steady_p95_ms": 167.3127210815437,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": true
+        },
+        "microlux_value_plus_gradient": {
+          "first_call_ms": 25481.50184098631,
+          "steady_median_ms": 757.886641076766,
+          "steady_p95_ms": 758.9967991109006,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": true
+        },
+        "microjax_value": {
+          "first_call_ms": 14557.443523895927,
+          "steady_median_ms": 165.70162202697247,
+          "steady_p95_ms": 166.9120725709945,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": true
+        },
+        "microjax_value_plus_gradient": {
+          "first_call_ms": 26390.333749935962,
+          "steady_median_ms": 459.3338679987937,
+          "steady_p95_ms": 467.88173138629645,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": true
+        },
+        "autodiff_vbm_value": {
+          "first_call_ms": 69.71892109140754,
+          "steady_median_ms": 8.589443983510137,
+          "steady_p95_ms": 8.602775714825839,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": true
+        },
+        "autodiff_vbm_value_plus_gradient": {
+          "first_call_ms": 105.76235700864345,
+          "steady_median_ms": 12.067388044670224,
+          "steady_p95_ms": 12.364452856127173,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": true
+        },
+        "lcbinint_value": {
+          "first_call_ms": 11.640101904049516,
+          "steady_median_ms": 9.803969995118678,
+          "steady_p95_ms": 9.890047740191221,
+          "repetitions": 3
+        },
+        "lcbinint_value_plus_gradient": {
+          "first_call_ms": 66.65303092449903,
+          "steady_median_ms": 64.41187299787998,
+          "steady_p95_ms": 64.63288241066039,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": false
+        }
+      },
+      "status": {
+        "vbm_value_finite": 401,
+        "microlux_value_finite": 401,
+        "microlux_value_plus_gradient_finite": 401,
+        "microlux_gradient_finite": 2807,
+        "microjax_value_finite": 401,
+        "microjax_value_plus_gradient_finite": 401,
+        "microjax_gradient_finite": 2807,
+        "autodiff_vbm_value_finite": 401,
+        "autodiff_vbm_value_plus_gradient_finite": 401,
+        "autodiff_vbm_gradient_finite": 2807,
+        "lcbinint_value_finite": 401,
+        "lcbinint_value_plus_gradient_finite": 401,
+        "lcbinint_gradient_valid": 2807,
+        "lcbinint_gradient_components": 2807,
+        "lcbinint_gradient_finite_valid": 2807
+      }
+    },
+    "resonant_uniform": {
+      "n_epochs": 401,
+      "limb": 0.0,
+      "params": {
+        "s": 0.95,
+        "q": 0.01,
+        "rho": 0.005,
+        "t0": 0.0,
+        "tE": 10.0,
+        "u0": 0.03,
+        "alpha": 0.5
+      },
+      "source": "existing:post_axis_skip/resonant_uniform_performance.npz",
+      "timing": {
+        "vbm_value": {
+          "first_call_ms": 24.076876929029822,
+          "steady_median_ms": 23.878479027189314,
+          "steady_p95_ms": 23.879785765893757,
+          "repetitions": 3
+        },
+        "microlux_value": {
+          "first_call_ms": 225.9158929809928,
+          "steady_median_ms": 223.9634720608592,
+          "steady_p95_ms": 224.0737399784848,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": false
+        },
+        "microlux_value_plus_gradient": {
+          "first_call_ms": 990.4846980934963,
+          "steady_median_ms": 984.5352109987289,
+          "steady_p95_ms": 995.7167515531182,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": false
+        },
+        "microjax_value": {
+          "first_call_ms": 187.8106219228357,
+          "steady_median_ms": 187.38752300851047,
+          "steady_p95_ms": 187.40463822614402,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": false
+        },
+        "microjax_value_plus_gradient": {
+          "first_call_ms": 541.5677749551833,
+          "steady_median_ms": 540.6034089392051,
+          "steady_p95_ms": 542.0146468211897,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": false
+        },
+        "autodiff_vbm_value": {
+          "first_call_ms": 23.104305029846728,
+          "steady_median_ms": 23.091700044460595,
+          "steady_p95_ms": 23.126849555410445,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": false
+        },
+        "autodiff_vbm_value_plus_gradient": {
+          "first_call_ms": 34.357634955085814,
+          "steady_median_ms": 34.35714892111719,
+          "steady_p95_ms": 34.38034919090569,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": false
+        },
+        "lcbinint_value": {
+          "first_call_ms": 35.22005397826433,
+          "steady_median_ms": 34.669643035158515,
+          "steady_p95_ms": 34.779285558033735,
+          "repetitions": 3
+        },
+        "lcbinint_value_plus_gradient": {
+          "first_call_ms": 163.0452760728076,
+          "steady_median_ms": 161.50030004791915,
+          "steady_p95_ms": 161.537323333323,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": false
+        }
+      },
+      "status": {
+        "vbm_value_finite": 401,
+        "microlux_value_finite": 401,
+        "microlux_value_plus_gradient_finite": 401,
+        "microlux_gradient_finite": 2807,
+        "microjax_value_finite": 401,
+        "microjax_value_plus_gradient_finite": 401,
+        "microjax_gradient_finite": 2807,
+        "autodiff_vbm_value_finite": 401,
+        "autodiff_vbm_value_plus_gradient_finite": 401,
+        "autodiff_vbm_gradient_finite": 2807,
+        "lcbinint_value_finite": 401,
+        "lcbinint_value_plus_gradient_finite": 401,
+        "lcbinint_gradient_valid": 2807,
+        "lcbinint_gradient_components": 2807,
+        "lcbinint_gradient_finite_valid": 2807
+      }
+    },
+    "broad_source_uniform": {
+      "n_epochs": 401,
+      "limb": 0.0,
+      "params": {
+        "s": 0.6,
+        "q": 0.0001,
+        "rho": 0.05,
+        "t0": 0.0,
+        "tE": 10.0,
+        "u0": -1e-05,
+        "alpha": 0.5
+      },
+      "source": "existing:post_axis_skip/broad_source_uniform_performance.npz",
+      "timing": {
+        "vbm_value": {
+          "first_call_ms": 33.532948000356555,
+          "steady_median_ms": 33.0037500243634,
+          "steady_p95_ms": 33.01306137582287,
+          "repetitions": 3
+        },
+        "microlux_value": {
+          "first_call_ms": 325.78844705130905,
+          "steady_median_ms": 312.11529998108745,
+          "steady_p95_ms": 312.20720985438675,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": false
+        },
+        "microlux_value_plus_gradient": {
+          "first_call_ms": 1193.5179820284247,
+          "steady_median_ms": 1196.1215949850157,
+          "steady_p95_ms": 1196.1886117584072,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": false
+        },
+        "microjax_value": {
+          "first_call_ms": 515.5825529946014,
+          "steady_median_ms": 514.9398220237345,
+          "steady_p95_ms": 515.2021566289477,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": false
+        },
+        "microjax_value_plus_gradient": {
+          "first_call_ms": 1580.246496014297,
+          "steady_median_ms": 1588.1042020628229,
+          "steady_p95_ms": 1591.0004218108952,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": false
+        },
+        "autodiff_vbm_value": {
+          "first_call_ms": 30.504727037623525,
+          "steady_median_ms": 30.306845903396606,
+          "steady_p95_ms": 30.36860942374915,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": false
+        },
+        "autodiff_vbm_value_plus_gradient": {
+          "first_call_ms": 41.55381501186639,
+          "steady_median_ms": 41.48247302509844,
+          "steady_p95_ms": 41.57591909170151,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": false
+        },
+        "lcbinint_value": {
+          "first_call_ms": 151.28316904883832,
+          "steady_median_ms": 150.3184869652614,
+          "steady_p95_ms": 150.34880535677075,
+          "repetitions": 3
+        },
+        "lcbinint_value_plus_gradient": {
+          "first_call_ms": 396.0679250303656,
+          "steady_median_ms": 391.192042035982,
+          "steady_p95_ms": 391.7916705016978,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": false
+        }
+      },
+      "status": {
+        "vbm_value_finite": 401,
+        "microlux_value_finite": 401,
+        "microlux_value_plus_gradient_finite": 401,
+        "microlux_gradient_finite": 2807,
+        "microjax_value_finite": 401,
+        "microjax_value_plus_gradient_finite": 401,
+        "microjax_gradient_finite": 2807,
+        "autodiff_vbm_value_finite": 401,
+        "autodiff_vbm_value_plus_gradient_finite": 401,
+        "autodiff_vbm_gradient_finite": 2807,
+        "lcbinint_value_finite": 401,
+        "lcbinint_value_plus_gradient_finite": 401,
+        "lcbinint_gradient_valid": 2807,
+        "lcbinint_gradient_components": 2807,
+        "lcbinint_gradient_finite_valid": 2807
+      }
+    },
+    "large_source_uniform": {
+      "n_epochs": 401,
+      "limb": 0.0,
+      "params": {
+        "s": 0.6,
+        "q": 0.001,
+        "rho": 0.5,
+        "t0": 0.0,
+        "tE": 10.0,
+        "u0": -1e-05,
+        "alpha": 0.5
+      },
+      "source": "existing:post_axis_skip/large_source_uniform_performance.npz",
+      "timing": {
+        "vbm_value": {
+          "first_call_ms": 19.672393915243447,
+          "steady_median_ms": 18.998689018189907,
+          "steady_p95_ms": 19.011012720875442,
+          "repetitions": 3
+        },
+        "microlux_value": {
+          "first_call_ms": 192.98977893777192,
+          "steady_median_ms": 191.81025098077953,
+          "steady_p95_ms": 192.10835808189586,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": false
+        },
+        "microlux_value_plus_gradient": {
+          "first_call_ms": 864.3556309398264,
+          "steady_median_ms": 866.6216949932277,
+          "steady_p95_ms": 869.1257145954296,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": false
+        },
+        "microjax_value": {
+          "first_call_ms": 546.3853020919487,
+          "steady_median_ms": 546.6483669588342,
+          "steady_p95_ms": 547.097658761777,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": false
+        },
+        "microjax_value_plus_gradient": {
+          "first_call_ms": 1811.2011719495058,
+          "steady_median_ms": 1811.5118959685788,
+          "steady_p95_ms": 1817.9858849849552,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": false
+        },
+        "autodiff_vbm_value": {
+          "first_call_ms": 17.95288093853742,
+          "steady_median_ms": 17.81645603477955,
+          "steady_p95_ms": 17.883215274196118,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": false
+        },
+        "autodiff_vbm_value_plus_gradient": {
+          "first_call_ms": 24.330992018803954,
+          "steady_median_ms": 24.231950053945184,
+          "steady_p95_ms": 24.252954265102744,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": false
+        },
+        "lcbinint_value": {
+          "first_call_ms": 143.0380049860105,
+          "steady_median_ms": 142.57227699272335,
+          "steady_p95_ms": 142.57416072068736,
+          "repetitions": 3
+        },
+        "lcbinint_value_plus_gradient": {
+          "first_call_ms": 241.12081609200686,
+          "steady_median_ms": 240.9644650761038,
+          "steady_p95_ms": 250.3872679779306,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": false
+        }
+      },
+      "status": {
+        "vbm_value_finite": 401,
+        "microlux_value_finite": 401,
+        "microlux_value_plus_gradient_finite": 401,
+        "microlux_gradient_finite": 2807,
+        "microjax_value_finite": 401,
+        "microjax_value_plus_gradient_finite": 401,
+        "microjax_gradient_finite": 2807,
+        "autodiff_vbm_value_finite": 401,
+        "autodiff_vbm_value_plus_gradient_finite": 401,
+        "autodiff_vbm_gradient_finite": 2807,
+        "lcbinint_value_finite": 401,
+        "lcbinint_value_plus_gradient_finite": 401,
+        "lcbinint_gradient_valid": 2807,
+        "lcbinint_gradient_components": 2807,
+        "lcbinint_gradient_finite_valid": 2807
+      }
+    },
+    "large_source_ld09": {
+      "n_epochs": 401,
+      "limb": 0.9,
+      "params": {
+        "s": 0.6,
+        "q": 0.001,
+        "rho": 0.5,
+        "t0": 0.0,
+        "tE": 10.0,
+        "u0": -1e-05,
+        "alpha": 0.5
+      },
+      "source": "existing:post_axis_skip/large_source_ld09_performance.npz",
+      "timing": {
+        "vbm_value": {
+          "first_call_ms": 766.7686500353739,
+          "steady_median_ms": 765.6092409742996,
+          "steady_p95_ms": 765.6729078153148,
+          "repetitions": 3
+        },
+        "microlux_value": {
+          "first_call_ms": 21262.738609919325,
+          "steady_median_ms": 1216.6777140228078,
+          "steady_p95_ms": 1218.6031605000608,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": true
+        },
+        "microlux_value_plus_gradient": {
+          "first_call_ms": 31248.219474917278,
+          "steady_median_ms": 6809.463982935995,
+          "steady_p95_ms": 6909.241495700553,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": true
+        },
+        "microjax_value": {
+          "first_call_ms": 10511.622286983766,
+          "steady_median_ms": 551.5059439931065,
+          "steady_p95_ms": 551.5874092816375,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": true
+        },
+        "microjax_value_plus_gradient": {
+          "first_call_ms": 20597.191840060987,
+          "steady_median_ms": 1492.1694468939677,
+          "steady_p95_ms": 1492.9892822052352,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": true
+        },
+        "autodiff_vbm_value": {
+          "first_call_ms": 332.3749069822952,
+          "steady_median_ms": 268.85655301157385,
+          "steady_p95_ms": 268.9346883795224,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": true
+        },
+        "autodiff_vbm_value_plus_gradient": {
+          "first_call_ms": 370.7762920530513,
+          "steady_median_ms": 269.9279679218307,
+          "steady_p95_ms": 270.0746599235572,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": true
+        },
+        "lcbinint_value": {
+          "first_call_ms": 156.06783505063504,
+          "steady_median_ms": 155.9336300706491,
+          "steady_p95_ms": 157.82875815639272,
+          "repetitions": 3
+        },
+        "lcbinint_value_plus_gradient": {
+          "first_call_ms": 274.53459391836077,
+          "steady_median_ms": 274.13671696558595,
+          "steady_p95_ms": 274.28601081483066,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": false
+        }
+      },
+      "status": {
+        "vbm_value_finite": 401,
+        "microlux_value_finite": 401,
+        "microlux_value_plus_gradient_finite": 401,
+        "microlux_gradient_finite": 2807,
+        "microjax_value_finite": 401,
+        "microjax_value_plus_gradient_finite": 401,
+        "microjax_gradient_finite": 2807,
+        "autodiff_vbm_value_finite": 401,
+        "autodiff_vbm_value_plus_gradient_finite": 401,
+        "autodiff_vbm_gradient_finite": 2807,
+        "lcbinint_value_finite": 401,
+        "lcbinint_value_plus_gradient_finite": 401,
+        "lcbinint_gradient_valid": 2807,
+        "lcbinint_gradient_components": 2807,
+        "lcbinint_gradient_finite_valid": 2807
+      }
+    },
+    "notebook_alpha180": {
+      "n_epochs": 401,
+      "limb": 0.5,
+      "params": {
+        "s": 1.5,
+        "q": 0.01,
+        "rho": 0.001,
+        "t0": 0.0,
+        "tE": 10.0,
+        "u0": -0.01,
+        "alpha": 180.0
+      },
+      "source": "existing:post_axis_skip/notebook_alpha180_performance.npz",
+      "timing": {
+        "vbm_value": {
+          "first_call_ms": 33.139662933535874,
+          "steady_median_ms": 32.27998502552509,
+          "steady_p95_ms": 32.38855382660404,
+          "repetitions": 3
+        },
+        "microlux_value": {
+          "first_call_ms": 3031.133687007241,
+          "steady_median_ms": 3022.307017003186,
+          "steady_p95_ms": 3023.97001812933,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": false
+        },
+        "microlux_value_plus_gradient": {
+          "first_call_ms": 10982.011776068248,
+          "steady_median_ms": 10957.149305031635,
+          "steady_p95_ms": 10968.569208891131,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": false
+        },
+        "microjax_value": {
+          "first_call_ms": 300.04441703204066,
+          "steady_median_ms": 299.1510679712519,
+          "steady_p95_ms": 299.25604125019163,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": false
+        },
+        "microjax_value_plus_gradient": {
+          "first_call_ms": 750.532299047336,
+          "steady_median_ms": 748.1917619006708,
+          "steady_p95_ms": 750.4287254763767,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": false
+        },
+        "autodiff_vbm_value": {
+          "first_call_ms": 39.304752019234,
+          "steady_median_ms": 39.14164996240288,
+          "steady_p95_ms": 39.145978167653084,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": false
+        },
+        "autodiff_vbm_value_plus_gradient": {
+          "first_call_ms": 39.440232096239924,
+          "steady_median_ms": 39.32238300330937,
+          "steady_p95_ms": 39.71340957796201,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": false
+        },
+        "lcbinint_value": {
+          "first_call_ms": 22.492916090413928,
+          "steady_median_ms": 17.074603005312383,
+          "steady_p95_ms": 17.222848278470337,
+          "repetitions": 3
+        },
+        "lcbinint_value_plus_gradient": {
+          "first_call_ms": 125.53184200078249,
+          "steady_median_ms": 124.02268394362181,
+          "steady_p95_ms": 124.06052268343046,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": false
+        }
+      },
+      "status": {
+        "vbm_value_finite": 401,
+        "microlux_value_finite": 401,
+        "microlux_value_plus_gradient_finite": 401,
+        "microlux_gradient_finite": 2807,
+        "microjax_value_finite": 401,
+        "microjax_value_plus_gradient_finite": 401,
+        "microjax_gradient_finite": 2807,
+        "autodiff_vbm_value_finite": 401,
+        "autodiff_vbm_value_plus_gradient_finite": 401,
+        "autodiff_vbm_gradient_finite": 2807,
+        "lcbinint_value_finite": 401,
+        "lcbinint_value_plus_gradient_finite": 401,
+        "lcbinint_gradient_valid": 2807,
+        "lcbinint_gradient_components": 2807,
+        "lcbinint_gradient_finite_valid": 2807
+      }
+    },
+    "large_source_ld05_user": {
+      "n_epochs": 401,
+      "limb": 0.5,
+      "params": {
+        "s": 0.6,
+        "q": 0.001,
+        "rho": 0.5,
+        "t0": 0.0,
+        "tE": 10.0,
+        "u0": -1e-05,
+        "alpha": 0.5
+      },
+      "source": "user-provided:401-point curve, 2026-10-16",
+      "timing": {
+        "vbm_value": {
+          "first_call_ms": 586.2398559693247,
+          "steady_median_ms": 585.8305429574102,
+          "steady_p95_ms": 585.8822011505254,
+          "repetitions": 3
+        },
+        "microlux_value": {
+          "first_call_ms": 1218.3074440108612,
+          "steady_median_ms": 1213.755437056534,
+          "steady_p95_ms": 1214.6986252744682,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": false
+        },
+        "microlux_value_plus_gradient": {
+          "first_call_ms": 6738.906498067081,
+          "steady_median_ms": 6755.817048018798,
+          "steady_p95_ms": 6771.108360274229,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": false
+        },
+        "microjax_value": {
+          "first_call_ms": 553.0415090033785,
+          "steady_median_ms": 553.1961310189217,
+          "steady_p95_ms": 555.094801611267,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": false
+        },
+        "microjax_value_plus_gradient": {
+          "first_call_ms": 1499.9610419617966,
+          "steady_median_ms": 1501.9165220437571,
+          "steady_p95_ms": 1505.154963163659,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": false
+        },
+        "autodiff_vbm_value": {
+          "first_call_ms": 245.0724020600319,
+          "steady_median_ms": 245.83828600589186,
+          "steady_p95_ms": 245.93224609270692,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": false
+        },
+        "autodiff_vbm_value_plus_gradient": {
+          "first_call_ms": 246.5981509303674,
+          "steady_median_ms": 245.9771380526945,
+          "steady_p95_ms": 246.56173127004877,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": false
+        },
+        "lcbinint_value": {
+          "first_call_ms": 156.4864789834246,
+          "steady_median_ms": 156.6502699861303,
+          "steady_p95_ms": 157.2231073747389,
+          "repetitions": 3
+        },
+        "lcbinint_value_plus_gradient": {
+          "first_call_ms": 275.9463620604947,
+          "steady_median_ms": 274.56724899820983,
+          "steady_p95_ms": 274.99870809260756,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": false
+        }
+      },
+      "status": {
+        "vbm_value_finite": 401,
+        "microlux_value_finite": 401,
+        "microlux_value_plus_gradient_finite": 401,
+        "microlux_gradient_finite": 2807,
+        "microjax_value_finite": 401,
+        "microjax_value_plus_gradient_finite": 401,
+        "microjax_gradient_finite": 2807,
+        "autodiff_vbm_value_finite": 401,
+        "autodiff_vbm_value_plus_gradient_finite": 401,
+        "autodiff_vbm_gradient_finite": 2807,
+        "lcbinint_value_finite": 401,
+        "lcbinint_value_plus_gradient_finite": 401,
+        "lcbinint_gradient_valid": 2807,
+        "lcbinint_gradient_components": 2807,
+        "lcbinint_gradient_finite_valid": 2807
+      }
+    },
+    "near_limb_contact_117": {
+      "n_epochs": 27,
+      "limb": 0.5,
+      "params": {
+        "s": 0.710053684596912,
+        "q": 7.886132346228951e-07,
+        "rho": 0.1671007233467463,
+        "t0": 0.0,
+        "tE": 10.0,
+        "u0": 1e-09,
+        "alpha": 1.186247434824958
+      },
+      "source": "existing:post_axis_skip/near_limb_contact_117.npz",
+      "timing": {
+        "vbm_value": {
+          "first_call_ms": 25.6933729397133,
+          "steady_median_ms": 24.87236598972231,
+          "steady_p95_ms": 24.880705459509045,
+          "repetitions": 3
+        },
+        "microlux_value": {
+          "first_call_ms": 21998.212874983437,
+          "steady_median_ms": 176.35679291561246,
+          "steady_p95_ms": 176.52401837985963,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": true
+        },
+        "microlux_value_plus_gradient": {
+          "first_call_ms": 25579.439536086284,
+          "steady_median_ms": 688.2444500224665,
+          "steady_p95_ms": 690.3921155259013,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": true
+        },
+        "microjax_value": {
+          "first_call_ms": 9450.902260956354,
+          "steady_median_ms": 44.19741500169039,
+          "steady_p95_ms": 44.3177153239958,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": true
+        },
+        "microjax_value_plus_gradient": {
+          "first_call_ms": 19422.72727296222,
+          "steady_median_ms": 115.47279800288379,
+          "steady_p95_ms": 115.52970588672906,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": true
+        },
+        "autodiff_vbm_value": {
+          "first_call_ms": 632.4786531040445,
+          "steady_median_ms": 608.8201230159029,
+          "steady_p95_ms": 613.7682186206803,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": true
+        },
+        "autodiff_vbm_value_plus_gradient": {
+          "first_call_ms": 666.3960360456258,
+          "steady_median_ms": 543.810675968416,
+          "steady_p95_ms": 547.9181058704853,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": true
+        },
+        "lcbinint_value": {
+          "first_call_ms": 12.143075000494719,
+          "steady_median_ms": 11.503357905894518,
+          "steady_p95_ms": 11.60316615132615,
+          "repetitions": 3
+        },
+        "lcbinint_value_plus_gradient": {
+          "first_call_ms": 81.81741996668279,
+          "steady_median_ms": 81.11558097880334,
+          "steady_p95_ms": 81.47716412786394,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": false
+        }
+      },
+      "status": {
+        "vbm_value_finite": 27,
+        "microlux_value_finite": 27,
+        "microlux_value_plus_gradient_finite": 27,
+        "microlux_gradient_finite": 189,
+        "microjax_value_finite": 27,
+        "microjax_value_plus_gradient_finite": 27,
+        "microjax_gradient_finite": 189,
+        "autodiff_vbm_value_finite": 27,
+        "autodiff_vbm_value_plus_gradient_finite": 27,
+        "autodiff_vbm_gradient_finite": 189,
+        "lcbinint_value_finite": 27,
+        "lcbinint_value_plus_gradient_finite": 27,
+        "lcbinint_gradient_valid": 189,
+        "lcbinint_gradient_components": 189,
+        "lcbinint_gradient_finite_valid": 189
+      }
+    },
+    "near_double_root": {
+      "n_epochs": 30,
+      "limb": 0.5,
+      "params": {
+        "s": 0.6,
+        "q": 0.0001,
+        "rho": 0.05,
+        "t0": 0.0,
+        "tE": 10.0,
+        "u0": -1e-05,
+        "alpha": 0.5
+      },
+      "source": "existing:post_axis_skip/near_double_root.npz",
+      "timing": {
+        "vbm_value": {
+          "first_call_ms": 36.16661997511983,
+          "steady_median_ms": 35.40063102263957,
+          "steady_p95_ms": 35.411421046592295,
+          "repetitions": 3
+        },
+        "microlux_value": {
+          "first_call_ms": 23150.601600063965,
+          "steady_median_ms": 231.52353195473552,
+          "steady_p95_ms": 233.11037867097184,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": true
+        },
+        "microlux_value_plus_gradient": {
+          "first_call_ms": 25840.753713040613,
+          "steady_median_ms": 866.3201910676435,
+          "steady_p95_ms": 873.6074451357126,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": true
+        },
+        "microjax_value": {
+          "first_call_ms": 9456.218788982369,
+          "steady_median_ms": 47.201687935739756,
+          "steady_p95_ms": 47.238687018398196,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": true
+        },
+        "microjax_value_plus_gradient": {
+          "first_call_ms": 19587.601111037657,
+          "steady_median_ms": 117.46333399787545,
+          "steady_p95_ms": 117.69485442200676,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": true
+        },
+        "autodiff_vbm_value": {
+          "first_call_ms": 86.0784639371559,
+          "steady_median_ms": 21.70437399763614,
+          "steady_p95_ms": 21.74450958846137,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": true
+        },
+        "autodiff_vbm_value_plus_gradient": {
+          "first_call_ms": 132.64273200184107,
+          "steady_median_ms": 20.53733100183308,
+          "steady_p95_ms": 20.544265455100685,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": true
+        },
+        "lcbinint_value": {
+          "first_call_ms": 18.936898093670607,
+          "steady_median_ms": 18.168715061619878,
+          "steady_p95_ms": 18.239735765382648,
+          "repetitions": 3
+        },
+        "lcbinint_value_plus_gradient": {
+          "first_call_ms": 50.41363893542439,
+          "steady_median_ms": 49.82608195859939,
+          "steady_p95_ms": 49.95976713253185,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": false
+        }
+      },
+      "status": {
+        "vbm_value_finite": 30,
+        "microlux_value_finite": 30,
+        "microlux_value_plus_gradient_finite": 30,
+        "microlux_gradient_finite": 210,
+        "microjax_value_finite": 30,
+        "microjax_value_plus_gradient_finite": 30,
+        "microjax_gradient_finite": 210,
+        "autodiff_vbm_value_finite": 30,
+        "autodiff_vbm_value_plus_gradient_finite": 30,
+        "autodiff_vbm_gradient_finite": 210,
+        "lcbinint_value_finite": 30,
+        "lcbinint_value_plus_gradient_finite": 30,
+        "lcbinint_gradient_valid": 210,
+        "lcbinint_gradient_components": 210,
+        "lcbinint_gradient_finite_valid": 210
+      }
+    },
+    "stratified_00": {
+      "n_epochs": 27,
+      "limb": 0.0,
+      "params": {
+        "s": 1.000001,
+        "q": 1e-06,
+        "rho": 0.001,
+        "t0": 0.0,
+        "tE": 10.0,
+        "u0": 0.0,
+        "alpha": 0.0
+      },
+      "source": "existing:post_axis_skip/stratified_00.npz",
+      "timing": {
+        "vbm_value": {
+          "first_call_ms": 4.43711900152266,
+          "steady_median_ms": 3.7720350082963705,
+          "steady_p95_ms": 3.775875282008201,
+          "repetitions": 3
+        },
+        "microlux_value": {
+          "first_call_ms": 21477.2995270323,
+          "steady_median_ms": 51.83264403603971,
+          "steady_p95_ms": 53.977500658947974,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": true
+        },
+        "microlux_value_plus_gradient": {
+          "first_call_ms": 27842.301161959767,
+          "steady_median_ms": 143.1000519078225,
+          "steady_p95_ms": 143.3753808727488,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": true
+        },
+        "microjax_value": {
+          "first_call_ms": 15523.35375000257,
+          "steady_median_ms": 77.26261601783335,
+          "steady_p95_ms": 83.54000257095322,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": true
+        },
+        "microjax_value_plus_gradient": {
+          "first_call_ms": 30982.471216004342,
+          "steady_median_ms": 209.71152395941317,
+          "steady_p95_ms": 210.67384449997917,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": true
+        },
+        "autodiff_vbm_value": {
+          "first_call_ms": 71.8384130159393,
+          "steady_median_ms": 4.106812062673271,
+          "steady_p95_ms": 4.5788169372826815,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": true
+        },
+        "autodiff_vbm_value_plus_gradient": {
+          "first_call_ms": 114.34873996768147,
+          "steady_median_ms": 5.013348069041967,
+          "steady_p95_ms": 5.335575877688825,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": true
+        },
+        "lcbinint_value": {
+          "first_call_ms": 10.63124998472631,
+          "steady_median_ms": 10.019836947321892,
+          "steady_p95_ms": 10.114396340213716,
+          "repetitions": 3
+        },
+        "lcbinint_value_plus_gradient": {
+          "first_call_ms": 1292.6066279178485,
+          "steady_median_ms": 1289.69084599521,
+          "steady_p95_ms": 1312.3637324082665,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": false
+        }
+      },
+      "status": {
+        "vbm_value_finite": 27,
+        "microlux_value_finite": 27,
+        "microlux_value_plus_gradient_finite": 27,
+        "microlux_gradient_finite": 189,
+        "microjax_value_finite": 25,
+        "microjax_value_plus_gradient_finite": 25,
+        "microjax_gradient_finite": 189,
+        "autodiff_vbm_value_finite": 27,
+        "autodiff_vbm_value_plus_gradient_finite": 27,
+        "autodiff_vbm_gradient_finite": 189,
+        "lcbinint_value_finite": 27,
+        "lcbinint_value_plus_gradient_finite": 27,
+        "lcbinint_gradient_valid": 189,
+        "lcbinint_gradient_components": 189,
+        "lcbinint_gradient_finite_valid": 189
+      }
+    },
+    "stratified_02": {
+      "n_epochs": 25,
+      "limb": 0.9,
+      "params": {
+        "s": 0.95,
+        "q": 0.01,
+        "rho": 1e-06,
+        "t0": 0.0,
+        "tE": 10.0,
+        "u0": -1e-05,
+        "alpha": -1.8890494698555882
+      },
+      "source": "existing:post_axis_skip/stratified_02.npz",
+      "timing": {
+        "vbm_value": {
+          "first_call_ms": 2.433166024275124,
+          "steady_median_ms": 1.4621479203924537,
+          "steady_p95_ms": 1.4875621651299298,
+          "repetitions": 3
+        },
+        "microlux_value": {
+          "first_call_ms": 22830.5244500516,
+          "steady_median_ms": 107.51473403070122,
+          "steady_p95_ms": 107.51534245209768,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": true
+        },
+        "microlux_value_plus_gradient": {
+          "first_call_ms": 28880.683732102625,
+          "steady_median_ms": 555.1045829197392,
+          "steady_p95_ms": 558.0912609002553,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": true
+        },
+        "microjax_value": {
+          "first_call_ms": 9809.728602063842,
+          "steady_median_ms": 32.10641990881413,
+          "steady_p95_ms": 32.32973424019292,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": true
+        },
+        "microjax_value_plus_gradient": {
+          "first_call_ms": 23846.353720058687,
+          "steady_median_ms": 75.03968698438257,
+          "steady_p95_ms": 75.0924683525227,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": true
+        },
+        "autodiff_vbm_value": {
+          "first_call_ms": 68.28945002052933,
+          "steady_median_ms": 2.286244067363441,
+          "steady_p95_ms": 2.3004721384495497,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": true
+        },
+        "autodiff_vbm_value_plus_gradient": {
+          "first_call_ms": 117.818518076092,
+          "steady_median_ms": 2.2415609564632177,
+          "steady_p95_ms": 2.2650429629720747,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": true
+        },
+        "lcbinint_value": {
+          "first_call_ms": 2.9215040849521756,
+          "steady_median_ms": 2.3258839501067996,
+          "steady_p95_ms": 2.4260287289507687,
+          "repetitions": 3
+        },
+        "lcbinint_value_plus_gradient": {
+          "first_call_ms": 143.03089200984687,
+          "steady_median_ms": 141.6452289558947,
+          "steady_p95_ms": 141.67376252589747,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": false
+        }
+      },
+      "status": {
+        "vbm_value_finite": 25,
+        "microlux_value_finite": 25,
+        "microlux_value_plus_gradient_finite": 25,
+        "microlux_gradient_finite": 175,
+        "microjax_value_finite": 25,
+        "microjax_value_plus_gradient_finite": 25,
+        "microjax_gradient_finite": 175,
+        "autodiff_vbm_value_finite": 25,
+        "autodiff_vbm_value_plus_gradient_finite": 25,
+        "autodiff_vbm_gradient_finite": 175,
+        "lcbinint_value_finite": 25,
+        "lcbinint_value_plus_gradient_finite": 25,
+        "lcbinint_gradient_valid": 175,
+        "lcbinint_gradient_components": 175,
+        "lcbinint_gradient_finite_valid": 175
+      }
+    }
+  },
+  "errors": {}
+}

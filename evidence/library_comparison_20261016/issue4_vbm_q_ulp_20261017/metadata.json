@@ -1,0 +1,322 @@
+{
+  "created_utc": "2026-10-17T01:20:22Z",
+  "host": "rogue1",
+  "python": "3.10.19 (main, Oct 21 2025, 16:43:05) [GCC 11.2.0]",
+  "cpu_affinity": [
+    0
+  ],
+  "case_id": "near_limb_contact_117",
+  "source_index": 8,
+  "time": -1.670997233467463,
+  "params": {
+    "s": 0.710053684596912,
+    "q": 7.886132346228951e-07,
+    "rho": 0.1671007233467463,
+    "t0": 0.0,
+    "tE": 10.0,
+    "u0": 1e-09,
+    "alpha": 1.186247434824958
+  },
+  "version": "5.6.1",
+  "source_revision": "db4f95267d74ad5f4dc592ab1e6d46c05f6cc1b7",
+  "fresh_process_per_call": true,
+  "q_values": {
+    "physical_input": 7.886132346228951e-07,
+    "nextafter_down": 7.88613234622895e-07,
+    "nextafter_up": 7.886132346228952e-07,
+    "log_exp_roundtrip": 7.886132346228955e-07,
+    "relative_plus_1e-12": 7.886132346236838e-07,
+    "relative_minus_1e-12": 7.886132346221065e-07
+  },
+  "rows": [
+    {
+      "q_input": 7.886132346228951e-07,
+      "q_after_log_exp": 7.886132346228955e-07,
+      "mode": "direct_BinaryMagDark",
+      "tol": 0.001,
+      "value": 8.647603173320864,
+      "q_case": "physical_input"
+    },
+    {
+      "q_input": 7.886132346228951e-07,
+      "q_after_log_exp": 7.886132346228955e-07,
+      "mode": "direct_BinaryMag2",
+      "tol": 0.001,
+      "value": 8.647603173320864,
+      "q_case": "physical_input"
+    },
+    {
+      "q_input": 7.886132346228951e-07,
+      "q_after_log_exp": 7.886132346228955e-07,
+      "mode": "BinaryLightCurve_log_q",
+      "tol": 0.001,
+      "value": 9.525819536880174,
+      "q_case": "physical_input"
+    },
+    {
+      "q_input": 7.886132346228951e-07,
+      "q_after_log_exp": 7.886132346228955e-07,
+      "mode": "direct_BinaryMagDark",
+      "tol": 1e-06,
+      "value": 8.646209229563798,
+      "q_case": "physical_input"
+    },
+    {
+      "q_input": 7.886132346228951e-07,
+      "q_after_log_exp": 7.886132346228955e-07,
+      "mode": "direct_BinaryMag2",
+      "tol": 1e-06,
+      "value": 8.646209229563798,
+      "q_case": "physical_input"
+    },
+    {
+      "q_input": 7.886132346228951e-07,
+      "q_after_log_exp": 7.886132346228955e-07,
+      "mode": "BinaryLightCurve_log_q",
+      "tol": 1e-06,
+      "value": 9.523434585603868,
+      "q_case": "physical_input"
+    },
+    {
+      "q_input": 7.88613234622895e-07,
+      "q_after_log_exp": 7.886132346228955e-07,
+      "mode": "direct_BinaryMagDark",
+      "tol": 0.001,
+      "value": 8.647603173320864,
+      "q_case": "nextafter_down"
+    },
+    {
+      "q_input": 7.88613234622895e-07,
+      "q_after_log_exp": 7.886132346228955e-07,
+      "mode": "direct_BinaryMag2",
+      "tol": 0.001,
+      "value": 8.647603173320864,
+      "q_case": "nextafter_down"
+    },
+    {
+      "q_input": 7.88613234622895e-07,
+      "q_after_log_exp": 7.886132346228955e-07,
+      "mode": "BinaryLightCurve_log_q",
+      "tol": 0.001,
+      "value": 9.525819536880174,
+      "q_case": "nextafter_down"
+    },
+    {
+      "q_input": 7.88613234622895e-07,
+      "q_after_log_exp": 7.886132346228955e-07,
+      "mode": "direct_BinaryMagDark",
+      "tol": 1e-06,
+      "value": 8.646209229563791,
+      "q_case": "nextafter_down"
+    },
+    {
+      "q_input": 7.88613234622895e-07,
+      "q_after_log_exp": 7.886132346228955e-07,
+      "mode": "direct_BinaryMag2",
+      "tol": 1e-06,
+      "value": 8.646209229563791,
+      "q_case": "nextafter_down"
+    },
+    {
+      "q_input": 7.88613234622895e-07,
+      "q_after_log_exp": 7.886132346228955e-07,
+      "mode": "BinaryLightCurve_log_q",
+      "tol": 1e-06,
+      "value": 9.523434585603868,
+      "q_case": "nextafter_down"
+    },
+    {
+      "q_input": 7.886132346228952e-07,
+      "q_after_log_exp": 7.886132346228955e-07,
+      "mode": "direct_BinaryMagDark",
+      "tol": 0.001,
+      "value": 7.770365235342819,
+      "q_case": "nextafter_up"
+    },
+    {
+      "q_input": 7.886132346228952e-07,
+      "q_after_log_exp": 7.886132346228955e-07,
+      "mode": "direct_BinaryMag2",
+      "tol": 0.001,
+      "value": 7.770365235342819,
+      "q_case": "nextafter_up"
+    },
+    {
+      "q_input": 7.886132346228952e-07,
+      "q_after_log_exp": 7.886132346228955e-07,
+      "mode": "BinaryLightCurve_log_q",
+      "tol": 0.001,
+      "value": 9.525819536880174,
+      "q_case": "nextafter_up"
+    },
+    {
+      "q_input": 7.886132346228952e-07,
+      "q_after_log_exp": 7.886132346228955e-07,
+      "mode": "direct_BinaryMagDark",
+      "tol": 1e-06,
+      "value": 7.7688046306110285,
+      "q_case": "nextafter_up"
+    },
+    {
+      "q_input": 7.886132346228952e-07,
+      "q_after_log_exp": 7.886132346228955e-07,
+      "mode": "direct_BinaryMag2",
+      "tol": 1e-06,
+      "value": 7.7688046306110285,
+      "q_case": "nextafter_up"
+    },
+    {
+      "q_input": 7.886132346228952e-07,
+      "q_after_log_exp": 7.886132346228955e-07,
+      "mode": "BinaryLightCurve_log_q",
+      "tol": 1e-06,
+      "value": 9.523434585603868,
+      "q_case": "nextafter_up"
+    },
+    {
+      "q_input": 7.886132346228955e-07,
+      "q_after_log_exp": 7.886132346228955e-07,
+      "mode": "direct_BinaryMagDark",
+      "tol": 0.001,
+      "value": 8.647603169702375,
+      "q_case": "log_exp_roundtrip"
+    },
+    {
+      "q_input": 7.886132346228955e-07,
+      "q_after_log_exp": 7.886132346228955e-07,
+      "mode": "direct_BinaryMag2",
+      "tol": 0.001,
+      "value": 8.647603169702375,
+      "q_case": "log_exp_roundtrip"
+    },
+    {
+      "q_input": 7.886132346228955e-07,
+      "q_after_log_exp": 7.886132346228955e-07,
+      "mode": "BinaryLightCurve_log_q",
+      "tol": 0.001,
+      "value": 9.525819536880174,
+      "q_case": "log_exp_roundtrip"
+    },
+    {
+      "q_input": 7.886132346228955e-07,
+      "q_after_log_exp": 7.886132346228955e-07,
+      "mode": "direct_BinaryMagDark",
+      "tol": 1e-06,
+      "value": 8.646208716375984,
+      "q_case": "log_exp_roundtrip"
+    },
+    {
+      "q_input": 7.886132346228955e-07,
+      "q_after_log_exp": 7.886132346228955e-07,
+      "mode": "direct_BinaryMag2",
+      "tol": 1e-06,
+      "value": 8.646208716375984,
+      "q_case": "log_exp_roundtrip"
+    },
+    {
+      "q_input": 7.886132346228955e-07,
+      "q_after_log_exp": 7.886132346228955e-07,
+      "mode": "BinaryLightCurve_log_q",
+      "tol": 1e-06,
+      "value": 9.523434585603868,
+      "q_case": "log_exp_roundtrip"
+    },
+    {
+      "q_input": 7.886132346236838e-07,
+      "q_after_log_exp": 7.886132346236842e-07,
+      "mode": "direct_BinaryMagDark",
+      "tol": 0.001,
+      "value": 9.525983494074197,
+      "q_case": "relative_plus_1e-12"
+    },
+    {
+      "q_input": 7.886132346236838e-07,
+      "q_after_log_exp": 7.886132346236842e-07,
+      "mode": "direct_BinaryMag2",
+      "tol": 0.001,
+      "value": 9.525983494074197,
+      "q_case": "relative_plus_1e-12"
+    },
+    {
+      "q_input": 7.886132346236838e-07,
+      "q_after_log_exp": 7.886132346236842e-07,
+      "mode": "BinaryLightCurve_log_q",
+      "tol": 0.001,
+      "value": 7.770176709610932,
+      "q_case": "relative_plus_1e-12"
+    },
+    {
+      "q_input": 7.886132346236838e-07,
+      "q_after_log_exp": 7.886132346236842e-07,
+      "mode": "direct_BinaryMagDark",
+      "tol": 1e-06,
+      "value": 9.523600140487536,
+      "q_case": "relative_plus_1e-12"
+    },
+    {
+      "q_input": 7.886132346236838e-07,
+      "q_after_log_exp": 7.886132346236842e-07,
+      "mode": "direct_BinaryMag2",
+      "tol": 1e-06,
+      "value": 9.523600140487536,
+      "q_case": "relative_plus_1e-12"
+    },
+    {
+      "q_input": 7.886132346236838e-07,
+      "q_after_log_exp": 7.886132346236842e-07,
+      "mode": "BinaryLightCurve_log_q",
+      "tol": 1e-06,
+      "value": 7.768614341824426,
+      "q_case": "relative_plus_1e-12"
+    },
+    {
+      "q_input": 7.886132346221065e-07,
+      "q_after_log_exp": 7.886132346221068e-07,
+      "mode": "direct_BinaryMagDark",
+      "tol": 0.001,
+      "value": 6.89343142999019,
+      "q_case": "relative_minus_1e-12"
+    },
+    {
+      "q_input": 7.886132346221065e-07,
+      "q_after_log_exp": 7.886132346221068e-07,
+      "mode": "direct_BinaryMag2",
+      "tol": 0.001,
+      "value": 6.89343142999019,
+      "q_case": "relative_minus_1e-12"
+    },
+    {
+      "q_input": 7.886132346221065e-07,
+      "q_after_log_exp": 7.886132346221068e-07,
+      "mode": "BinaryLightCurve_log_q",
+      "tol": 0.001,
+      "value": 6.893254851846931,
+      "q_case": "relative_minus_1e-12"
+    },
+    {
+      "q_input": 7.886132346221065e-07,
+      "q_after_log_exp": 7.886132346221068e-07,
+      "mode": "direct_BinaryMagDark",
+      "tol": 1e-06,
+      "value": 6.891415049365459,
+      "q_case": "relative_minus_1e-12"
+    },
+    {
+      "q_input": 7.886132346221065e-07,
+      "q_after_log_exp": 7.886132346221068e-07,
+      "mode": "direct_BinaryMag2",
+      "tol": 1e-06,
+      "value": 6.891415049365459,
+      "q_case": "relative_minus_1e-12"
+    },
+    {
+      "q_input": 7.886132346221065e-07,
+      "q_after_log_exp": 7.886132346221068e-07,
+      "mode": "BinaryLightCurve_log_q",
+      "tol": 1e-06,
+      "value": 6.8912374308816355,
+      "q_case": "relative_minus_1e-12"
+    }
+  ],
+  "warning": "This probes floating-point sensitivity in the VBM 5.6.1 public calculation; it does not certify the q>0 true value."
+}

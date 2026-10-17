@@ -1,36 +1,42 @@
 # Automatic differentiation with JAX
 
-`lcbinint` can evaluate binary- and triple-lens light curves through a
-differentiable CPU backend. The public model API is unchanged: select JAX in
-`Options`, pass JAX arrays and tracers, and differentiate the returned
-magnification with ordinary JAX transformations.
+`lcbinint` uses one light-curve call for values and gradients. Every call
+returns a `LightCurveInfo` containing magnifications and per-epoch status;
+`with_gradient=True` adds a gradient matrix and a validity flag. JAX
+transformations of `result.magnifications` remain available when fitting code
+needs them.
 
 ## Public options and dispatch
 
 `lcbinint.Options` is a Python proxy around the native numerical options. Its
-`jax` selector is deliberately Python-only, so it does not alter the public C
-ABI. It controls `LightCurve.__call__()`, `.magnification()`, and
-`.magnification_batch()`. For a single-source binary curve it also controls
-`.info()`, `.source_trajectory()`, `.finite_source_geometry()`, and
-`.separation()`; unsupported diagnostic/model combinations fail explicitly
-rather than silently running native code. The low-level
-`binary_ray_shooting()` accepts either `jax=True` directly or
-`Options(jax=True)`. An explicit selector takes precedence over the option.
+`jax` selector remains available for JAX-specific execution features, but a
+user does not need to select a separate value or gradient API. Concrete calls
+use the configured value route; traced JAX inputs select the differentiable
+execution internally. `with_gradient=True` requests a gradient through the
+same `LightCurve` call. The low-level `binary_ray_shooting()` keeps its own
+JAX selector because it is a separate low-level operation.
+
+On this branch, value-only calls for a static single-source binary use
+algebraic boundary by default. `with_gradient=True` retains that same value
+and status result, then evaluates the algebraic-boundary Jacobian only for
+accepted epochs. Unconverged or unsupported epochs keep their finite value,
+report the same status as value-only mode, and return zero gradients marked
+invalid. Pass `Options(finite_source_backend="default")` to explicitly use the
+standard router for a compatible binary model.
 
 The public package is always `lcbinint`; `lcbinint_jax` contains implementation
 and research kernels and is not a second user-facing model API.
 
-Native and JAX execution share parameter aliases, coordinate conventions,
-fixed/automatic `nbin`, Cartesian/polar grid selection, limb darkening,
-validation, and result shapes. JAX diagnostics are array-valued counterparts
-of native `LightCurveInfo`; method names and convergence properties remain
-available for ordinary diagnostic use.
+The returned `LightCurveInfo` has the same fields in value-only and gradient
+modes. `magnifications` contains the best finite estimate; `status_names`
+contains `ok`, `unconverged`, or `support_unproven`. `gradients` has one column
+per name in `gradient_parameters`. An unusable gradient is zeroed and marked
+`gradient_valid=False` without changing the value status.
 
 For a triple lens, `q2` must remain positive. Concrete invalid values raise
-the same validation error as the native path. When `q2` is a JAX tracer, the
-device-side validity mask returns `NaN` for invalid compiled inputs rather
-than silently evaluating a different finite model; valid `q2` values remain
-differentiable without a host callback.
+the same validation error as the native path. A dynamically invalid `q2`
+produces a finite fallback magnification with a non-success status when the
+call is traced.
 
 ## Installation and precision
 
@@ -75,7 +81,6 @@ params = {
 
 curve = lcbinint.LightCurve(
     options=lcbinint.Options(
-        jax=True,
         coordinates="center_of_mass",
         tol=1.0e-4,
         reltol=1.0e-4,
@@ -85,22 +90,26 @@ curve = lcbinint.LightCurve(
 def loss(u0):
     active = dict(params)
     active["u0"] = u0
-    return jnp.sum(curve(times, active))
+    return jnp.sum(curve(times, active).magnifications)
 
-magnification = jax.jit(curve)(times, params)
+compiled_result = jax.jit(curve)(times, params)
+compiled_magnification = compiled_result.magnifications
 value, derivative = jax.jit(jax.value_and_grad(loss))(params["u0"])
+gradient_result = curve(times, params, with_gradient=True)
+u0_gradient = gradient_result.gradients[
+    :, gradient_result.gradient_parameters.index("u0")
+]
 ```
 
 The first call includes JAX compilation. Reuse the compiled function with the
 same time-array shape and model structure when measuring or fitting.
 
 If automatic finite-source integration cannot meet the requested tolerance,
-the ordinary curve returns `NaN` rather than an unaccepted last iterate. Use
-`curve.info(...)` to inspect `finite_source_error_estimates` and
-`finite_source_converged`; the raw diagnostic iterate is available separately
-as `finite_source_magnifications`. Setting either `tol` or `reltol` makes the
-other component's explicit zero meaningful, so `tol=0, reltol=1e-5` is a
-purely relative request in both native and JAX execution.
+the result retains its best finite estimate and marks that epoch
+`unconverged` or `support_unproven`. `curve.info(...)` is a compatibility
+alias for the same result and exposes the detailed error estimates. Setting
+either `tol` or `reltol` makes the other component's explicit zero meaningful,
+so `tol=0, reltol=1e-5` is a purely relative request.
 
 The backend selection also covers the native batch likelihood interface:
 

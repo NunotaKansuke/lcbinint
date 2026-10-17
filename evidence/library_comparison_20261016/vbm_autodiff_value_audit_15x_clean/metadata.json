@@ -1,0 +1,111 @@
+{
+  "created_utc": "2026-10-16T03:27:17Z",
+  "host": "rogue1",
+  "platform": "Linux-5.14.0-570.23.1.el9_6.x86_64-x86_64-with-glibc2.34",
+  "python": "3.10.19 (main, Oct 21 2025, 16:43:05) [GCC 11.2.0]",
+  "cpu": "x86_64",
+  "cpu_affinity": [
+    0
+  ],
+  "threads": {
+    "OMP_NUM_THREADS": "1",
+    "OPENBLAS_NUM_THREADS": "1",
+    "MKL_NUM_THREADS": "1",
+    "NUMEXPR_NUM_THREADS": "1",
+    "JAX_PLATFORMS": "cpu",
+    "JAX_ENABLE_X64": "true"
+  },
+  "tolerance": {
+    "common": 0.001,
+    "microjax": "CPU public backend exposes fixed settings; no tolerance argument"
+  },
+  "trajectory_convention": {
+    "input_cases": "VBMicrolensing convention: y1=u0*sin(alpha)-tau*cos(alpha), y2=-u0*cos(alpha)-tau*sin(alpha)",
+    "microlux_microjax": "add pi to alpha to map the same physical trajectory to their (tau+i*u0)*exp(i*alpha) convention",
+    "autodiff_vbm_lcbinint": "use input alpha directly"
+  },
+  "value_api": {
+    "microlux": "microlux.model.binary_mag(times and physical parameters, vector call)",
+    "microjax": "microjax.inverse_ray.lightcurve.mag_binary(w_points,...,backend='cpu'); vectorized JAX time-to-w transform in same call",
+    "vbm": "VBMicrolensing.VBMicrolensing.BinaryLightCurve(params,times)",
+    "autodiff_vbm": "AutodiffVBM.BinaryLightCurve(params,times)",
+    "lcbinint": "lcbinint.LightCurve(times,params), algebraic_boundary"
+  },
+  "value_plus_gradient_api": {
+    "microlux": "jax.jacfwd(has_aux=True) of the vector-valued public binary_mag call",
+    "microjax": "jax.jacfwd(has_aux=True) of the vector-valued public mag_binary CPU call",
+    "autodiff_vbm": "jax.jacfwd(has_aux=True) of the vector-valued public BinaryLightCurve call",
+    "lcbinint": "single public holonomic_gradient batch call returning both mu and grad_mu",
+    "vbm": null
+  },
+  "workload_modes": [
+    "value_only",
+    "value_plus_gradient"
+  ],
+  "versions": {
+    "microlux": {
+      "version": "0.3.0",
+      "branch": "develop",
+      "head": "711245b6f557e5b1548b8e27d85ced7384c13418",
+      "module": "/rogue1_8/nunota/microlux/src/microlux/model.py",
+      "module_sha256": "d3e11b2bd2c29d5d900c7cdfcefd50a22e9175898ab423d68bdd8807dec3cd0e"
+    },
+    "microjax": {
+      "version": "0.2.0",
+      "distribution": "0.1.1",
+      "branch": "develop",
+      "head": "326cb0dd14617e5716a9d652b510709902d27b5b",
+      "module": "/rogue1_8/nunota/microjax/src/microjax/__init__.py"
+    },
+    "vbm": {
+      "version": "5.6.1",
+      "head": "49d8ac969f754beb5ae990a9fa40db8df3a10082",
+      "module": "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/evidence/library_comparison_20261016/vbm561/VBMicrolensing/__init__.py",
+      "native": "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/evidence/library_comparison_20261016/vbm561/VBMicrolensing/VBMicrolensing.so"
+    },
+    "autodiff_vbm": {
+      "version": "0.1.0",
+      "branch": "eco-system/integration",
+      "head": "69002603035eaddcdbad3d3b62e4f570a7cf9b85",
+      "module": "/rogue1_8/nunota/moasarc-ecosystem/integration/autodiff-vbm/src/autodiff_vbm/__init__.py",
+      "native": "/rogue1_8/nunota/moasarc-ecosystem/integration/autodiff-vbm/src/autodiff_vbm/_autodiff_vbm_native.cpython-310-x86_64-linux-gnu.so",
+      "native_sha256": "af20535770c8949e349c0636161cb718b8b3127e5023526c585bc5df40c976f6",
+      "vendored_vbm": "5.5"
+    },
+    "lcbinint": {
+      "branch": "experiment/algebraic_boundary",
+      "head": "40e66e510799f9d3d15b459be2b38694daad52ee",
+      "native": "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/build-algebraic-boundary/python-api/lcbinint/_lcbinint.cpython-310-x86_64-linux-gnu.so",
+      "native_sha256": "e6f7ef220adaa30b9b2086cb723c3d18eb2a472014b200b4c9e6c8f53bffa1ac",
+      "gradient_native": "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/build-algebraic-boundary/fused-gradient/python/_lcbinint_holonomic_fused.cpython-310-x86_64-linux-gnu.so",
+      "gradient_native_sha256": "bbe47aac03502b063aa3411df24d79d83ec1d491cfbcf20f747cdc395adfafe4",
+      "python_source_sha256": "e5217bb09d5514f347c867e5c0e53261a60c8bf7a70275cb7504aa5d92619435",
+      "gradient_source_sha256": "2aa9b6c630068122d78ceb8d95c64e7c9f2b2fe39d256b61ad2feb2dbfdd9869"
+    }
+  },
+  "input_hash": "285a1dde5309fde307d735912b553ebf1cfb0a935978bc6ca0a63f6614630c8f",
+  "script_sha256": "c63545196a603eaf6b5a872661c007b95e058e562eef5bd1ce138a364eda0c9e",
+  "repetitions": 15,
+  "consensus_is_reference": false,
+  "comparison_modes": [
+    "value_only",
+    "value_plus_gradient"
+  ],
+  "selected_cases": [
+    "ordinary_point",
+    "wide_caustic",
+    "large_source_ld09",
+    "large_source_ld05_user",
+    "near_limb_contact_117",
+    "near_double_root"
+  ],
+  "skipped_libraries": [
+    "lcbinint",
+    "microjax",
+    "microlux"
+  ],
+  "value_plus_gradient_skipped_libraries": [
+    "autodiff_vbm"
+  ],
+  "note": "VBM and autodiff-vbm share the VBM solver family; they are collapsed to one value family for consensus."
+}

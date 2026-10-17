@@ -1,0 +1,101 @@
+{
+  "run_signature": "45214575ab5177669318cc238c9e931fe25acb9a34501973b794aed6b52e0c65",
+  "input_hash": "c29e3125af79fcbae70dd45a7a38b946197841ebf01e0be7b7ec91daed11a51c",
+  "completed": {
+    "ordinary_point": {
+      "n_epochs": 401,
+      "limb": 0.5,
+      "params": {
+        "s": 1.2,
+        "q": 0.01,
+        "rho": 0.003,
+        "t0": 0.0,
+        "tE": 10.0,
+        "u0": 0.3,
+        "alpha": 0.0
+      },
+      "source": "existing:post_axis_skip/ordinary_point_performance.npz",
+      "timing": {
+        "vbm_value": {
+          "first_call_ms": 0.4345180932432413,
+          "steady_median_ms": 0.3888478968292475,
+          "steady_p95_ms": 0.453166535589844,
+          "repetitions": 3
+        },
+        "microlux_value": {
+          "first_call_ms": 22292.874194914475,
+          "steady_median_ms": 9.462406975217164,
+          "steady_p95_ms": 9.974810318090022,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": true
+        },
+        "microlux_value_plus_gradient": {
+          "first_call_ms": 28381.85948797036,
+          "steady_median_ms": 46.17275798227638,
+          "steady_p95_ms": 46.45836221752688,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": true
+        },
+        "microjax_value": {
+          "first_call_ms": 9663.549997028895,
+          "steady_median_ms": 4.624361987225711,
+          "steady_p95_ms": 4.936977010220289,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": true
+        },
+        "microjax_value_plus_gradient": {
+          "first_call_ms": 20209.31773202028,
+          "steady_median_ms": 21.186625002883375,
+          "steady_p95_ms": 21.213439654093236,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": true
+        },
+        "autodiff_vbm_value": {
+          "first_call_ms": 62.4928439501673,
+          "steady_median_ms": 0.39720290806144476,
+          "steady_p95_ms": 0.4178841016255319,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": true
+        },
+        "autodiff_vbm_value_plus_gradient": {
+          "first_call_ms": 100.6726190680638,
+          "steady_median_ms": 0.4101059166714549,
+          "steady_p95_ms": 0.4207466379739344,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": true
+        },
+        "lcbinint_value": {
+          "first_call_ms": 2.747101942077279,
+          "steady_median_ms": 0.37731300108134747,
+          "steady_p95_ms": 0.38583414861932397,
+          "repetitions": 3
+        },
+        "lcbinint_value_plus_gradient": {
+          "first_call_ms": 63.43861809000373,
+          "steady_median_ms": 56.04489496909082,
+          "steady_p95_ms": 56.302110536489636,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": false
+        }
+      },
+      "status": {
+        "vbm_value_finite": 401,
+        "microlux_value_finite": 401,
+        "microlux_value_plus_gradient_finite": 401,
+        "microlux_gradient_finite": 2807,
+        "microjax_value_finite": 401,
+        "microjax_value_plus_gradient_finite": 401,
+        "microjax_gradient_finite": 2807,
+        "autodiff_vbm_value_finite": 401,
+        "autodiff_vbm_value_plus_gradient_finite": 401,
+        "autodiff_vbm_gradient_finite": 2807,
+        "lcbinint_value_finite": 401,
+        "lcbinint_value_plus_gradient_finite": 401,
+        "lcbinint_gradient_valid": 2807,
+        "lcbinint_gradient_components": 2807,
+        "lcbinint_gradient_finite_valid": 2807
+      }
+    }
+  },
+  "errors": {}
+}

@@ -1,0 +1,231 @@
+{
+  "run_signature": "afae4e6448ff6f55a31f2694b8dbe9c0414344c0b10fe2bffa747ff926c0c370",
+  "input_hash": "eb9b06555b95381e7385fc779c241b2a62fa620a6a5e9209693af1e1bb73f752",
+  "completed": {
+    "ordinary_point": {
+      "n_epochs": 401,
+      "limb": 0.5,
+      "params": {
+        "s": 1.2,
+        "q": 0.01,
+        "rho": 0.003,
+        "t0": 0.0,
+        "tE": 10.0,
+        "u0": 0.3,
+        "alpha": 0.0
+      },
+      "source": "existing:post_axis_skip/ordinary_point_performance.npz",
+      "timing": {
+        "autodiff_vbm_value": {
+          "first_call_ms": 61.26071501057595,
+          "steady_median_ms": 0.3926960052922368,
+          "steady_p95_ms": 0.4274608800187707,
+          "repetitions": 15,
+          "first_call_includes_new_jit_graph": true
+        },
+        "autodiff_vbm_value_plus_gradient": {
+          "first_call_ms": 118.65114502143115,
+          "steady_median_ms": 0.4056679317727685,
+          "steady_p95_ms": 0.45909737236797804,
+          "repetitions": 15,
+          "first_call_includes_new_jit_graph": true
+        },
+        "lcbinint_value": {
+          "first_call_ms": 3.016778966411948,
+          "steady_median_ms": 0.36117294803261757,
+          "steady_p95_ms": 0.415217294357717,
+          "repetitions": 15
+        },
+        "lcbinint_value_plus_gradient": {
+          "first_call_ms": 65.88701205328107,
+          "steady_median_ms": 55.64566305838525,
+          "steady_p95_ms": 56.26427043462172,
+          "repetitions": 15,
+          "first_call_includes_new_jit_graph": false
+        }
+      },
+      "status": {
+        "vbm_skipped": "targeted timing audit of autodiff-vbm and lcbinint",
+        "microlux_skipped": "targeted timing audit of autodiff-vbm and lcbinint",
+        "microjax_skipped": "targeted timing audit of autodiff-vbm and lcbinint",
+        "autodiff_vbm_value_finite": 401,
+        "autodiff_vbm_value_plus_gradient_finite": 401,
+        "autodiff_vbm_gradient_finite": 2807,
+        "lcbinint_value_finite": 401,
+        "lcbinint_value_plus_gradient_finite": 401,
+        "lcbinint_gradient_valid": 2807,
+        "lcbinint_gradient_components": 2807,
+        "lcbinint_gradient_finite_valid": 2807
+      }
+    },
+    "large_source_ld05_user": {
+      "n_epochs": 401,
+      "limb": 0.5,
+      "params": {
+        "s": 0.6,
+        "q": 0.001,
+        "rho": 0.5,
+        "t0": 0.0,
+        "tE": 10.0,
+        "u0": -1e-05,
+        "alpha": 0.5
+      },
+      "source": "user-provided:401-point curve, 2026-10-16",
+      "timing": {
+        "autodiff_vbm_value": {
+          "first_call_ms": 243.48204699344933,
+          "steady_median_ms": 244.13949495647103,
+          "steady_p95_ms": 245.1040057116188,
+          "repetitions": 15,
+          "first_call_includes_new_jit_graph": false
+        },
+        "autodiff_vbm_value_plus_gradient": {
+          "first_call_ms": 244.79727307334542,
+          "steady_median_ms": 244.88185404334217,
+          "steady_p95_ms": 250.6305366754532,
+          "repetitions": 15,
+          "first_call_includes_new_jit_graph": false
+        },
+        "lcbinint_value": {
+          "first_call_ms": 158.62670296337456,
+          "steady_median_ms": 155.8207260677591,
+          "steady_p95_ms": 156.24745835084468,
+          "repetitions": 15
+        },
+        "lcbinint_value_plus_gradient": {
+          "first_call_ms": 277.6370201027021,
+          "steady_median_ms": 273.44217197969556,
+          "steady_p95_ms": 275.31445239437744,
+          "repetitions": 15,
+          "first_call_includes_new_jit_graph": false
+        }
+      },
+      "status": {
+        "vbm_skipped": "targeted timing audit of autodiff-vbm and lcbinint",
+        "microlux_skipped": "targeted timing audit of autodiff-vbm and lcbinint",
+        "microjax_skipped": "targeted timing audit of autodiff-vbm and lcbinint",
+        "autodiff_vbm_value_finite": 401,
+        "autodiff_vbm_value_plus_gradient_finite": 401,
+        "autodiff_vbm_gradient_finite": 2807,
+        "lcbinint_value_finite": 401,
+        "lcbinint_value_plus_gradient_finite": 401,
+        "lcbinint_gradient_valid": 2807,
+        "lcbinint_gradient_components": 2807,
+        "lcbinint_gradient_finite_valid": 2807
+      }
+    },
+    "near_limb_contact_117": {
+      "n_epochs": 27,
+      "limb": 0.5,
+      "params": {
+        "s": 0.710053684596912,
+        "q": 7.886132346228951e-07,
+        "rho": 0.1671007233467463,
+        "t0": 0.0,
+        "tE": 10.0,
+        "u0": 1e-09,
+        "alpha": 1.186247434824958
+      },
+      "source": "existing:post_axis_skip/near_limb_contact_117.npz",
+      "timing": {
+        "autodiff_vbm_value": {
+          "first_call_ms": 660.5288429418579,
+          "steady_median_ms": 556.3200650503859,
+          "steady_p95_ms": 571.4454552857205,
+          "repetitions": 15,
+          "first_call_includes_new_jit_graph": true
+        },
+        "autodiff_vbm_value_plus_gradient": {
+          "first_call_ms": 704.0469780331478,
+          "steady_median_ms": 548.4586049569771,
+          "steady_p95_ms": 587.2007949394174,
+          "repetitions": 15,
+          "first_call_includes_new_jit_graph": true
+        },
+        "lcbinint_value": {
+          "first_call_ms": 18.088539014570415,
+          "steady_median_ms": 11.382802040316164,
+          "steady_p95_ms": 11.440302128903568,
+          "repetitions": 15
+        },
+        "lcbinint_value_plus_gradient": {
+          "first_call_ms": 82.5888590188697,
+          "steady_median_ms": 82.21224299632013,
+          "steady_p95_ms": 82.56696459138766,
+          "repetitions": 15,
+          "first_call_includes_new_jit_graph": false
+        }
+      },
+      "status": {
+        "vbm_skipped": "targeted timing audit of autodiff-vbm and lcbinint",
+        "microlux_skipped": "targeted timing audit of autodiff-vbm and lcbinint",
+        "microjax_skipped": "targeted timing audit of autodiff-vbm and lcbinint",
+        "autodiff_vbm_value_finite": 27,
+        "autodiff_vbm_value_plus_gradient_finite": 27,
+        "autodiff_vbm_gradient_finite": 189,
+        "lcbinint_value_finite": 27,
+        "lcbinint_value_plus_gradient_finite": 27,
+        "lcbinint_gradient_valid": 189,
+        "lcbinint_gradient_components": 189,
+        "lcbinint_gradient_finite_valid": 189
+      }
+    },
+    "near_double_root": {
+      "n_epochs": 30,
+      "limb": 0.5,
+      "params": {
+        "s": 0.6,
+        "q": 0.0001,
+        "rho": 0.05,
+        "t0": 0.0,
+        "tE": 10.0,
+        "u0": -1e-05,
+        "alpha": 0.5
+      },
+      "source": "existing:post_axis_skip/near_double_root.npz",
+      "timing": {
+        "autodiff_vbm_value": {
+          "first_call_ms": 86.69725002255291,
+          "steady_median_ms": 20.833709044381976,
+          "steady_p95_ms": 20.87322442093864,
+          "repetitions": 15,
+          "first_call_includes_new_jit_graph": true
+        },
+        "autodiff_vbm_value_plus_gradient": {
+          "first_call_ms": 168.02797396667302,
+          "steady_median_ms": 20.49295895267278,
+          "steady_p95_ms": 20.713465323206037,
+          "repetitions": 15,
+          "first_call_includes_new_jit_graph": true
+        },
+        "lcbinint_value": {
+          "first_call_ms": 19.14234401192516,
+          "steady_median_ms": 18.000088981352746,
+          "steady_p95_ms": 18.127496459055692,
+          "repetitions": 15
+        },
+        "lcbinint_value_plus_gradient": {
+          "first_call_ms": 53.2975000096485,
+          "steady_median_ms": 49.873066949658096,
+          "steady_p95_ms": 49.948678200598806,
+          "repetitions": 15,
+          "first_call_includes_new_jit_graph": false
+        }
+      },
+      "status": {
+        "vbm_skipped": "targeted timing audit of autodiff-vbm and lcbinint",
+        "microlux_skipped": "targeted timing audit of autodiff-vbm and lcbinint",
+        "microjax_skipped": "targeted timing audit of autodiff-vbm and lcbinint",
+        "autodiff_vbm_value_finite": 30,
+        "autodiff_vbm_value_plus_gradient_finite": 30,
+        "autodiff_vbm_gradient_finite": 210,
+        "lcbinint_value_finite": 30,
+        "lcbinint_value_plus_gradient_finite": 30,
+        "lcbinint_gradient_valid": 210,
+        "lcbinint_gradient_components": 210,
+        "lcbinint_gradient_finite_valid": 210
+      }
+    }
+  },
+  "errors": {}
+}

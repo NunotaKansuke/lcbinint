@@ -1,0 +1,32 @@
+{
+  "case_id": "stratified_09",
+  "included_epochs": 24,
+  "excluded_epochs": [
+    12,
+    13,
+    14
+  ],
+  "consensus_is_reference": false,
+  "consensus_definition": "per-epoch median of four families; official VBM 5.6.1 and autodiff-vbm are collapsed to one VBM family",
+  "pairwise_max_relative_difference_to_family_median": {
+    "vbm_family_vs_microlux": 7.514273276785396e-06,
+    "vbm_family_vs_microjax": 1.1538585897877278e-05,
+    "vbm_family_vs_lcbinint": 1.1542803742856696e-05,
+    "microlux_vs_microjax": 5.044290695402713e-06,
+    "microlux_vs_lcbinint": 5.044410159820619e-06,
+    "microjax_vs_lcbinint": 7.366046786724629e-07
+  },
+  "max_relative_difference_to_descriptive_median": {
+    "vbm": 9.525678151248503e-06,
+    "autodiff_vbm": 9.525764703801864e-06,
+    "microlux": 2.5221453477013566e-06,
+    "microjax": 2.5221453477013566e-06,
+    "lcbinint": 2.555968983945589e-06
+  },
+  "source_artifacts": {
+    "issue5_stratified_09_remaining_apis_20261017/raw/stratified_09.npz": "916b37f4cf20e03ba5cfc8d76e8ed16f56fbd0cb042553d4e01eb5e0be0b8226",
+    "issue5_stratified_09_fallback_verification_20261017/raw/stratified_09.npz": "8ee508cee75ddab29ad072020a7ad678ae2dbc73462ea65ac07f8b9d8cdc5690",
+    "issue5_vbm_epoch_isolation_20261017/metadata.json": "d03f354f5c7e697c79e6aacc6841cade35bc7f24656ad549ce130db902da7236"
+  },
+  "note": "The three excluded center epochs have support-unproven lcbinint values and timed out for both VBM-family implementations. The MicroLUX center outputs also carry sampling-capacity warnings; no consensus value is treated as truth."
+}

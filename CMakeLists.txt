@@ -65,6 +65,8 @@ endif()
 # Leaf layer: finite/point-source magnification kernels + root solvers.
 # No dependency on model/, lc/, or obs/ (see .note/session-2026-07-18-final-review.md, A5).
 add_library(lcbinint_magnification
+    src/lcbinint/magnification/algebraic_boundary.cpp
+    src/lcbinint/magnification/algebraic_boundary_autodiff.cpp
     src/lcbinint/magnification/component_certificate.cpp
     src/lcbinint/magnification/finite_source_magnifier.cpp
     src/lcbinint/magnification/point_source_magnifier.cpp
@@ -130,11 +132,60 @@ if(LCBININT_BUILD_PYTHON)
             "pybind11 CMake package directory" FORCE)
     endif()
     find_package(pybind11 CONFIG REQUIRED)
+
+    # Keep the established fused value/Jacobian kernel available to the one
+    # LightCurve API. The private overlay isolates its experiment headers from
+    # the ordinary magnification library.
+    set(LCBININT_FUSED_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}/fused-gradient")
+    add_custom_target(lcbinint_fused_gradient_overlay
+        COMMAND ${CMAKE_COMMAND} -E env
+            "LCBININT_FUSED_BUILD=${LCBININT_FUSED_BUILD_DIR}"
+            "PYTHONDONTWRITEBYTECODE=1"
+            ${Python3_EXECUTABLE}
+            ${CMAKE_CURRENT_SOURCE_DIR}/benchmarks/holonomic/fused_gradient/build_material_overlay.py
+        COMMAND ${CMAKE_COMMAND} -E env
+            "LCBININT_FUSED_BUILD=${LCBININT_FUSED_BUILD_DIR}"
+            "PYTHONDONTWRITEBYTECODE=1"
+            ${Python3_EXECUTABLE}
+            ${CMAKE_CURRENT_SOURCE_DIR}/benchmarks/holonomic/fused_gradient/build_api_overlay.py
+        COMMENT "Preparing the private fused-gradient headers"
+        VERBATIM)
+
+    add_library(lcbinint_fused_gradient STATIC
+        src/lcbinint/magnification/holonomic/fused_gradient.cpp)
+    add_dependencies(lcbinint_fused_gradient lcbinint_fused_gradient_overlay)
+    target_include_directories(lcbinint_fused_gradient BEFORE PRIVATE
+        "${LCBININT_FUSED_BUILD_DIR}/api-include")
+    target_include_directories(lcbinint_fused_gradient PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/include"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src"
+        "${CMAKE_CURRENT_SOURCE_DIR}/third_party/skowron_gould")
+    target_link_libraries(lcbinint_fused_gradient PUBLIC lcbinint_lightcurve)
+    target_compile_options(lcbinint_fused_gradient PRIVATE
+        $<$<CXX_COMPILER_ID:GNU>:-fext-numeric-literals>)
+
+    pybind11_add_module(lcbinint_fused_gradient_python
+        python/bind_holonomic_fused.cpp)
+    target_link_libraries(lcbinint_fused_gradient_python
+        PRIVATE lcbinint_fused_gradient)
+    set_target_properties(lcbinint_fused_gradient_python PROPERTIES
+        OUTPUT_NAME _lcbinint_holonomic_fused)
+    add_dependencies(lcbinint_fused_gradient_python
+        lcbinint_fused_gradient_overlay)
+    add_custom_command(TARGET lcbinint_fused_gradient_python POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory
+            "${CMAKE_CURRENT_BINARY_DIR}/lcbinint"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:lcbinint_fused_gradient_python>
+            "${CMAKE_CURRENT_BINARY_DIR}/lcbinint/$<TARGET_FILE_NAME:lcbinint_fused_gradient_python>"
+        COMMENT "Copying the fused-gradient kernel into the lcbinint package")
+
     pybind11_add_module(lcbinint_python
         python/lcbinint_pybind.cpp
         python/bind_lc.cpp
         python/bind_obs.cpp
         python/bind_jax_ir.cpp)
+    add_dependencies(lcbinint_python lcbinint_fused_gradient_python)
     target_link_libraries(lcbinint_python PRIVATE lcbinint_lightcurve)
     if(LCBININT_ENABLE_JAX_FFI)
         execute_process(
@@ -183,6 +234,7 @@ if(LCBININT_BUILD_PYTHON)
             INSTALL_RPATH "${LCBININT_GSL_LIBRARY_DIR}")
     endif()
     install(TARGETS lcbinint_python LIBRARY DESTINATION lcbinint)
+    install(TARGETS lcbinint_fused_gradient_python LIBRARY DESTINATION lcbinint)
 else()
     message(STATUS "Python extension disabled")
 endif()

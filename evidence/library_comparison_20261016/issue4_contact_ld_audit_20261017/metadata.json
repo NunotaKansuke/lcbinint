@@ -1,0 +1,77 @@
+{
+  "created_utc": "2026-10-17T01:00:18Z",
+  "host": "rogue1",
+  "python": "3.10.19 (main, Oct 21 2025, 16:43:05) [GCC 11.2.0]",
+  "cpu_affinity": [
+    0
+  ],
+  "case_id": "near_limb_contact_117",
+  "input_sha256": "370a36fd5da4953edd250add8dcd5ad1078826c5eab5ff64533c17dd7f9911d1",
+  "source_indices": [
+    6,
+    7,
+    8,
+    20
+  ],
+  "times": [
+    -1.6710172334674631,
+    -1.671007233467463,
+    -1.670997233467463,
+    1.671007233467463
+  ],
+  "params": {
+    "s": 0.710053684596912,
+    "q": 7.886132346228951e-07,
+    "rho": 0.1671007233467463,
+    "t0": 0.0,
+    "tE": 10.0,
+    "u0": 1e-09,
+    "alpha": 1.186247434824958
+  },
+  "tolerance": 0.001,
+  "results": {
+    "microlux_warnings": {
+      "uniform": [
+        "No enough space to insert new samplings, which may cause the error larger than the tolerance. Current length vs max length: 658 vs 478. Consider incresing default_strategy parameters.",
+        "No enough space to insert new samplings, which may cause the error larger than the tolerance. Current length vs max length: 583 vs 478. Consider incresing default_strategy parameters.",
+        "No enough space to insert new samplings, which may cause the error larger than the tolerance. Current length vs max length: 581 vs 478. Consider incresing default_strategy parameters.",
+        "No enough space to insert new samplings, which may cause the error larger than the tolerance. Current length vs max length: 508 vs 478. Consider incresing default_strategy parameters."
+      ],
+      "ld05": [
+        "No enough space to insert new samplings, which may cause the error larger than the tolerance. Current length vs max length: 658 vs 478. Consider incresing default_strategy parameters.",
+        "No enough space to insert new samplings, which may cause the error larger than the tolerance. Current length vs max length: 583 vs 478. Consider incresing default_strategy parameters.",
+        "No enough space to insert new samplings, which may cause the error larger than the tolerance. Current length vs max length: 581 vs 478. Consider incresing default_strategy parameters.",
+        "No enough space to insert new samplings, which may cause the error larger than the tolerance. Current length vs max length: 508 vs 478. Consider incresing default_strategy parameters."
+      ]
+    },
+    "uniform": {
+      "lcbinint_status_counts": {
+        "1": 4
+      }
+    },
+    "ld05": {
+      "lcbinint_status_counts": {
+        "1": 4
+      }
+    }
+  },
+  "versions": {
+    "official_vbm": {
+      "version": "5.5",
+      "module": "/home/nunota/.miniconda3/envs/myenv/lib/python3.10/site-packages/VBMicrolensing/__init__.py"
+    },
+    "autodiff_vbm": {
+      "version": "0.1.0",
+      "vendored_vbm": "5.5"
+    },
+    "microjax": {
+      "version": "0.2.0",
+      "backend": "cpu fixed settings"
+    },
+    "lcbinint": {
+      "head": "40e66e510799f9d3d15b459be2b38694daad52ee",
+      "backend": "algebraic_boundary default"
+    }
+  },
+  "note": "Compares uniform and linear-LD cases at the same near-limb-contact epochs; does not establish a truth reference."
+}

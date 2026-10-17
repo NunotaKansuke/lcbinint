@@ -2,6 +2,8 @@
 
 #include "lcbinint/model/triple_lens_geometry.hpp"
 #include "lcbinint/types.hpp"
+#include "lcbinint/magnification/algebraic_boundary.hpp"
+#include "lcbinint/magnification/algebraic_boundary_autodiff.hpp"
 #include "lcbinint/magnification/point_source_magnifier.hpp"
 
 #include <cstddef>
@@ -41,11 +43,11 @@ enum class FiniteSourceMethod {
     // The ordinary routing cascade never picks it; a non-OK holonomic Status
     // fails closed (converged = false), never a silent approximation.
     holonomic_binary,
-    // Result method for the caustic-seeded radial-frontier value integrator.
-    // holonomic_auto is a request-only sentinel that preserves the ordinary
-    // point/hex/integral selector and replaces only its integral branch.
-    holonomic_seeded_radial,
-    holonomic_auto,
+    // Result method for the algebraic image-boundary finite-source integrator.
+    // The request sentinel preserves point/hex routing and replaces the terminal
+    // inverse-ray solve with the exact image-boundary integral.
+    algebraic_boundary,
+    algebraic_boundary_auto,
 };
 
 // Canonical, engine-neutral finite-source geometry for one source position:
@@ -189,10 +191,25 @@ public:
         const std::vector<SourcePosition>* center_image_seeds = nullptr,
         bool point_source_magnification_is_exact = false,
         const PointSourceMagnifier* point_magnifier_hint = nullptr,
-        bool use_seeded_radial_frontier = false,
-        double holonomic_mu_atol = std::numeric_limits<double>::quiet_NaN(),
-        double holonomic_mu_rtol = std::numeric_limits<double>::quiet_NaN(),
-        bool barycentric_frame = false) const;
+        bool use_algebraic_boundary = false,
+        double algebraic_boundary_atol = std::numeric_limits<double>::quiet_NaN(),
+        double algebraic_boundary_rtol = std::numeric_limits<double>::quiet_NaN(),
+        bool barycentric_frame = false,
+        bool multipole_only_probe = false) const;
+    AlgebraicBoundaryResult experimental_algebraic_boundary_binary_mag(
+        double separation,
+        double mass_ratio,
+        SourcePosition source,
+        double source_radius,
+        const AlgebraicBoundarySettings& algebraic_settings = {}) const;
+    autodiff::AlgebraicBoundaryJacobian experimental_algebraic_boundary_binary_jacobian(
+        double separation,
+        double mass_ratio,
+        SourcePosition source,
+        double source_radius,
+        const AlgebraicBoundarySettings& algebraic_settings = {},
+        FiniteSourceResult* value_result = nullptr,
+        double* point_source_magnification = nullptr) const;
     // Execute a route selected and reference-validated by LightCurve.warmup().
     // The caller may reuse the plan across a nearby inference neighbourhood;
     // this entry deliberately skips the normal routing cascade.
@@ -293,6 +310,14 @@ private:
         SourcePosition source,
         double search_radius,
         double separation_tolerance = 0.0) const;
+    FiniteSourceResult algebraic_boundary_deep_solve(
+        const PointSourceMagnifier& point_magnifier,
+        double separation,
+        double mass_ratio,
+        SourcePosition source,
+        double source_radius,
+        const std::vector<SourcePosition>& center_image_seeds,
+        const AlgebraicBoundarySettings& algebraic_settings) const;
     FiniteSourceResult inverse_ray_polar_binary_mag(
         double separation,
         double mass_ratio,
@@ -345,9 +370,9 @@ private:
     mutable double result_cache_source_y_ = 0.0;
     mutable double result_cache_source_radius_ = 0.0;
     mutable double result_cache_point_magnification_ = 0.0;
-    mutable bool result_cache_seeded_radial_frontier_ = false;
-    mutable double result_cache_holonomic_mu_atol_ = 0.0;
-    mutable double result_cache_holonomic_mu_rtol_ = 0.0;
+    mutable bool result_cache_algebraic_boundary_ = false;
+    mutable double result_cache_algebraic_boundary_atol_ = 0.0;
+    mutable double result_cache_algebraic_boundary_rtol_ = 0.0;
     mutable bool result_cache_barycentric_frame_ = false;
     mutable FiniteSourceResult result_cache_;
     mutable bool limb_darkening_table_valid_ = false;

@@ -28,9 +28,41 @@ params = {
 t = np.linspace(t0 - tE, t0 + tE, 300)
 
 curve = lcbinint.LightCurve(options=lcbinint.Options(tol=1e-3, reltol=1e-3))
-magnifications = curve(t, params)
+result = curve(t, params)
+magnifications = result.magnifications
+status = result.status_names
 trajectory = curve.source_trajectory(t, params)
 ```
+
+In this branch, a static single-source binary `LightCurve` selects the
+algebraic-boundary backend by default, including when `Options()` is supplied.
+To compare against the standard router explicitly, pass
+`Options(finite_source_backend="default")`. Models outside the algebraic
+boundary backend's supported static-binary scope continue to use the standard
+router.
+
+The call returns the magnifications and a per-epoch status together. Request
+parameter gradients through the same call with `with_gradient=True`:
+
+```python
+result_with_gradient = curve(t, params, with_gradient=True)
+magnifications = result_with_gradient.magnifications
+u0_gradient = result_with_gradient.gradients[
+    :, result_with_gradient.gradient_parameters.index("u0")
+]
+gradient_valid = result_with_gradient.gradient_valid
+```
+
+The gradient columns follow `gradient_parameters`. An invalid gradient is
+returned as zero with `gradient_valid=False`; it does not change the value or
+its status. `status` contains integer codes (`0=ok`, `1=unconverged`,
+`2=support_unproven`); `status_names` gives their readable labels.
+`curve.info(...)` remains a compatibility alias for the same result. Supported
+eager static-binary calls use the fused native value/Jacobian kernel; traced
+calls and other models use JAX differentiation. The fused kernel has its own
+source-disk and seeded-radial integration routes, so its value and status can
+differ from a value-only algebraic-boundary result. No separate gradient
+function is needed.
 
 Plot only the light curve:
 
@@ -67,8 +99,12 @@ Repeated native evaluations of exactly the same binary-lens parameter vector
 and epoch array can retain a specialized execution plan:
 
 ```python
-report = curve.warmup(t, params)
-magnifications = curve(t, params)  # automatically uses the retained plan
+standard_curve = lcbinint.LightCurve(options=lcbinint.Options(
+    tol=1e-3, reltol=1e-3, finite_source_backend="default",
+))
+report = standard_curve.warmup(t, params)
+result = standard_curve(t, params)  # automatically uses the retained plan
+magnifications = result.magnifications
 ```
 
 The report is diagnostic and does not need to be passed back to `curve`. For
@@ -114,7 +150,8 @@ curve = lcbinint.LightCurve(
     lens="triple",
     options=lcbinint.Options(tol=1e-3, reltol=1e-3),
 )
-magnifications = curve(t, params)
+result = curve(t, params)
+magnifications = result.magnifications
 trajectory = curve.source_trajectory(t, params)
 ```
 

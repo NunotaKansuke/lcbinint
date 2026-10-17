@@ -1,0 +1,331 @@
+{
+  "run_signature": "aa0b554d528899c47a9b8552705741befd178cebb5f535f149a3d9c5b642e3c2",
+  "input_hash": "285a1dde5309fde307d735912b553ebf1cfb0a935978bc6ca0a63f6614630c8f",
+  "completed": {
+    "ordinary_point": {
+      "n_epochs": 401,
+      "limb": 0.5,
+      "params": {
+        "s": 1.2,
+        "q": 0.01,
+        "rho": 0.003,
+        "t0": 0.0,
+        "tE": 10.0,
+        "u0": 0.3,
+        "alpha": 0.0
+      },
+      "source": "existing:post_axis_skip/ordinary_point_performance.npz",
+      "timing": {
+        "vbm_value": {
+          "first_call_ms": 0.449727987870574,
+          "steady_median_ms": 0.38277998100966215,
+          "steady_p95_ms": 0.41297659045085305,
+          "repetitions": 15
+        },
+        "autodiff_vbm_value": {
+          "first_call_ms": 62.64155195094645,
+          "steady_median_ms": 0.3969731042161584,
+          "steady_p95_ms": 0.41546759894117713,
+          "repetitions": 15,
+          "first_call_includes_new_jit_graph": true
+        },
+        "lcbinint_value": {
+          "first_call_ms": 0.8084350265562534,
+          "steady_median_ms": 0.3584349760785699,
+          "steady_p95_ms": 0.3711177734658122,
+          "repetitions": 15
+        },
+        "lcbinint_value_plus_gradient": {
+          "first_call_ms": 63.20032407529652,
+          "steady_median_ms": 55.31154898926616,
+          "steady_p95_ms": 55.557716521434486,
+          "repetitions": 15,
+          "first_call_includes_new_jit_graph": false
+        }
+      },
+      "status": {
+        "vbm_value_finite": 401,
+        "microlux_skipped": "targeted VBM versus autodiff-vbm value-only timing audit",
+        "microjax_skipped": "targeted VBM versus autodiff-vbm value-only timing audit",
+        "autodiff_vbm_value_finite": 401,
+        "autodiff_vbm_value_plus_gradient_skipped": "targeted VBM versus autodiff-vbm value-only timing audit",
+        "lcbinint_value_finite": 401,
+        "lcbinint_value_plus_gradient_finite": 401,
+        "lcbinint_gradient_valid": 2807,
+        "lcbinint_gradient_components": 2807,
+        "lcbinint_gradient_finite_valid": 2807
+      }
+    },
+    "wide_caustic": {
+      "n_epochs": 401,
+      "limb": 0.0,
+      "params": {
+        "s": 1.2,
+        "q": 0.01,
+        "rho": 0.003,
+        "t0": 0.0,
+        "tE": 10.0,
+        "u0": 0.03,
+        "alpha": -0.08
+      },
+      "source": "existing:post_axis_skip/wide_caustic_performance.npz",
+      "timing": {
+        "vbm_value": {
+          "first_call_ms": 9.654680034145713,
+          "steady_median_ms": 9.573946008458734,
+          "steady_p95_ms": 9.593869745731354,
+          "repetitions": 15
+        },
+        "autodiff_vbm_value": {
+          "first_call_ms": 72.78595096431673,
+          "steady_median_ms": 8.569604950025678,
+          "steady_p95_ms": 8.63962845178321,
+          "repetitions": 15,
+          "first_call_includes_new_jit_graph": true
+        },
+        "lcbinint_value": {
+          "first_call_ms": 11.882271035574377,
+          "steady_median_ms": 9.752335958182812,
+          "steady_p95_ms": 9.89100243896246,
+          "repetitions": 15
+        },
+        "lcbinint_value_plus_gradient": {
+          "first_call_ms": 66.6656430112198,
+          "steady_median_ms": 64.28095803130418,
+          "steady_p95_ms": 65.47355726361275,
+          "repetitions": 15,
+          "first_call_includes_new_jit_graph": false
+        }
+      },
+      "status": {
+        "vbm_value_finite": 401,
+        "microlux_skipped": "targeted VBM versus autodiff-vbm value-only timing audit",
+        "microjax_skipped": "targeted VBM versus autodiff-vbm value-only timing audit",
+        "autodiff_vbm_value_finite": 401,
+        "autodiff_vbm_value_plus_gradient_skipped": "targeted VBM versus autodiff-vbm value-only timing audit",
+        "lcbinint_value_finite": 401,
+        "lcbinint_value_plus_gradient_finite": 401,
+        "lcbinint_gradient_valid": 2807,
+        "lcbinint_gradient_components": 2807,
+        "lcbinint_gradient_finite_valid": 2807
+      }
+    },
+    "large_source_ld09": {
+      "n_epochs": 401,
+      "limb": 0.9,
+      "params": {
+        "s": 0.6,
+        "q": 0.001,
+        "rho": 0.5,
+        "t0": 0.0,
+        "tE": 10.0,
+        "u0": -1e-05,
+        "alpha": 0.5
+      },
+      "source": "existing:post_axis_skip/large_source_ld09_performance.npz",
+      "timing": {
+        "vbm_value": {
+          "first_call_ms": 761.0471710795537,
+          "steady_median_ms": 757.6047190232202,
+          "steady_p95_ms": 760.7886891928501,
+          "repetitions": 15
+        },
+        "autodiff_vbm_value": {
+          "first_call_ms": 330.8174660196528,
+          "steady_median_ms": 268.7772490317002,
+          "steady_p95_ms": 269.17252462590113,
+          "repetitions": 15,
+          "first_call_includes_new_jit_graph": true
+        },
+        "lcbinint_value": {
+          "first_call_ms": 157.30036492459476,
+          "steady_median_ms": 155.37079807836562,
+          "steady_p95_ms": 156.30576361436397,
+          "repetitions": 15
+        },
+        "lcbinint_value_plus_gradient": {
+          "first_call_ms": 276.37167007196695,
+          "steady_median_ms": 272.87017507478595,
+          "steady_p95_ms": 287.9927697940729,
+          "repetitions": 15,
+          "first_call_includes_new_jit_graph": false
+        }
+      },
+      "status": {
+        "vbm_value_finite": 401,
+        "microlux_skipped": "targeted VBM versus autodiff-vbm value-only timing audit",
+        "microjax_skipped": "targeted VBM versus autodiff-vbm value-only timing audit",
+        "autodiff_vbm_value_finite": 401,
+        "autodiff_vbm_value_plus_gradient_skipped": "targeted VBM versus autodiff-vbm value-only timing audit",
+        "lcbinint_value_finite": 401,
+        "lcbinint_value_plus_gradient_finite": 401,
+        "lcbinint_gradient_valid": 2807,
+        "lcbinint_gradient_components": 2807,
+        "lcbinint_gradient_finite_valid": 2807
+      }
+    },
+    "large_source_ld05_user": {
+      "n_epochs": 401,
+      "limb": 0.5,
+      "params": {
+        "s": 0.6,
+        "q": 0.001,
+        "rho": 0.5,
+        "t0": 0.0,
+        "tE": 10.0,
+        "u0": -1e-05,
+        "alpha": 0.5
+      },
+      "source": "user-provided:401-point curve, 2026-10-16",
+      "timing": {
+        "vbm_value": {
+          "first_call_ms": 617.0975929126143,
+          "steady_median_ms": 616.4319070521742,
+          "steady_p95_ms": 619.1515486454591,
+          "repetitions": 15
+        },
+        "autodiff_vbm_value": {
+          "first_call_ms": 244.36340807005763,
+          "steady_median_ms": 244.15813491214067,
+          "steady_p95_ms": 244.50915683992207,
+          "repetitions": 15,
+          "first_call_includes_new_jit_graph": false
+        },
+        "lcbinint_value": {
+          "first_call_ms": 156.60827001556754,
+          "steady_median_ms": 155.7960850186646,
+          "steady_p95_ms": 156.82352122385055,
+          "repetitions": 15
+        },
+        "lcbinint_value_plus_gradient": {
+          "first_call_ms": 276.28342097159475,
+          "steady_median_ms": 272.8226059116423,
+          "steady_p95_ms": 274.071313359309,
+          "repetitions": 15,
+          "first_call_includes_new_jit_graph": false
+        }
+      },
+      "status": {
+        "vbm_value_finite": 401,
+        "microlux_skipped": "targeted VBM versus autodiff-vbm value-only timing audit",
+        "microjax_skipped": "targeted VBM versus autodiff-vbm value-only timing audit",
+        "autodiff_vbm_value_finite": 401,
+        "autodiff_vbm_value_plus_gradient_skipped": "targeted VBM versus autodiff-vbm value-only timing audit",
+        "lcbinint_value_finite": 401,
+        "lcbinint_value_plus_gradient_finite": 401,
+        "lcbinint_gradient_valid": 2807,
+        "lcbinint_gradient_components": 2807,
+        "lcbinint_gradient_finite_valid": 2807
+      }
+    },
+    "near_limb_contact_117": {
+      "n_epochs": 27,
+      "limb": 0.5,
+      "params": {
+        "s": 0.710053684596912,
+        "q": 7.886132346228951e-07,
+        "rho": 0.1671007233467463,
+        "t0": 0.0,
+        "tE": 10.0,
+        "u0": 1e-09,
+        "alpha": 1.186247434824958
+      },
+      "source": "existing:post_axis_skip/near_limb_contact_117.npz",
+      "timing": {
+        "vbm_value": {
+          "first_call_ms": 26.419554953463376,
+          "steady_median_ms": 26.2710900278762,
+          "steady_p95_ms": 26.301006320863962,
+          "repetitions": 15
+        },
+        "autodiff_vbm_value": {
+          "first_call_ms": 645.9955630125478,
+          "steady_median_ms": 565.2115299599245,
+          "steady_p95_ms": 577.6009591878392,
+          "repetitions": 15,
+          "first_call_includes_new_jit_graph": true
+        },
+        "lcbinint_value": {
+          "first_call_ms": 16.929644043557346,
+          "steady_median_ms": 11.506564915180206,
+          "steady_p95_ms": 11.61605006782338,
+          "repetitions": 15
+        },
+        "lcbinint_value_plus_gradient": {
+          "first_call_ms": 82.46780501212925,
+          "steady_median_ms": 82.03951502218843,
+          "steady_p95_ms": 82.76834052521735,
+          "repetitions": 15,
+          "first_call_includes_new_jit_graph": false
+        }
+      },
+      "status": {
+        "vbm_value_finite": 27,
+        "microlux_skipped": "targeted VBM versus autodiff-vbm value-only timing audit",
+        "microjax_skipped": "targeted VBM versus autodiff-vbm value-only timing audit",
+        "autodiff_vbm_value_finite": 27,
+        "autodiff_vbm_value_plus_gradient_skipped": "targeted VBM versus autodiff-vbm value-only timing audit",
+        "lcbinint_value_finite": 27,
+        "lcbinint_value_plus_gradient_finite": 27,
+        "lcbinint_gradient_valid": 189,
+        "lcbinint_gradient_components": 189,
+        "lcbinint_gradient_finite_valid": 189
+      }
+    },
+    "near_double_root": {
+      "n_epochs": 30,
+      "limb": 0.5,
+      "params": {
+        "s": 0.6,
+        "q": 0.0001,
+        "rho": 0.05,
+        "t0": 0.0,
+        "tE": 10.0,
+        "u0": -1e-05,
+        "alpha": 0.5
+      },
+      "source": "existing:post_axis_skip/near_double_root.npz",
+      "timing": {
+        "vbm_value": {
+          "first_call_ms": 37.18946105800569,
+          "steady_median_ms": 37.03861800022423,
+          "steady_p95_ms": 37.30222744634375,
+          "repetitions": 15
+        },
+        "autodiff_vbm_value": {
+          "first_call_ms": 80.84621105808765,
+          "steady_median_ms": 20.73095494415611,
+          "steady_p95_ms": 20.805308199487627,
+          "repetitions": 15,
+          "first_call_includes_new_jit_graph": true
+        },
+        "lcbinint_value": {
+          "first_call_ms": 18.753201002255082,
+          "steady_median_ms": 17.99343794118613,
+          "steady_p95_ms": 18.227470945566893,
+          "repetitions": 15
+        },
+        "lcbinint_value_plus_gradient": {
+          "first_call_ms": 53.393019014038146,
+          "steady_median_ms": 49.948861938901246,
+          "steady_p95_ms": 50.03832032671198,
+          "repetitions": 15,
+          "first_call_includes_new_jit_graph": false
+        }
+      },
+      "status": {
+        "vbm_value_finite": 30,
+        "microlux_skipped": "targeted VBM versus autodiff-vbm value-only timing audit",
+        "microjax_skipped": "targeted VBM versus autodiff-vbm value-only timing audit",
+        "autodiff_vbm_value_finite": 30,
+        "autodiff_vbm_value_plus_gradient_skipped": "targeted VBM versus autodiff-vbm value-only timing audit",
+        "lcbinint_value_finite": 30,
+        "lcbinint_value_plus_gradient_finite": 30,
+        "lcbinint_gradient_valid": 210,
+        "lcbinint_gradient_components": 210,
+        "lcbinint_gradient_finite_valid": 210
+      }
+    }
+  },
+  "errors": {}
+}

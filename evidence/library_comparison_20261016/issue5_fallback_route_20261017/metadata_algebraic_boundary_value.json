@@ -1,0 +1,82 @@
+{
+  "case_id": "stratified_09",
+  "params": {
+    "s": 0.95,
+    "q": 1e-07,
+    "rho": 1e-06,
+    "t0": 0.0,
+    "tE": 10.0,
+    "u0": 9.846481110931334e-07,
+    "alpha": 0.5
+  },
+  "results": {
+    "algebraic_boundary": {
+      "resolved_backend": "algebraic_boundary",
+      "times": [
+        -1.7455113096375089e-06,
+        0.0,
+        1.7455113096375089e-06
+      ],
+      "magnifications": [
+        1030304.5805624012,
+        1090866.9560868936,
+        1394325.1916660424
+      ],
+      "status_names": [
+        "support_unproven",
+        "support_unproven",
+        "support_unproven"
+      ],
+      "value_converged": [
+        false,
+        false,
+        false
+      ],
+      "gradient_valid": null,
+      "gradients_finite": null,
+      "elapsed_seconds": 0.17926099698524922,
+      "diagnostics": {
+        "stop": [
+          "odd physical boundary-root count",
+          "covered certified seed was not active",
+          "covered certified seed was not active"
+        ],
+        "finite_source_method_name": [
+          "algebraic_boundary",
+          "algebraic_boundary",
+          "algebraic_boundary"
+        ],
+        "error_estimate": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "support_certified": [
+          false,
+          false,
+          false
+        ],
+        "seed_support_proven": [
+          true,
+          true,
+          true
+        ],
+        "point_source_magnification": [
+          1030304.5805624012,
+          1090866.9560868936,
+          1394325.1916660424
+        ],
+        "value_fallback_used": [
+          true,
+          true,
+          true
+        ],
+        "value_fallback_kind": [
+          "point_source",
+          "point_source",
+          "point_source"
+        ]
+      }
+    }
+  }
+}

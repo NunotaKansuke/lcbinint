@@ -1,0 +1,87 @@
+{
+  "run_signature": "4c920386b9cbda2960e3e8d480d0f9f37008f555babeea75aa233e3c06484329",
+  "input_hash": "e769fb2d3461866180c9e0e226964d92f7c1006a4a90c608b7bfd8ca12feb65a",
+  "completed": {
+    "stratified_00": {
+      "n_epochs": 27,
+      "limb": 0.0,
+      "params": {
+        "s": 1.000001,
+        "q": 1e-06,
+        "rho": 0.001,
+        "t0": 0.0,
+        "tE": 10.0,
+        "u0": 0.0,
+        "alpha": 0.0
+      },
+      "source": "existing:post_axis_skip/stratified_00.npz",
+      "timing": {
+        "lcbinint_value": {
+          "first_call_ms": 11.59736595582217,
+          "steady_median_ms": 9.792592958547175,
+          "steady_p95_ms": 9.857263485901058,
+          "repetitions": 15
+        },
+        "lcbinint_value_plus_gradient": {
+          "first_call_ms": 1249.8572249896824,
+          "steady_median_ms": 1245.08089304436,
+          "steady_p95_ms": 1249.8563389643095,
+          "repetitions": 15,
+          "first_call_includes_new_jit_graph": false
+        }
+      },
+      "status": {
+        "vbm_skipped": "targeted lcbinint stress-case timing audit",
+        "microlux_skipped": "targeted lcbinint stress-case timing audit",
+        "microjax_skipped": "targeted lcbinint stress-case timing audit",
+        "autodiff_vbm_skipped": "targeted lcbinint stress-case timing audit",
+        "lcbinint_value_finite": 27,
+        "lcbinint_value_plus_gradient_finite": 27,
+        "lcbinint_gradient_valid": 189,
+        "lcbinint_gradient_components": 189,
+        "lcbinint_gradient_finite_valid": 189
+      }
+    },
+    "stratified_02": {
+      "n_epochs": 25,
+      "limb": 0.9,
+      "params": {
+        "s": 0.95,
+        "q": 0.01,
+        "rho": 1e-06,
+        "t0": 0.0,
+        "tE": 10.0,
+        "u0": -1e-05,
+        "alpha": -1.8890494698555882
+      },
+      "source": "existing:post_axis_skip/stratified_02.npz",
+      "timing": {
+        "lcbinint_value": {
+          "first_call_ms": 2.324467059224844,
+          "steady_median_ms": 2.1495239343494177,
+          "steady_p95_ms": 2.1835986874066293,
+          "repetitions": 15
+        },
+        "lcbinint_value_plus_gradient": {
+          "first_call_ms": 147.49859797302634,
+          "steady_median_ms": 139.67595400754362,
+          "steady_p95_ms": 141.48891032673419,
+          "repetitions": 15,
+          "first_call_includes_new_jit_graph": false
+        }
+      },
+      "status": {
+        "vbm_skipped": "targeted lcbinint stress-case timing audit",
+        "microlux_skipped": "targeted lcbinint stress-case timing audit",
+        "microjax_skipped": "targeted lcbinint stress-case timing audit",
+        "autodiff_vbm_skipped": "targeted lcbinint stress-case timing audit",
+        "lcbinint_value_finite": 25,
+        "lcbinint_value_plus_gradient_finite": 25,
+        "lcbinint_gradient_valid": 175,
+        "lcbinint_gradient_components": 175,
+        "lcbinint_gradient_finite_valid": 175
+      }
+    }
+  },
+  "errors": {}
+}

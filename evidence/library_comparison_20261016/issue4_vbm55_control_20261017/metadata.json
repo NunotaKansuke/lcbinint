@@ -1,0 +1,44 @@
+{
+  "created_utc": "2026-10-17T00:57:53Z",
+  "host": "rogue1",
+  "platform": "Linux-5.14.0-570.23.1.el9_6.x86_64-x86_64-with-glibc2.34",
+  "python": "3.10.19 (main, Oct 21 2025, 16:43:05) [GCC 11.2.0]",
+  "cpu_affinity": [
+    0
+  ],
+  "version": "5.5",
+  "module": "/home/nunota/.miniconda3/envs/myenv/lib/python3.10/site-packages/VBMicrolensing/__init__.py",
+  "native": "/home/nunota/.miniconda3/envs/myenv/lib/python3.10/site-packages/VBMicrolensing/VBMicrolensing.so",
+  "case_id": "near_limb_contact_117",
+  "selected_times": [
+    -1.6710172334674631,
+    -1.671007233467463,
+    -1.670997233467463,
+    1.392506027889553,
+    1.671007233467463,
+    1.9495084390453743
+  ],
+  "params": {
+    "s": 0.710053684596912,
+    "q": 7.886132346228951e-07,
+    "rho": 0.1671007233467463,
+    "t0": 0.0,
+    "tE": 10.0,
+    "u0": 1e-09,
+    "alpha": 1.186247434824958
+  },
+  "limb": 0.5,
+  "tolerances": [
+    0.001,
+    0.0001,
+    1e-05,
+    1e-06
+  ],
+  "elapsed_ms": {
+    "1e-03": 7.522939005866647,
+    "1e-04": 24.438712978735566,
+    "1e-05": 87.77011896017939,
+    "1e-06": 224.7171619674191
+  },
+  "note": "Official VBMicrolensing 5.5 wheel from the active myenv; used only as a version control against saved official 5.6.1."
+}

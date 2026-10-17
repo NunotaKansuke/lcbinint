@@ -1,0 +1,104 @@
+{
+  "created_utc": "2026-10-17T01:29:26Z",
+  "host": "rogue1",
+  "python": "3.10.19 (main, Oct 21 2025, 16:43:05) [GCC 11.2.0]",
+  "cpu_affinity": [
+    0
+  ],
+  "case_id": "stratified_09",
+  "indices": [
+    12,
+    13,
+    14
+  ],
+  "times": [
+    -1.7455113096375089e-06,
+    0.0,
+    1.7455113096375089e-06
+  ],
+  "params": {
+    "s": 0.95,
+    "q": 1e-07,
+    "rho": 1e-06,
+    "t0": 0.0,
+    "tE": 10.0,
+    "u0": 9.846481110931334e-07,
+    "alpha": 0.5
+  },
+  "limb_darkening_coefficient": 0.5,
+  "tolerance": 0.001,
+  "source": "/rogue1_8/nunota/microlux/src/microlux/model.py",
+  "source_revision": "711245b6f557e5b1548b8e27d85ced7384c13418",
+  "rows": {
+    "diagnostic_capacity_6000": {
+      "default_strategy": [
+        30,
+        30,
+        60,
+        120,
+        5760
+      ],
+      "max_length": 6000,
+      "values": [
+        1213787.1774901508,
+        1265143.6099096711,
+        1259630.928356419
+      ],
+      "elapsed_seconds_including_compile": 47.87655349797569,
+      "warnings": [],
+      "return_info_state": {
+        "sample_num": [
+          4522,
+          5524,
+          5444
+        ],
+        "mag": [
+          1243223.9174581827,
+          1292827.2693546026,
+          1283251.9803189817
+        ],
+        "estimated_abs_error_sum": [
+          2403038944.7284584,
+          5181442872.613411,
+          370272738.4722656
+        ],
+        "epsilon": [
+          0.001,
+          0.001,
+          0.001
+        ],
+        "epsilon_rel": [
+          0.001,
+          0.001,
+          0.001
+        ],
+        "abs_error_over_epsilon": [
+          2403038944728.4585,
+          5181442872613.411,
+          370272738472.26556
+        ],
+        "max_relative_interval_ratio": [
+          88783387.65289848,
+          141850713.05239522,
+          14487454.408342833
+        ],
+        "mag_no_diff": [
+          3,
+          1,
+          4
+        ],
+        "outloop": [
+          0,
+          0,
+          0
+        ],
+        "exceed_flag": [
+          false,
+          false,
+          false
+        ]
+      }
+    }
+  },
+  "note": "The expanded sampling capacity is a diagnostic rerun, not a new validated tolerance guarantee."
+}

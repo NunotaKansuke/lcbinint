@@ -4,6 +4,12 @@
 
 > VBMicrolensing correspondence: [AccuracyControl.md](https://github.com/valboz/VBMicrolensing/blob/main/docs/python/AccuracyControl.md). The `s=0.8`, `q=0.1`, source-position, source-radius, and tolerance examples are retained.
 
+On this branch, a static single-source binary `LightCurve` defaults to the
+algebraic-boundary backend. The standard router examples below set
+`finite_source_backend="default"` explicitly; this is required when testing
+its point-source, hexadecapole, Cartesian, or polar choices. Low-level
+`binary_ray_shooting()` calls keep their own route selection.
+
 Use the same lens and source values while changing only the requested absolute
 accuracy:
 
@@ -59,14 +65,15 @@ epoch:
 
 | Reported method | Meaning |
 | --- | --- |
+| `algebraic_boundary` | Integrates the supported static binary finite-source curve over the image boundary. |
 | `point_source` | Source size is safely negligible at this position. |
 | `hexadecapole` | A fourth-order finite-source expansion is locally safe. |
 | `source_plane_quadrature` | The source disk is integrated in the source plane. |
 | `inverse_ray_cartesian` | A Cartesian inverse-ray grid resolves the finite images. |
 | `inverse_ray_polar` | A polar inverse-ray grid is selected for suitable high-magnification geometry. |
 
-`inverse_ray_grid` controls the full inverse-ray backend; it does not disable
-the safe point-source or hexadecapole fast paths.
+`inverse_ray_grid` controls the standard router's inverse-ray method; it does
+not disable that router's safe point-source or hexadecapole fast paths.
 
 ```python
 automatic = lcbinint.Options(
@@ -74,6 +81,7 @@ automatic = lcbinint.Options(
     inverse_ray_grid="auto",
     tol=1e-4,
     reltol=1e-3,
+    finite_source_backend="default",
 )
 
 fixed_cartesian = lcbinint.Options(
@@ -81,6 +89,7 @@ fixed_cartesian = lcbinint.Options(
     inverse_ray_grid="cartesian",
     tol=1e-4,
     reltol=1e-3,
+    finite_source_backend="default",
 )
 
 fixed_polar = lcbinint.Options(
@@ -89,6 +98,7 @@ fixed_polar = lcbinint.Options(
     inverse_ray_grid="polar",
     tol=1e-4,
     reltol=1e-3,
+    finite_source_backend="default",
 )
 ```
 
@@ -109,6 +119,7 @@ useful for reproducibility experiments and is also one-shot.
 | `caustic_bins` | Sampling used only for caustic/critical-curve visualization. | Increase for denser scatter plots. |
 | `hex_tol` | Fourth-order self-consistency threshold. | Leave at the default unless validating method selection. |
 | `point_source_threshold` | Geometric point-source safety margin. | Advanced validation only. |
+| `finite_source_backend` | Select the model-appropriate branch default or explicitly request the standard router (`"default"`). | Algebraic boundary for supported static binary curves. |
 
 ## Inspect the selected method
 
@@ -122,19 +133,19 @@ params = {
 }
 t = np.linspace(7470, 7530, 300)
 curve = lcbinint.LightCurve(options=automatic)
-info = curve.info(t, params)
+result = curve(t, params)
 
-method_names = list(dict.fromkeys(info.finite_source_method_names))
+method_names = list(dict.fromkeys(result.finite_source_method_names))
 method_index = {name: index for index, name in enumerate(method_names, start=1)}
-selected = [method_index[name] for name in info.finite_source_method_names]
+selected = [method_index[name] for name in result.finite_source_method_names]
 # Fixed, colorblind-friendly palette; reserve vermilion for caustics below.
 method_colors = ["#0173B2", "#DE8F05", "#029E73", "#CC78BC", "#56B4E9"]
 
 fig, (mag_ax, method_ax) = plt.subplots(2, 1, sharex=True, figsize=(4.8, 3.8))
-mag_ax.plot(t, info.magnifications)
+mag_ax.plot(t, result.magnifications)
 mag_ax.set_ylabel("Magnification")
 for color_index, name in enumerate(method_names):
-    mask = np.asarray(info.finite_source_method_names) == name
+    mask = np.asarray(result.finite_source_method_names) == name
     method_ax.scatter(
         t[mask], np.asarray(selected)[mask], s=10,
         color=method_colors[color_index],

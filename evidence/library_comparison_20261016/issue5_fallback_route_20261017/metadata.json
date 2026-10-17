@@ -1,0 +1,65 @@
+{
+  "case_id": "stratified_09",
+  "params": {
+    "s": 0.95,
+    "q": 1e-07,
+    "rho": 1e-06,
+    "t0": 0.0,
+    "tE": 10.0,
+    "u0": 9.846481110931334e-07,
+    "alpha": 0.5
+  },
+  "results": {
+    "algebraic_boundary": {
+      "resolved_backend": "algebraic_boundary",
+      "times": [
+        -1.7455113096375089e-06,
+        0.0,
+        1.7455113096375089e-06
+      ],
+      "magnifications": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "status_names": [
+        "support_unproven",
+        "support_unproven",
+        "support_unproven"
+      ],
+      "value_converged": [
+        false,
+        false,
+        false
+      ],
+      "elapsed_seconds": 0.18928129505366087,
+      "diagnostics": {
+        "stop": [
+          "odd physical boundary-root count",
+          "covered certified seed was not active",
+          "covered certified seed was not active"
+        ],
+        "finite_source_method_name": [
+          "algebraic_boundary",
+          "algebraic_boundary",
+          "algebraic_boundary"
+        ],
+        "error_estimate": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "support_certified": [
+          false,
+          false,
+          false
+        ],
+        "seed_support_proven": [
+          true,
+          true,
+          true
+        ]
+      }
+    }
+  }
+}

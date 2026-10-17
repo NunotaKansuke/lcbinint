@@ -1,0 +1,47 @@
+{
+  "run_signature": "9ae344ad873300fff1d24b8893e419754275a2f4f0346bb070615b9647ed9ca1",
+  "input_hash": "2bf91d521ff2cd86520f757463d751d960c90cefc8751d746cf55e4a5ab9acef",
+  "completed": {
+    "stratified_09": {
+      "n_epochs": 27,
+      "limb": 0.5,
+      "params": {
+        "s": 0.95,
+        "q": 1e-07,
+        "rho": 1e-06,
+        "t0": 0.0,
+        "tE": 10.0,
+        "u0": 9.846481110931334e-07,
+        "alpha": 0.5
+      },
+      "source": "existing:post_axis_skip/stratified_09.npz",
+      "timing": {
+        "lcbinint_value": {
+          "first_call_ms": 39.76859804242849,
+          "steady_median_ms": 17.961765988729894,
+          "steady_p95_ms": 17.975995945744216,
+          "repetitions": 3
+        },
+        "lcbinint_value_plus_gradient": {
+          "first_call_ms": 175.0808770302683,
+          "steady_median_ms": 165.0942669948563,
+          "steady_p95_ms": 165.5392269254662,
+          "repetitions": 3,
+          "first_call_includes_new_jit_graph": false
+        }
+      },
+      "status": {
+        "vbm_skipped": "individual timing already measured in the diagnostic run or exceeded its time budget",
+        "microlux_skipped": "individual timing already measured in the diagnostic run or exceeded its time budget",
+        "microjax_skipped": "individual timing already measured in the diagnostic run or exceeded its time budget",
+        "autodiff_vbm_skipped": "individual timing already measured in the diagnostic run or exceeded its time budget",
+        "lcbinint_value_finite": 27,
+        "lcbinint_value_plus_gradient_finite": 27,
+        "lcbinint_gradient_valid": 182,
+        "lcbinint_gradient_components": 189,
+        "lcbinint_gradient_finite_valid": 182
+      }
+    }
+  },
+  "errors": {}
+}

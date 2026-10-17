@@ -1,0 +1,229 @@
+{
+  "run_signature": "7d53815f13101d5be94fdd0129aee4055c7d229addf96018b387cb9e8d26baf0",
+  "input_hash": "285a1dde5309fde307d735912b553ebf1cfb0a935978bc6ca0a63f6614630c8f",
+  "completed": {
+    "ordinary_point": {
+      "n_epochs": 401,
+      "limb": 0.5,
+      "params": {
+        "s": 1.2,
+        "q": 0.01,
+        "rho": 0.003,
+        "t0": 0.0,
+        "tE": 10.0,
+        "u0": 0.3,
+        "alpha": 0.0
+      },
+      "source": "existing:post_axis_skip/ordinary_point_performance.npz",
+      "timing": {
+        "vbm_value": {
+          "first_call_ms": 0.4534770268946886,
+          "steady_median_ms": 0.383526086807251,
+          "steady_p95_ms": 0.4041405161842704,
+          "repetitions": 15
+        },
+        "autodiff_vbm_value": {
+          "first_call_ms": 76.58442610409111,
+          "steady_median_ms": 0.3988840617239475,
+          "steady_p95_ms": 0.41605880251154304,
+          "repetitions": 15,
+          "first_call_includes_new_jit_graph": true
+        }
+      },
+      "status": {
+        "vbm_value_finite": 401,
+        "microlux_skipped": "targeted VBM versus autodiff-vbm value-only timing audit",
+        "microjax_skipped": "targeted VBM versus autodiff-vbm value-only timing audit",
+        "autodiff_vbm_value_finite": 401,
+        "autodiff_vbm_value_plus_gradient_skipped": "targeted VBM versus autodiff-vbm value-only timing audit",
+        "lcbinint_skipped": "targeted VBM versus autodiff-vbm value-only timing audit"
+      }
+    },
+    "wide_caustic": {
+      "n_epochs": 401,
+      "limb": 0.0,
+      "params": {
+        "s": 1.2,
+        "q": 0.01,
+        "rho": 0.003,
+        "t0": 0.0,
+        "tE": 10.0,
+        "u0": 0.03,
+        "alpha": -0.08
+      },
+      "source": "existing:post_axis_skip/wide_caustic_performance.npz",
+      "timing": {
+        "vbm_value": {
+          "first_call_ms": 9.812063071876764,
+          "steady_median_ms": 9.660372976213694,
+          "steady_p95_ms": 9.694767906330526,
+          "repetitions": 15
+        },
+        "autodiff_vbm_value": {
+          "first_call_ms": 74.2549819406122,
+          "steady_median_ms": 8.664228953421116,
+          "steady_p95_ms": 8.703884843271226,
+          "repetitions": 15,
+          "first_call_includes_new_jit_graph": true
+        }
+      },
+      "status": {
+        "vbm_value_finite": 401,
+        "microlux_skipped": "targeted VBM versus autodiff-vbm value-only timing audit",
+        "microjax_skipped": "targeted VBM versus autodiff-vbm value-only timing audit",
+        "autodiff_vbm_value_finite": 401,
+        "autodiff_vbm_value_plus_gradient_skipped": "targeted VBM versus autodiff-vbm value-only timing audit",
+        "lcbinint_skipped": "targeted VBM versus autodiff-vbm value-only timing audit"
+      }
+    },
+    "large_source_ld09": {
+      "n_epochs": 401,
+      "limb": 0.9,
+      "params": {
+        "s": 0.6,
+        "q": 0.001,
+        "rho": 0.5,
+        "t0": 0.0,
+        "tE": 10.0,
+        "u0": -1e-05,
+        "alpha": 0.5
+      },
+      "source": "existing:post_axis_skip/large_source_ld09_performance.npz",
+      "timing": {
+        "vbm_value": {
+          "first_call_ms": 807.2515589883551,
+          "steady_median_ms": 808.1835079938173,
+          "steady_p95_ms": 810.7584298937581,
+          "repetitions": 15
+        },
+        "autodiff_vbm_value": {
+          "first_call_ms": 332.4988790554926,
+          "steady_median_ms": 268.9385190606117,
+          "steady_p95_ms": 269.7357868310064,
+          "repetitions": 15,
+          "first_call_includes_new_jit_graph": true
+        }
+      },
+      "status": {
+        "vbm_value_finite": 401,
+        "microlux_skipped": "targeted VBM versus autodiff-vbm value-only timing audit",
+        "microjax_skipped": "targeted VBM versus autodiff-vbm value-only timing audit",
+        "autodiff_vbm_value_finite": 401,
+        "autodiff_vbm_value_plus_gradient_skipped": "targeted VBM versus autodiff-vbm value-only timing audit",
+        "lcbinint_skipped": "targeted VBM versus autodiff-vbm value-only timing audit"
+      }
+    },
+    "large_source_ld05_user": {
+      "n_epochs": 401,
+      "limb": 0.5,
+      "params": {
+        "s": 0.6,
+        "q": 0.001,
+        "rho": 0.5,
+        "t0": 0.0,
+        "tE": 10.0,
+        "u0": -1e-05,
+        "alpha": 0.5
+      },
+      "source": "user-provided:401-point curve, 2026-10-16",
+      "timing": {
+        "vbm_value": {
+          "first_call_ms": 618.5048629995435,
+          "steady_median_ms": 619.5083330385387,
+          "steady_p95_ms": 621.3049792917445,
+          "repetitions": 15
+        },
+        "autodiff_vbm_value": {
+          "first_call_ms": 244.5167190162465,
+          "steady_median_ms": 244.4837560178712,
+          "steady_p95_ms": 244.85757099464536,
+          "repetitions": 15,
+          "first_call_includes_new_jit_graph": false
+        }
+      },
+      "status": {
+        "vbm_value_finite": 401,
+        "microlux_skipped": "targeted VBM versus autodiff-vbm value-only timing audit",
+        "microjax_skipped": "targeted VBM versus autodiff-vbm value-only timing audit",
+        "autodiff_vbm_value_finite": 401,
+        "autodiff_vbm_value_plus_gradient_skipped": "targeted VBM versus autodiff-vbm value-only timing audit",
+        "lcbinint_skipped": "targeted VBM versus autodiff-vbm value-only timing audit"
+      }
+    },
+    "near_limb_contact_117": {
+      "n_epochs": 27,
+      "limb": 0.5,
+      "params": {
+        "s": 0.710053684596912,
+        "q": 7.886132346228951e-07,
+        "rho": 0.1671007233467463,
+        "t0": 0.0,
+        "tE": 10.0,
+        "u0": 1e-09,
+        "alpha": 1.186247434824958
+      },
+      "source": "existing:post_axis_skip/near_limb_contact_117.npz",
+      "timing": {
+        "vbm_value": {
+          "first_call_ms": 26.698088040575385,
+          "steady_median_ms": 26.35960199404508,
+          "steady_p95_ms": 26.395025267265737,
+          "repetitions": 15
+        },
+        "autodiff_vbm_value": {
+          "first_call_ms": 670.298294047825,
+          "steady_median_ms": 583.7233299389482,
+          "steady_p95_ms": 637.2587543679401,
+          "repetitions": 15,
+          "first_call_includes_new_jit_graph": true
+        }
+      },
+      "status": {
+        "vbm_value_finite": 27,
+        "microlux_skipped": "targeted VBM versus autodiff-vbm value-only timing audit",
+        "microjax_skipped": "targeted VBM versus autodiff-vbm value-only timing audit",
+        "autodiff_vbm_value_finite": 27,
+        "autodiff_vbm_value_plus_gradient_skipped": "targeted VBM versus autodiff-vbm value-only timing audit",
+        "lcbinint_skipped": "targeted VBM versus autodiff-vbm value-only timing audit"
+      }
+    },
+    "near_double_root": {
+      "n_epochs": 30,
+      "limb": 0.5,
+      "params": {
+        "s": 0.6,
+        "q": 0.0001,
+        "rho": 0.05,
+        "t0": 0.0,
+        "tE": 10.0,
+        "u0": -1e-05,
+        "alpha": 0.5
+      },
+      "source": "existing:post_axis_skip/near_double_root.npz",
+      "timing": {
+        "vbm_value": {
+          "first_call_ms": 37.274738075211644,
+          "steady_median_ms": 37.00238710734993,
+          "steady_p95_ms": 37.05313995014876,
+          "repetitions": 15
+        },
+        "autodiff_vbm_value": {
+          "first_call_ms": 91.86621604021639,
+          "steady_median_ms": 21.011100034229457,
+          "steady_p95_ms": 21.076425805222243,
+          "repetitions": 15,
+          "first_call_includes_new_jit_graph": true
+        }
+      },
+      "status": {
+        "vbm_value_finite": 30,
+        "microlux_skipped": "targeted VBM versus autodiff-vbm value-only timing audit",
+        "microjax_skipped": "targeted VBM versus autodiff-vbm value-only timing audit",
+        "autodiff_vbm_value_finite": 30,
+        "autodiff_vbm_value_plus_gradient_skipped": "targeted VBM versus autodiff-vbm value-only timing audit",
+        "lcbinint_skipped": "targeted VBM versus autodiff-vbm value-only timing audit"
+      }
+    }
+  },
+  "errors": {}
+}

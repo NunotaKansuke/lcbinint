@@ -371,8 +371,8 @@ MagnificationResult LensModel::magnification_impl(
         finite_magnifier_->clear_binary_epoch_caches();
         binary_epoch_caches_cleared_ = true;
     }
-    const bool use_seeded_radial_frontier = plan != nullptr &&
-        plan->method == magnification::FiniteSourceMethod::holonomic_auto;
+    const bool use_algebraic_boundary = plan != nullptr &&
+        plan->method == magnification::FiniteSourceMethod::algebraic_boundary_auto;
     SourcePosition source;
     const bool has_parallax = options_.parallax_mode != 0 &&
         (params_.piEN != 0.0 || params_.piEE != 0.0);
@@ -471,19 +471,6 @@ MagnificationResult LensModel::magnification_impl(
         result.separation = orbit.separation;
         result.mass_ratio = effective_q;
 
-        // The seeded radial-frontier route consumes the requested tolerances
-        // directly and reports its own value/support convergence. The
-        // empirical automatic-nbin domain applies only to the legacy unplanned
-        // binary route.
-        if (plan == nullptr && params_.rho != 0.0 && options_.mode > 0 &&
-            options_.automatic_source_bins != 0 &&
-            !magnification::binary_auto_tolerance_supported(
-                options_.finite_source_tol,
-                options_.finite_source_reltol)) {
-            result.status = EvaluationStatus::unsupported_tolerance;
-            return result;
-        }
-
         if (supports_binary_point_source(params_, options_)) {
             const auto point =
                 point_magnifier_.binary_mag0_cached(
@@ -503,7 +490,7 @@ MagnificationResult LensModel::magnification_impl(
 
         double point_source_magnification = 0.0;
         int center_image_count = 0;
-        if ((plan == nullptr || use_seeded_radial_frontier) && options_.mode > 0) {
+        if ((plan == nullptr || use_algebraic_boundary) && options_.mode > 0) {
             // Routing needs the local safety indicators as well as the
             // scalar magnification. Compute both from one validated root set;
             // binary_mag reuses this exact diagnostic. Image/seed vectors are
@@ -532,7 +519,26 @@ MagnificationResult LensModel::magnification_impl(
         result.point_source_magnification = point_source_magnification;
         result.image_count = center_image_count;
 
-        const auto finite_result = (plan == nullptr || use_seeded_radial_frontier)
+        // The algebraic-boundary route consumes the requested tolerances
+        // directly and reports its own value/support convergence. The
+        // empirical automatic-nbin domain applies only to the legacy unplanned
+        // binary route. Retain the point-source estimate when that legacy
+        // route is outside its calibrated domain so diagnostic callers still
+        // receive a finite value together with the unsupported status.
+        if (plan == nullptr && params_.rho != 0.0 && options_.mode > 0 &&
+            options_.automatic_source_bins != 0 &&
+            !magnification::binary_auto_tolerance_supported(
+                options_.finite_source_tol,
+                options_.finite_source_reltol)) {
+            result.magnification = std::isfinite(point_source_magnification)
+                ? point_source_magnification
+                : 1.0;
+            result.status = EvaluationStatus::unsupported_tolerance;
+            result.finite_source_stop = "unsupported_tolerance";
+            return result;
+        }
+
+        const auto finite_result = (plan == nullptr || use_algebraic_boundary)
             ? finite_magnifier_->binary_mag(
                 orbit.separation,
                 effective_q,
@@ -542,11 +548,11 @@ MagnificationResult LensModel::magnification_impl(
                 plan_needs_image_seeds ? &center_image_seeds : nullptr,
                 true,
                 &point_magnifier_,
-                use_seeded_radial_frontier,
+                use_algebraic_boundary,
                 plan == nullptr ? std::numeric_limits<double>::quiet_NaN()
-                                : plan->holonomic_mu_atol,
+                                : plan->algebraic_boundary_atol,
                 plan == nullptr ? std::numeric_limits<double>::quiet_NaN()
-                                : plan->holonomic_mu_rtol,
+                                : plan->algebraic_boundary_rtol,
                 options_.vbm_compatible != 0 || options_.center_of_mass != 0)
             : finite_magnifier_->binary_mag_preplanned(
                 orbit.separation,

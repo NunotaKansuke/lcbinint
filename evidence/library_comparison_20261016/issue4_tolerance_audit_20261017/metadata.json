@@ -1,0 +1,191 @@
+{
+  "created_utc": "2026-10-17T00:56:53Z",
+  "host": "rogue1",
+  "platform": "Linux-5.14.0-570.23.1.el9_6.x86_64-x86_64-with-glibc2.34",
+  "python": "3.10.19 (main, Oct 21 2025, 16:43:05) [GCC 11.2.0]",
+  "cpu_affinity": [
+    0
+  ],
+  "case_id": "near_limb_contact_117",
+  "case_source": "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/evidence/library_comparison_20261016/corrected_value_gradient_12cases/inputs.json",
+  "input_sha256": "370a36fd5da4953edd250add8dcd5ad1078826c5eab5ff64533c17dd7f9911d1",
+  "selected_source_indices": [
+    6,
+    7,
+    8,
+    19,
+    20,
+    21
+  ],
+  "selected_times": [
+    -1.6710172334674631,
+    -1.671007233467463,
+    -1.670997233467463,
+    1.392506027889553,
+    1.671007233467463,
+    1.9495084390453743
+  ],
+  "params": {
+    "s": 0.710053684596912,
+    "q": 7.886132346228951e-07,
+    "rho": 0.1671007233467463,
+    "t0": 0.0,
+    "tE": 10.0,
+    "u0": 1e-09,
+    "alpha": 1.186247434824958
+  },
+  "limb": 0.5,
+  "tolerances": [
+    0.001,
+    0.0001,
+    1e-05,
+    1e-06
+  ],
+  "convergence": {
+    "vbm561": {
+      "1e-03": {
+        "finite_epochs": 6,
+        "elapsed_ms": 6.714699906297028
+      },
+      "1e-04": {
+        "finite_epochs": 6,
+        "elapsed_ms": 24.953464046120644
+      },
+      "1e-05": {
+        "finite_epochs": 6,
+        "elapsed_ms": 92.69883600063622
+      },
+      "1e-06": {
+        "finite_epochs": 6,
+        "elapsed_ms": 243.94106096588075
+      }
+    },
+    "microlux": {
+      "1e-03": {
+        "finite_epochs": 6,
+        "elapsed_ms_including_compile": 21994.976617046632,
+        "warnings": [
+          "No enough space to insert new samplings, which may cause the error larger than the tolerance. Current length vs max length: 658 vs 478. Consider incresing default_strategy parameters.",
+          "No enough space to insert new samplings, which may cause the error larger than the tolerance. Current length vs max length: 583 vs 478. Consider incresing default_strategy parameters.",
+          "No enough space to insert new samplings, which may cause the error larger than the tolerance. Current length vs max length: 581 vs 478. Consider incresing default_strategy parameters.",
+          "No enough space to insert new samplings, which may cause the error larger than the tolerance. Current length vs max length: 508 vs 478. Consider incresing default_strategy parameters."
+        ]
+      },
+      "1e-04": {
+        "finite_epochs": 6,
+        "elapsed_ms_including_compile": 77.86918198689818,
+        "warnings": [
+          "No enough space to insert new samplings, which may cause the error larger than the tolerance. Current length vs max length: 552 vs 478. Consider incresing default_strategy parameters.",
+          "No enough space to insert new samplings, which may cause the error larger than the tolerance. Current length vs max length: 565 vs 478. Consider incresing default_strategy parameters.",
+          "No enough space to insert new samplings, which may cause the error larger than the tolerance. Current length vs max length: 579 vs 478. Consider incresing default_strategy parameters.",
+          "No enough space to insert new samplings, which may cause the error larger than the tolerance. Current length vs max length: 598 vs 478. Consider incresing default_strategy parameters."
+        ]
+      },
+      "1e-05": {
+        "finite_epochs": 6,
+        "elapsed_ms_including_compile": 132.09783798083663,
+        "warnings": [
+          "No enough space to insert new samplings, which may cause the error larger than the tolerance. Current length vs max length: 615 vs 478. Consider incresing default_strategy parameters.",
+          "No enough space to insert new samplings, which may cause the error larger than the tolerance. Current length vs max length: 535 vs 478. Consider incresing default_strategy parameters.",
+          "No enough space to insert new samplings, which may cause the error larger than the tolerance. Current length vs max length: 576 vs 478. Consider incresing default_strategy parameters.",
+          "No enough space to insert new samplings, which may cause the error larger than the tolerance. Current length vs max length: 571 vs 478. Consider incresing default_strategy parameters."
+        ]
+      },
+      "1e-06": {
+        "finite_epochs": 6,
+        "elapsed_ms_including_compile": 179.40430995076895,
+        "warnings": [
+          "No enough space to insert new samplings, which may cause the error larger than the tolerance. Current length vs max length: 560 vs 478. Consider incresing default_strategy parameters.",
+          "No enough space to insert new samplings, which may cause the error larger than the tolerance. Current length vs max length: 542 vs 478. Consider incresing default_strategy parameters.",
+          "No enough space to insert new samplings, which may cause the error larger than the tolerance. Current length vs max length: 562 vs 478. Consider incresing default_strategy parameters.",
+          "No enough space to insert new samplings, which may cause the error larger than the tolerance. Current length vs max length: 541 vs 478. Consider incresing default_strategy parameters."
+        ]
+      }
+    },
+    "lcbinint": {
+      "1e-03": {
+        "finite_epochs": 6,
+        "status_counts": {
+          "1": 5,
+          "2": 1
+        },
+        "elapsed_ms_including_first_call": 9.389573941007257
+      },
+      "1e-04": {
+        "finite_epochs": 6,
+        "status_counts": {
+          "1": 5,
+          "2": 1
+        },
+        "elapsed_ms_including_first_call": 9.040505974553525
+      },
+      "1e-05": {
+        "finite_epochs": 6,
+        "status_counts": {
+          "1": 5,
+          "2": 1
+        },
+        "elapsed_ms_including_first_call": 10.407574009150267
+      },
+      "1e-06": {
+        "finite_epochs": 6,
+        "status_counts": {
+          "1": 5,
+          "2": 1
+        },
+        "elapsed_ms_including_first_call": 12.23615207709372
+      }
+    },
+    "autodiff_vbm_vbm55": {
+      "1e-03": {
+        "finite_epochs": 6,
+        "elapsed_ms_including_compile": 676.851031021215
+      },
+      "1e-04": {
+        "finite_epochs": 6,
+        "elapsed_ms_including_compile": 3244.7326669935137
+      },
+      "1e-05": {
+        "finite_epochs": 6,
+        "elapsed_ms_including_compile": 7686.885281931609
+      },
+      "1e-06": {
+        "finite_epochs": 6,
+        "elapsed_ms_including_compile": 7063.702880055644
+      }
+    }
+  },
+  "libraries": {
+    "vbm561": {
+      "version": "5.6.1",
+      "module": "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/evidence/library_comparison_20261016/vbm561/VBMicrolensing/__init__.py",
+      "native": "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/evidence/library_comparison_20261016/vbm561/VBMicrolensing/VBMicrolensing.so",
+      "native_sha256": "01c08370fdb97109a8e24201c1ed6e5af2f34a4874407d31006630ac49653ec0"
+    },
+    "microlux": {
+      "module": "/rogue1_8/nunota/microlux/src/microlux/model.py"
+    },
+    "autodiff_vbm": {
+      "version": "0.1.0",
+      "module": "/rogue1_8/nunota/moasarc-ecosystem/integration/autodiff-vbm/src/autodiff_vbm/__init__.py",
+      "vendored_vbm": "5.5"
+    },
+    "microjax": {
+      "version": "0.2.0",
+      "module": "/rogue1_8/nunota/microjax/src/microjax/__init__.py",
+      "backend": "cpu; fixed public settings"
+    },
+    "lcbinint": {
+      "branch": "experiment/algebraic_boundary",
+      "head": "40e66e510799f9d3d15b459be2b38694daad52ee",
+      "native_sha256": "3783c72ceaa436f92bfc0ebd831480c0e1955a046ff5dedb7c044d33416c2f37",
+      "backend": "algebraic_boundary via default for static binary LightCurve"
+    }
+  },
+  "warnings": [
+    "This tolerance ladder is a convergence probe, not a certified truth reference.",
+    "autodiff-vbm shares the VBM 5.5 solver family and is not independent of VBM.",
+    "microJAX has no public CPU tolerance argument; it is shown at fixed settings.",
+    "Selected epochs are the three near-contact samples on both sides of t=0."
+  ]
+}

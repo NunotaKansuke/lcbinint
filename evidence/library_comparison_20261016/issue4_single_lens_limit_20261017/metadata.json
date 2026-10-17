@@ -1,0 +1,71 @@
+{
+  "created_utc": "2026-10-17T01:01:38Z",
+  "host": "rogue1",
+  "python": "3.10.19 (main, Oct 21 2025, 16:43:05) [GCC 11.2.0]",
+  "cpu_affinity": [
+    0
+  ],
+  "method": "independent one-dimensional quadrature of the exact point-lens finite-source integral in the q->0 limit",
+  "source_intensity": "uniform or linear I(mu)=1-u1*(1-mu), normalized by disk-integrated flux",
+  "case_id": "near_limb_contact_117",
+  "input_sha256": "370a36fd5da4953edd250add8dcd5ad1078826c5eab5ff64533c17dd7f9911d1",
+  "indices": [
+    6,
+    7,
+    8,
+    20
+  ],
+  "params": {
+    "s": 0.710053684596912,
+    "q": 7.886132346228951e-07,
+    "rho": 0.1671007233467463,
+    "t0": 0.0,
+    "tE": 10.0,
+    "u0": 1e-09,
+    "alpha": 1.186247434824958
+  },
+  "limb_coefficient": 0.5,
+  "rows": [
+    {
+      "source_index": 6,
+      "time": -1.6710172334674631,
+      "u": 0.16710172334674633,
+      "rho_minus_u": -1.0000000000287557e-06,
+      "q_zero_uniform": 7.689823129796613,
+      "uniform_quad_error_estimate": 3.923425326379643e-14,
+      "q_zero_ld05": 7.461493442232098,
+      "ld_quad_error_estimate": 4.8952965077287145e-09
+    },
+    {
+      "source_index": 7,
+      "time": -1.671007233467463,
+      "u": 0.16710072334674633,
+      "rho_minus_u": -2.7755575615628914e-17,
+      "q_zero_uniform": 7.690121619714739,
+      "uniform_quad_error_estimate": 1.1390589657231222e-14,
+      "q_zero_ld05": 7.461706059437464,
+      "ld_quad_error_estimate": 6.004131682855339e-10
+    },
+    {
+      "source_index": 8,
+      "time": -1.670997233467463,
+      "u": 0.16709972334674633,
+      "rho_minus_u": 9.999999999732445e-07,
+      "q_zero_uniform": 7.690420110425534,
+      "uniform_quad_error_estimate": 4.049987433682212e-14,
+      "q_zero_ld05": 7.4619187760561525,
+      "ld_quad_error_estimate": 4.907457860619418e-09
+    },
+    {
+      "source_index": 20,
+      "time": 1.671007233467463,
+      "u": 0.1671007233467463,
+      "rho_minus_u": 0.0,
+      "q_zero_uniform": 7.690121619714745,
+      "uniform_quad_error_estimate": 1.1390589657231222e-14,
+      "q_zero_ld05": 7.46170605943747,
+      "ld_quad_error_estimate": 6.004124089128901e-10
+    }
+  ],
+  "limitation": "This is an exact point-lens q=0 reference, not an exact binary-lens reference for q=7.886e-7. It tests the smooth finite-source limb-contact limit and order of magnitude; binary perturbations are assessed separately with the independent binary solvers."
+}

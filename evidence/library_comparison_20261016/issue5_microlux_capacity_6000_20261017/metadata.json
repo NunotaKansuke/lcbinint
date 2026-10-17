@@ -1,0 +1,52 @@
+{
+  "created_utc": "2026-10-17T01:26:55Z",
+  "host": "rogue1",
+  "python": "3.10.19 (main, Oct 21 2025, 16:43:05) [GCC 11.2.0]",
+  "cpu_affinity": [
+    0
+  ],
+  "case_id": "stratified_09",
+  "indices": [
+    12,
+    13,
+    14
+  ],
+  "times": [
+    -1.7455113096375089e-06,
+    0.0,
+    1.7455113096375089e-06
+  ],
+  "params": {
+    "s": 0.95,
+    "q": 1e-07,
+    "rho": 1e-06,
+    "t0": 0.0,
+    "tE": 10.0,
+    "u0": 9.846481110931334e-07,
+    "alpha": 0.5
+  },
+  "limb_darkening_coefficient": 0.5,
+  "tolerance": 0.001,
+  "source": "/rogue1_8/nunota/microlux/src/microlux/model.py",
+  "source_revision": "711245b6f557e5b1548b8e27d85ced7384c13418",
+  "rows": {
+    "diagnostic_capacity_6000": {
+      "default_strategy": [
+        30,
+        30,
+        60,
+        120,
+        5760
+      ],
+      "max_length": 6000,
+      "values": [
+        1213787.1774901508,
+        1265143.6099096711,
+        1259630.928356419
+      ],
+      "elapsed_seconds_including_compile": 47.19290925003588,
+      "warnings": []
+    }
+  },
+  "note": "The expanded sampling capacity is a diagnostic rerun, not a new validated tolerance guarantee."
+}

@@ -60,6 +60,10 @@ _FFI_BINARY_ROUTING_DIAGNOSTICS_BATCH_TARGET = (
     "lcbinint_jax_binary_routing_diagnostics_batch_f64_v1"
 )
 _FFI_POLAR_EPOCH_TARGET = "lcbinint_jax_polar_epoch_f64_v1"
+_FFI_ALGEBRAIC_BOUNDARY_BATCH_TARGET = "lcbinint_jax_algebraic_boundary_batch_f64_v1"
+_FFI_ALGEBRAIC_BOUNDARY_BATCH_JACOBIAN_TARGET = (
+    "lcbinint_jax_algebraic_boundary_batch_jacobian_f64_v1"
+)
 _FFI_POLAR_EPOCH_JACOBIAN_TARGET = "lcbinint_jax_polar_epoch_jacobian_f64_v1"
 _FFI_POLAR_EPOCH_DIRECTIONAL_TARGET = (
     "lcbinint_jax_polar_epoch_directional_f64_v1"
@@ -387,6 +391,185 @@ def cpp_triple_point_batch_ffi_available():
         )
     except (AttributeError, RuntimeError):
         return False
+
+
+def cpp_algebraic_boundary_batch_ffi_available():
+    """Return whether the batched algebraic-boundary CPU FFI is built."""
+
+    if jax.default_backend() != "cpu":
+        return False
+    try:
+        jax_ir = _native_module()._jax_ir
+        return hasattr(jax_ir, "algebraic_boundary_batch_forward_ffi") and hasattr(
+            jax_ir, "algebraic_boundary_batch_jacobian_ffi"
+        )
+    except (AttributeError, RuntimeError):
+        return False
+
+
+@lru_cache(maxsize=1)
+def _register_algebraic_boundary_batch_ffi():
+    native = _native_module()
+    try:
+        forward = native._jax_ir.algebraic_boundary_batch_forward_ffi()
+        jacobian = native._jax_ir.algebraic_boundary_batch_jacobian_ffi()
+    except AttributeError as error:
+        raise RuntimeError(
+            "lcbinint was built without the algebraic-boundary CPU FFI; "
+            "rebuild with LCBININT_ENABLE_JAX_FFI=ON"
+        ) from error
+    jax.ffi.register_ffi_target(
+        _FFI_ALGEBRAIC_BOUNDARY_BATCH_TARGET, forward, platform="cpu"
+    )
+    jax.ffi.register_ffi_target(
+        _FFI_ALGEBRAIC_BOUNDARY_BATCH_JACOBIAN_TARGET,
+        jacobian,
+        platform="cpu",
+    )
+
+
+def _algebraic_boundary_batch_call(
+    target,
+    source_x,
+    source_y,
+    separation,
+    mass_ratio,
+    source_radius,
+    limb_c,
+    limb_d,
+    absolute_tolerance,
+    relative_tolerance,
+    *,
+    include_jacobian,
+):
+    count = source_x.shape[0]
+    outputs = (jax.ShapeDtypeStruct((count,), jnp.float64),)
+    if include_jacobian:
+        outputs += (jax.ShapeDtypeStruct((count, 5), jnp.float64),)
+    return jax.ffi.ffi_call(target, outputs)(
+        source_x,
+        source_y,
+        separation,
+        mass_ratio,
+        source_radius,
+        absolute_tolerance=np.float64(absolute_tolerance),
+        relative_tolerance=np.float64(relative_tolerance),
+        limb_c=np.float64(limb_c),
+        limb_d=np.float64(limb_d),
+    )
+
+
+@partial(jax.custom_jvp, nondiff_argnums=(0, 1, 2, 3))
+def _algebraic_boundary_batch_transformable(
+    limb_c,
+    limb_d,
+    absolute_tolerance,
+    relative_tolerance,
+    source_x,
+    source_y,
+    separation,
+    mass_ratio,
+    source_radius,
+):
+    return _algebraic_boundary_batch_call(
+        _FFI_ALGEBRAIC_BOUNDARY_BATCH_TARGET,
+        source_x,
+        source_y,
+        separation,
+        mass_ratio,
+        source_radius,
+        limb_c,
+        limb_d,
+        absolute_tolerance,
+        relative_tolerance,
+        include_jacobian=False,
+    )[0]
+
+
+@_algebraic_boundary_batch_transformable.defjvp
+def _algebraic_boundary_batch_jvp(*arguments):
+    limb_c, limb_d, absolute_tolerance, relative_tolerance, primals, tangents = arguments
+    reject_higher_order_ad(primals)
+    source_x, source_y, separation, mass_ratio, source_radius = primals
+    source_x_dot, source_y_dot, separation_dot, mass_ratio_dot, source_radius_dot = tangents
+    magnification, jacobian = _algebraic_boundary_batch_call(
+        _FFI_ALGEBRAIC_BOUNDARY_BATCH_JACOBIAN_TARGET,
+        source_x,
+        source_y,
+        separation,
+        mass_ratio,
+        source_radius,
+        limb_c,
+        limb_d,
+        absolute_tolerance,
+        relative_tolerance,
+        include_jacobian=True,
+    )
+    tangent = (
+        jacobian[:, 0] * source_x_dot
+        + jacobian[:, 1] * source_y_dot
+        + jacobian[:, 2] * separation_dot
+        + jacobian[:, 3] * mass_ratio_dot
+        + jacobian[:, 4] * source_radius_dot
+    )
+    return magnification, tangent
+
+
+def binary_algebraic_boundary_batch_ffi(
+    source_x,
+    source_y,
+    separation,
+    mass_ratio,
+    source_radius,
+    *,
+    limb_c=0.0,
+    limb_d=0.0,
+    absolute_tolerance=1.0e-4,
+    relative_tolerance=1.0e-3,
+):
+    """Evaluate one static-binary curve through the CPU algebraic kernel.
+
+    The custom JVP sends values and their analytic boundary Jacobian through
+    the same value/Jacobian ABI used by the ordinary ``jax.grad`` API.  There
+    is no gradient-error tolerance or gradient-driven refinement control.
+    """
+
+    require_x64()
+    if jax.default_backend() != "cpu":
+        raise RuntimeError("the algebraic-boundary FFI is CPU-only")
+    if isinstance(limb_c, jax.core.Tracer) or isinstance(limb_d, jax.core.Tracer):
+        raise NotImplementedError(
+            "algebraic-boundary JAX gradients do not support limb-darkening tangents"
+        )
+    limb_c, limb_d = float(limb_c), float(limb_d)
+    absolute_tolerance = float(absolute_tolerance)
+    relative_tolerance = float(relative_tolerance)
+    if not all(
+        np.isfinite(value) and value >= 0.0
+        for value in (absolute_tolerance, relative_tolerance)
+    ):
+        raise ValueError("finite-source tolerances must be finite and nonnegative")
+    source_x = jnp.asarray(source_x, dtype=jnp.float64)
+    source_y = jnp.asarray(source_y, dtype=jnp.float64)
+    if source_x.ndim != 1 or source_y.shape != source_x.shape or source_x.shape[0] == 0:
+        raise ValueError("source_x and source_y must share a nonempty 1-D shape")
+    scalars = tuple(
+        jnp.asarray(value, dtype=jnp.float64)
+        for value in (separation, mass_ratio, source_radius)
+    )
+    if any(value.ndim != 0 for value in scalars):
+        raise ValueError("separation, mass_ratio and source_radius must be scalars")
+    _register_algebraic_boundary_batch_ffi()
+    return _algebraic_boundary_batch_transformable(
+        limb_c,
+        limb_d,
+        absolute_tolerance,
+        relative_tolerance,
+        source_x,
+        source_y,
+        *scalars[:2],
+        scalars[2],
+    )
 
 
 def cpp_polar_epoch_ffi_available():

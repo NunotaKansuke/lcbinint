@@ -8492,6 +8492,167 @@ XLA_FFI_DEFINE_HANDLER(
         .Ret<ffi::BufferR2<ffi::F64>>()
         .Ret<ffi::BufferR3<ffi::F64>>());
 
+constexpr std::size_t algebraic_boundary_jacobian_size = 5;
+
+bool valid_algebraic_boundary_batch(
+    ffi::BufferR1<ffi::F64> source_x,
+    ffi::BufferR1<ffi::F64> source_y,
+    ffi::ResultBufferR1<ffi::F64> magnification)
+{
+    const auto count = source_x.dimensions()[0];
+    return count > 0 && source_y.dimensions()[0] == count &&
+        magnification->dimensions()[0] == count;
+}
+
+lcbinint::magnification::FiniteSourceSettings algebraic_boundary_finite_settings(
+    double absolute_tolerance, double relative_tolerance,
+    double limb_c, double limb_d)
+{
+    lcbinint::magnification::FiniteSourceSettings settings;
+    settings.finite_source_tol = absolute_tolerance;
+    settings.finite_source_reltol = relative_tolerance;
+    settings.limb_darkening_c = limb_c;
+    settings.limb_darkening_d = limb_d;
+    return settings;
+}
+
+ffi::Error algebraic_boundary_batch_forward_ffi_impl(
+    double absolute_tolerance, double relative_tolerance,
+    double limb_c, double limb_d,
+    ffi::BufferR1<ffi::F64> source_x,
+    ffi::BufferR1<ffi::F64> source_y,
+    ffi::BufferR0<ffi::F64> separation,
+    ffi::BufferR0<ffi::F64> mass_ratio,
+    ffi::BufferR0<ffi::F64> source_radius,
+    ffi::ResultBufferR1<ffi::F64> magnification)
+{
+    if (!valid_algebraic_boundary_batch(source_x, source_y, magnification)) {
+        return ffi::Error::InvalidArgument(
+            "algebraic-boundary batch requires matching nonempty vectors");
+    }
+    if (!(std::isfinite(absolute_tolerance) && absolute_tolerance >= 0.0 &&
+          std::isfinite(relative_tolerance) && relative_tolerance >= 0.0 &&
+          std::isfinite(limb_c) && std::isfinite(limb_d) &&
+          *separation.typed_data() > 0.0 && *mass_ratio.typed_data() > 0.0 &&
+          *source_radius.typed_data() > 0.0)) {
+        return ffi::Error::InvalidArgument(
+            "algebraic-boundary scalars must be finite and physical");
+    }
+    const auto settings = algebraic_boundary_finite_settings(
+        absolute_tolerance, relative_tolerance, limb_c, limb_d);
+    const lcbinint::magnification::FiniteSourceMagnifier magnifier(settings);
+    const auto count = source_x.dimensions()[0];
+    for (std::int64_t index = 0; index < count; ++index) {
+        const auto value = magnifier.experimental_algebraic_boundary_binary_mag(
+            *separation.typed_data(), *mass_ratio.typed_data(),
+            {source_x.typed_data()[index], source_y.typed_data()[index]},
+            *source_radius.typed_data());
+        magnification->typed_data()[index] = value.success
+            ? value.magnification : std::numeric_limits<double>::quiet_NaN();
+    }
+    return ffi::Error::Success();
+}
+
+XLA_FFI_DEFINE_HANDLER(
+    algebraic_boundary_batch_forward_ffi_handler,
+    algebraic_boundary_batch_forward_ffi_impl,
+    ffi::Ffi::Bind()
+        .Attr<double>("absolute_tolerance")
+        .Attr<double>("relative_tolerance")
+        .Attr<double>("limb_c")
+        .Attr<double>("limb_d")
+        .Arg<ffi::BufferR1<ffi::F64>>()
+        .Arg<ffi::BufferR1<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Ret<ffi::BufferR1<ffi::F64>>());
+
+ffi::Error algebraic_boundary_batch_jacobian_ffi_impl(
+    double absolute_tolerance, double relative_tolerance,
+    double limb_c, double limb_d,
+    ffi::BufferR1<ffi::F64> source_x,
+    ffi::BufferR1<ffi::F64> source_y,
+    ffi::BufferR0<ffi::F64> separation,
+    ffi::BufferR0<ffi::F64> mass_ratio,
+    ffi::BufferR0<ffi::F64> source_radius,
+    ffi::ResultBufferR1<ffi::F64> magnification,
+    ffi::ResultBufferR2<ffi::F64> jacobian)
+{
+    if (!valid_algebraic_boundary_batch(source_x, source_y, magnification)) {
+        return ffi::Error::InvalidArgument(
+            "algebraic-boundary batch requires matching nonempty vectors");
+    }
+    const auto count = source_x.dimensions()[0];
+    if (jacobian->dimensions()[0] != count ||
+        jacobian->dimensions()[1] != algebraic_boundary_jacobian_size) {
+        return ffi::Error::InvalidArgument(
+            "algebraic-boundary Jacobian must have shape [N, 5]");
+    }
+    if (!(std::isfinite(absolute_tolerance) && absolute_tolerance >= 0.0 &&
+          std::isfinite(relative_tolerance) && relative_tolerance >= 0.0 &&
+          std::isfinite(limb_c) && std::isfinite(limb_d) &&
+          *separation.typed_data() > 0.0 && *mass_ratio.typed_data() > 0.0 &&
+          *source_radius.typed_data() > 0.0)) {
+        return ffi::Error::InvalidArgument(
+            "algebraic-boundary scalars must be finite and physical");
+    }
+    const auto settings = algebraic_boundary_finite_settings(
+        absolute_tolerance, relative_tolerance, limb_c, limb_d);
+    const lcbinint::magnification::FiniteSourceMagnifier magnifier(settings);
+    const auto nan = std::numeric_limits<double>::quiet_NaN();
+    for (std::int64_t index = 0; index < count; ++index) {
+        const auto result = magnifier.experimental_algebraic_boundary_binary_jacobian(
+            *separation.typed_data(), *mass_ratio.typed_data(),
+            {source_x.typed_data()[index], source_y.typed_data()[index]},
+            *source_radius.typed_data());
+        const double value = std::isfinite(result.magnification) &&
+                result.magnification > 0.0
+            ? result.magnification : 1.0;
+        magnification->typed_data()[index] = value;
+        auto* row = jacobian->typed_data() + index * algebraic_boundary_jacobian_size;
+        if (result.success && result.grad_reliable) {
+            // The driver returns [x, y, rho, q, s]. The JAX ABI is [x, y, s, q, rho].
+            row[0] = result.jacobian[0];
+            row[1] = result.jacobian[1];
+            row[2] = result.jacobian[4];
+            row[3] = result.jacobian[3];
+            row[4] = result.jacobian[2];
+        } else {
+            std::fill(row, row + algebraic_boundary_jacobian_size, nan);
+        }
+    }
+    return ffi::Error::Success();
+}
+
+XLA_FFI_DEFINE_HANDLER(
+    algebraic_boundary_batch_jacobian_ffi_handler,
+    algebraic_boundary_batch_jacobian_ffi_impl,
+    ffi::Ffi::Bind()
+        .Attr<double>("absolute_tolerance")
+        .Attr<double>("relative_tolerance")
+        .Attr<double>("limb_c")
+        .Attr<double>("limb_d")
+        .Arg<ffi::BufferR1<ffi::F64>>()
+        .Arg<ffi::BufferR1<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Ret<ffi::BufferR1<ffi::F64>>()
+        .Ret<ffi::BufferR2<ffi::F64>>());
+
+py::capsule algebraic_boundary_batch_forward_ffi_capsule()
+{
+    return py::capsule(
+        reinterpret_cast<void*>(algebraic_boundary_batch_forward_ffi_handler));
+}
+
+py::capsule algebraic_boundary_batch_jacobian_ffi_capsule()
+{
+    return py::capsule(
+        reinterpret_cast<void*>(algebraic_boundary_batch_jacobian_ffi_handler));
+}
+
 py::capsule fixed_support_forward_ffi_capsule()
 {
     return py::capsule(
@@ -8766,6 +8927,14 @@ void register_jax_ir_submodule(py::module_& parent)
         "fixed_support_forward_ffi",
         &fixed_support_forward_ffi_capsule,
         "Return the typed XLA FFI handler capsule.");
+    module.def(
+        "algebraic_boundary_batch_forward_ffi",
+        &algebraic_boundary_batch_forward_ffi_capsule,
+        "Return the batched algebraic-boundary value FFI capsule.");
+    module.def(
+        "algebraic_boundary_batch_jacobian_ffi",
+        &algebraic_boundary_batch_jacobian_ffi_capsule,
+        "Return the batched algebraic-boundary value/Jacobian FFI capsule.");
     module.def(
         "fixed_support_value_jacobian_ffi",
         &fixed_support_value_jacobian_ffi_capsule,

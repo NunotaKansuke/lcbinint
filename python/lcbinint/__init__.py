@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+
 from . import _lcbinint as _native
 from ._lcbinint import *          # noqa: F401, F403
 from ._lcbinint import obs
@@ -31,11 +33,27 @@ def _normalize_t_lim(value):
 
 
 def _normalize_finite_source_backend(value):
+    if value is None:
+        return None
     if not isinstance(value, str) or value not in ("default", "algebraic_boundary"):
         raise ValueError(
-            "finite_source_backend must be 'default' or 'algebraic_boundary'"
+            "finite_source_backend must be None, 'default', or 'algebraic_boundary'"
         )
     return value
+
+
+def _default_finite_source_backend(native_curve):
+    """Select the branch default for the model supported by this backend."""
+    model = native_curve.model
+    if (
+        model.lens == "binary"
+        and model.source == "single"
+        and not model.parallax
+        and model.xallarap == "none"
+        and native_curve.orbital_motion == "static"
+    ):
+        return "algebraic_boundary"
+    return "default"
 
 
 def _ephemeris_t_lim(t_lim):
@@ -52,8 +70,10 @@ class Options:
 
     ``jax`` and ``t_lim`` deliberately live outside ``lcbi_options`` so these
     controls do not change the layout of the public C ABI structure.
-    ``finite_source_backend='algebraic_boundary'`` opts a binary LightCurve
-    into the seeded radial route; the default keeps the standard router.
+    ``finite_source_backend=None`` selects the branch default after the model
+    is known: static single-source binary curves use algebraic boundary, while
+    models outside that backend's support keep the standard router. Pass
+    ``'default'`` explicitly to request the standard router for a binary curve.
     """
 
     __slots__ = (
@@ -62,7 +82,7 @@ class Options:
     )
 
     def __init__(
-        self, *args, jax=False, t_lim=None, finite_source_backend="default",
+        self, *args, jax=False, t_lim=None, finite_source_backend=None,
         **kwargs,
     ):
         self._native = _NativeOptions(*args, **kwargs)
@@ -75,7 +95,7 @@ class Options:
 
     @classmethod
     def _from_native(
-        cls, native, *, jax=False, t_lim=None, finite_source_backend="default"
+        cls, native, *, jax=False, t_lim=None, finite_source_backend=None
     ):
         result = cls.__new__(cls)
         object.__setattr__(result, "_native", native)
@@ -134,7 +154,7 @@ class Options:
             f"<lc.Options backend='{'jax' if self.jax else 'native'}' ",
             1,
         )
-        if self.finite_source_backend != "default":
+        if self.finite_source_backend not in (None, "default"):
             rendered = rendered[:-1] + (
                 f" finite_source_backend={self.finite_source_backend!r}>"
             )
@@ -149,7 +169,7 @@ Parameters = _native.Parameters
 LensParams = _native.Parameters
 LimbDarkening = _native.LimbDarkening
 _NativeLightCurve = _native.LightCurve
-LightCurveInfo = _native.LightCurveInfo
+_NativeLightCurveInfo = _native.LightCurveInfo
 SourceTrajectory = _native.SourceTrajectory
 BinarySourceComponent = _native.BinarySourceComponent
 BinarySourceComponents = _native.BinarySourceComponents
@@ -160,6 +180,209 @@ XallarapParamType = _native.XallarapParamType
 _binary_images = _native._binary_images
 _binary_safety_diagnostic = _native._binary_safety_diagnostic
 _native_binary_ray_shooting = _native.binary_ray_shooting
+
+
+@dataclass(frozen=True)
+class LightCurveInfo:
+    """One light-curve result, with optional gradients and per-epoch status.
+
+    ``magnifications`` is the best finite estimate available for each epoch.
+    If finite-source support cannot be established before an integral estimate
+    exists, the point-source value is returned and diagnostics mark that
+    fallback. ``status`` uses 0 for accepted values, 1 for unconverged estimates,
+    and 2 when image support could not be established. A requested but unusable
+    gradient is represented by zeros plus ``gradient_valid=False``. Supported
+    eager static binary calls use the algebraic-boundary value path and its
+    forward-mode Jacobian. Gradients are marked invalid when the value status
+    is not accepted.
+
+    The object converts to its magnification array for NumPy/JAX expressions,
+    while retaining status and gradient metadata for callers that need it.
+    """
+
+    OK = 0
+    UNCONVERGED = 1
+    SUPPORT_UNPROVEN = 2
+
+    times: object
+    magnifications: object
+    status: object
+    gradients: object = None
+    gradient_valid: object = None
+    gradient_parameters: tuple = ()
+    value_converged: object = None
+    support_certified: object = None
+    diagnostics: object = None
+
+    __array_priority__ = 1000
+
+    @property
+    def statuses(self):
+        """Human-readable per-epoch status names."""
+        return self.status_names
+
+    @property
+    def status_codes(self):
+        return self.status
+
+    @property
+    def finite_source_converged(self):
+        return self.value_converged
+
+    @property
+    def finite_source_magnifications(self):
+        """Alias for the estimate in ``magnifications``.
+
+        If finite-source image support is unproven, this may be the point-source
+        fallback; inspect ``status`` and ``diagnostics`` before using it as a
+        finite-source result.
+        """
+        return self.magnifications
+
+    @property
+    def all_converged(self):
+        import numpy as np
+
+        return bool(np.all(np.asarray(self.status) == self.OK))
+
+    @property
+    def unconverged_indices(self):
+        import numpy as np
+
+        return np.flatnonzero(np.asarray(self.status) != self.OK).tolist()
+
+    @property
+    def status_names(self):
+        import numpy as np
+
+        names = {
+            self.OK: "ok",
+            self.UNCONVERGED: "unconverged",
+            self.SUPPORT_UNPROVEN: "support_unproven",
+        }
+        return np.asarray(
+            [names.get(int(code), "unconverged") for code in np.asarray(self.status).reshape(-1)],
+            dtype=object,
+        ).reshape(np.shape(self.status))
+
+    @property
+    def shape(self):
+        return self.magnifications.shape
+
+    @property
+    def ndim(self):
+        return self.magnifications.ndim
+
+    @property
+    def dtype(self):
+        return self.magnifications.dtype
+
+    def __array__(self, dtype=None, copy=None):
+        import numpy as np
+
+        values = np.asarray(self.magnifications, dtype=dtype)
+        return values.copy() if copy else values
+
+    def __jax_array__(self):
+        import jax.numpy as jnp
+
+        return jnp.asarray(self.magnifications)
+
+    def __getitem__(self, key):
+        return self.magnifications[key]
+
+    def __len__(self):
+        return len(self.magnifications)
+
+    def __iter__(self):
+        return iter(self.magnifications)
+
+    def __getattr__(self, name):
+        diagnostics = object.__getattribute__(self, "diagnostics")
+        if diagnostics is not None:
+            if isinstance(diagnostics, dict) and name in diagnostics:
+                return diagnostics[name]
+            if isinstance(diagnostics, dict):
+                aliases = {
+                    "finite_source_error_estimates": "error_estimate",
+                    "finite_source_converged": "value_converged",
+                    "finite_source_method_names": "finite_source_method_name",
+                }
+                key = aliases.get(name)
+                if key in diagnostics:
+                    return diagnostics[key]
+            if hasattr(diagnostics, name):
+                return getattr(diagnostics, name)
+        values = object.__getattribute__(self, "magnifications")
+        if hasattr(values, name):
+            return getattr(values, name)
+        raise AttributeError(name)
+
+    def __sub__(self, other):
+        return self.magnifications - other
+
+    def __rsub__(self, other):
+        return other - self.magnifications
+
+    def __add__(self, other):
+        return self.magnifications + other
+
+    def __radd__(self, other):
+        return other + self.magnifications
+
+    def __mul__(self, other):
+        return self.magnifications * other
+
+    def __rmul__(self, other):
+        return other * self.magnifications
+
+    def __truediv__(self, other):
+        return self.magnifications / other
+
+    def __neg__(self):
+        return -self.magnifications
+
+    def tree_flatten(self):
+        children = (
+            self.times,
+            self.magnifications,
+            self.status,
+            self.gradients,
+            self.gradient_valid,
+            self.value_converged,
+            self.support_certified,
+        )
+        return children, self.gradient_parameters
+
+    @classmethod
+    def tree_unflatten(cls, gradient_parameters, children):
+        times, magnifications, status, gradients, gradient_valid, converged, support = children
+        return cls(
+            times=times,
+            magnifications=magnifications,
+            status=status,
+            gradients=gradients,
+            gradient_valid=gradient_valid,
+            gradient_parameters=gradient_parameters,
+            value_converged=converged,
+            support_certified=support,
+        )
+
+
+_lightcurve_info_jax_registered = False
+
+
+def _register_lightcurve_info_pytree():
+    global _lightcurve_info_jax_registered
+    if _lightcurve_info_jax_registered:
+        return
+    import jax
+
+    try:
+        jax.tree_util.register_pytree_node_class(LightCurveInfo)
+    except ValueError:
+        pass
+    _lightcurve_info_jax_registered = True
 
 _PARAMETER_FIELDS = {
     "t0": "t0", "tE": "tE", "u0": "u0", "alpha": "alpha",
@@ -217,7 +440,7 @@ class LightCurve:
             kwargs["orbital_motion"] = _orbital_motion_name(orbital_motion_mode)
         jax_argument = kwargs.pop("jax", None)
         jax = bool(jax_argument) if jax_argument is not None else False
-        finite_source_backend = "default"
+        finite_source_backend = None
         t_lim = None
         positional = list(args)
         if positional and isinstance(positional[0], Options):
@@ -252,6 +475,8 @@ class LightCurve:
                 else:
                     kwargs["site"] = limited_site
         self._native = _NativeLightCurve(*positional, **kwargs)
+        if finite_source_backend is None:
+            finite_source_backend = _default_finite_source_backend(self._native)
         self.limb_darkening = LimbDarkening(self._native.ld_c, self._native.ld_d)
         self._options = Options._from_native(
             self._native.options,
@@ -477,74 +702,642 @@ class LightCurve:
         return report
 
     def _validate_backend_combination(self):
-        if self._options.finite_source_backend == "algebraic_boundary" and self._options.jax:
+        if self._options.finite_source_backend != "algebraic_boundary":
+            return
+        model = self._native.model
+        if model.lens != "binary" or model.source != "single":
             raise ValueError(
-                "finite_source_backend='algebraic_boundary' currently requires the native backend"
+                "finite_source_backend='algebraic_boundary' requires a single-source binary lens"
+            )
+        if model.parallax or model.xallarap != "none" or self._native.orbital_motion != "static":
+            raise ValueError(
+                "finite_source_backend='algebraic_boundary' requires a static binary trajectory"
             )
 
-    def __call__(self, times, params=None, **kwargs):
-        self._validate_backend_combination()
-        if self._options.finite_source_backend == "algebraic_boundary":
-            merged = self._merge_params(params, **kwargs)
-            value = self.holonomic_info(times, merged)["mu"]
-            try:
-                import numpy as np
+    def _evaluate_values(self, times, merged, *, with_gradient=False):
+        """Build the common value/status record for every public call mode."""
+        import numpy as np
 
-                if np.ndim(value) == 0:
-                    return float(value)
-            except (ImportError, TypeError):
-                pass
-            return value
+        self._validate_backend_combination()
         self._validate_time_limit(times)
-        merged = self._merge_params(params, **kwargs)
-        if self._options.jax:
+
+        def contains_tracer(value):
+            try:
+                import jax
+            except ImportError:
+                return False
+            if isinstance(value, jax.core.Tracer):
+                return True
+            if isinstance(value, dict):
+                return any(contains_tracer(item) for item in value.values())
+            if isinstance(value, (tuple, list)):
+                return any(contains_tracer(item) for item in value)
+            return False
+
+        traced = contains_tracer(times) or contains_tracer(merged)
+        if traced:
+            _register_lightcurve_info_pytree()
+            import jax.numpy as jnp
             from .jax_backend import magnification
 
-            if self._matching_warmup(times, merged):
-                self._warn_if_warmup_drift(times, merged)
-                if self._warmup_jax_function is not None:
-                    return self._warmup_jax_function(times, merged)
-            return magnification(self._native, self._options, times, merged)
-        if self._matching_warmup(times, merged):
-            self._warn_if_warmup_drift(times, merged)
-            return self._native._magnification_preplanned(
-                times,
+            time_array = jnp.asarray(times)
+            if time_array.ndim == 0:
+                time_array = jnp.reshape(time_array, (1,))
+            elif time_array.ndim != 1:
+                raise ValueError("times must be a scalar or one-dimensional array")
+            if (
+                self._options.finite_source_backend != "algebraic_boundary"
+                and self._native.lens == "binary"
+                and self._native.model.source == "single"
+            ):
+                from .jax_backend import info as jax_info
+
+                raw = jax_info(
+                    self._native, self._options, time_array, merged
+                )
+                primary = jnp.ravel(raw.magnifications)
+                finite_source = jnp.ravel(raw.finite_source_magnifications)
+                point_source = jnp.ravel(raw.point_source_magnifications)
+                estimates = jnp.full_like(primary, 1.0)
+                for candidate in (point_source, finite_source, primary):
+                    estimates = jnp.where(
+                        jnp.isfinite(candidate), candidate, estimates
+                    )
+                converged = jnp.ravel(raw.finite_source_converged)
+                converged = converged & jnp.isfinite(primary)
+                support = jnp.ravel(raw.support_certified)
+                status = jnp.where(
+                    converged,
+                    LightCurveInfo.OK,
+                    jnp.where(
+                        support,
+                        LightCurveInfo.UNCONVERGED,
+                        LightCurveInfo.SUPPORT_UNPROVEN,
+                    ),
+                ).astype(jnp.int8)
+                return LightCurveInfo(
+                    times=time_array,
+                    magnifications=estimates,
+                    status=status,
+                    value_converged=converged,
+                    support_certified=support,
+                    diagnostics=raw,
+                )
+            values = magnification(
+                self._native,
+                self._options,
+                time_array,
                 merged,
-                self._warmup_methods.tolist(),
-                self._warmup_profile.resolutions.tolist(),
+                finite_source_backend=self._options.finite_source_backend,
             )
-        return self._native(times, merged)
+            finite = jnp.isfinite(values)
+            estimates = jnp.where(finite, values, 1.0)
+            status = jnp.where(
+                finite,
+                LightCurveInfo.OK,
+                LightCurveInfo.UNCONVERGED,
+            ).astype(jnp.int8)
+            return LightCurveInfo(
+                times=time_array,
+                magnifications=estimates,
+                status=status,
+                value_converged=finite,
+            )
+
+        time_array = np.asarray(times, dtype=float)
+        if time_array.ndim == 0:
+            time_array = time_array.reshape(1)
+        elif time_array.ndim != 1:
+            raise ValueError("times must be a scalar or one-dimensional array")
+
+        if (
+            self._options.jax
+            and self._options.finite_source_backend != "algebraic_boundary"
+            and self._matching_warmup(time_array, merged)
+            and self._warmup_jax_function is not None
+        ):
+            self._warn_if_warmup_drift(time_array, merged)
+            import jax.numpy as jnp
+
+            values = jnp.ravel(self._warmup_jax_function(time_array, merged))
+            finite = jnp.isfinite(values)
+            return LightCurveInfo(
+                times=time_array,
+                magnifications=jnp.where(finite, values, 1.0),
+                status=jnp.where(
+                    finite, LightCurveInfo.OK,
+                    LightCurveInfo.UNCONVERGED,
+                ).astype(jnp.int8),
+                value_converged=finite,
+            )
+
+        if (
+            self._options.jax
+            and self._options.finite_source_backend != "algebraic_boundary"
+        ):
+            _register_lightcurve_info_pytree()
+            import jax.numpy as jnp
+            from .jax_backend import info as jax_info, magnification
+
+            if self._native.lens == "binary" and self._native.model.source == "single":
+                raw = jax_info(
+                    self._native, self._options, time_array, merged
+                )
+                primary = jnp.ravel(raw.magnifications)
+                finite_source = jnp.ravel(raw.finite_source_magnifications)
+                point_source = jnp.ravel(raw.point_source_magnifications)
+                values = jnp.full_like(primary, 1.0)
+                for candidate in (point_source, finite_source, primary):
+                    values = jnp.where(
+                        jnp.isfinite(candidate), candidate, values
+                    )
+                converged = jnp.ravel(raw.finite_source_converged)
+                converged = converged & jnp.isfinite(primary)
+                support = jnp.ravel(raw.support_certified)
+                status = jnp.where(
+                    converged,
+                    LightCurveInfo.OK,
+                    jnp.where(
+                        support,
+                        LightCurveInfo.UNCONVERGED,
+                        LightCurveInfo.SUPPORT_UNPROVEN,
+                    ),
+                ).astype(jnp.int8)
+                return LightCurveInfo(
+                    times=jnp.asarray(time_array),
+                    magnifications=values,
+                    status=status,
+                    value_converged=converged,
+                    support_certified=support,
+                    diagnostics=raw,
+                )
+
+            values = jnp.ravel(magnification(
+                self._native,
+                self._options,
+                time_array,
+                merged,
+                finite_source_backend="default",
+            ))
+            finite = jnp.isfinite(values)
+            return LightCurveInfo(
+                times=jnp.asarray(time_array),
+                magnifications=jnp.where(finite, values, 1.0),
+                status=jnp.where(
+                    finite, LightCurveInfo.OK,
+                    LightCurveInfo.UNCONVERGED,
+                ).astype(jnp.int8),
+                value_converged=finite,
+            )
+
+        if self._options.finite_source_backend == "algebraic_boundary":
+            from .algebraic_boundary import lightcurve_value
+
+            raw = lightcurve_value(
+                self, time_array, merged, with_gradient=with_gradient
+            )
+            values = np.asarray(raw["mu"], dtype=float).reshape(-1)
+            converged = np.asarray(raw["fully_converged"], dtype=bool).reshape(-1)
+            converged &= np.isfinite(values)
+            support = np.asarray(raw["support_certified"], dtype=bool).reshape(-1)
+            integrated = np.asarray(raw["integrator_used"], dtype=bool).reshape(-1)
+            support_failed = integrated & ~support
+            point_source = np.asarray(
+                raw["point_source_magnification"], dtype=float
+            ).reshape(-1)
+            fallback_used = (
+                ~np.isfinite(values) | (values <= 0.0)
+            ) & np.isfinite(point_source) & (point_source > 0.0)
+            values = np.where(fallback_used, point_source, values)
+            raw["value_fallback_used"] = fallback_used.copy()
+            raw["value_fallback_kind"] = np.where(
+                fallback_used, "point_source", "none"
+            )
+            status = np.where(
+                converged,
+                LightCurveInfo.OK,
+                np.where(
+                    support_failed,
+                    LightCurveInfo.SUPPORT_UNPROVEN,
+                    LightCurveInfo.UNCONVERGED,
+                ),
+            ).astype(np.int8)
+            values = self._finite_estimates(values)
+            return LightCurveInfo(
+                times=time_array,
+                magnifications=values,
+                status=status,
+                value_converged=converged,
+                support_certified=support,
+                diagnostics=raw,
+            )
+
+        if self._native.model.source == "single":
+            if self._matching_warmup(time_array, merged):
+                self._warn_if_warmup_drift(time_array, merged)
+                try:
+                    values = np.asarray(
+                        self._native._magnification_preplanned(
+                            time_array,
+                            merged,
+                            self._warmup_methods.tolist(),
+                            self._warmup_profile.resolutions.tolist(),
+                        ),
+                        dtype=float,
+                    ).reshape(-1)
+                except RuntimeError:
+                    # A stale or unusable plan must still return a per-epoch
+                    # status and the best available value from the ordinary
+                    # diagnostic route.
+                    pass
+                else:
+                    finite = np.isfinite(values)
+                    return LightCurveInfo(
+                        times=time_array,
+                        magnifications=self._finite_estimates(values),
+                        status=np.where(
+                            finite, LightCurveInfo.OK,
+                            LightCurveInfo.UNCONVERGED,
+                        ).astype(np.int8),
+                        value_converged=finite,
+                    )
+            raw = self._native.info(time_array, merged)
+            primary = np.asarray(raw.magnifications, dtype=float).reshape(-1)
+            finite_source = np.asarray(
+                raw.finite_source_magnifications, dtype=float
+            ).reshape(-1)
+            point_source = np.asarray(
+                raw.point_source_magnifications, dtype=float
+            ).reshape(-1)
+            values = self._finite_estimates(primary, finite_source, point_source)
+            raw_statuses = np.asarray(raw.statuses, dtype=object).reshape(-1)
+            status = np.asarray([
+                LightCurveInfo.OK if item == "ok" else
+                LightCurveInfo.SUPPORT_UNPROVEN
+                if item in ("unsupported", "unsupported_tolerance") else
+                LightCurveInfo.UNCONVERGED
+                for item in raw_statuses
+            ], dtype=np.int8)
+            converged = np.asarray(
+                raw.finite_source_converged, dtype=bool
+            ).reshape(-1)
+            status[(status == LightCurveInfo.OK) & ~converged] = (
+                LightCurveInfo.UNCONVERGED
+            )
+            return LightCurveInfo(
+                times=time_array,
+                magnifications=values,
+                status=status,
+                value_converged=converged,
+                diagnostics=raw,
+            )
+
+        try:
+            values = np.asarray(
+                self._native(time_array, merged), dtype=float
+            ).reshape(-1)
+        except RuntimeError as error:
+            message = str(error)
+            if message.startswith("unsupported"):
+                code = LightCurveInfo.SUPPORT_UNPROVEN
+            elif message.startswith("numerical error"):
+                code = LightCurveInfo.UNCONVERGED
+            else:
+                raise
+            values = np.ones(time_array.shape, dtype=float)
+            status = np.full(time_array.shape, code, dtype=np.int8)
+            return LightCurveInfo(
+                times=time_array,
+                magnifications=values,
+                status=status,
+                value_converged=np.zeros(time_array.shape, dtype=bool),
+                support_certified=(
+                    np.zeros(time_array.shape, dtype=bool)
+                    if code == LightCurveInfo.SUPPORT_UNPROVEN else None
+                ),
+            )
+        finite = np.isfinite(values)
+        status = np.where(
+            finite, LightCurveInfo.OK, LightCurveInfo.UNCONVERGED
+        ).astype(np.int8)
+        return LightCurveInfo(
+            times=time_array,
+            magnifications=self._finite_estimates(values),
+            status=status,
+            value_converged=finite,
+        )
+
+    @staticmethod
+    def _finite_estimates(*candidates):
+        import numpy as np
+
+        if not candidates:
+            return np.empty((0,), dtype=float)
+        values = np.full(np.shape(candidates[0]), 1.0, dtype=float)
+        for candidate in reversed(candidates):
+            candidate = np.asarray(candidate, dtype=float)
+            values = np.where(np.isfinite(candidate), candidate, values)
+        return values
+
+    def _evaluate_algebraic_boundary_gradients(
+        self, times, merged, eligible, diagnostics=None
+    ):
+        """Return the native seven-parameter Jacobian for accepted epochs."""
+        import numpy as np
+
+        if (
+            self._options.jax
+            or self._options.finite_source_backend != "algebraic_boundary"
+        ):
+            return None
+        model = self._native.model
+        if (
+            model.lens != "binary"
+            or model.source != "single"
+            or model.parallax
+            or model.xallarap != "none"
+            or self._native.orbital_motion != "static"
+        ):
+            return None
+
+        core_order = ("t0", "u0", "tE", "alpha", "rho", "q", "s")
+        if tuple(merged) == core_order and isinstance(diagnostics, dict):
+            try:
+                mapped = np.asarray(diagnostics["gradients"], dtype=np.float64)
+                row_valid = np.asarray(
+                    diagnostics["gradient_valid"], dtype=bool
+                ).reshape(-1)
+            except (KeyError, TypeError, ValueError):
+                pass
+            else:
+                if mapped.size == row_valid.size * len(core_order):
+                    # The native combined call already clears every derivative
+                    # row whose value did not converge or whose Jacobian failed.
+                    return core_order, mapped.reshape(-1, len(core_order)), row_valid
+
+        aliases = {
+            "t_0": "t0", "t_E": "tE", "umin": "u0",
+            "theta": "alpha", "sep": "s", "rho1": "rho",
+        }
+        canonical = {}
+        for name, value in merged.items():
+            canonical[aliases.get(name, name)] = value
+        names = []
+        for name, value in canonical.items():
+            if name == "orbital_motion_mode":
+                continue
+            try:
+                scalar = float(value)
+            except (TypeError, ValueError):
+                continue
+            names.append(name)
+
+        core = set(core_order)
+        unsupported = {"limb_darkening_c", "limb_darkening_d"} & set(names)
+        active = set(names) - unsupported
+        if not core.issubset(active) or active - core:
+            return None
+
+        try:
+            time_array = np.asarray(times, dtype=np.float64)
+            status_array = np.asarray(eligible, dtype=np.int8).reshape(-1)
+        except (TypeError, ValueError):
+            return None
+        if time_array.ndim == 0:
+            time_array = time_array.reshape(1)
+        elif time_array.ndim != 1:
+            return None
+        if status_array.size != time_array.size:
+            return None
+        gradients = np.zeros((time_array.size, len(names)), dtype=np.float64)
+        gradient_valid = np.zeros(time_array.size, dtype=bool)
+        accepted = status_array == LightCurveInfo.OK
+        if not np.any(accepted):
+            return names, gradients, gradient_valid
+
+        if not isinstance(diagnostics, dict):
+            return None
+        try:
+            mapped = np.asarray(diagnostics["gradients"], dtype=np.float64)
+            row_valid = np.asarray(diagnostics["gradient_valid"], dtype=bool)
+        except (KeyError, TypeError, ValueError):
+            return None
+        if (
+            mapped.size != time_array.size * 7
+            or row_valid.size != time_array.size
+        ):
+            return None
+        mapped = mapped.reshape(-1, 7)
+        row_valid = row_valid.reshape(-1) & accepted
+        name_to_core_column = dict(zip(core_order, range(len(core_order))))
+        for column, name in enumerate(names):
+            if name in name_to_core_column:
+                gradients[:, column] = mapped[:, name_to_core_column[name]]
+        if unsupported:
+            row_valid[:] = False
+        gradient_valid[:] = row_valid
+        return names, gradients, gradient_valid
+
+    def _evaluate_gradients(
+        self, times, merged, eligible=None, diagnostics=None
+    ):
+        if eligible is not None:
+            native_result = self._evaluate_algebraic_boundary_gradients(
+                times, merged, eligible, diagnostics
+            )
+            if native_result is not None:
+                return native_result
+        try:
+            import jax
+            import jax.numpy as jnp
+        except ImportError as error:
+            raise RuntimeError(
+                "with_gradient=True requires JAX; install lcbinint with the 'jax' extra"
+            ) from error
+        import numpy as np
+        from .jax_backend import _PARAMETER_ALIASES, magnification
+
+        _register_lightcurve_info_pytree()
+        base = dict(merged)
+        canonical = {}
+        for name, value in merged.items():
+            canonical[_PARAMETER_ALIASES.get(name, name)] = value
+        base.update(canonical)
+        names = []
+        values_by_name = {}
+        for name, value in canonical.items():
+            if name == "orbital_motion_mode":
+                continue
+            try:
+                scalar = jnp.asarray(value, dtype=jnp.float64)
+            except (TypeError, ValueError):
+                continue
+            if scalar.ndim != 0:
+                continue
+            names.append(name)
+            values_by_name[name] = scalar
+
+        unsupported_names = set()
+        if self._options.finite_source_backend == "algebraic_boundary":
+            unsupported_names.update(
+                name for name in names
+                if name in ("limb_darkening_c", "limb_darkening_d")
+            )
+        active_names = [name for name in names if name not in unsupported_names]
+
+        time_array = jnp.asarray(times)
+        if time_array.ndim == 0:
+            time_array = jnp.reshape(time_array, (1,))
+        elif time_array.ndim != 1:
+            raise ValueError("times must be a scalar or one-dimensional array")
+        epoch_count = int(time_array.shape[0])
+        eligible_indices = None
+        if eligible is not None:
+            leaves = jax.tree_util.tree_leaves(eligible)
+            if not any(isinstance(leaf, jax.core.Tracer) for leaf in leaves):
+                eligible_mask = np.asarray(eligible, dtype=np.int8).reshape(-1)
+                if eligible_mask.size != epoch_count:
+                    raise ValueError("value status and times must have equal length")
+                eligible_indices = np.flatnonzero(
+                    eligible_mask == LightCurveInfo.OK
+                )
+        active_times = (
+            time_array if eligible_indices is None
+            else time_array[eligible_indices]
+        )
+        if not active_names:
+            gradients = jnp.zeros((epoch_count, len(names)), dtype=jnp.float64)
+            valid = (
+                jnp.zeros((epoch_count,), dtype=jnp.bool_)
+                if names else jnp.ones((time_array.shape[0],), dtype=jnp.bool_)
+            )
+            if not self._options.jax:
+                return names, np.asarray(gradients), np.asarray(valid)
+            return tuple(names), gradients, valid
+
+        if active_times.shape[0] == 0:
+            gradients = jnp.zeros((epoch_count, len(names)), dtype=jnp.float64)
+            valid = jnp.zeros((epoch_count,), dtype=jnp.bool_)
+            if not self._options.jax:
+                return names, np.asarray(gradients), np.asarray(valid)
+            return tuple(names), gradients, valid
+
+        initial = jnp.stack([values_by_name[name] for name in active_names])
+        is_traced = any(
+            isinstance(leaf, jax.core.Tracer)
+            for leaf in jax.tree_util.tree_leaves(initial)
+        )
+
+        def evaluate(parameter_vector):
+            parameters = dict(base)
+            for index, name in enumerate(active_names):
+                parameters[name] = parameter_vector[index]
+            return jnp.ravel(magnification(
+                self._native,
+                self._options,
+                active_times,
+                parameters,
+                finite_source_backend=self._options.finite_source_backend,
+            ))
+
+        try:
+            active_jacobian = jax.jacfwd(evaluate)(initial)
+        except (NotImplementedError, RuntimeError):
+            gradients = jnp.zeros(
+                (epoch_count, len(names)), dtype=jnp.float64
+            )
+            valid = jnp.zeros((time_array.shape[0],), dtype=jnp.bool_)
+            if not self._options.jax and not is_traced:
+                return names, np.asarray(gradients), np.asarray(valid)
+            return tuple(names), gradients, valid
+
+        finite = jnp.isfinite(active_jacobian)
+        active_valid = jnp.all(finite, axis=1)
+        active_jacobian = jnp.where(finite, active_jacobian, 0.0)
+        gradients = jnp.zeros(
+            (epoch_count, len(names)), dtype=active_jacobian.dtype
+        )
+        if eligible_indices is None:
+            active_indices = jnp.arange(epoch_count)
+        else:
+            active_indices = jnp.asarray(eligible_indices, dtype=jnp.int32)
+        valid = jnp.zeros((epoch_count,), dtype=jnp.bool_)
+        valid = valid.at[active_indices].set(active_valid)
+        for index, name in enumerate(names):
+            if name in active_names:
+                gradients = gradients.at[active_indices, index].set(
+                    active_jacobian[:, active_names.index(name)]
+                )
+        if unsupported_names:
+            valid = valid.at[active_indices].set(False)
+        if not self._options.jax and not is_traced:
+            return names, np.asarray(gradients), np.asarray(valid)
+        return tuple(names), gradients, valid
+
+    def __call__(self, times, params=None, *, with_gradient=False, **kwargs):
+        """Return magnifications and status, optionally with parameter gradients.
+
+        The returned :class:`LightCurveInfo` is the same record in either
+        mode. Set ``with_gradient=True`` to include ``gradients`` and
+        ``gradient_valid``. Both modes return the same value and status. The
+        derivative implementation follows the selected backend, and only runs
+        for epochs whose value status is accepted.
+        """
+        merged = self._merge_params(params, **kwargs)
+        native_algebraic_gradient = (
+            with_gradient
+            and not self._options.jax
+            and self._options.finite_source_backend == "algebraic_boundary"
+        )
+        result = self._evaluate_values(
+            times, merged, with_gradient=native_algebraic_gradient
+        )
+        if not with_gradient:
+            return result
+        core_gradient_parameters = ("t0", "u0", "tE", "alpha", "rho", "q", "s")
+        if (
+            native_algebraic_gradient
+            and tuple(merged) == core_gradient_parameters
+            and isinstance(result.diagnostics, dict)
+            and "gradients" in result.diagnostics
+            and "gradient_valid" in result.diagnostics
+        ):
+            # The combined native call already returns this common parameter
+            # order and clears rows whose value or Jacobian was not accepted.
+            gradients = result.diagnostics["gradients"].reshape(
+                -1, len(core_gradient_parameters)
+            )
+            valid = result.diagnostics["gradient_valid"].reshape(-1)
+            if gradients.shape[0] == result.status.shape[0] == valid.size:
+                return LightCurveInfo(
+                    times=result.times,
+                    magnifications=result.magnifications,
+                    status=result.status,
+                    gradients=gradients,
+                    gradient_valid=valid,
+                    gradient_parameters=core_gradient_parameters,
+                    value_converged=result.value_converged,
+                    support_certified=result.support_certified,
+                    diagnostics=result.diagnostics,
+                )
+        names, gradients, valid = self._evaluate_gradients(
+            times, merged, eligible=result.status,
+            diagnostics=result.diagnostics,
+        )
+        return LightCurveInfo(
+            times=result.times,
+            magnifications=result.magnifications,
+            status=result.status,
+            gradients=gradients,
+            gradient_valid=valid,
+            gradient_parameters=tuple(names),
+            value_converged=result.value_converged,
+            support_certified=result.support_certified,
+            diagnostics=result.diagnostics,
+        )
 
     def magnification(self, times, params=None, **kwargs):
         return self.__call__(times, params, **kwargs)
-
-    def holonomic_magnification(self, times, params=None, **kwargs):
-        """Strict seeded radial values; uncertified support raises an error."""
-        from .holonomic_fused import lightcurve_magnification
-
-        return lightcurve_magnification(self, times, params, **kwargs)
-
-    def holonomic_info(self, times, params=None, **kwargs):
-        """Return seeded-route values and convergence/support diagnostics.
-
-        Last iterates are retained when the radial frontier has not proved full
-        support. This method never falls back to the ordinary integrator.
-        """
-        self._validate_time_limit(times)
-        self._validate_backend_combination()
-        from .holonomic_fused import lightcurve_value
-
-        return lightcurve_value(self, times, self._merge_params(params, **kwargs))
-
-    def holonomic_gradient(self, times, params=None, **kwargs):
-        """Return optional forward gradients for a static binary trajectory.
-
-        Requires the separately built ``_lcbinint_holonomic_fused`` module.
-        The returned parameter order is ``t0,u0,tE,alpha,rho,q,s``.
-        """
-        from .holonomic_fused import lightcurve_gradient
-
-        return lightcurve_gradient(self, times, params, **kwargs)
 
     def magnification_batch(self, times, parameter_rows):
         """Evaluate independent parameter rows with the selected backend.
@@ -618,21 +1411,11 @@ class LightCurve:
             blend_flux,
         )
 
-    def info(self, times, params=None, **kwargs):
-        self._validate_backend_combination()
-        if self._options.finite_source_backend == "algebraic_boundary":
-            return self.holonomic_info(times, params, **kwargs)
-        self._validate_time_limit(times)
-        if self._options.jax:
-            from .jax_backend import info
-
-            return info(
-                self._native,
-                self._options,
-                times,
-                self._merge_params(params, **kwargs),
-            )
-        return self._native.info(times, self._merge_params(params, **kwargs))
+    def info(self, times, params=None, *, with_gradient=False, **kwargs):
+        """Compatibility alias for :meth:`LightCurve.__call__`."""
+        return self.__call__(
+            times, params, with_gradient=with_gradient, **kwargs
+        )
 
     def source_trajectory(self, times, params=None, **kwargs):
         self._validate_time_limit(times)
@@ -718,6 +1501,12 @@ class LightCurve:
         return self._native.critical_curves(time, merged)
 
     def __getattr__(self, name):
+        if name in {
+            "holonomic_gradient",
+            "algebraic_boundary_magnification",
+            "algebraic_boundary_info",
+        }:
+            raise AttributeError(name)
         return getattr(self._native, name)
 
     def __repr__(self):
@@ -755,7 +1544,7 @@ def binary_ray_shooting(
     if options is None:
         options = Options()
     if isinstance(options, Options):
-        if options.finite_source_backend != "default":
+        if options.finite_source_backend not in (None, "default"):
             raise NotImplementedError(
                 "finite_source_backend is only supported by LightCurve"
             )

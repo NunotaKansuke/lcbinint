@@ -29,6 +29,7 @@ class JaxLightCurveInfo(NamedTuple):
     finite_source_methods: object
     finite_source_error_estimates: object
     finite_source_converged: object
+    support_certified: object
     finite_source_refinement_levels: object
     caustic_distances: object
     point_source_magnifications: object
@@ -981,7 +982,58 @@ def _binary_source_magnification(
     return (first + flux_ratio * second) / (1.0 + flux_ratio)
 
 
-def magnification(native_curve, options, time, parameters):
+def _algebraic_boundary_magnification(
+    native_curve, options, time, parameters
+):
+    import jax.numpy as jnp
+
+    if native_curve.lens != "binary" or native_curve.source != "single":
+        raise ValueError(
+            "algebraic-boundary JAX requires a single-source binary lens"
+        )
+    if (
+        native_curve.model.parallax
+        or native_curve.model.xallarap != "none"
+        or native_curve.orbital_motion != "static"
+    ):
+        raise ValueError(
+            "algebraic-boundary JAX requires a static binary trajectory"
+        )
+    from lcbinint_jax import binary_algebraic_boundary_batch_ffi
+
+    source_x, source_y, separation = _lens_frame_geometry(
+        native_curve, time, parameters, options
+    )
+    if source_x.ndim == 0:
+        source_x = jnp.reshape(source_x, (1,))
+        source_y = jnp.reshape(source_y, (1,))
+    absolute_tolerance = float(options.finite_source_tol)
+    relative_tolerance = float(options.finite_source_reltol)
+    if absolute_tolerance == 0.0 and relative_tolerance == 0.0:
+        absolute_tolerance, relative_tolerance = 1.0e-4, 1.0e-3
+    limb_c, limb_d = _limb_darkening(native_curve, parameters)
+    mass_ratio = _value(parameters, "q")
+    if options.param_type in ("vbm", "vbm_center_of_mass"):
+        # Match the native LightCurve convention: VBM's q labels the
+        # secondary/primary mass ratio, while the lens mapper receives its
+        # reciprocal. Keeping the transform in JAX propagates dq correctly.
+        mass_ratio = 1.0 / mass_ratio
+    return binary_algebraic_boundary_batch_ffi(
+        source_x,
+        source_y,
+        separation,
+        mass_ratio,
+        jnp.abs(_value(parameters, "rho")),
+        limb_c=limb_c,
+        limb_d=limb_d,
+        absolute_tolerance=absolute_tolerance,
+        relative_tolerance=relative_tolerance,
+    )
+
+
+def magnification(
+    native_curve, options, time, parameters, *, finite_source_backend="default"
+):
     """Evaluate the public LightCurve contract with JAX arrays and tracers."""
 
     import jax.numpy as jnp
@@ -995,6 +1047,16 @@ def magnification(native_curve, options, time, parameters):
         time = jnp.reshape(time, (1,))
     elif time.ndim != 1:
         raise ValueError("times must be a one-dimensional array")
+    if finite_source_backend == "algebraic_boundary":
+        result = _algebraic_boundary_magnification(
+            native_curve, options, time, parameters
+        )
+        result = jnp.where(_time_limit_mask(native_curve, options, time), result, jnp.nan)
+        if q2_valid is not None:
+            result = jnp.where(q2_valid, result, jnp.nan)
+        return result
+    if finite_source_backend != "default":
+        raise ValueError(f"unknown finite-source backend: {finite_source_backend!r}")
     if native_curve.source == "single":
         result = _source_magnification(
             native_curve,
@@ -1625,6 +1687,7 @@ def info(native_curve, options, time, parameters):
         finite_source_methods=native_method_codes,
         finite_source_error_estimates=result.estimated_error,
         finite_source_converged=converged,
+        support_certified=valid_time & result.support_valid,
         finite_source_refinement_levels=integer_zeros,
         caustic_distances=caustic_distance,
         point_source_magnifications=point_magnification,

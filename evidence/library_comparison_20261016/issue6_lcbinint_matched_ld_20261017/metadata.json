@@ -1,0 +1,227 @@
+{
+  "created_utc": "2026-10-17T01:53:51Z",
+  "host": "rogue1",
+  "platform": "Linux-5.14.0-570.23.1.el9_6.x86_64-x86_64-with-glibc2.34",
+  "python": "3.10.19 (main, Oct 21 2025, 16:43:05) [GCC 11.2.0]",
+  "jax": "0.6.2",
+  "jax_backend": "cpu",
+  "x64": true,
+  "cpu_affinity": [
+    0
+  ],
+  "repetitions": 15,
+  "tolerance": 0.001,
+  "input_case_ids": [
+    "large_source_uniform",
+    "large_source_ld05_user"
+  ],
+  "same_parameters": true,
+  "original_epoch_arrays_equal_bitwise": false,
+  "original_epoch_arrays_max_abs_difference": 3.3306690738754696e-16,
+  "benchmark_uses_one_shared_epoch_array": true,
+  "n_epochs": 401,
+  "params": {
+    "t0": 0.0,
+    "u0": -1e-05,
+    "tE": 10.0,
+    "alpha": 0.5,
+    "rho": 0.5,
+    "q": 0.001,
+    "s": 0.6
+  },
+  "route": "lcbinint.LightCurve branch default; verified finite_source_backend='algebraic_boundary'",
+  "api": "same curve(times, params, with_gradient=False/True); with_gradient=True returns the same value record plus gradients",
+  "timing_policy": "15 interleaved pairs; alternate order; synchronize JAX leaves; first calls recorded separately",
+  "results": {
+    "uniform": {
+      "value_output_shape": [
+        401
+      ],
+      "full_jacobian_shape": [
+        401,
+        7
+      ],
+      "gradient_parameters": [
+        "t0",
+        "u0",
+        "tE",
+        "alpha",
+        "rho",
+        "q",
+        "s"
+      ],
+      "gradient_valid_shape": [
+        401
+      ],
+      "gradient_valid_count": 0,
+      "gradient_valid_total": 401,
+      "gradient_finite": true,
+      "value_only_finite": true,
+      "value_plus_gradient_finite": true,
+      "value_consistency_max_abs": 0.0,
+      "value_consistency_max_rel": 0.0,
+      "status_matches": true,
+      "status_counts": {
+        "1": 401
+      },
+      "value_method_counts": {
+        "algebraic_boundary": 401
+      },
+      "timing": {
+        "first_call_ms": {
+          "value_only": 305.6817769538611,
+          "value_plus_gradient": 1325.3488679183647
+        },
+        "samples_ms": {
+          "value_only": [
+            306.2501549720764,
+            306.6209109965712,
+            306.53576005715877,
+            307.742114062421,
+            306.7982649663463,
+            307.43947403971106,
+            307.8306100796908,
+            306.61450198385864,
+            306.31229595746845,
+            306.62983702495694,
+            306.5603319555521,
+            306.4393539680168,
+            306.36000097729266,
+            306.44316493999213,
+            306.51453195605427
+          ],
+          "value_plus_gradient": [
+            811.6298250388354,
+            802.4691210594028,
+            801.1344819096848,
+            802.2029069252312,
+            804.4608799973503,
+            800.439310958609,
+            806.6639000317082,
+            802.8818450402468,
+            801.229587988928,
+            803.070249967277,
+            804.9857339356095,
+            802.113419980742,
+            800.4414970055223,
+            800.3013689303771,
+            800.6836109561846
+          ]
+        },
+        "median_ms": {
+          "value_only": 306.5603319555521,
+          "value_plus_gradient": 802.2029069252312
+        },
+        "p95_ms": {
+          "value_only": 307.76866286760196,
+          "value_plus_gradient": 808.1536775338463
+        },
+        "value_plus_gradient_over_value": 2.6167863983182986
+      },
+      "resolved_backend": "algebraic_boundary",
+      "limb_darkening_coefficient": null
+    },
+    "linear_ld_0p5": {
+      "value_output_shape": [
+        401
+      ],
+      "full_jacobian_shape": [
+        401,
+        7
+      ],
+      "gradient_parameters": [
+        "t0",
+        "u0",
+        "tE",
+        "alpha",
+        "rho",
+        "q",
+        "s"
+      ],
+      "gradient_valid_shape": [
+        401
+      ],
+      "gradient_valid_count": 0,
+      "gradient_valid_total": 401,
+      "gradient_finite": true,
+      "value_only_finite": true,
+      "value_plus_gradient_finite": true,
+      "value_consistency_max_abs": 0.0,
+      "value_consistency_max_rel": 0.0,
+      "status_matches": true,
+      "status_counts": {
+        "0": 1,
+        "1": 400
+      },
+      "value_method_counts": {
+        "algebraic_boundary": 401
+      },
+      "timing": {
+        "first_call_ms": {
+          "value_only": 355.370142031461,
+          "value_plus_gradient": 1062.5467860372737
+        },
+        "samples_ms": {
+          "value_only": [
+            355.03943299409,
+            354.43035000935197,
+            357.2345190914348,
+            354.58797798492014,
+            354.56051502842456,
+            354.4543649768457,
+            354.660663055256,
+            354.61105697322637,
+            354.41357688978314,
+            355.34569493029267,
+            354.25416205544025,
+            354.5284209540114,
+            354.39885000232607,
+            354.0292920079082,
+            354.3285829946399
+          ],
+          "value_plus_gradient": [
+            1052.3430050816387,
+            1052.7854319661856,
+            1052.8300820151344,
+            1057.50714300666,
+            1052.206650027074,
+            1052.8351770481095,
+            1054.824379971251,
+            1051.9471450243145,
+            1051.7701149219647,
+            1056.8331619724631,
+            1053.071090951562,
+            1052.8552579926327,
+            1051.3301530154422,
+            1052.4151300778612,
+            1051.7128549981862
+          ]
+        },
+        "median_ms": {
+          "value_only": 354.5284209540114,
+          "value_plus_gradient": 1052.7854319661856
+        },
+        "p95_ms": {
+          "value_only": 355.9123421786353,
+          "value_plus_gradient": 1057.0353562827222
+        },
+        "value_plus_gradient_over_value": 2.969537474973693
+      },
+      "resolved_backend": "algebraic_boundary",
+      "limb_darkening_coefficient": 0.5
+    }
+  },
+  "provenance": {
+    "branch": "experiment/algebraic_boundary",
+    "head": "40e66e510799f9d3d15b459be2b38694daad52ee",
+    "dirty": true,
+    "native_extension": "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/build-algebraic-boundary/python-api/lcbinint/_lcbinint.cpython-310-x86_64-linux-gnu.so",
+    "native_extension_sha256": "98222dda28872e0aabde04e36c5a37c49e4e71d21d32e3012da1b95beedb1678",
+    "python_source_sha256": "8205e7b0e0b7906a445ac92be258950532a0910201e50c7bc8cf6dd05addc76f",
+    "jax_backend_source_sha256": "20765962f55280a3d0f674d427a96c82fc447b1f0d8126d453ba59cc8a5680cd",
+    "algebraic_boundary_source_sha256": "1a87d31d50cbddbf27b68bf3982f780b43cc22ac90c8ab728e666f45f64fa676",
+    "input_file": "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/evidence/library_comparison_20261016/corrected_value_gradient_12cases/inputs.json",
+    "script": "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/evidence/library_comparison_20261016/audit_lcbinint_matched_ld_20261017.py",
+    "script_sha256": "5dfb7506c1359cf1f4bcf6ae1bb0c7f6aa5187e2b2f48f4a93d883c1433d73a8"
+  }
+}
