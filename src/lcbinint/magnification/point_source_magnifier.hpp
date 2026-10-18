@@ -82,7 +82,8 @@ public:
         double mass_ratio,
         const SourcePosition* sources,
         double* magnifications,
-        std::size_t count) const;
+        std::size_t count,
+        std::vector<BinaryImage>* images = nullptr) const;
     std::vector<BinaryImage> binary_images(double separation, double mass_ratio, SourcePosition source) const;
     std::vector<BinaryImageCandidate> binary_image_candidates(
         double separation,

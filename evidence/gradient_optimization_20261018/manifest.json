@@ -1,0 +1,21 @@
+{
+  "base_commit": "e740210b277a647583d5045b0f2a2d6e79ca64d1",
+  "before_native_sha256": "25985acc63737e0ff3196624b63410694aa4b4323cd3d73df62628be0f60e250",
+  "after_native_sha256": "4d1e4a06b9e6b3ad14d298d73a3237225f8d212f4f67832cfabf2e5b6f6a4f2c",
+  "files": {
+    "evidence/route_unification_20261018/notebook-summary.json": "a6cdb6ae79c05942917d7165f222e979dfbfec227ab955c7443c3d2659e5d450",
+    "example/compare-vbm/lcbinint_vbm_light_curve_comparison.ipynb": "810f1032ff6463d7973672dc63594ee6363bc8df144363d12965601f527d2e4c",
+    "src/lcbinint/magnification/algebraic_boundary/fused_gradient.cpp": "025741af2715803dd71e1f8f35a9108b97f2052ca2fc05021fa172a43eb9f40f",
+    "src/lcbinint/magnification/algebraic_boundary/fused_gradient.hpp": "40638977d3be542acc84df62f1f26b2c7b3e3e37c3cd742a2b8ff347729ed97d",
+    "src/lcbinint/magnification/algebraic_boundary/tangent/fused_geometry_exact.hpp": "b8e7c78bea2f1a71edd52c96779fb5f07ad7488266c6420dda6258b04f2bb2e1",
+    "src/lcbinint/magnification/algebraic_boundary/tangent/geometry.hpp": "22035c10a8cb7e7fb1f7b3ffe2d3390251e7e44b7317c75836e4f81bb3f7b603",
+    "src/lcbinint/magnification/algebraic_boundary_autodiff.cpp": "81d260ba3ef16220140694c7b1b246f601d667613207b937c413c3a1e5ee9fa4",
+    "src/lcbinint/magnification/algebraic_boundary_autodiff.hpp": "f321b547fbf09b9ce87b316a868278e4648c0f5d4ce3c544f7028fd7c7023e7e",
+    "src/lcbinint/magnification/finite_source_magnifier.cpp": "784e850f758a592eb04d7d8128e7114241c6bb492a260bc2577bd4a792b74a54",
+    "src/lcbinint/magnification/finite_source_magnifier.hpp": "5bd1d3a6d02882536e4b1117442a5d6d0c61eb7a05be2ebae07e317ca4a855bd",
+    "src/lcbinint/magnification/point_source_magnifier.cpp": "5d079f64c4d3b867487fb1f7578845a36f309f96ff0ea1d9ec883490f504f69e",
+    "src/lcbinint/magnification/point_source_magnifier.hpp": "707534118c1e46f6be4a76cce8a9ae8b3d67c8d1f0ebd0bc43a57ef2816ffb12",
+    "tests/regression/test_algebraic_boundary_unified.py": "4807202cdf3a6098219b279774e0fe450afc58fdd66cd6eaadb495626a995a30",
+    "tests/unit/test_core.cpp": "4666389f649ba5b0173afbc43b1440d8779f2e8f96df5aad9cc5a507b1685aa2"
+  }
+}

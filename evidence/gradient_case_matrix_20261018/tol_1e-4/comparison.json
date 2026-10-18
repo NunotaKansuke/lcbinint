@@ -1,0 +1,262 @@
+[
+  {
+    "name": "ordinary_uniform",
+    "n": 401,
+    "value_ms": 6.168056977912784,
+    "gradient_ms": 6.496467860415578,
+    "before_gradient_ms": 6.993558024987578,
+    "change_percent": -7.107829273681954,
+    "ratio": 1.0532438146532697,
+    "routes": {
+      "0": 276,
+      "1": 121,
+      "7": 4
+    },
+    "converged": 401,
+    "gradient_valid": 401,
+    "max_value_fused_difference": 0.0
+  },
+  {
+    "name": "ordinary_LD",
+    "n": 401,
+    "value_ms": 11.02061104029417,
+    "gradient_ms": 11.39608002267778,
+    "before_gradient_ms": 11.81275793351233,
+    "change_percent": -3.527355027334067,
+    "ratio": 1.0340697063902173,
+    "routes": {
+      "0": 276,
+      "1": 121,
+      "7": 4
+    },
+    "converged": 401,
+    "gradient_valid": 401,
+    "max_value_fused_difference": 1.612873407869766e-16
+  },
+  {
+    "name": "close_planet_uniform",
+    "n": 401,
+    "value_ms": 4.861708963289857,
+    "gradient_ms": 5.328614031895995,
+    "before_gradient_ms": 5.397150991484523,
+    "change_percent": -1.2698729328985525,
+    "ratio": 1.09603723137927,
+    "routes": {
+      "0": 340,
+      "1": 61
+    },
+    "converged": 401,
+    "gradient_valid": 401,
+    "max_value_fused_difference": 0.0
+  },
+  {
+    "name": "close_planet_LD",
+    "n": 401,
+    "value_ms": 4.853467922657728,
+    "gradient_ms": 5.298451986163855,
+    "before_gradient_ms": 5.311500979587436,
+    "change_percent": -0.2456743107782433,
+    "ratio": 1.091683734310632,
+    "routes": {
+      "0": 340,
+      "1": 61
+    },
+    "converged": 401,
+    "gradient_valid": 401,
+    "max_value_fused_difference": 0.0
+  },
+  {
+    "name": "wide_planet_uniform",
+    "n": 401,
+    "value_ms": 5.207044072449207,
+    "gradient_ms": 5.676023894920945,
+    "before_gradient_ms": 5.692930892109871,
+    "change_percent": -0.29698230154801,
+    "ratio": 1.0900664207843254,
+    "routes": {
+      "0": 343,
+      "1": 58
+    },
+    "converged": 401,
+    "gradient_valid": 401,
+    "max_value_fused_difference": 0.0
+  },
+  {
+    "name": "wide_planet_LD",
+    "n": 401,
+    "value_ms": 5.1925890147686005,
+    "gradient_ms": 5.614980822429061,
+    "before_gradient_ms": 5.656318971887231,
+    "change_percent": -0.7308312997132416,
+    "ratio": 1.0813451259976683,
+    "routes": {
+      "0": 343,
+      "1": 58
+    },
+    "converged": 401,
+    "gradient_valid": 401,
+    "max_value_fused_difference": 0.0
+  },
+  {
+    "name": "resonant_uniform",
+    "n": 401,
+    "value_ms": 6.587028037756681,
+    "gradient_ms": 7.6403270941227674,
+    "before_gradient_ms": 8.207956794649363,
+    "change_percent": -6.915602929301768,
+    "ratio": 1.159905051311244,
+    "routes": {
+      "0": 320,
+      "1": 68,
+      "7": 13
+    },
+    "converged": 401,
+    "gradient_valid": 401,
+    "max_value_fused_difference": 0.0
+  },
+  {
+    "name": "resonant_LD",
+    "n": 401,
+    "value_ms": 11.498835869133472,
+    "gradient_ms": 12.794912094250321,
+    "before_gradient_ms": 13.370451051741838,
+    "change_percent": -4.304559025452914,
+    "ratio": 1.112713690313289,
+    "routes": {
+      "0": 320,
+      "1": 68,
+      "7": 13
+    },
+    "converged": 401,
+    "gradient_valid": 401,
+    "max_value_fused_difference": 8.144691873501854e-16
+  },
+  {
+    "name": "equal_mass_uniform",
+    "n": 401,
+    "value_ms": 6.585458992049098,
+    "gradient_ms": 6.994956871494651,
+    "before_gradient_ms": 7.617508992552757,
+    "change_percent": -8.172647011861011,
+    "ratio": 1.06218213186658,
+    "routes": {
+      "0": 278,
+      "1": 118,
+      "7": 5
+    },
+    "converged": 401,
+    "gradient_valid": 401,
+    "max_value_fused_difference": 3.091670613734925e-16
+  },
+  {
+    "name": "equal_mass_LD",
+    "n": 401,
+    "value_ms": 11.434934101998806,
+    "gradient_ms": 11.956137837842107,
+    "before_gradient_ms": 12.528778053820133,
+    "change_percent": -4.57059909209121,
+    "ratio": 1.0455799509812824,
+    "routes": {
+      "0": 278,
+      "1": 118,
+      "7": 5
+    },
+    "converged": 401,
+    "gradient_valid": 401,
+    "max_value_fused_difference": 4.0597299361585186e-16
+  },
+  {
+    "name": "large_source_uniform",
+    "n": 401,
+    "value_ms": 39.563346887007356,
+    "gradient_ms": 77.25913403555751,
+    "before_gradient_ms": 84.90847703069448,
+    "change_percent": -9.008927332864225,
+    "ratio": 1.9527957090235328,
+    "routes": {
+      "1": 282,
+      "7": 119
+    },
+    "converged": 401,
+    "gradient_valid": 401,
+    "max_value_fused_difference": 6.116007753419533e-08
+  },
+  {
+    "name": "large_source_LD",
+    "n": 401,
+    "value_ms": 46.02719098329544,
+    "gradient_ms": 92.28312293998897,
+    "before_gradient_ms": 101.4543711207807,
+    "change_percent": -9.039776285117796,
+    "ratio": 2.004969692229993,
+    "routes": {
+      "1": 282,
+      "7": 119
+    },
+    "converged": 401,
+    "gradient_valid": 401,
+    "max_value_fused_difference": 2.9181641173961824e-07
+  },
+  {
+    "name": "case_033",
+    "n": 33,
+    "value_ms": 4.710942972451448,
+    "gradient_ms": 34.94251403026283,
+    "before_gradient_ms": 34.97286117635667,
+    "change_percent": -0.08677341536574845,
+    "ratio": 7.417307794766125,
+    "routes": {
+      "1": 32,
+      "7": 1
+    },
+    "converged": 33,
+    "gradient_valid": 33,
+    "max_value_fused_difference": 5.673211337482658e-16
+  },
+  {
+    "name": "case_081",
+    "n": 33,
+    "value_ms": 17.24317716434598,
+    "gradient_ms": 41.39811312779784,
+    "before_gradient_ms": 47.190818935632706,
+    "change_percent": -12.275069470050926,
+    "ratio": 2.4008402125217065,
+    "routes": {
+      "1": 5,
+      "7": 28
+    },
+    "converged": 33,
+    "gradient_valid": 33,
+    "max_value_fused_difference": 4.732949623151523e-13
+  },
+  {
+    "name": "case_107",
+    "n": 33,
+    "value_ms": 0.11435989290475845,
+    "gradient_ms": 0.13708905316889286,
+    "before_gradient_ms": 0.1498870551586151,
+    "change_percent": -8.538430470982972,
+    "ratio": 1.1987511503098711,
+    "routes": {
+      "0": 33
+    },
+    "converged": 33,
+    "gradient_valid": 33,
+    "max_value_fused_difference": 0.0
+  },
+  {
+    "name": "case_117",
+    "n": 33,
+    "value_ms": 20.726156886667013,
+    "gradient_ms": 65.39940810762346,
+    "before_gradient_ms": 66.52434403076768,
+    "change_percent": -1.6910139281101855,
+    "ratio": 3.1554044710379676,
+    "routes": {
+      "7": 33
+    },
+    "converged": 33,
+    "gradient_valid": 33,
+    "max_value_fused_difference": 9.502190020063452e-06
+  }
+]

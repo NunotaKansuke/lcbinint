@@ -177,7 +177,8 @@ public:
         double algebraic_boundary_rtol = std::numeric_limits<double>::quiet_NaN(),
         bool barycentric_frame = false,
         bool multipole_only_probe = false,
-        autodiff::AlgebraicBoundaryJacobian* jacobian_out = nullptr) const;
+        autodiff::AlgebraicBoundaryJacobian* jacobian_out = nullptr,
+        std::array<std::vector<BinaryImage>, 13>* image_stencil = nullptr) const;
     AlgebraicBoundaryResult algebraic_boundary_binary_mag(
         double separation,
         double mass_ratio,

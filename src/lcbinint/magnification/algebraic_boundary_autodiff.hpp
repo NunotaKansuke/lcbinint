@@ -4,6 +4,7 @@
 
 #include "lcbinint/magnification/algebraic_boundary.hpp"
 #include "lcbinint/types.hpp"
+#include "lcbinint/magnification/point_source_magnifier.hpp"
 
 #include <algorithm>
 #include <array>
@@ -412,7 +413,8 @@ AlgebraicBoundaryJacobian algebraic_boundary_multipole_jacobian(
     double limb_darkening_c,
     double limb_darkening_d,
     bool use_hexadecapole,
-    double authoritative_magnification);
+    double authoritative_magnification,
+    const std::array<std::vector<BinaryImage>, 13>* image_stencil = nullptr);
 
 // Point-source Jacobian using the already validated physical images from the
 // value router. This keeps the eager value+gradient path from solving the same

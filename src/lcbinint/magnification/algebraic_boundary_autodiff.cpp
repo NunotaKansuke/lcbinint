@@ -89,7 +89,8 @@ AlgebraicBoundaryJacobian algebraic_boundary_multipole_jacobian(
     double c,
     double d,
     bool use_hexadecapole,
-    double authoritative_magnification)
+    double authoritative_magnification,
+    const std::array<std::vector<BinaryImage>, 13>* image_stencil)
 {
     AlgebraicBoundaryJacobian out;
     for (auto& j : out.jacobian) j = std::numeric_limits<double>::quiet_NaN();
@@ -120,8 +121,18 @@ AlgebraicBoundaryJacobian algebraic_boundary_multipole_jacobian(
         const auto g = make_geometry<Jet>(ps, branch);
         const SourcePosition s{
             params[0] + ux * params[2], params[1] + uy * params[2]};
-        const auto images =
-            point_magnifier.binary_images(abs_sep, abs_q, s);
+        if (image_stencil) {
+            std::size_t index = 0;
+            if (ux != 0.0 || uy != 0.0) {
+                const bool diagonal = ux != 0.0 && uy != 0.0;
+                const int quadrant = diagonal ? (uy > 0 ? (ux > 0 ? 0 : 1) : (ux < 0 ? 2 : 3))
+                    : ux > 0 ? 0 : uy > 0 ? 1 : ux < 0 ? 2 : 3;
+                const int ring = diagonal ? 2 : (std::abs(ux) == 0.5 || std::abs(uy) == 0.5) ? 1 : 0;
+                index = 1 + 3 * quadrant + ring;
+            }
+            return binary_point_mag_jet(g, (*image_stencil)[index]);
+        }
+        const auto images = point_magnifier.binary_images(abs_sep, abs_q, s);
         return binary_point_mag_jet(g, images);
     };
 

@@ -1294,7 +1294,8 @@ void PointSourceMagnifier::binary_mag0_batch(
     double mass_ratio,
     const SourcePosition* sources,
     double* magnifications,
-    std::size_t count) const
+    std::size_t count,
+    std::vector<BinaryImage>* images) const
 {
     if (sources == nullptr || magnifications == nullptr) {
         return;
@@ -1328,7 +1329,17 @@ void PointSourceMagnifier::binary_mag0_batch(
             cmplx_roots_gen(roots.data(), coefficients.data(), 5, true, false);
             warm = true;
         }
-        magnifications[i] = point_source_result_from_roots(geometry, roots).magnification;
+        if (images) {
+            const auto selected = select_physical_roots(geometry, roots);
+            magnifications[i] = point_source_result_from_roots(geometry, roots, &selected).magnification;
+            auto& physical = images[i];
+            physical.clear(); physical.reserve(5);
+            for (std::size_t j = 0; j < roots.size(); ++j) if (selected.physical[j])
+                physical.push_back({{roots[j].re, roots[j].im},
+                    jacobian_determinant(geometry, roots[j])});
+        } else {
+            magnifications[i] = point_source_result_from_roots(geometry, roots).magnification;
+        }
         previous_geometry = geometry;
     }
 }

@@ -1,0 +1,9 @@
+{
+  "exact_case_counts": {
+    "value": 120,
+    "gradient": 120,
+    "gradients": 120,
+    "gradient_valid": 120
+  },
+  "max_scaled_gradient_change": 0.0
+}

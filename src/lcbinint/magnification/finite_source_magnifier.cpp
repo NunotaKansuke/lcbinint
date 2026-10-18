@@ -1814,7 +1814,8 @@ HexResult hexadecapole_binary(
     SourcePosition source,
     double source_radius,
     const FiniteSourceSettings& settings,
-    const double* known_point_magnification = nullptr)
+    const double* known_point_magnification = nullptr,
+    std::array<std::vector<BinaryImage>, 13>* image_stencil = nullptr)
 {
     const double sineta[8] = {0.0, 1.0, 0.0, -1.0, kSqrtHalf, kSqrtHalf, -kSqrtHalf, -kSqrtHalf};
     const double coseta[8] = {1.0, 0.0, -1.0, 0.0, kSqrtHalf, -kSqrtHalf, -kSqrtHalf, kSqrtHalf};
@@ -1836,9 +1837,11 @@ HexResult hexadecapole_binary(
             {source.x + source_radius * coseta[i + 4],
                 source.y + source_radius * sineta[i + 4]};
     }
+    if (image_stencil)
+        (*image_stencil)[0] = point_magnifier.binary_images(separation, mass_ratio, source);
     point_magnifier.binary_mag0_batch(
         separation, mass_ratio, sample_sources.data(), sample_magnifications.data(),
-        sample_sources.size());
+        sample_sources.size(), image_stencil ? image_stencil->data() + 1 : nullptr);
 
     double a1_plus = 0.0;
     double a2_plus = 0.0;
@@ -7478,11 +7481,12 @@ FiniteSourceMagnifier::algebraic_boundary_binary_jacobian(
         separation, mass_ratio, source).magnification;
     if (point_source_magnification) *point_source_magnification = point_mu;
     autodiff::AlgebraicBoundaryJacobian jacobian;
+    std::array<std::vector<BinaryImage>, 13> image_stencil;
     jacobian.jacobian.fill(std::numeric_limits<double>::quiet_NaN());
     auto value = binary_mag(separation, mass_ratio, source, source_radius,
         point_mu, nullptr, true, &point, true,
         algebraic_settings.absolute_tolerance, algebraic_settings.relative_tolerance,
-        barycentric_frame, false, &jacobian);
+        barycentric_frame, false, &jacobian, &image_stencil);
     const std::array<double, 5> params{
         source.x, source.y, source_radius, std::abs(mass_ratio), std::abs(separation)};
     autodiff::FrozenLensBranch branch;
@@ -7497,7 +7501,7 @@ FiniteSourceMagnifier::algebraic_boundary_binary_jacobian(
     } else if (value.decision.method == FiniteSourceMethod::hexadecapole) {
         jacobian = autodiff::algebraic_boundary_multipole_jacobian(
             params, branch, settings_.limb_darkening_c, settings_.limb_darkening_d,
-            true, value.magnification);
+            true, value.magnification, &image_stencil);
     }
     if (!std::isfinite(value.magnification) ||
         !std::all_of(jacobian.jacobian.begin(), jacobian.jacobian.end(),
@@ -7546,11 +7550,19 @@ FiniteSourceResult FiniteSourceMagnifier::algebraic_boundary_deep_solve(
             std::vector<std::array<double, 2>> positions;
             positions.reserve(seeds.radial_seeds.size());
             for (const auto& z : seeds.radial_seeds) positions.push_back({z.re, z.im});
+            bool repair_attempted = false;
+            const auto repair_smooth = [&](algebraic_boundary::FusedGradientResult& candidate) {
+                repair_attempted = true;
+                smooth_chart = algebraic_boundary::source_disk_detail::evaluate(
+                    params, settings_.limb_darkening_c, options, *this, point_magnifier,
+                    candidate, smooth_images, true);
+                return smooth_chart;
+            };
             integral = algebraic_boundary::epoch_fused_gradient(
-                params, settings_.limb_darkening_c, positions, options);
-            if (integral.reliability_retried || !std::all_of(
+                params, settings_.limb_darkening_c, positions, options, repair_smooth);
+            if (!smooth_chart && !repair_attempted && (integral.reliability_retried || !std::all_of(
                     integral.gradient_valid.begin(), integral.gradient_valid.end(),
-                    [](bool valid) { return valid; })) {
+                    [](bool valid) { return valid; }))) {
                 smooth_chart = algebraic_boundary::source_disk_detail::evaluate(
                     params, settings_.limb_darkening_c, options, *this, point_magnifier,
                     integral, smooth_images, true);
@@ -8139,7 +8151,8 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
     double algebraic_boundary_rtol,
     bool barycentric_frame,
     bool multipole_only_probe,
-    autodiff::AlgebraicBoundaryJacobian* jacobian_out) const
+    autodiff::AlgebraicBoundaryJacobian* jacobian_out,
+    std::array<std::vector<BinaryImage>, 13>* image_stencil) const
 {
     const double default_algebraic_boundary_atol =
         has_explicit_finite_source_tolerance(settings_)
@@ -8427,7 +8440,7 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
             nullptr;
         const auto hex = hexadecapole_binary(
             point_magnifier, separation, mass_ratio, source, source_radius, settings_,
-            known_point);
+            known_point, image_stencil);
         double hex_threshold = settings_.adaptive_hex_threshold;
         if (settings_.finite_source_tol > 0.0 || settings_.finite_source_reltol > 0.0) {
             requested_relative =

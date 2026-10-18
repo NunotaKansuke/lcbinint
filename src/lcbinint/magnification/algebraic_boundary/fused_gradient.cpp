@@ -5,7 +5,8 @@
 
 namespace lcbinint::algebraic_boundary {
 FusedGradientResult epoch_fused_gradient(const LensParams& p,double u,
-    const std::vector<std::array<double,2>>& image_seeds,const FusedGradientOptions& options) {
+    const std::vector<std::array<double,2>>& image_seeds,const FusedGradientOptions& options,
+    const std::function<bool(FusedGradientResult&)>& smooth_repair) {
     namespace kernel=lcbinint::algebraic_boundary::tangent;
     const kernel::LensParams params{p.xs,p.ys,p.rho,p.q,p.a,p.barycentric};
     std::vector<kernel::Cplx<double>> seeds;
@@ -57,6 +58,31 @@ FusedGradientResult epoch_fused_gradient(const LensParams& p,double u,
     // regular map may recover a usable gradient.
     const bool retry_can_help=event_location_failure ||
         !result.integral.value_converged;
+    const auto export_result=[&]() {
+        FusedGradientResult out;
+        out.reliability_retried=no_fold_retry ||
+            kernel::fused_gradient::reliability_retry_used;
+        out.mu=result.integral.mu;out.grad_mu=result.integral.grad_mu;
+        out.value_error_estimate=result.integral.estimated_abs_error_mu;
+        out.frontier_discovery_completed=result.frontier.discovery_completed;
+        out.value_converged=result.integral.value_converged;
+        out.stop=kernel::adaptive_stop_name(result.integral.stop);
+        out.support_certified=result.frontier.coverage_certified;
+        out.node_evaluations=total_nodes;
+        for(int j=0;j<5;++j)out.gradient_valid[j]=
+            result.integral.grad_quality[j]!=kernel::GradientQuality::Invalid &&
+            result.integral.grad_quality[j]!=kernel::GradientQuality::NotRequested &&
+            std::isfinite(out.grad_mu[j]);
+        return out;
+    };
+    // Use the same smooth-disk certificate and quadrature as the caller's
+    // late repair. If it succeeds, no discarded regular-chart solve is needed.
+    if(smooth_repair && (isolated_edge_contact ||
+       kernel::fused_gradient::reliability_retry_used ||
+       !gradients_usable(result.integral))) {
+        auto candidate=export_result();
+        if(smooth_repair(candidate))return candidate;
+    }
     if(isolated_edge_contact) {
         // A certified real close pair at the outer support edge makes the
         // fold-mapped derivative sharply localized. Resolve that rare geometry
@@ -107,20 +133,6 @@ FusedGradientResult epoch_fused_gradient(const LensParams& p,double u,
             result.integral.value_converged=true;
         }
     }
-    FusedGradientResult out;
-    out.reliability_retried=no_fold_retry ||
-        kernel::fused_gradient::reliability_retry_used;
-    out.mu=result.integral.mu;out.grad_mu=result.integral.grad_mu;
-    out.value_error_estimate=result.integral.estimated_abs_error_mu;
-    out.frontier_discovery_completed=result.frontier.discovery_completed;
-    out.value_converged=result.integral.value_converged;
-    out.stop=kernel::adaptive_stop_name(result.integral.stop);
-    out.support_certified=result.frontier.coverage_certified;
-    out.node_evaluations=total_nodes;
-    for(int j=0;j<5;++j)out.gradient_valid[j]=
-        result.integral.grad_quality[j]!=kernel::GradientQuality::Invalid &&
-        result.integral.grad_quality[j]!=kernel::GradientQuality::NotRequested &&
-        std::isfinite(out.grad_mu[j]);
-    return out;
+    return export_result();
 }
 }

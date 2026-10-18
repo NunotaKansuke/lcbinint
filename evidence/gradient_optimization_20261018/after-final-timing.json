@@ -1,0 +1,161 @@
+{
+  "native": "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/build-route-unified/lcbinint/_lcbinint.cpython-310-x86_64-linux-gnu.so",
+  "sha256": "4d1e4a06b9e6b3ad14d298d73a3237225f8d212f4f67832cfabf2e5b6f6a4f2c",
+  "cases": [
+    {
+      "case": "notebook",
+      "parameters": {
+        "t0": 0.0,
+        "tE": 10.0,
+        "u0": -0.01,
+        "alpha": 180.0,
+        "s": 1.5,
+        "q": 0.01,
+        "rho": 0.001
+      },
+      "n": 401,
+      "limb": 0.5,
+      "tolerance": 0.0001,
+      "measurements": {
+        "False": {
+          "ms": 18.54481501504779,
+          "integral_ms": 11.013175000000002,
+          "smooth_ms": 7.355039,
+          "nodes": 4876
+        },
+        "True": {
+          "ms": 50.47498014755547,
+          "integral_ms": 41.535017999999994,
+          "smooth_ms": 8.676670999999999,
+          "nodes": 10577
+        }
+      },
+      "ratio": 2.72178396530775,
+      "max_value_fused_relative_difference": 3.4959470840932904e-09
+    },
+    {
+      "case": "notebook_1e-3",
+      "parameters": {
+        "t0": 0.0,
+        "tE": 10.0,
+        "u0": -0.01,
+        "alpha": 180.0,
+        "s": 1.5,
+        "q": 0.01,
+        "rho": 0.001
+      },
+      "n": 401,
+      "limb": 0.5,
+      "tolerance": 0.001,
+      "measurements": {
+        "False": {
+          "ms": 16.14123396575451,
+          "integral_ms": 8.617173000000001,
+          "smooth_ms": 7.338861,
+          "nodes": 2690
+        },
+        "True": {
+          "ms": 37.399540189653635,
+          "integral_ms": 28.440036000000006,
+          "smooth_ms": 8.713947,
+          "nodes": 5555
+        }
+      },
+      "ratio": 2.3170186535305217,
+      "max_value_fused_relative_difference": 4.1867014699278064e-11
+    },
+    {
+      "case": "notebook_uniform",
+      "parameters": {
+        "t0": 0.0,
+        "tE": 10.0,
+        "u0": -0.01,
+        "alpha": 180.0,
+        "s": 1.5,
+        "q": 0.01,
+        "rho": 0.001
+      },
+      "n": 401,
+      "limb": 0.0,
+      "tolerance": 0.0001,
+      "measurements": {
+        "False": {
+          "ms": 17.820378998294473,
+          "integral_ms": 10.276161,
+          "smooth_ms": 7.362227,
+          "nodes": 4794
+        },
+        "True": {
+          "ms": 40.07400991395116,
+          "integral_ms": 31.123884000000004,
+          "smooth_ms": 8.644182,
+          "nodes": 9867
+        }
+      },
+      "ratio": 2.2487742779088205,
+      "max_value_fused_relative_difference": 3.1076185133181885e-08
+    },
+    {
+      "case": "crossing_ld",
+      "parameters": {
+        "t0": 0.0,
+        "u0": 0.03,
+        "tE": 1.0,
+        "alpha": -0.08,
+        "rho": 0.003,
+        "q": 0.01,
+        "s": 1.2
+      },
+      "n": 101,
+      "limb": 0.5,
+      "tolerance": 0.001,
+      "measurements": {
+        "False": {
+          "ms": 3.5745271015912294,
+          "integral_ms": 1.3901670000000002,
+          "smooth_ms": 2.053151,
+          "nodes": 298
+        },
+        "True": {
+          "ms": 4.8317930195480585,
+          "integral_ms": 2.46393,
+          "smooth_ms": 2.1858620000000006,
+          "nodes": 298
+        }
+      },
+      "ratio": 1.3517293007506215,
+      "max_value_fused_relative_difference": 1.2494628372945129e-15
+    },
+    {
+      "case": "point",
+      "parameters": {
+        "t0": 0.0,
+        "u0": 0.3,
+        "tE": 1.0,
+        "alpha": 0.0,
+        "rho": 0.003,
+        "q": 0.01,
+        "s": 1.2
+      },
+      "n": 201,
+      "limb": 0.0,
+      "tolerance": 0.001,
+      "measurements": {
+        "False": {
+          "ms": 0.23646303452551365,
+          "integral_ms": 0.0,
+          "smooth_ms": 0.163651,
+          "nodes": 0
+        },
+        "True": {
+          "ms": 0.35448698326945305,
+          "integral_ms": 0.0,
+          "smooth_ms": 0.271434,
+          "nodes": 0
+        }
+      },
+      "ratio": 1.4991221946413995,
+      "max_value_fused_relative_difference": 0.0
+    }
+  ]
+}

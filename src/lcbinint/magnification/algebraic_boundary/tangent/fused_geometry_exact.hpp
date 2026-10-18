@@ -12,15 +12,15 @@ inline Z absolute(Z x){return x<0?-x:x;}
 inline Z gcd(Z a,Z b){a=absolute(a);b=absolute(b);while(b!=0){Z r=a%b;a=std::move(b);b=std::move(r);}return a;}
 inline void primitive(P&p){while(p.size()>1&&p.back()==0)p.pop_back();Z g=0;for(const auto&c:p)g=gcd(g,c);if(g>1)for(auto&c:p)c/=g;}
 inline P derivative(const P&p){if(p.size()<2)return {0};P d(p.size()-1);for(size_t i=1;i<p.size();++i)d[i-1]=p[i]*i;primitive(d);return d;}
-inline int sign_at(P p,const R&x,int side){
- const Z numerator=boost::multiprecision::numerator(x),denominator=boost::multiprecision::denominator(x);
- int order=0;
- for(;;){
-  Z value=p.back(),power=denominator;
-  for(int i=int(p.size())-2;i>=0;--i){value=value*numerator+p[i]*power;power*=denominator;}
-  if(value!=0){int sign=value>0?1:-1;return side<0&&(order&1)?-sign:sign;}
-  if(p.size()==1)return 0;p=derivative(p);++order;
- }
+// Most signs are nonzero. Read the primitive polynomial in place; construct
+// a derivative only for the exact one-sided-zero case.
+inline int sign_at(const P& p,const Z& numerator,const Z& denominator,int side){
+ Z value=p.back(),power=denominator;
+ for(int i=int(p.size())-2;i>=0;--i){value=value*numerator+p[i]*power;power*=denominator;}
+ if(value!=0)return value>0?1:-1;
+ if(p.size()==1)return 0;
+ const int sign=sign_at(derivative(p),numerator,denominator,side);
+ return side<0?-sign:sign;
 }
 struct Chain {
  std::vector<P> p;
@@ -34,11 +34,11 @@ struct Chain {
    if(r.size()==1&&r[0]==0)break;for(auto&c:r)c=-c;p.push_back(std::move(r));
   }
  }
- int variation(const R&x,int side)const{int v=0,last=0;for(const auto&f:p){int s=sign_at(f,x,side);if(s){if(last&&last!=s)++v;last=s;}}return v;}
+ int variation(const R&x,int side)const{const Z numerator=boost::multiprecision::numerator(x),denominator=boost::multiprecision::denominator(x);int v=0,last=0;for(const auto&f:p){int s=sign_at(f,numerator,denominator,side);if(s){if(last&&last!=s)++v;last=s;}}return v;}
 };
 }
-inline bool exact_stationary_roots(const PrimaryFrame&pf,double lo,double hi,std::vector<Q>&roots){
- using namespace exact_detail;Chain chain(pf);
+inline bool exact_stationary_roots(const exact_detail::Chain& chain,double lo,double hi,std::vector<Q>&roots){
+ using namespace exact_detail;
  struct Bracket{R lo,hi;int a,b,depth;};R l=R(lo)*R(lo),h=R(hi)*R(hi);
  std::vector<Bracket> work{{l,h,chain.variation(l,1),chain.variation(h,-1),0}};
  std::vector<Q> found;int visits=0;

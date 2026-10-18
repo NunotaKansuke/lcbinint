@@ -586,7 +586,11 @@ inline SeededFrontierResult epoch_seeded_radial_frontier(
     out.frontier.isolated_real_edge_pair=std::any_of(pairs.begin(),pairs.end(),[](const auto& pair){return pair.real&&pair.upper_edge;});
     pairs.erase(std::remove_if(pairs.begin(),pairs.end(),[](const auto& pair){return pair.upper_edge;}),pairs.end());
     if(pairs.empty()&&geometry_complete){out.frontier.evaluated_nodes=workspace.samples.size();out.integral.stats.topology_ms=out.frontier.planning_ms;return out;}
-    const bool retain_geometry=std::all_of(pairs.begin(),pairs.end(),[](const auto&pair){return pair.existing;});
+    // A complex pair changes only tangent replay coordinates, not physical
+    // boundaries. Keep the accepted mesh, values and continuation state.
+    // Newly discovered real folds still require the existing topology repair.
+    const bool retain_geometry=std::all_of(pairs.begin(),pairs.end(),
+        [](const auto&pair){return !pair.real || pair.existing;});
     bool geometry_ok=true;
     for(const auto&pair:pairs)if(pair.real){
         for(double r:{pair.left,pair.right}){

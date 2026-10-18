@@ -186,3 +186,14 @@ def test_nonfinite_candidates_raise_instead_of_returning_nan(monkeypatch, key):
         lambda *args: (np.array([0.]), {}, 1e-3, 1e-3, False))
     with pytest.raises(RuntimeError, match="no finite " + key + " candidate"):
         backend.lightcurve_value(fake, [0.], with_gradient=key == "gradients")
+
+
+def test_smooth_contact_repair_preserves_q_and_radius_derivatives():
+    params = dict(t0=0., tE=10., u0=-.01, alpha=180., s=1.5, q=.01, rho=.001)
+    result = curve(.5, tol=1e-4)([.076], params, with_gradient=True)
+    strict = curve(.5, tol=1e-7)
+    for name, step in (("q", 1e-6), ("rho", 1e-7)):
+        plus = strict([.076], dict(params, **{name: params[name] + step}))
+        minus = strict([.076], dict(params, **{name: params[name] - step}))
+        reference = (plus.magnifications[0] - minus.magnifications[0]) / (2*step)
+        assert result.gradients[0, ORDER.index(name)] == pytest.approx(reference, rel=3e-5)

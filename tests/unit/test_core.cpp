@@ -667,6 +667,27 @@ int main()
                 !close_relative(after_scalar.magnification, expected.magnification, 1e-10)) return 151;
         }
     }
+    // Optional batch image handoff must preserve the scalar flux and satisfy
+    // the physical lens equation on both sides of the q=1 frame convention.
+    for (const double q : {0.01, 0.5, 2.0}) {
+        const std::array<lcbinint::SourcePosition, 3> sources{{
+            {0.2, 0.03}, {0.4, -0.02}, {-0.1, 0.08}}};
+        std::array<double, 3> plain{}, captured{};
+        std::array<std::vector<lcbinint::magnification::BinaryImage>, 3> images;
+        point_magnifier.binary_mag0_batch(1.3, q, sources.data(), plain.data(), sources.size());
+        point_magnifier.binary_mag0_batch(1.3, q, sources.data(), captured.data(),
+            sources.size(), images.data());
+        for (std::size_t i = 0; i < sources.size(); ++i) {
+            if (plain[i] != captured[i] || (images[i].size() != 3 && images[i].size() != 5)) return 152;
+            double flux = 0.0;
+            for (const auto& image : images[i]) {
+                const auto mapped = point_magnifier.binary_lens_equation(1.3, q, image.position);
+                if (std::hypot(mapped.x - sources[i].x, mapped.y - sources[i].y) > 1e-8) return 153;
+                flux += 1.0 / std::abs(image.jacobian_determinant);
+            }
+            if (!close_relative(flux, captured[i], 1e-13)) return 154;
+        }
+    }
     const auto triple_images = point_magnifier.triple_images(triple_geometry, triple_mapped);
     if (triple_images.empty() || triple_images.size() > 10) {
         return 39;

@@ -2,6 +2,7 @@
 
 #include "lens_frame.hpp"
 #include <array>
+#include <functional>
 #include <cstddef>
 #include <string>
 #include <vector>
@@ -33,5 +34,6 @@ struct FusedGradientResult {
 // No derivative error controls refinement; finite gradients remain uncertified.
 FusedGradientResult epoch_fused_gradient(const LensParams& p,double limb_darkening,
     const std::vector<std::array<double,2>>& primary_image_seeds,
-    const FusedGradientOptions& options={});
+    const FusedGradientOptions& options={},
+    const std::function<bool(FusedGradientResult&)>& smooth_repair={});
 }

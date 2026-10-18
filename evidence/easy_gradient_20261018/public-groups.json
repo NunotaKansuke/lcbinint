@@ -1,0 +1,42 @@
+{
+  "before": {
+    "hex": {
+      "n": 354,
+      "value_ms": 7.3462320000000005,
+      "gradient_ms": 8.652041,
+      "ratio": 1.1777522136518421
+    },
+    "integral_no_extra": {
+      "n": 37,
+      "value_ms": 6.355776000000001,
+      "gradient_ms": 15.344509,
+      "ratio": 2.414262082238266
+    },
+    "integral_extra": {
+      "n": 10,
+      "value_ms": 4.684888,
+      "gradient_ms": 26.287149,
+      "ratio": 5.611051747661843
+    }
+  },
+  "after": {
+    "hex": {
+      "n": 354,
+      "value_ms": 7.336622,
+      "gradient_ms": 8.618729,
+      "ratio": 1.1747544033207653
+    },
+    "integral_no_extra": {
+      "n": 37,
+      "value_ms": 6.3584879999999995,
+      "gradient_ms": 13.629110999999996,
+      "ratio": 2.1434515564077494
+    },
+    "integral_extra": {
+      "n": 10,
+      "value_ms": 4.634257,
+      "gradient_ms": 23.987735999999998,
+      "ratio": 5.176177324649884
+    }
+  }
+}

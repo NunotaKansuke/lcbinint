@@ -119,6 +119,12 @@ inline std::vector<Pair> detect(const PrimaryFrame&pf,const TopologyResult&topo,
   // The epoch polynomial is identical for every occupied band. Construct
   // each precision once, rather than rebuilding D14 at every isolation call.
   const auto dp_double=positive_detail::derivative(positive_detail::polynomial<positive_detail::Interval<double>>(pf));
+  // All occupied bands use the same derivative polynomial. Build each
+  // certification chain once per epoch, including unsuccessful interval builds.
+  std::optional<positive_detail::Chain<I>> stationary_chain;
+  bool stationary_chain_ok=false;
+  std::optional<exact_detail::Chain> exact_chain;
+
 
  for(size_t start=0;start<topo.cells.size();){
   if(topo.cells[start].kind==ArcKind::kEmpty || (!needs.empty()&&!needs[start])){++start;continue;}
@@ -176,8 +182,9 @@ inline std::vector<Pair> detect(const PrimaryFrame&pf,const TopologyResult&topo,
   if(!isolated.second){
    // Bernstein coefficients can straddle zero at a subdivision boundary.
    // Use signed Sturm variations as a bounded independent isolation fallback.
-   positive_detail::Chain<I> chain;
-   if(chain.build(dp)){
+   if(!stationary_chain){stationary_chain.emplace();stationary_chain_ok=stationary_chain->build(dp);}
+   const auto& chain=*stationary_chain;
+   if(stationary_chain_ok){
     struct SBracket{Q l,h;int vl,vh;};std::vector<SBracket> pending;
     int a=chain.variation(vl,1),b=chain.variation(vh,-1);
     bool ok=a>=b&&b>=0;if(ok)pending.push_back({vl,vh,a,b});
@@ -198,7 +205,8 @@ inline std::vector<Pair> detect(const PrimaryFrame&pf,const TopologyResult&topo,
   }
   if(!isolated.second){
    std::vector<Q> exact_roots;
-   if(exact_stationary_roots(pf,lo,hi,exact_roots))isolated={std::move(exact_roots),true};
+   if(!exact_chain)exact_chain.emplace(pf);
+   if(exact_stationary_roots(*exact_chain,lo,hi,exact_roots))isolated={std::move(exact_roots),true};
   }
   if(!isolated.second)completed=false;
   const auto&stationary_roots=isolated.first;

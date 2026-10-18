@@ -1,0 +1,12 @@
+{
+  "case_count": 120,
+  "bitwise_identical_cases": {
+    "value": 120,
+    "gradient": 120,
+    "gradients": 120,
+    "gradient_valid": 120
+  },
+  "converged": 3960,
+  "gradient_valid": 3928,
+  "native_sha256": "3ec02a99330c161a83d3412b196fa16bf24b753c8b1330aca9b2c8ce54a1e9c7"
+}

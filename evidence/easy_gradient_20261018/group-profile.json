@@ -1,0 +1,38 @@
+{
+  "simple": {
+    "n": 37,
+    "value_ms": 6.342359999999999,
+    "gradient_before": 15.632138,
+    "gradient_after": 13.654173000000002,
+    "screen_before": 6.954671000000001,
+    "screen_after": 5.066823,
+    "fine_before": 22,
+    "fine_after": 8,
+    "nodes_before": 2071,
+    "nodes_after": 2071
+  },
+  "hard": {
+    "n": 10,
+    "value_ms": 4.554018,
+    "gradient_before": 26.259161,
+    "gradient_after": 24.009632,
+    "screen_before": 4.8840829999999995,
+    "screen_after": 5.101728,
+    "fine_before": 9,
+    "fine_after": 9,
+    "nodes_before": 8506,
+    "nodes_after": 7278
+  },
+  "hex": {
+    "n": 354,
+    "value_ms": 7.150707000000001,
+    "gradient_before": 8.600884,
+    "gradient_after": 8.661327,
+    "screen_before": 0.0,
+    "screen_after": 0.0,
+    "fine_before": 0,
+    "fine_after": 0,
+    "nodes_before": 4602,
+    "nodes_after": 4602
+  }
+}

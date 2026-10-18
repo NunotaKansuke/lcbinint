@@ -26,7 +26,25 @@ struct ScreenInterval {
 inline ScreenInterval operator-(ScreenInterval a){return {-a.hi,-a.lo};}
 inline ScreenInterval operator+(ScreenInterval a,ScreenInterval b){if(a.zero())return b;if(b.zero())return a;return {screen_down(a.lo+b.lo),screen_up(a.hi+b.hi)};}
 inline ScreenInterval operator-(ScreenInterval a,ScreenInterval b){return a+(-b);}
-inline ScreenInterval operator*(ScreenInterval a,ScreenInterval b){if(a.zero()||b.zero())return {};double p[4]={a.lo*b.lo,a.lo*b.hi,a.hi*b.lo,a.hi*b.hi};return {screen_down(*std::min_element(p,p+4)),screen_up(*std::max_element(p,p+4))};}
+inline ScreenInterval operator*(ScreenInterval a,ScreenInterval b){
+ if(a.zero()||b.zero())return {};
+ double lo,hi;
+ // A sign-known interval needs only the two extremal products.
+ if(a.lo>=0){
+  if(b.lo>=0){lo=a.lo*b.lo;hi=a.hi*b.hi;}
+  else if(b.hi<=0){lo=a.hi*b.lo;hi=a.lo*b.hi;}
+  else {lo=a.hi*b.lo;hi=a.hi*b.hi;}
+ }else if(a.hi<=0){
+  if(b.lo>=0){lo=a.lo*b.hi;hi=a.hi*b.lo;}
+  else if(b.hi<=0){lo=a.hi*b.hi;hi=a.lo*b.lo;}
+  else {lo=a.lo*b.hi;hi=a.lo*b.lo;}
+ }else{
+  if(b.lo>=0){lo=a.lo*b.hi;hi=a.hi*b.hi;}
+  else if(b.hi<=0){lo=a.hi*b.lo;hi=a.lo*b.lo;}
+  else {lo=std::min(a.lo*b.hi,a.hi*b.lo);hi=std::max(a.lo*b.lo,a.hi*b.hi);}
+ }
+ return {screen_down(lo),screen_up(hi)};
+}
 inline ScreenInterval scale(ScreenInterval a,int exponent){if(a.zero())return a;return {screen_down(std::ldexp(a.lo,exponent)),screen_up(std::ldexp(a.hi,exponent))};}
 inline double screen_upper(ScreenInterval a){return std::max(std::fabs(a.lo),std::fabs(a.hi));}
 inline double screen_lower(ScreenInterval a){return a.lo>0?a.lo:a.hi<0?-a.hi:0;}
@@ -104,11 +122,13 @@ inline thread_local ScreenStats screen_stats;
 // real roots already bracketed around physical events. It never interprets an
 // inconclusive arithmetic sign or a failed Pellet test as absence of a root.
 inline std::vector<bool> screen_bands(const PrimaryFrame&pf,const TopologyResult&topo,int resolution){
- using I=ScreenEstimate;using Q=__float128;
+ // Start with the direct interval certificate. The expression-majorant
+ // prepass usually failed on these narrow bands and repeated the same disk
+ // expansion before interval arithmetic. Inconclusive intervals still escalate.
+ using I=ScreenInterval;using Q=__float128;
  std::vector<bool> needs(topo.cells.size(),true);++screen_stats.epochs;
  if(resolution<=0||!positive_detail::environment_ok())return needs;
  const ScreenBlocks<I> blocks(pf);
- std::optional<ScreenBlocks<ScreenInterval>> interval_blocks;
  std::optional<ScreenBlocks<positive_detail::Ball>> precise_blocks;
  struct Witness {double radius=0,lo=0,hi=0;int valid=-1;};
  std::vector<Witness>witnesses;
@@ -124,7 +144,7 @@ inline std::vector<bool> screen_bands(const PrimaryFrame&pf,const TopologyResult
   const double l=w.radius-gap*.25,h=w.radius+gap*.25;
   w.lo=positive_detail::down(l*l);w.hi=positive_detail::up(h*h);
  }
- auto disk_clear=[&](Q left,Q right,Q imag){
+ auto disk_clear=[&](Q left,Q right,Q imag,double padding=2.){
   ++screen_stats.disks;
   const double center=double((left+right)/2);
   Q extent=fmaxq(fabsq(left-Q(center)),fabsq(right-Q(center)));
@@ -137,7 +157,7 @@ inline std::vector<bool> screen_bands(const PrimaryFrame&pf,const TopologyResult
   // every ordinary band. Overflow remains inconclusive below.
   const double ex=screen_up(double(extent)),im=screen_up(double(imag));
   const double squared=screen_up(screen_up(ex*ex)+screen_up(im*im));
-  const double radius=2*screen_up(std::sqrt(squared));
+  const double radius=padding*screen_up(std::sqrt(squared));
   if(!(radius>0&&std::isfinite(radius)))return false;
   auto dominance=[&](const auto&source){
    using namespace positive_detail;
@@ -173,7 +193,6 @@ inline std::vector<bool> screen_bands(const PrimaryFrame&pf,const TopologyResult
   };
   int count=dominance(blocks);
   if(count>=0)++screen_stats.double_counts;
-  if(count==-1){if(!interval_blocks)interval_blocks.emplace(pf);count=dominance(*interval_blocks);}
   if(count==-1){++screen_stats.precise_counts;if(!precise_blocks)precise_blocks.emplace(pf);count=dominance(*precise_blocks);}
   if(count<0){++screen_stats.dominance_failed;return false;}
   if(count==0)return true;
@@ -186,7 +205,6 @@ inline std::vector<bool> screen_bands(const PrimaryFrame&pf,const TopologyResult
    const Q distance=fmaxq(fabsq(Q(w.lo)-Q(center)),fabsq(Q(w.hi)-Q(center)));
    if(!(distance<Q(radius))||!(w.hi>w.lo))continue;
    if(w.valid<0){int l=blocks.value(pf,w.lo).sign(),h=blocks.value(pf,w.hi).sign();
-    if((l!=1&&l!=-1)||(h!=1&&h!=-1)){if(!interval_blocks)interval_blocks.emplace(pf);l=interval_blocks->value(pf,w.lo).sign();h=interval_blocks->value(pf,w.hi).sign();}
     if((l!=1&&l!=-1)||(h!=1&&h!=-1)){if(!precise_blocks)precise_blocks.emplace(pf);l=precise_blocks->value(pf,w.lo).sign();h=precise_blocks->value(pf,w.hi).sign();}
     w.valid=(l==1||l==-1)&&(h==1||h==-1)&&l==-h;}
    if(w.valid&&w.lo>last_witness_hi){++established;last_witness_hi=w.hi;}
@@ -200,8 +218,25 @@ inline std::vector<bool> screen_bands(const PrimaryFrame&pf,const TopologyResult
   ++screen_stats.bands;
   const Q a=topo.cells[first].r_lo,b=topo.cells[last].r_hi;
   const Q delta=(b-a)/Q(resolution),imag=2*(b+delta)*delta;
-  bool clear=disk_clear(a*a-delta*delta,b*b,imag);
-  if(!clear&&first!=last){clear=true;for(size_t k=first;k<=last;++k){Q l=topo.cells[k].r_lo,h=topo.cells[k].r_hi;if(!disk_clear(l*l-delta*delta,h*h,imag)){clear=false;break;}}}
+  // An overlarge circumscribed disk can include unrelated complex roots.
+  // If that proof is inconclusive, cover the SAME target rectangle by
+  // overlapping smaller disks. Every disk must prove that all its roots are
+  // already bracketed distinct real folds; otherwise retain detailed detection.
+  // The structured polynomial blocks and certified witnesses above are reused.
+  auto cover_clear=[&](Q left,Q right){
+   if(disk_clear(left,right,imag))return true;
+   if(!(imag>0))return false;
+   const int pieces=std::max(2,int(ceilq((right-left)/(2*imag))));
+   Q l=left;
+   for(int j=1;j<=pieces;++j){
+    const Q r=j==pieces?right:left+(right-left)*j/pieces;
+    if(!disk_clear(l,r,imag,1.))return false;
+    l=r;
+   }
+   return true;
+  };
+  bool clear=cover_clear(a*a-delta*delta,b*b);
+  if(!clear&&first!=last){clear=true;for(size_t k=first;k<=last;++k){Q l=topo.cells[k].r_lo,h=topo.cells[k].r_hi;if(!cover_clear(l*l-delta*delta,h*h)){clear=false;break;}}}
   if(clear){++screen_stats.clear;for(size_t k=first;k<=last;++k)needs[k]=false;}
   first=last+1;
  }
