@@ -277,9 +277,12 @@ public:
     // Lower bound from a cover of every continuous critical-curve phase.
     // Zero means no clearance was proved; it is never an estimated distance.
     double binary_caustic_clearance_lower_bound(
-        double separation, double mass_ratio, SourcePosition source) const;
+        double separation, double mass_ratio, SourcePosition source,
+        double separation_half_width = 0.0,
+        double* enclosure_clearance = nullptr) const;
 
 private:
+    bool binary_caustic_enclosure_matches(double separation, double mass_ratio) const;
     bool binary_point_topology_clearance(
         double separation, double mass_ratio, SourcePosition source,
         double source_radius) const;
@@ -335,6 +338,8 @@ private:
     mutable bool caustic_enclosure_attempted_ = false;
     mutable double caustic_enclosure_separation_ = 0.0;
     mutable double caustic_enclosure_mass_ratio_ = 0.0;
+    mutable double caustic_enclosure_half_width_ = 0.0;
+    mutable bool caustic_interval_disabled_ = false;
     mutable std::vector<std::pair<SourcePosition, double>> caustic_enclosure_;
     mutable SourcePosition caustic_clearance_source_ {};
     mutable double caustic_clearance_witness_ = 0.0;

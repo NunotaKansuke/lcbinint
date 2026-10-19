@@ -105,10 +105,13 @@ def circular_orbital_motion(
     """Match lcbinint's circular 3-D lens-orbit parameterization."""
 
     time = jnp.asarray(time)
-    w13 = _safe_sqrt(w1 * w1 + w3 * w3)
-    w123 = _safe_sqrt(w13 * w13 + w2 * w2)
-    inclined = w13 > _BRANCH_EPS
-    safe_w13 = jnp.where(inclined, w13, 1.0)
+    w13_squared = w1 * w1 + w3 * w3
+    inclined = w13_squared > _BRANCH_EPS * _BRANCH_EPS
+    # Keep unused inclined-branch norms away from sqrt(0): reverse mode can
+    # otherwise propagate 0*inf through a selected face-on/zero-speed branch.
+    safe_w13 = jnp.sqrt(jnp.where(inclined, w13_squared, 1.0))
+    w123_squared = w13_squared + w2 * w2
+    w123 = jnp.sqrt(jnp.where(w123_squared > 0.0, w123_squared, 1.0))
     w3_effective = jnp.maximum(w3, _BRANCH_EPS)
     inclined_frequency = w3_effective * w123 / safe_w13
     cos_inclination = jnp.clip(

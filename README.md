@@ -13,7 +13,7 @@ lightweight, reusable callables for repeated model evaluation.
 
 ## Algebraic-boundary route
 
-Static single-source binary curves use one
+Single-source binary curves, including circular and Kepler lens orbits, use one
 shared C++ controller for values and optional gradients: the common point/hex
 selector followed by caustic-aware seeded radial-frontier / nested-Fejer
 integration. Gradient mode retains the normalized source-disk coordinate repair
@@ -133,7 +133,7 @@ result = lc(times, params)
 mag = result.magnifications
 ```
 
-On this branch, a static single-source binary `LightCurve` uses the
+A single-source binary `LightCurve` uses the
 algebraic-boundary backend by default, with or without gradients. Models
 outside that backend's supported scope keep the standard router. To request
 the standard router explicitly for a supported binary, set

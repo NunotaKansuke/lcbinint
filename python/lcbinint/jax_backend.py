@@ -365,10 +365,12 @@ def _trim_ephemeris_arrays(times, *values, t_lim, reference_time=None):
 def _earth_ephemeris(t_lim=None, reference_time=None):
     from lcbinint_jax import load_earth_ephemeris
 
-    return load_earth_ephemeris(
-        t_lim=t_lim,
-        reference_time=reference_time,
-    )
+    import jax
+
+    with jax.ensure_compile_time_eval():
+        return load_earth_ephemeris(
+            t_lim=t_lim, reference_time=reference_time
+        )
 
 
 def _higher_order_offsets(
@@ -391,7 +393,11 @@ def _higher_order_offsets(
     beta_offset = jnp.zeros_like(time)
     model = native_curve.model
     reference_time = native_curve.t_ref
-    if reference_time is None:
+    reference_follows_t0 = reference_time is None or (
+        reference_time == 0.0 and native_curve.source == "single"
+    )
+    if reference_follows_t0:
+        # Native lcbi_params uses tfix=0 as the t0 reference sentinel.
         reference_time = _value(parameters, "t0")
 
     if model.parallax:
@@ -411,7 +417,10 @@ def _higher_order_offsets(
             sky.ra_deg,
             sky.dec_deg,
             reference_time,
-            _earth_ephemeris(options.t_lim, reference_time),
+            _earth_ephemeris(
+                None if reference_follows_t0 else options.t_lim,
+                None if reference_follows_t0 else reference_time,
+            ),
         )
         tau_offset = tau_offset + annual_tau
         beta_offset = beta_offset + annual_beta
@@ -502,6 +511,8 @@ def _lens_frame_geometry(
     t0_name="t0",
     u0_name="u0",
 ):
+    import jax.numpy as jnp
+
     dynamic = (
         native_curve.model.parallax
         or native_curve.model.xallarap != "none"
@@ -516,9 +527,10 @@ def _lens_frame_geometry(
             u0_name=u0_name,
         )
         return source_x, source_y, _value(parameters, "s")
-    if options.param_type not in ("vbm", "vbm_center_of_mass"):
+    vbm = options.param_type in ("vbm", "vbm_center_of_mass")
+    if not vbm and native_curve.model.xallarap != "none":
         raise NotImplementedError(
-            "higher-order JAX trajectories currently require VBM coordinates"
+            "JAX xallarap trajectories currently require VBM coordinates"
         )
     if native_curve.lens == "triple" and native_curve.orbital_motion != "static":
         raise NotImplementedError(
@@ -547,7 +559,18 @@ def _lens_frame_geometry(
         tau_offset=tau_offset,
         beta_offset=beta_offset,
     )
-    return geometry.source_x, geometry.source_y, geometry.separation
+    if vbm:
+        return geometry.source_x, geometry.source_y, geometry.separation
+    tau = (time - parameters.get(t0_name, _DEFAULT_PARAMETERS["t0"])) / _value(parameters, "tE") + tau_offset
+    beta = parameters.get(u0_name, _DEFAULT_PARAMETERS["u0"]) + beta_offset
+    source_x = tau * jnp.cos(geometry.lens_angle) + beta * jnp.sin(geometry.lens_angle)
+    source_y = beta * jnp.cos(geometry.lens_angle) - tau * jnp.sin(geometry.lens_angle)
+    if options.param_type != "center_of_mass":
+        q = jnp.abs(_value(parameters, "q"))
+        separation = geometry.separation
+        source_x -= jnp.where(separation > 1.0,
+            q / (1.0 + q) * (separation - 1.0 / separation), 0.0)
+    return source_x, source_y, geometry.separation
 
 
 def _integration_tolerances(options, lens):
@@ -991,14 +1014,8 @@ def _algebraic_boundary_result(
         raise ValueError(
             "algebraic-boundary JAX requires a single-source binary lens"
         )
-    if (
-        native_curve.model.parallax
-        or native_curve.model.xallarap != "none"
-        or native_curve.orbital_motion != "static"
-    ):
-        raise ValueError(
-            "algebraic-boundary JAX requires a static binary trajectory"
-        )
+    if native_curve.model.xallarap != "none":
+        raise ValueError("algebraic-boundary JAX does not support xallarap")
     from lcbinint_jax import binary_algebraic_boundary_batch_ffi
 
     source_x, source_y, separation = _lens_frame_geometry(
@@ -1043,7 +1060,14 @@ def _algebraic_boundary_magnification(
 def algebraic_boundary_info(native_curve, options, time, parameters):
     """Return the public value and status record for the algebraic backend."""
 
-    return _algebraic_boundary_result(native_curve, options, time, parameters)
+    import jax.numpy as jnp
+
+    result = _algebraic_boundary_result(native_curve, options, time, parameters)
+    mask = _time_limit_mask(native_curve, options, jnp.atleast_1d(time))
+    return result._replace(
+        value_converged=result.value_converged & mask,
+        support_certified=result.support_certified & mask,
+    )
 
 
 def magnification(

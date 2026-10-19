@@ -8521,7 +8521,7 @@ ffi::Error algebraic_boundary_batch_forward_ffi_impl(
     double limb_c, double limb_d,
     ffi::BufferR1<ffi::F64> source_x,
     ffi::BufferR1<ffi::F64> source_y,
-    ffi::BufferR0<ffi::F64> separation,
+    ffi::Buffer<ffi::F64> separation,
     ffi::BufferR0<ffi::F64> mass_ratio,
     ffi::BufferR0<ffi::F64> source_radius,
     ffi::ResultBufferR1<ffi::F64> magnification,
@@ -8533,10 +8533,21 @@ ffi::Error algebraic_boundary_batch_forward_ffi_impl(
         return ffi::Error::InvalidArgument(
             "algebraic-boundary batch requires matching nonempty vectors");
     }
+    const auto separation_shape = separation.dimensions();
+    if (!((separation_shape.size() == 0) ||
+          (separation_shape.size() == 1 && separation_shape[0] == source_x.dimensions()[0])))
+        return ffi::Error::InvalidArgument("separation must be scalar or match the batch");
+    for (std::int64_t i = 0; i < source_x.dimensions()[0]; ++i) {
+        const double s = separation.typed_data()[(separation_shape.size() == 0) ? 0 : i];
+        if (!(std::isfinite(s) && s > 0.0 &&
+              std::isfinite(source_x.typed_data()[i]) && std::isfinite(source_y.typed_data()[i])))
+            return ffi::Error::InvalidArgument("binary geometry must be finite and physical");
+    }
     if (!(std::isfinite(absolute_tolerance) && absolute_tolerance >= 0.0 &&
           std::isfinite(relative_tolerance) && relative_tolerance >= 0.0 &&
           std::isfinite(limb_c) && std::isfinite(limb_d) &&
-          *separation.typed_data() > 0.0 && *mass_ratio.typed_data() > 0.0 &&
+          std::isfinite(*mass_ratio.typed_data()) && *mass_ratio.typed_data() > 0.0 &&
+          std::isfinite(*source_radius.typed_data()) &&
           *source_radius.typed_data() >= 0.0)) {
         return ffi::Error::InvalidArgument(
             "algebraic-boundary scalars must be finite and physical");
@@ -8556,11 +8567,23 @@ ffi::Error algebraic_boundary_batch_forward_ffi_impl(
         return ffi::Error::InvalidArgument(
             "algebraic-boundary status buffers must match the input batch");
     }
-    for (std::int64_t index = 0; index < count; ++index) {
+    std::vector<std::int64_t> order;
+    if (separation_shape.size() != 0 &&
+        !std::is_sorted(separation.typed_data(), separation.typed_data()+count)) {
+        order.resize(count);
+        for (std::int64_t i = 0; i < count; ++i) order[i] = i;
+        std::stable_sort(order.begin(), order.end(), [&](auto lhs, auto rhs) {
+            return separation.typed_data()[lhs] < separation.typed_data()[rhs];
+        });
+    }
+    // Nearby separations share the existing geometry cache. Scatter results
+    // back to input order; the scalar and already ordered paths allocate no index array.
+    for (std::int64_t position = 0; position < count; ++position) {
+        const auto index = order.empty() ? position : order[position];
         lcbinint::magnification::FiniteSourceResult value_result;
         double point_source_magnification = std::numeric_limits<double>::quiet_NaN();
         const auto value = magnifier.algebraic_boundary_binary_mag(
-            *separation.typed_data(), *mass_ratio.typed_data(),
+            separation.typed_data()[(separation_shape.size() == 0) ? 0 : index], *mass_ratio.typed_data(),
             {source_x.typed_data()[index], source_y.typed_data()[index]},
             *source_radius.typed_data(), algebraic_settings,
             &value_result, &point_source_magnification, true);
@@ -8587,7 +8610,7 @@ XLA_FFI_DEFINE_HANDLER(
         .Attr<double>("limb_d")
         .Arg<ffi::BufferR1<ffi::F64>>()
         .Arg<ffi::BufferR1<ffi::F64>>()
-        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::Buffer<ffi::F64>>()
         .Arg<ffi::BufferR0<ffi::F64>>()
         .Arg<ffi::BufferR0<ffi::F64>>()
         .Ret<ffi::BufferR1<ffi::F64>>()
@@ -8600,7 +8623,7 @@ ffi::Error algebraic_boundary_batch_jacobian_ffi_impl(
     double limb_c, double limb_d,
     ffi::BufferR1<ffi::F64> source_x,
     ffi::BufferR1<ffi::F64> source_y,
-    ffi::BufferR0<ffi::F64> separation,
+    ffi::Buffer<ffi::F64> separation,
     ffi::BufferR0<ffi::F64> mass_ratio,
     ffi::BufferR0<ffi::F64> source_radius,
     ffi::ResultBufferR1<ffi::F64> magnification,
@@ -8625,10 +8648,21 @@ ffi::Error algebraic_boundary_batch_jacobian_ffi_impl(
         return ffi::Error::InvalidArgument(
             "algebraic-boundary status buffers must match the input batch");
     }
+    const auto separation_shape = separation.dimensions();
+    if (!((separation_shape.size() == 0) ||
+          (separation_shape.size() == 1 && separation_shape[0] == source_x.dimensions()[0])))
+        return ffi::Error::InvalidArgument("separation must be scalar or match the batch");
+    for (std::int64_t i = 0; i < source_x.dimensions()[0]; ++i) {
+        const double s = separation.typed_data()[(separation_shape.size() == 0) ? 0 : i];
+        if (!(std::isfinite(s) && s > 0.0 &&
+              std::isfinite(source_x.typed_data()[i]) && std::isfinite(source_y.typed_data()[i])))
+            return ffi::Error::InvalidArgument("binary geometry must be finite and physical");
+    }
     if (!(std::isfinite(absolute_tolerance) && absolute_tolerance >= 0.0 &&
           std::isfinite(relative_tolerance) && relative_tolerance >= 0.0 &&
           std::isfinite(limb_c) && std::isfinite(limb_d) &&
-          *separation.typed_data() > 0.0 && *mass_ratio.typed_data() > 0.0 &&
+          std::isfinite(*mass_ratio.typed_data()) && *mass_ratio.typed_data() > 0.0 &&
+          std::isfinite(*source_radius.typed_data()) &&
           *source_radius.typed_data() >= 0.0)) {
         return ffi::Error::InvalidArgument(
             "algebraic-boundary scalars must be finite and physical");
@@ -8642,11 +8676,23 @@ ffi::Error algebraic_boundary_batch_jacobian_ffi_impl(
     const lcbinint::magnification::FiniteSourceMagnifier magnifier(settings);
     magnifier.clear_binary_epoch_caches();
     lcbinint::magnification::PointSourceMagnifier point;
-    for (std::int64_t index = 0; index < count; ++index) {
+    std::vector<std::int64_t> order;
+    if (separation_shape.size() != 0 &&
+        !std::is_sorted(separation.typed_data(), separation.typed_data()+count)) {
+        order.resize(count);
+        for (std::int64_t i = 0; i < count; ++i) order[i] = i;
+        std::stable_sort(order.begin(), order.end(), [&](auto lhs, auto rhs) {
+            return separation.typed_data()[lhs] < separation.typed_data()[rhs];
+        });
+    }
+    // Nearby separations share the existing geometry cache. Scatter results
+    // back to input order; the scalar and already ordered paths allocate no index array.
+    for (std::int64_t position = 0; position < count; ++position) {
+        const auto index = order.empty() ? position : order[position];
         lcbinint::magnification::FiniteSourceResult value_result;
         double point_source_magnification = std::numeric_limits<double>::quiet_NaN();
         const auto result = magnifier.algebraic_boundary_binary_jacobian(
-            *separation.typed_data(), *mass_ratio.typed_data(),
+            separation.typed_data()[(separation_shape.size() == 0) ? 0 : index], *mass_ratio.typed_data(),
             {source_x.typed_data()[index], source_y.typed_data()[index]},
             *source_radius.typed_data(), algebraic_settings,
             &value_result, &point_source_magnification, true, &point);
@@ -8685,7 +8731,7 @@ XLA_FFI_DEFINE_HANDLER(
         .Attr<double>("limb_d")
         .Arg<ffi::BufferR1<ffi::F64>>()
         .Arg<ffi::BufferR1<ffi::F64>>()
-        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::Buffer<ffi::F64>>()
         .Arg<ffi::BufferR0<ffi::F64>>()
         .Arg<ffi::BufferR0<ffi::F64>>()
         .Ret<ffi::BufferR1<ffi::F64>>()

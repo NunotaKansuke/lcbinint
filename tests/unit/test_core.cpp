@@ -1,5 +1,6 @@
 #include "lcbinint/lcbinint.h"
 #include "lcbinint/magnification/cartesian_run_fill.hpp"
+#include "lcbinint/magnification/binary_caustic_enclosure.hpp"
 #include "lcbinint/magnification/finite_source_magnifier.hpp"
 #include "lcbinint/magnification/point_source_magnifier.hpp"
 #include "lcbinint/magnification/probe_diagnostics.hpp"
@@ -822,6 +823,99 @@ int main()
     if (std::abs(orbit_geometry_early.separation - orbit_result_early.separation) > 1e-9 ||
         std::abs(orbit_geometry_late.separation - orbit_result_late.separation) > 1e-9) {
         return 59;
+    }
+
+    // Check the radial caustic bound against independently solved phase roots,
+    // including close, resonant, wide and reciprocal-mass configurations.
+    for (double s : {0.1, 0.7, 1.0, 1.2, 3.0}) {
+        for (double q_input : {1e-4, 0.1, 1.0, 10.0, 1e4}) {
+            const double q = std::min(q_input, 1.0/q_input);
+            const double a = q_input < 1.0 ? -s : s;
+            const double m1 = 1.0/(1.0+q), m2 = q*m1;
+            for (int k = 0; k < 137; ++k) {
+                const auto phase = std::polar(1.0, 6.283185307179586*(k+0.371)/137);
+                const auto roots = solver.solve({m2*a*a, -2.0*m2*a,
+                    1.0-phase*a*a, 2.0*phase*a, -phase});
+                if (roots.status != lcbinint::math::RootSolverStatus::ok) return 92;
+                for (const auto z : roots.roots) {
+                    const auto w = z-m1/(std::conj(z)-a)-m2/std::conj(z)-a*m1;
+                    for (const lcbinint::SourcePosition source : {
+                            lcbinint::SourcePosition{20.0, 0.0}, {-30.0, 10.0}, {0.0, 0.0},
+                            {-0.8, 0.02}, {0.8, -0.02}, {0.2, 0.1}, {-1.0, 0.05}}) {
+                        const double lower = lcbinint::magnification::detail::
+                            binary_caustic_radial_clearance(s, q_input, source);
+                        if (lower > std::hypot(source.x-w.real(), source.y-w.imag())+1e-8)
+                            return 93;
+                    }
+                }
+            }
+        }
+    }
+
+    int proved_intervals = 0;
+    for (double s : {0.7, 0.89, 1.2, 2.4}) {
+        for (double q_input : {0.011, 0.1, 10.0, 1.0/0.011}) {
+            const double width = 1e-4*std::min(1.0, s);
+            const auto cover = lcbinint::magnification::detail::
+                build_binary_caustic_enclosure(s, q_input, 4, 32, width);
+            if (cover.empty()) continue;
+            ++proved_intervals;
+            const double q = std::min(q_input, 1.0/q_input);
+            const double m1 = 1.0/(1.0+q), m2 = q*m1;
+            for (double offset : {-1.0, -0.5, 0.0, 0.5, 1.0}) {
+                const double current = s+offset*width;
+                const double a = q_input < 1.0 ? -current : current;
+                for (int k = 0; k < 137; ++k) {
+                    const auto phase = std::polar(1.0, 6.283185307179586*(k+0.371)/137);
+                    const auto roots = solver.solve({m2*a*a, -2.0*m2*a,
+                        1.0-phase*a*a, 2.0*phase*a, -phase});
+                    if (roots.status != lcbinint::math::RootSolverStatus::ok) return 94;
+                    for (const auto z : roots.roots) {
+                        const auto w = z-m1/(std::conj(z)-a)-m2/std::conj(z)-a*m1;
+                        bool included = false;
+                        for (const auto& disk : cover)
+                            included = included || std::hypot(w.real()-disk.first.x,
+                                w.imag()-disk.first.y) <= disk.second+1e-8;
+                        if (!included) return 95;
+                    }
+                }
+            }
+        }
+    }
+    if (proved_intervals == 0) return 96;
+    // A one-root disk cover cannot certify a parameter interval spanning a
+    // topology transition. Failure leaves the exact-geometry fallback active.
+    if (!lcbinint::magnification::detail::build_binary_caustic_enclosure(
+            2.0, 1.0, 4, 32, 1e-4).empty()) return 97;
+
+    // Warm critical roots must reproduce all independent phase roots, including
+    // odd phase counts, reciprocal masses and topology changes.
+    for (int bins : {63, 64}) {
+        lcbinint::magnification::FiniteSourceSettings settings;
+        settings.caustic_bins = bins;
+        lcbinint::magnification::FiniteSourceMagnifier finite(settings);
+        for (double q_input : {1e-4, 0.1, 1.0, 10.0, 1e4}) {
+            for (double s : {0.7, 0.700001, 1.999999, 2.0, 2.000001, 3.0, 0.7}) {
+                const auto curves = finite.binary_critical_curve_branches(s, q_input);
+                std::size_t count = 0;
+                for (const auto& curve : curves) count += curve.size();
+                if (count != static_cast<std::size_t>(4*bins)) return 98;
+                const double q = std::min(q_input, 1.0/q_input);
+                const double a = q_input < 1.0 ? -s : s;
+                const double m1 = 1.0/(1.0+q), m2 = q*m1;
+                for (int k = 0; k < bins; ++k) {
+                    const auto phase = std::polar(1.0, 6.283185307179586*k/bins);
+                    const auto roots = solver.solve({m2*a*a,-2.0*m2*a,
+                        1.0-phase*a*a,2.0*phase*a,-phase});
+                    for (const auto z : roots.roots) {
+                        double nearest = std::numeric_limits<double>::infinity();
+                        for (const auto& curve : curves) for (const auto pt : curve)
+                            nearest = std::min(nearest,std::abs(z-lcbinint::Complex(pt.x,pt.y)));
+                        if (!(nearest < 1e-7*(1.0+std::abs(z)))) return 99;
+                    }
+                }
+            }
+        }
     }
 
     return 0;

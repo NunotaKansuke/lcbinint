@@ -29,10 +29,8 @@ def _validated_value_request(curve, times, params, mu_atol, mu_rtol):
     if tE == 0 or rho < 0 or q <= 0 or separation <= 0:
         raise ValueError("rho must be nonnegative; q and s positive; tE nonzero")
     model = curve._native.model
-    if curve.parallax or model.xallarap != "none":
-        raise ValueError("algebraic-boundary light curves require no parallax or xallarap")
-    if curve._native.orbital_motion != "static":
-        raise ValueError("algebraic-boundary light curves require a static binary")
+    if model.xallarap != "none":
+        raise ValueError("algebraic-boundary light curves do not support xallarap")
     if model.lens != "binary" or model.source != "single":
         raise ValueError("algebraic-boundary light curves require a binary lens")
 
@@ -90,7 +88,7 @@ def lightcurve_value(
         "seed_support_proven", "center_image_count", "augmented_seed_count",
         "node_evaluations", "finite_source_method", "fully_converged",
         "frontier_discovery_completed",
-        "gradients", "gradient_valid",
+        "gradients", "local_gradients", "gradient_valid",
     ):
         if key in output:
             output[key] = np.asarray(output[key])

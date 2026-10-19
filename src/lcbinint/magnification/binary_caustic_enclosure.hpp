@@ -37,6 +37,29 @@ inline double binary_caustic_strip_clearance(
     return std::max(0.0, std::abs(source.y)-half_width-roundoff);
 }
 
+// On a critical curve min(d1,d2)<=1, so its barycentric radius is at
+// most max(m1,m2)*s+1. If di<=s/2, the reverse triangle inequality for
+// kappa gives mi/di^2<=1+4*mj/s^2; otherwise di>s/2. These lower pole
+// distances bound the lens-map deflection without solving critical roots.
+inline double binary_caustic_radial_clearance(
+    double separation, double mass_ratio, SourcePosition source)
+{
+    const double s = std::abs(separation), q_input = std::abs(mass_ratio);
+    if (!(s > 0.0 && q_input > 0.0) || !std::isfinite(s) ||
+        !std::isfinite(q_input) || !std::isfinite(source.x) ||
+        !std::isfinite(source.y)) return 0.0;
+    const double q = std::min(q_input, 1.0/q_input);
+    const double m1 = 1.0/(1.0+q), m2 = q*m1;
+    const double deflection1 = std::max(2.0*m1/s, std::sqrt(m1)*std::hypot(1.0, 2.0*std::sqrt(m2)/s));
+    const double deflection2 = std::max(2.0*m2/s, std::sqrt(m2)*std::hypot(1.0, 2.0*std::sqrt(m1)/s));
+    const double radius = m1*s + 1.0 + deflection1 + deflection2;
+    const double distance = std::hypot(source.x, source.y);
+    if (!std::isfinite(radius) || !std::isfinite(distance)) return 0.0;
+    const double roundoff = 512.0*std::numeric_limits<double>::epsilon()*
+        (1.0+radius+distance);
+    return std::max(0.0, distance-radius-roundoff);
+}
+
 // Enclose *all* critical phases, not just sampled caustic vertices. At a phase
 // centre, Q(z)=-phase*product(z-root_j). On |z-root_i|=r, Rouche gives one root
 // throughout the phase interval if
@@ -49,13 +72,17 @@ inline double binary_caustic_strip_clearance(
 // factorisation error and generous double-roundoff padding enter the upper
 // bound. If any interval cannot be covered, discard the entire enclosure.
 inline std::vector<CausticEnclosureDisk> build_binary_caustic_enclosure(
-    double separation, double mass_ratio, int max_depth = 4, int initial_intervals = 32)
+    double separation, double mass_ratio, int max_depth = 4, int initial_intervals = 32,
+    double separation_half_width = 0.0)
 {
     const double s = std::abs(separation);
     const double q_input = std::abs(mass_ratio);
     if (!(s > 0.0 && q_input > 0.0) || !std::isfinite(s) || !std::isfinite(q_input)) {
         return {};
     }
+    if (!(std::isfinite(separation_half_width) && separation_half_width >= 0.0 &&
+          separation_half_width < s)) return {};
+    const double da = separation_half_width;
     const double q = q_input < 1.0 ? q_input : 1.0 / q_input;
     const double a = q_input < 1.0 ? -s : s;
     const double m1 = 1.0 / (1.0 + q);
@@ -117,7 +144,7 @@ inline std::vector<CausticEnclosureDisk> build_binary_caustic_enclosure(
             for (int j = 0; j < 4; ++j) if (j != i) {
                 separations[n++] = std::abs(root-solved.roots[j]);
             }
-            const double limit = 0.45*std::min({d1, d2,
+            const double limit = 0.45*std::min({d1-da, d2,
                 separations[0], separations[1], separations[2]});
             const double derivative = std::abs(phase)*
                 separations[0]*separations[1]*separations[2];
@@ -125,7 +152,8 @@ inline std::vector<CausticEnclosureDisk> build_binary_caustic_enclosure(
             double coefficient_error = errors[4];
             for (int j = 3; j >= 0; --j) coefficient_error = coefficient_error*d2 + errors[j];
             double radius = std::max(padding*(1.0+d2),
-                1.25*(delta*d2*d2*d1*d1 + coefficient_error)/derivative);
+                1.25*(delta*d2*d2*(d1+da)*(d1+da) +
+                    (m2+d2*d2)*(2.0*da*d1+da*da) + coefficient_error)/derivative);
             bool proved = false;
             for (; radius <= limit; radius *= 1.25) {
                 const double upper_z = d2+radius, upper_a = d1+radius;
@@ -133,7 +161,13 @@ inline std::vector<CausticEnclosureDisk> build_binary_caustic_enclosure(
                 for (int j = 3; j >= 0; --j) error_bound = error_bound*upper_z + errors[j];
                 const double lower = std::abs(phase)*radius*
                     (separations[0]-radius)*(separations[1]-radius)*(separations[2]-radius);
-                const double upper = delta*upper_z*upper_z*upper_a*upper_a + error_bound;
+                // Q(z,a+da)-Q(z,a)=(m2-phase*z^2)*(-2*da*(z-a)+da^2).
+                // Bound this over the whole separation interval, then add
+                // the independent critical-phase perturbation at the moved pole.
+                const double parameter_error = (m2+upper_z*upper_z)*
+                    (2.0*da*upper_a+da*da);
+                const double upper = delta*upper_z*upper_z*(upper_a+da)*(upper_a+da)
+                    + parameter_error + error_bound;
                 if (std::isfinite(lower) && std::isfinite(upper) &&
                     lower*(1.0-padding) > upper*(1.0+padding)) {
                     proved = true;
@@ -142,10 +176,11 @@ inline std::vector<CausticEnclosureDisk> build_binary_caustic_enclosure(
             }
             if (!proved) { enclosed = false; break; }
             const auto mapped = root - m1/(std::conj(root)-a) - m2/std::conj(root) - a*m1;
-            const double map_radius = radius*(1.0 +
-                m1/(d1*(d1-radius)) + m2/(d2*(d2-radius)));
+            const double map_radius = radius +
+                m1*(radius+da)/(d1*(d1-radius-da)) +
+                m2*radius/(d2*(d2-radius)) + m1*da;
             const double roundoff = padding*(1.0+std::abs(root)+std::abs(mapped)+
-                m1/(d1-radius) + m2/(d2-radius));
+                m1/(d1-radius-da) + m2/(d2-radius) + m1*da);
             if (!std::isfinite(map_radius) || !std::isfinite(roundoff)) return {};
             disks[i] = {{mapped.real(), mapped.imag()}, map_radius*(1.0+padding)+roundoff};
         }

@@ -75,7 +75,7 @@ inline bool evaluate(const LensParams&p,double limb,const FusedGradientOptions&o
      center_value.magnification*center_value.magnification;
  const bool near_axis=std::fabs(p.ys)<=p.rho/32;
  if(!repair_invalid && !near_axis && !cancellation_prone)return false;
- double clearance=finite.binary_caustic_clearance_lower_bound(p.a,p.q,{p.xs,p.ys});
+ double clearance=finite.binary_caustic_clearance_lower_bound(p.a,p.q,{p.xs,p.ys},0.25*p.rho);
  if(repair_invalid && !(clearance>p.rho)) {
   auto& refined=refined_cover();
   if(refined.separation!=p.a||refined.q!=p.q){

@@ -198,37 +198,58 @@ OrbitalState kepler_orbital_motion_3d(
     double ar,
     double reference_time)
 {
-    const KeplerGeometry geometry = make_kepler_geometry(w1, w2, w3, szs, ar);
-    if (!geometry.valid) {
+    struct PreparedOrbit {
+        std::array<double, 7> key{};
+        bool initialized = false;
+        bool valid = false;
+        double mean_motion = 0.0, eccentricity = 0.0, t_peri = 0.0;
+        double semi_major_axis = 0.0, minor_axis_factor = 0.0;
+        std::array<double, 3> x_axis{}, y_axis{};
+    };
+    // Only the anomaly changes with time. Exact keys avoid reusing geometry
+    // across model proposals; thread-local storage keeps callers independent.
+    thread_local PreparedOrbit prepared;
+    const std::array<double, 7> key{w1, w2, w3, szs, ar, separation, reference_time};
+    if (!prepared.initialized || prepared.key != key) {
+        const auto geometry = make_kepler_geometry(w1, w2, w3, szs, ar);
+        prepared = PreparedOrbit{};
+        prepared.initialized = true;
+        prepared.key = key;
+        prepared.valid = geometry.valid;
+        if (geometry.valid) {
+            prepared.mean_motion = geometry.mean_motion;
+            prepared.eccentricity = geometry.eccentricity;
+            prepared.x_axis = scale(geometry.x_axis, 1.0 / geometry.x_norm);
+            prepared.y_axis = cross(geometry.z_axis, prepared.x_axis);
+            const double conu = (prepared.x_axis[0] + prepared.x_axis[2]*szs) / geometry.sqsmix;
+            const double cos_e0 = std::clamp((conu + geometry.eccentricity) /
+                (1.0 + geometry.eccentricity*conu), -1.0, 1.0);
+            const double sign = (prepared.y_axis[0] + prepared.y_axis[2]*szs) > 0.0 ? 1.0 : -1.0;
+            const double e0 = std::acos(cos_e0)*sign;
+            const double sin_e0 = safe_sqrt(1.0-cos_e0*cos_e0)*sign;
+            prepared.t_peri = reference_time -
+                (e0-geometry.eccentricity*sin_e0)/geometry.mean_motion;
+            prepared.semi_major_axis = geometry.ar*separation*geometry.sqsmix;
+            prepared.minor_axis_factor = safe_sqrt(1.0-geometry.eccentricity*geometry.eccentricity);
+        }
+    }
+    if (!prepared.valid) {
         const double nan = std::numeric_limits<double>::quiet_NaN();
         return {nan, nan, nan};
     }
-    ar = geometry.ar;
-    const double smix = geometry.smix;
-    const double sqsmix = geometry.sqsmix;
-    const double mean_motion = geometry.mean_motion;
-    auto x_axis = scale(geometry.x_axis, 1.0 / geometry.x_norm);
-    const double eccentricity = geometry.eccentricity;
-    const auto& z_axis = geometry.z_axis;
-    const auto y_axis = cross(z_axis, x_axis);
-
-    const double conu = (x_axis[0] + x_axis[2] * szs) / sqsmix;
-    const double cos_e0 = std::clamp((conu + eccentricity) /
-                                         (1.0 + eccentricity * conu),
-        -1.0,
-        1.0);
-    const double sign = (y_axis[0] + y_axis[2] * szs) > 0.0 ? 1.0 : -1.0;
-    const double e0 = std::acos(cos_e0) * sign;
-    const double sin_e0 = safe_sqrt(1.0 - cos_e0 * cos_e0) * sign;
-    const double t_peri = reference_time - (e0 - eccentricity * sin_e0) / mean_motion;
-    const double semi_major_axis = ar * separation * sqsmix;
+    const double mean_motion = prepared.mean_motion;
+    const double eccentricity = prepared.eccentricity;
+    const double t_peri = prepared.t_peri;
+    const double semi_major_axis = prepared.semi_major_axis;
+    const auto& x_axis = prepared.x_axis;
+    const auto& y_axis = prepared.y_axis;
 
     const double mean_anomaly = mean_motion * (time - t_peri);
     const double eccentric_anomaly = solve_kepler_newton(mean_anomaly, eccentricity);
     const double cos_e = std::cos(eccentric_anomaly);
     const double sin_e = std::sin(eccentric_anomaly);
     const double r0 = semi_major_axis * (cos_e - eccentricity);
-    const double r1 = semi_major_axis * safe_sqrt(1.0 - eccentricity * eccentricity) * sin_e;
+    const double r1 = semi_major_axis * prepared.minor_axis_factor * sin_e;
 
     const double x0 = r0 * x_axis[0] + r1 * y_axis[0];
     const double x1 = r0 * x_axis[1] + r1 * y_axis[1];

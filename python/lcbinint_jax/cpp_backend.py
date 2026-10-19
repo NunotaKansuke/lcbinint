@@ -60,9 +60,9 @@ _FFI_BINARY_ROUTING_DIAGNOSTICS_BATCH_TARGET = (
     "lcbinint_jax_binary_routing_diagnostics_batch_f64_v1"
 )
 _FFI_POLAR_EPOCH_TARGET = "lcbinint_jax_polar_epoch_f64_v1"
-_FFI_ALGEBRAIC_BOUNDARY_BATCH_TARGET = "lcbinint_jax_algebraic_boundary_batch_f64_v1"
+_FFI_ALGEBRAIC_BOUNDARY_BATCH_TARGET = "lcbinint_jax_algebraic_boundary_batch_f64_v2"
 _FFI_ALGEBRAIC_BOUNDARY_BATCH_JACOBIAN_TARGET = (
-    "lcbinint_jax_algebraic_boundary_batch_jacobian_f64_v1"
+    "lcbinint_jax_algebraic_boundary_batch_jacobian_f64_v2"
 )
 _FFI_POLAR_EPOCH_JACOBIAN_TARGET = "lcbinint_jax_polar_epoch_jacobian_f64_v1"
 _FFI_POLAR_EPOCH_DIRECTIONAL_TARGET = (
@@ -556,7 +556,7 @@ def binary_algebraic_boundary_batch_ffi(
     relative_tolerance=1.0e-3,
     return_info=False,
 ):
-    """Evaluate one static-binary curve through the CPU algebraic kernel.
+    """Evaluate a binary curve with scalar or epoch-dependent separation.
 
     The custom JVP sends values and their analytic boundary Jacobian through
     the same value/Jacobian ABI used by the ordinary ``jax.grad`` API.  There
@@ -588,8 +588,10 @@ def binary_algebraic_boundary_batch_ffi(
         jnp.asarray(value, dtype=jnp.float64)
         for value in (separation, mass_ratio, source_radius)
     )
-    if any(value.ndim != 0 for value in scalars):
-        raise ValueError("separation, mass_ratio and source_radius must be scalars")
+    if scalars[0].ndim != 0 and scalars[0].shape != source_x.shape:
+        raise ValueError("separation must be scalar or match the source vectors")
+    if any(value.ndim != 0 for value in scalars[1:]):
+        raise ValueError("mass_ratio and source_radius must be scalars")
     _register_algebraic_boundary_batch_ffi()
     result = _algebraic_boundary_batch_transformable(
         limb_c,

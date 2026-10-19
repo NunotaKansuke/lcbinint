@@ -4,7 +4,7 @@
 
 > VBMicrolensing correspondence: [AccuracyControl.md](https://github.com/valboz/VBMicrolensing/blob/main/docs/python/AccuracyControl.md). The `s=0.8`, `q=0.1`, source-position, source-radius, and tolerance examples are retained.
 
-On this branch, a static single-source binary `LightCurve` defaults to the
+A single-source binary `LightCurve` defaults to the
 algebraic-boundary backend. The standard router examples below set
 `finite_source_backend="default"` explicitly; this is required when testing
 its point-source, hexadecapole, Cartesian, or polar choices. Low-level
@@ -92,6 +92,38 @@ include those details. Both modes apply the same numerical settings and retain
 the convergence and support fields above. No JAX setting or warmup is needed
 for this default path.
 
+## Lens orbital motion
+
+The default single-source binary route accepts `orbital_motion="circular"`
+or `"kepler"`, with `t_ref` set on `LightCurve`. Pass `g1`, `g2`, `g3` and,
+for Kepler orbits, `lom_szs` and `lom_ar` in the parameter mapping.
+`t_ref=0` follows `t0`, matching the existing native reference-time convention. Annual,
+terrestrial and satellite parallax use the existing trajectory implementation.
+Xallarap and binary sources retain the standard router.
+
+The ordinary native call evaluates the orbit and lens-frame source at each
+input time within one C++ call. It retains the point/hex/integral selector,
+validated root continuation, analytic caustic strip, and continuous caustic
+cover. An analytic radial caustic bound can certify distant sources. A parameter-interval
+Rouché bound can reuse the continuous cover over a proved range of separations;
+failure retains the exact-separation fallback. Unsorted dynamic input is
+processed in an order that reuses geometry, then restored to input order. Nearby
+sources retain the existing geometry checks and topology guards.
+
+With `with_gradient=True`, the fused native pass computes the five local
+lens derivatives once. A cached JAX trajectory Jacobian maps them to model
+parameters without repeating lens integration. Static curves keep their fixed
+seven columns. Dynamic curves return those seven columns followed by additional
+supplied parameters; read `gradient_parameters` for their names. This mapping
+requires JAX with float64 enabled. Limb-darkening derivatives remain uncertified.
+
+For HMC, `jax.jit(jax.value_and_grad(loss))` can compose the same public call
+with the likelihood. The FFI accepts scalar separation or a vector matching
+the source epochs; its custom JVP propagates each epoch's separation tangent,
+and reverse mode accumulates the model-parameter gradient. Compilation is a
+one-time cost per shape. The native `with_gradient` call returns a full
+per-epoch Jacobian, whereas a scalar likelihood can use reverse mode directly.
+
 ## Evaluation modes
 
 A finite-source light curve can move between several methods from epoch to
@@ -99,7 +131,7 @@ epoch:
 
 | Reported method | Meaning |
 | --- | --- |
-| `algebraic_boundary` | Integrates the supported static binary finite-source curve over the image boundary. |
+| `algebraic_boundary` | Integrates the supported binary finite-source curve over the image boundary. |
 | `point_source` | Source size is safely negligible at this position. |
 | `hexadecapole` | A fourth-order finite-source expansion is locally safe. |
 | `source_plane_quadrature` | The source disk is integrated in the source plane. |
@@ -153,7 +185,7 @@ useful for reproducibility experiments and is also one-shot.
 | `caustic_bins` | Sampling for detailed caustic fallback geometry and visualization. | Leave at the default for calculations. |
 | `hex_tol` | Fourth-order self-consistency threshold. | Leave at the default unless validating method selection. |
 | `point_source_threshold` | Geometric point-source safety margin. | Advanced validation only. |
-| `finite_source_backend` | Select the model-appropriate default or explicitly request the standard router (`"default"`). | Algebraic boundary for supported static binary curves. |
+| `finite_source_backend` | Select the model-appropriate default or explicitly request the standard router (`"default"`). | Algebraic boundary for supported binary curves. |
 
 ## Inspect the selected method
 

@@ -315,6 +315,31 @@ std::vector<lcbinint::model::MagnificationExecutionPlan> execution_plan_from(
     return plan;
 }
 
+std::vector<std::size_t> orbital_epoch_order(
+    const lcbinint::lc::LightCurve& lc, const std::vector<double>& times)
+{
+    if (lc.orbital_motion() == LCBI_ORBIT_STATIC ||
+        std::is_sorted(times.begin(), times.end())) return {};
+    std::vector<std::size_t> order(times.size());
+    for (std::size_t i = 0; i < order.size(); ++i) order[i] = i;
+    std::stable_sort(order.begin(), order.end(), [&](auto lhs, auto rhs) {
+        return times[lhs] < times[rhs];
+    });
+    return order;
+}
+
+template <typename T>
+void restore_epoch_order(std::vector<T>& values,
+    const std::vector<std::size_t>& order, std::size_t stride = 1)
+{
+    if (order.empty() || values.empty()) return;
+    std::vector<T> restored(values.size());
+    for (std::size_t i = 0; i < order.size(); ++i)
+        for (std::size_t j = 0; j < stride; ++j)
+            restored[order[i]*stride+j] = std::move(values[i*stride+j]);
+    values = std::move(restored);
+}
+
 std::vector<lcbinint::model::MagnificationExecutionPlan> algebraic_boundary_execution_plan(
     std::size_t count, double mu_atol, double mu_rtol)
 {
@@ -352,6 +377,7 @@ py::dict compute_algebraic_boundary_diagnostic(
     bool with_diagnostics)
 {
     const auto tv = times_from_array(times);
+    const auto order = orbital_epoch_order(lc, tv);
     const auto plan = algebraic_boundary_execution_plan(tv.size(), mu_atol, mu_rtol);
     using Method = lcbinint::magnification::FiniteSourceMethod;
     if (!with_diagnostics) {
@@ -376,8 +402,9 @@ py::dict compute_algebraic_boundary_diagnostic(
         auto* methods_data = methods.mutable_data();
         {
             py::gil_scoped_release release;
-            for (std::size_t i = 0; i < count; ++i) {
-                const auto result = model.magnification(tv[i], plan[i]);
+            for (std::size_t position = 0; position < count; ++position) {
+                const auto i = order.empty() ? position : order[position];
+                const auto result = model.magnification(tv[i], plan[position]);
                 const bool integral = result.finite_source_method ==
                     static_cast<int>(Method::algebraic_boundary);
                 const bool converged = result.status == lcbinint::EvaluationStatus::ok &&
@@ -409,7 +436,12 @@ py::dict compute_algebraic_boundary_diagnostic(
     std::vector<double> epoch_seconds;
     {
         py::gil_scoped_release release;
-        results = lc.evaluate_preplanned_diagnostic(tv, params, plan, &epoch_seconds);
+        auto ordered_times = tv;
+        if (!order.empty())
+            for (std::size_t i = 0; i < order.size(); ++i) ordered_times[i] = tv[order[i]];
+        results = lc.evaluate_preplanned_diagnostic(ordered_times, params, plan, &epoch_seconds);
+        restore_epoch_order(results, order);
+        restore_epoch_order(epoch_seconds, order);
     }
     std::vector<double> magnifications, point_source_magnifications, errors;
     std::vector<int> converged, value_converged, support_certified;
@@ -417,6 +449,7 @@ py::dict compute_algebraic_boundary_diagnostic(
     std::vector<int> center_image_count, augmented_seed_count, node_evaluations;
     std::vector<int> methods, safety_flags;
     std::vector<double> caustic_distances;
+    std::vector<double> source_x, source_y;
     std::vector<std::string> method_names, stops;
     const auto count = results.size();
     magnifications.reserve(count); point_source_magnifications.reserve(count);
@@ -429,6 +462,8 @@ py::dict compute_algebraic_boundary_diagnostic(
     for (const auto& result : results) {
         const double estimate = std::isfinite(result.magnification)
             ? result.magnification : result.finite_source_magnification;
+        source_x.push_back(result.source.x);
+        source_y.push_back(result.source.y);
         magnifications.push_back(estimate);
         point_source_magnifications.push_back(result.point_source_magnification);
         errors.push_back(result.finite_source_error_estimate);
@@ -456,6 +491,8 @@ py::dict compute_algebraic_boundary_diagnostic(
             ? "not_integrated" : result.finite_source_stop);
     }
     py::dict output;
+    output["source_x"] = vec_to_numpy(std::move(source_x));
+    output["source_y"] = vec_to_numpy(std::move(source_y));
     output["mu"] = vec_to_numpy(std::move(magnifications));
     output["point_source_magnification"] =
         vec_to_numpy(std::move(point_source_magnifications));
@@ -533,6 +570,7 @@ py::dict compute_algebraic_boundary_value_gradient(
 {
     using Method = lcbinint::magnification::FiniteSourceMethod;
     const auto tv = times_from_array(times);
+    const auto order = orbital_epoch_order(lc, tv);
     const auto resolved_params = lc.apply_coords(params);
     const auto geometry = lc.finite_source_geometry(tv, params);
     auto settings = finite_source_settings_from(params, lc.options());
@@ -553,7 +591,8 @@ py::dict compute_algebraic_boundary_value_gradient(
     std::vector<int> center_image_count, augmented_seed_count, node_evaluations;
     std::vector<int> methods, gradient_valid, safety_flags;
     std::vector<double> caustic_distances;
-    std::vector<double> gradients, epoch_seconds;
+    std::vector<double> gradients, local_gradients, epoch_seconds, source_x, source_y;
+    const bool dynamic = lc.orbital_motion() != LCBI_ORBIT_STATIC || lc.model().parallax;
     std::vector<std::string> method_names, stops, gradient_stops;
     const auto count = geometry.size();
     magnifications.reserve(count); point_source_magnifications.reserve(count);
@@ -572,7 +611,8 @@ py::dict compute_algebraic_boundary_value_gradient(
         lc.options().center_of_mass != 0;
     {
         py::gil_scoped_release release;
-        for (std::size_t i = 0; i < count; ++i) {
+        for (std::size_t position = 0; position < count; ++position) {
+            const auto i = order.empty() ? position : order[position];
             const auto started = std::chrono::steady_clock::now();
             lcbinint::magnification::AlgebraicBoundarySettings ad_settings;
             ad_settings.absolute_tolerance = absolute_tolerance;
@@ -589,6 +629,10 @@ py::dict compute_algebraic_boundary_value_gradient(
                 &value,
                 &point_magnification, barycentric, &point);
 
+            source_x.push_back(geometry[i].source.x);
+            source_y.push_back(geometry[i].source.y);
+            local_gradients.insert(local_gradients.end(), jacobian.jacobian.begin(),
+                                   jacobian.jacobian.end());
             const double estimate = value.magnification;
             magnifications.push_back(estimate);
             point_source_magnifications.push_back(point_magnification);
@@ -619,6 +663,14 @@ py::dict compute_algebraic_boundary_value_gradient(
                 candidate_available = candidate_available && std::isfinite(derivative);
             gradient_stops.push_back(jacobian.grad_reliable
                 ? "usable_uncertified" : jacobian.unsafe_reason);
+            if (dynamic) {
+                gradient_valid.push_back(valid && candidate_available ? 1 : 0);
+                if (!candidate_available)
+                    throw std::runtime_error("algebraic_boundary: no finite local derivative candidate");
+                epoch_seconds.push_back(std::chrono::duration<double>(
+                    std::chrono::steady_clock::now() - started).count());
+                continue;
+            }
             const bool vbm = lc.options().vbm_compatible != 0;
             const bool center_of_mass = lc.options().center_of_mass != 0;
             const double t0 = resolved_params.t0;
@@ -686,7 +738,21 @@ py::dict compute_algebraic_boundary_value_gradient(
         }
     }
 
+    for (auto* values : {&magnifications, &point_source_magnifications, &errors,
+                        &epoch_seconds, &source_x, &source_y, &caustic_distances})
+        restore_epoch_order(*values, order);
+    for (auto* values : {&value_converged, &converged, &support_certified,
+                        &frontier_discovery_completed, &seed_support_proven,
+                        &center_image_count, &augmented_seed_count, &node_evaluations,
+                        &methods, &gradient_valid, &safety_flags})
+        restore_epoch_order(*values, order);
+    for (auto* values : {&method_names, &stops, &gradient_stops})
+        restore_epoch_order(*values, order);
+    restore_epoch_order(gradients, order, 7);
+    restore_epoch_order(local_gradients, order, 5);
     py::dict output;
+    output["source_x"] = vec_to_numpy(std::move(source_x));
+    output["source_y"] = vec_to_numpy(std::move(source_y));
     output["mu"] = vec_to_numpy(std::move(magnifications));
     output["point_source_magnification"] =
         vec_to_numpy(std::move(point_source_magnifications));
@@ -708,8 +774,10 @@ py::dict compute_algebraic_boundary_value_gradient(
     output["finite_source_method_name"] = py::cast(std::move(method_names));
     output["stop"] = py::cast(std::move(stops));
     output["seconds"] = vec_to_numpy(std::move(epoch_seconds));
-    output["gradients"] = matrix_to_numpy(
+    if (!dynamic) output["gradients"] = matrix_to_numpy(
         std::move(gradients), static_cast<py::ssize_t>(count), 7);
+    output["local_gradients"] = matrix_to_numpy(
+        std::move(local_gradients), static_cast<py::ssize_t>(count), 5);
     output["gradient_valid"] = vec_to_numpy(std::move(gradient_valid));
     output["gradient_stop"] = py::cast(std::move(gradient_stops));
     output["gradient_precision_checked"] = false;

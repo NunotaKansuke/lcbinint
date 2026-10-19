@@ -48,9 +48,7 @@ def _default_finite_source_backend(native_curve):
     if (
         model.lens == "binary"
         and model.source == "single"
-        and not model.parallax
         and model.xallarap == "none"
-        and native_curve.orbital_motion == "static"
     ):
         return "algebraic_boundary"
     return "default"
@@ -71,7 +69,7 @@ class Options:
     ``jax`` and ``t_lim`` deliberately live outside ``lcbi_options`` so these
     controls do not change the layout of the public C ABI structure.
     ``finite_source_backend=None`` selects the backend after the model
-    is known: static single-source binary curves use algebraic boundary, while
+    is known: single-source binary curves use algebraic boundary, while
     models outside that backend's support keep the standard router. Pass
     ``'default'`` explicitly to request the standard router for a binary curve.
     """
@@ -201,7 +199,7 @@ class LightCurveInfo:
     return NaN-filled numerical results. ``gradient_valid`` is diagnostic and
     never replaces a candidate with zero or ``None``. Detailed backend
     diagnostics are included only when requested with ``with_diagnostics=True``.
-    Supported eager static binary calls use the algebraic-boundary value path
+    Supported eager binary calls use the algebraic-boundary value path
     and its forward-mode Jacobian. A false validity flag means the candidate
     is not certified to the requested gradient accuracy.
 
@@ -739,9 +737,9 @@ class LightCurve:
             raise ValueError(
                 "finite_source_backend='algebraic_boundary' requires a single-source binary lens"
             )
-        if model.parallax or model.xallarap != "none" or self._native.orbital_motion != "static":
+        if model.xallarap != "none":
             raise ValueError(
-                "finite_source_backend='algebraic_boundary' requires a static binary trajectory"
+                "finite_source_backend='algebraic_boundary' does not support xallarap"
             )
 
     def _evaluate_values(
@@ -1100,6 +1098,59 @@ class LightCurve:
             values = np.where(np.isfinite(candidate), candidate, values)
         return values
 
+    def _map_algebraic_trajectory_gradients(self, times, merged, diagnostics):
+        """Contract the fused local lens Jacobian with the trajectory Jacobian."""
+        import jax
+        import jax.numpy as jnp
+        import numpy as np
+        from .jax_backend import _PARAMETER_ALIASES, _lens_frame_geometry, _value
+        from lcbinint_jax._config import require_x64
+
+        require_x64()
+
+        parameters = {_PARAMETER_ALIASES.get(k, k): v for k, v in merged.items()}
+        core = ("t0", "u0", "tE", "alpha", "rho", "q", "s")
+        extra = tuple(k for k in parameters if k not in core and k != "orbital_motion_mode")
+        names = core + extra
+        unsupported = {"limb_darkening_c", "limb_darkening_d"} & set(names)
+        active = tuple(k for k in names if k not in unsupported)
+        initial = jnp.asarray(
+            [parameters[k] if k in parameters else _value(parameters, k) for k in active],
+            dtype=jnp.float64,
+        )
+        epochs = jnp.atleast_1d(jnp.asarray(times, dtype=jnp.float64))
+
+        def geometry(vector, epochs):
+            p = dict(parameters, **dict(zip(active, vector)))
+            x, y, separation = _lens_frame_geometry(self._native, epochs, p, self._options)
+            q = _value(p, "q")
+            if self._options.param_type in ("vbm", "vbm_center_of_mass"):
+                q = 1.0 / q
+            x, y, rho, q, separation = jnp.broadcast_arrays(
+                x, y, jnp.abs(_value(p, "rho")), q, separation
+            )
+            return jnp.stack((x, y, rho, q, separation), axis=-1)
+
+        cache_key = active
+        cached = getattr(self, "_algebraic_trajectory_jacobian", None)
+        if cached is None or cached[0] != cache_key:
+            cached = (cache_key, jax.jit(jax.jacfwd(geometry, argnums=0)))
+            self._algebraic_trajectory_jacobian = cached
+        transform = np.asarray(cached[1](initial, epochs))
+        local = np.asarray(diagnostics["local_gradients"])
+        mapped = np.einsum("ni,nip->np", local, transform)
+        gradients = np.full((len(epochs), len(names)), np.nan)
+        for i, name in enumerate(active):
+            gradients[:, names.index(name)] = mapped[:, i]
+        if unsupported:
+            gradients = self._fill_missing_gradient_candidates(
+                times, merged, names, gradients,
+                force_columns=(names.index(k) for k in unsupported),
+            )
+        valid = np.asarray(diagnostics["gradient_valid"], dtype=bool).reshape(-1)
+        valid = valid & np.all(np.isfinite(gradients), axis=1) & (not unsupported)
+        return names, gradients, valid
+
     def _evaluate_algebraic_boundary_gradients(
         self, times, merged, eligible, diagnostics=None
     ):
@@ -1424,10 +1475,14 @@ class LightCurve:
         epoch; ``gradient_valid`` separately reports whether that candidate
         passed the backend's reliability checks. The derivative implementation
         follows the selected backend. The algebraic_boundary backend returns
-        (t0, u0, tE, alpha, rho, q, s), independently of the input mapping order
-        or Parameters container; LD-coefficient derivatives are not included.
+        (t0, u0, tE, alpha, rho, q, s) for static curves. Dynamic curves append
+        additional supplied parameters; inspect gradient_parameters.
+        LD-coefficient derivatives are not certified.
         """
         merged = self._merge_params(params, **kwargs)
+        dynamic_algebraic = (
+            self._native.orbital_motion != "static" or self._native.model.parallax
+        )
         native_algebraic_gradient = (
             with_gradient
             and self._options.finite_source_backend == "algebraic_boundary"
@@ -1446,6 +1501,17 @@ class LightCurve:
             if not with_diagnostics:
                 return None
             return result.diagnostics
+
+        if (native_algebraic_gradient and dynamic_algebraic
+                and isinstance(result.diagnostics, dict)
+                and "local_gradients" in result.diagnostics):
+            names, gradients, valid = self._map_algebraic_trajectory_gradients(
+                times, merged, result.diagnostics
+            )
+            return replace(
+                result, gradients=gradients, gradient_valid=valid,
+                gradient_parameters=names, diagnostics=output_diagnostics(),
+            )
 
         core_gradient_parameters = ("t0", "u0", "tE", "alpha", "rho", "q", "s")
         if (

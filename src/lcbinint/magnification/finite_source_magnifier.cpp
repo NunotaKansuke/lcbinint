@@ -1448,26 +1448,6 @@ std::vector<SourcePosition> caustic_points_at_phase(
     return points;
 }
 
-std::vector<SourcePosition> critical_curve_points_at_phase(
-    double separation,
-    double mass_ratio,
-    double phase_angle)
-{
-    const Complex phase = std::polar(1.0, phase_angle);
-    math::PolynomialRootSolver solver;
-    const auto roots = solver.solve(critical_curve_polynomial_coefficients(separation, mass_ratio, phase));
-    if (roots.status != math::RootSolverStatus::ok) {
-        return {};
-    }
-
-    std::vector<SourcePosition> points;
-    points.reserve(roots.roots.size());
-    for (const auto& root : roots.roots) {
-        points.push_back({root.real(), root.imag()});
-    }
-    return points;
-}
-
 void append_tracked_caustic_points(
     std::vector<std::vector<SourcePosition>>& branches,
     std::vector<SourcePosition> points)
@@ -1490,6 +1470,24 @@ void append_tracked_caustic_points(
     if (n == 4) {
         // Binary phase tracking is the 1400-step preparation hot path. Keep
         // its exact minimum-cost assignment, with stack permutation storage.
+        std::array<int, 4> nearest{};
+        unsigned used = 0;
+        bool distinct = true;
+        for (int i = 0; i < 4; ++i) {
+            double closest = std::numeric_limits<double>::infinity();
+            for (int j = 0; j < 4; ++j) {
+                const double cost = distance_squared(branches[i].back(), points[j]);
+                if (cost < closest) { closest = cost; nearest[i] = j; }
+            }
+            const unsigned bit = 1u << nearest[i];
+            if (used & bit) distinct = false;
+            used |= bit;
+        }
+        // Distinct row minima attain the assignment's global lower bound.
+        if (distinct) {
+            for (int i = 0; i < 4; ++i) branches[i].push_back(points[nearest[i]]);
+            return;
+        }
         std::array<int, 4> perm {0, 1, 2, 3}, best_perm = perm;
         double best_cost = std::numeric_limits<double>::infinity();
         do {
@@ -1579,19 +1577,116 @@ std::vector<std::vector<SourcePosition>> merge_tracked_phase_branches(
     return curves;
 }
 
-std::vector<std::vector<SourcePosition>> build_binary_critical_curves(
-    double separation,
-    double mass_ratio,
-    int bins)
+bool continue_critical_roots(const std::vector<Complex>& c, std::vector<Complex>& roots)
 {
+    constexpr double tolerance = 128.0*std::numeric_limits<double>::epsilon();
+    std::array<double, 5> coefficient_sizes;
+    for (int j = 0; j < 5; ++j) coefficient_sizes[j] = std::abs(c[j]);
+    for (auto& z : roots) {
+        bool converged = false;
+        for (int iteration = 0; iteration < 8; ++iteration) {
+            Complex value = c[4], derivative = 0.0;
+            for (int j = 3; j >= 0; --j) {
+                derivative = derivative*z + value;
+                value = value*z + c[j];
+            }
+            const double z_size = std::abs(z);
+            double scale = coefficient_sizes[4];
+            for (int j = 3; j >= 0; --j) scale = scale*z_size+coefficient_sizes[j];
+            if (std::abs(value) <= tolerance*scale) { converged = true; break; }
+            if (!(std::abs(derivative) > 0.0)) break;
+            const double denominator = std::norm(derivative);
+            if (!(denominator > 0.0 && std::isfinite(denominator))) return false;
+            z -= Complex((value.real()*derivative.real()+value.imag()*derivative.imag())/denominator,
+                         (value.imag()*derivative.real()-value.real()*derivative.imag())/denominator);
+            if (!std::isfinite(z.real()) || !std::isfinite(z.imag())) break;
+        }
+        if (!converged) return false;
+    }
+    // Small individual residuals alone do not exclude duplicate roots.
+    // Reconstruct the complete quartic before accepting continuation.
+    std::array<Complex, 5> reconstructed{};
+    std::array<double, 5> envelope{};
+    reconstructed[0] = c[4]; envelope[0] = std::abs(c[4]);
+    int degree = 0;
+    for (const auto z : roots) {
+        const double z_size = std::abs(z);
+        for (int j = degree+1; j >= 0; --j) {
+            reconstructed[j] = (j > 0 ? reconstructed[j-1] : Complex{}) -
+                (j <= degree ? z*reconstructed[j] : Complex{});
+            envelope[j] = (j > 0 ? envelope[j-1] : 0.0) +
+                (j <= degree ? z_size*envelope[j] : 0.0);
+        }
+        ++degree;
+    }
+    for (int j = 0; j < 5; ++j)
+        if (!(std::abs(reconstructed[j]-c[j]) <=
+              tolerance*(std::abs(c[j])+envelope[j]))) return false;
+    return true;
+}
+
+std::vector<std::vector<SourcePosition>> build_binary_critical_curves(
+    double separation, double mass_ratio, int bins)
+{
+    struct PhaseRoots {
+        double separation = 0.0, mass_ratio = 0.0;
+        int bins = 0;
+        std::vector<std::vector<Complex>> roots;
+        std::vector<std::array<std::array<Complex, 4>, 4>> predictors;
+    };
+    thread_local PhaseRoots previous;
+    const bool warm = previous.bins == bins && previous.mass_ratio == mass_ratio &&
+        std::abs(separation-previous.separation) < 0.001*std::abs(separation);
+    if (!warm) {
+        previous.roots.assign(bins/2+1, {});
+        previous.predictors.resize(bins/2+1);
+    }
+    const double sign = std::abs(mass_ratio) < 1.0 ? -1.0 : 1.0;
+    const double delta = sign*(std::abs(separation)-std::abs(previous.separation));
+    const double a = sign*std::abs(separation);
+    const double q = std::min(std::abs(mass_ratio),1.0/std::abs(mass_ratio));
+    const double m1 = 1.0/(1.0+q), m2 = q*m1;
+    math::PolynomialRootSolver solver;
+    for (int i = 0; i <= bins/2; ++i) {
+        const Complex phase = std::polar(1.0, 2.0*kPi*i/bins);
+        const auto coefficients = critical_curve_polynomial_coefficients(separation, mass_ratio, phase);
+        auto& roots = previous.roots[i];
+        if (warm) {
+            roots.resize(4);
+            for (int j = 0; j < 4; ++j) {
+                const auto& c = previous.predictors[i][j];
+                roots[j] = ((c[3]*delta+c[2])*delta+c[1])*delta+c[0];
+            }
+        }
+        if (!warm || !continue_critical_roots(coefficients, roots))
+            roots = solver.solve(coefficients).roots;
+        if (!warm && roots.size() == 4) for (int j = 0; j < 4; ++j) {
+            const auto z = roots[j], u = z-a, h = m2-phase*z*z;
+            const auto hz = -2.0*phase*z, hzz = -2.0*phase;
+            const auto pz = hz*u*u+2.0*h*u+2.0*m1*z;
+            const auto pzz = hzz*u*u+4.0*hz*u+2.0*h+2.0*m1;
+            const auto pza = -2.0*hz*u-2.0*h;
+            const auto first = 2.0*h*u/pz;
+            const auto second = -(pzz*first*first+2.0*pza*first+2.0*h)/pz;
+            const auto third = -((6.0*hzz*u+6.0*hz)*first*first*first +
+                3.0*(-2.0*hzz*u-4.0*hz)*first*first+6.0*hz*first +
+                3.0*(pzz*first+pza)*second)/pz;
+            previous.predictors[i][j] = {z,first,second/2.0,third/6.0};
+        }
+    }
+    // Predictors are only starting points. Every epoch still checks residuals
+    // and the full reconstructed polynomial, with a cold-solve fallback.
+    if (!warm) {
+        previous.separation = separation; previous.mass_ratio = mass_ratio; previous.bins = bins;
+    }
     std::vector<std::vector<SourcePosition>> branches(4);
     for (auto& branch : branches) branch.reserve(bins);
     for (int i = 0; i < bins; ++i) {
-        const double phase_angle = 2.0 * kPi * static_cast<double>(i) /
-                                   static_cast<double>(bins);
-        append_tracked_caustic_points(
-            branches,
-            critical_curve_points_at_phase(separation, mass_ratio, phase_angle));
+        const bool reflected = i > bins/2;
+        const auto& roots = previous.roots[reflected ? bins-i : i];
+        std::vector<SourcePosition> points; points.reserve(4);
+        for (const auto z : roots) points.push_back({z.real(), reflected ? -z.imag() : z.imag()});
+        append_tracked_caustic_points(branches, std::move(points));
     }
     return merge_tracked_phase_branches(std::move(branches));
 }
@@ -6786,6 +6881,8 @@ void FiniteSourceMagnifier::clear_binary_epoch_caches() const
 {
     algebraic_boundary::source_disk_detail::clear_epoch_cache();
     caustic_enclosure_attempted_ = false;
+    caustic_enclosure_half_width_ = 0.0;
+    caustic_interval_disabled_ = false;
     caustic_clearance_witness_ = 0.0;
     caustic_enclosure_.clear();
     caustic_cache_valid_ = false;
@@ -6798,20 +6895,46 @@ void FiniteSourceMagnifier::clear_binary_epoch_caches() const
     result_cache_valid_ = false;
 }
 
-double FiniteSourceMagnifier::binary_caustic_clearance_lower_bound(
-    double separation, double mass_ratio, SourcePosition source) const
+bool FiniteSourceMagnifier::binary_caustic_enclosure_matches(
+    double separation, double mass_ratio) const
 {
-    if (!caustic_enclosure_attempted_ ||
-        caustic_enclosure_separation_ != separation ||
-        caustic_enclosure_mass_ratio_ != mass_ratio) {
-        caustic_enclosure_ = detail::build_binary_caustic_enclosure(separation, mass_ratio);
+    if (!caustic_enclosure_attempted_ || caustic_enclosure_mass_ratio_ != mass_ratio)
+        return false;
+    if (separation == caustic_enclosure_separation_) return true;
+    const double roundoff = 256.0*std::numeric_limits<double>::epsilon()*
+        (1.0+std::abs(separation)+std::abs(caustic_enclosure_separation_));
+    return std::abs(separation-caustic_enclosure_separation_)+roundoff <=
+        caustic_enclosure_half_width_;
+}
+
+double FiniteSourceMagnifier::binary_caustic_clearance_lower_bound(
+    double separation, double mass_ratio, SourcePosition source,
+    double separation_half_width, double* enclosure_clearance) const
+{
+    if (!binary_caustic_enclosure_matches(separation, mass_ratio)) {
+        const bool moving = caustic_enclosure_attempted_ &&
+            caustic_enclosure_mass_ratio_ == mass_ratio &&
+            caustic_enclosure_separation_ != separation;
+        const double width = moving && !caustic_interval_disabled_
+            ? std::min(separation_half_width, 0.001*std::abs(separation)) : 0.0;
+        caustic_enclosure_ = detail::build_binary_caustic_enclosure(
+            separation, mass_ratio, 4, 32, width);
+        caustic_enclosure_half_width_ = width;
+        if (width > 0.0 && caustic_enclosure_.empty()) {
+            // A failed interval proof must not be retried at every epoch.
+            // Keep exact-geometry fallback until this evaluation is reset.
+            caustic_interval_disabled_ = true;
+            caustic_enclosure_half_width_ = 0.0;
+            caustic_enclosure_ = detail::build_binary_caustic_enclosure(separation, mass_ratio);
+        }
         caustic_clearance_witness_ = 0.0;
         caustic_enclosure_attempted_ = true;
         caustic_enclosure_separation_ = separation;
         caustic_enclosure_mass_ratio_ = mass_ratio;
     }
-    return std::max(detail::binary_caustic_strip_clearance(separation, mass_ratio, source),
-        detail::binary_caustic_enclosure_clearance(caustic_enclosure_, source));
+    const double enclosed = detail::binary_caustic_enclosure_clearance(caustic_enclosure_, source);
+    if (enclosure_clearance != nullptr) *enclosure_clearance = enclosed;
+    return std::max(detail::binary_caustic_strip_clearance(separation, mass_ratio, source), enclosed);
 }
 
 bool FiniteSourceMagnifier::binary_point_topology_clearance(
@@ -6825,11 +6948,11 @@ bool FiniteSourceMagnifier::binary_point_topology_clearance(
     // the strict (maximum 30x) derivative bound. The continuous enclosure must
     // clear both the normal 10-rho topology release and the hex-distance gate.
     const double required = std::max(10.0, settings_.hex_threshold)*source_radius;
-    if (detail::binary_caustic_strip_clearance(separation, mass_ratio, source) > required) {
+    if (detail::binary_caustic_strip_clearance(separation, mass_ratio, source) > required ||
+        detail::binary_caustic_radial_clearance(separation, mass_ratio, source) > required) {
         return true;
     }
-    if (caustic_enclosure_attempted_ && caustic_enclosure_separation_ == separation &&
-        caustic_enclosure_mass_ratio_ == mass_ratio) {
+    if (binary_caustic_enclosure_matches(separation, mass_ratio)) {
         // Distance to a fixed set is 1-Lipschitz. A previous proved clearance
         // certifies a ball of nearby sources without revisiting every disk.
         const double roundoff = 256.0*std::numeric_limits<double>::epsilon()*
@@ -6841,9 +6964,11 @@ bool FiniteSourceMagnifier::binary_point_topology_clearance(
             std::hypot(source.x-caustic_clearance_source_.x,
                        source.y-caustic_clearance_source_.y) < available) return true;
     }
-    const double clearance = binary_caustic_clearance_lower_bound(separation, mass_ratio, source);
+    double enclosure_clearance = 0.0;
+    const double clearance = binary_caustic_clearance_lower_bound(
+        separation, mass_ratio, source, 0.25*source_radius, &enclosure_clearance);
     caustic_clearance_source_ = source;
-    caustic_clearance_witness_ = clearance;
+    caustic_clearance_witness_ = enclosure_clearance;
     return clearance > required;
 }
 
@@ -6919,8 +7044,9 @@ void FiniteSourceMagnifier::ensure_binary_caustic_cache(
         const double height = std::max(caustic_cache_max_y_ - caustic_cache_min_y_, 1.0e-12);
         caustic_cache_grid_step_x_ = width / static_cast<double>(caustic_cache_grid_size_);
         caustic_cache_grid_step_y_ = height / static_cast<double>(caustic_cache_grid_size_);
-        caustic_cache_grid_.assign(
-            static_cast<std::size_t>(caustic_cache_grid_size_ * caustic_cache_grid_size_), {});
+        caustic_cache_grid_.resize(
+            static_cast<std::size_t>(caustic_cache_grid_size_ * caustic_cache_grid_size_));
+        for (auto& cell : caustic_cache_grid_) cell.clear();
         for (std::size_t i = 0; i < caustic_cache_points_.size(); ++i) {
             const auto& point = caustic_cache_points_[i];
             const int ix = std::clamp(static_cast<int>((point.x - caustic_cache_min_x_) /
@@ -6935,8 +7061,9 @@ void FiniteSourceMagnifier::ensure_binary_caustic_cache(
                 .push_back(static_cast<int>(i));
         }
         // Build branch-position grid for fast per-segment distance queries.
-        caustic_cache_branch_grid_.assign(
-            static_cast<std::size_t>(caustic_cache_grid_size_ * caustic_cache_grid_size_), {});
+        caustic_cache_branch_grid_.resize(
+            static_cast<std::size_t>(caustic_cache_grid_size_ * caustic_cache_grid_size_));
+        for (auto& cell : caustic_cache_branch_grid_) cell.clear();
         // max_seg_len is used as a safety margin when bounding the grid search
         // radius in binary_caustic_distance. The monodromy reconstruction makes
         // every branch a physical closed curve, including its last-to-first
