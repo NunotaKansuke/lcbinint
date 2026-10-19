@@ -133,11 +133,13 @@ def test_parallax_requires_explicit_model_flag():
     """piE parameters do not silently activate parallax physics."""
     times = np.array([_T0PAR + 1.0, _T0PAR + 10.0])
     inactive = lcbinint.LightCurve()
-    with_pie = inactive.info(times, _PARAMS_BASE)
-    without_pie = inactive.info(times, {**_PARAMS_BASE, "piEN": 0.0, "piEE": 0.0})
+    with_pie = inactive.source_trajectory(times, _PARAMS_BASE)
+    without_pie = inactive.source_trajectory(
+        times, {**_PARAMS_BASE, "piEN": 0.0, "piEE": 0.0}
+    )
 
-    np.testing.assert_array_equal(with_pie.source_x, without_pie.source_x)
-    np.testing.assert_array_equal(with_pie.source_y, without_pie.source_y)
+    np.testing.assert_array_equal(with_pie.x, without_pie.x)
+    np.testing.assert_array_equal(with_pie.y, without_pie.y)
 
 
 def test_equator_greenwich_is_a_real_observatory():

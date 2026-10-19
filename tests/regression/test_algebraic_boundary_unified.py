@@ -197,3 +197,140 @@ def test_smooth_contact_repair_preserves_q_and_radius_derivatives():
         minus = strict([.076], dict(params, **{name: params[name] - step}))
         reference = (plus.magnifications[0] - minus.magnifications[0]) / (2*step)
         assert result.gradients[0, ORDER.index(name)] == pytest.approx(reference, rel=3e-5)
+
+
+@pytest.mark.parametrize("with_gradient", [False, True])
+def test_ordinary_api_selects_the_algebraic_boundary_controller(with_gradient):
+    params = dict(t0=0.0, u0=0.03, tE=1.0, alpha=-0.08, rho=0.003, q=0.01, s=1.2)
+    times = np.array([0.0, 0.1])
+    automatic = lc.LightCurve(options=lc.Options(nbin="auto"))
+    explicit = curve()
+    assert automatic.options.finite_source_backend == "algebraic_boundary"
+    actual = automatic(
+        times, params, with_gradient=with_gradient, with_diagnostics=True
+    )
+    expected = explicit(
+        times, params, with_gradient=with_gradient, with_diagnostics=True
+    )
+    np.testing.assert_array_equal(actual.magnifications, expected.magnifications)
+    assert (
+        "seeded_radial_frontier_nested_fejer"
+        in actual.diagnostics["integrator_backend"]
+    )
+    if with_gradient:
+        np.testing.assert_array_equal(actual.gradients, expected.gradients)
+        np.testing.assert_array_equal(actual.gradient_valid, expected.gradient_valid)
+
+
+@pytest.mark.parametrize(
+    "parameters,t0",
+    [
+        ({"t0": -2.0, "t_0": 1.0}, 1.0),
+        ({"t_0": 1.0, "t0": -2.0}, -2.0),
+    ],
+)
+def test_default_backend_preserves_parameter_alias_order(parameters, t0):
+    model = lc.LightCurve()
+    params = dict(u0=0.03, tE=1.0, alpha=-0.08, rho=0.003, q=0.01, s=1.2)
+    actual = model([-0.1, 0.1], dict(params, **parameters), with_gradient=True)
+    expected = model([-0.1, 0.1], dict(params, t0=t0), with_gradient=True)
+    np.testing.assert_array_equal(actual.magnifications, expected.magnifications)
+    np.testing.assert_array_equal(actual.gradients, expected.gradients)
+
+
+def test_default_backend_jit_matches_native_values_and_tangents():
+    jax = pytest.importorskip("jax")
+    import jax.numpy as jnp
+
+    jax.config.update("jax_enable_x64", True)
+    model = lc.LightCurve()
+    params = dict(t0=0.0, u0=0.03, tE=1.0, alpha=-0.08, rho=0.003, q=0.01, s=1.2)
+    times = jnp.array([-0.05, 0.0, 0.1])
+    native = model(np.asarray(times), params, with_gradient=True)
+
+    def values(u0):
+        return model(times, dict(params, u0=u0)).magnifications
+
+    actual, derivative = jax.jit(
+        lambda u0: jax.jvp(values, (u0,), (jnp.ones_like(u0),))
+    )(params["u0"])
+    np.testing.assert_allclose(actual, native.magnifications, rtol=2e-10, atol=2e-10)
+    np.testing.assert_allclose(derivative, native.gradients[:, 1], rtol=2e-7, atol=2e-7)
+
+
+@pytest.mark.parametrize("with_gradient", [False, True])
+def test_converged_value_without_coverage_is_not_a_seed_failure(with_gradient):
+    case = saved_case(117)
+    result = curve(.5)([0.], case["params"], with_gradient=with_gradient)
+    assert result.status_names.tolist() == ["coverage_uncertified"]
+    assert result.all_values_converged
+    assert not result.all_converged
+    assert np.all(result.seed_support_proven)
+    assert np.all(result.support_required)
+    assert not np.any(result.support_certified)
+    assert result.diagnostics is None
+
+
+def test_value_failure_takes_priority_over_uncertified_coverage():
+    params = dict(s=.6, q=1e-4, rho=.05, t0=0., tE=10., u0=-1e-5, alpha=.5)
+    result = curve(.5, tol=1e-7)([0.], params, with_gradient=True,
+                                with_diagnostics=True)
+    assert result.status_names.tolist() == ["unconverged"]
+    assert not result.all_values_converged
+    assert not result.all_converged
+    assert not np.any(result.support_certified)
+    assert "InnerAccuracyLimited" in result.diagnostics["stop"][0]
+
+
+def test_seed_failure_remains_distinct_from_missing_coverage_certificate():
+    case = saved_case(10)
+    times = np.linspace(-case["span"], case["span"], 33)*case["params"]["tE"]
+    result = curve(case["limb"])(times, case["params"], with_gradient=True)
+    missing = np.asarray(result.support_required) & ~np.asarray(result.seed_support_proven)
+    assert np.any(missing)
+    np.testing.assert_array_equal(result.status[missing], lc.LightCurveInfo.SUPPORT_UNPROVEN)
+
+
+def test_support_metadata_survives_jax_pytree_roundtrip():
+    jax = pytest.importorskip("jax")
+    case = saved_case(117)
+    result = curve(.5)([0.], case["params"])
+    # The public gradient path registers this record as a pytree.
+    lc._register_lightcurve_info_pytree()
+    restored = jax.jit(lambda record: record)(result)
+    for name in ("status", "value_converged", "support_certified",
+                 "seed_support_proven", "frontier_discovery_completed", "support_required"):
+        np.testing.assert_array_equal(getattr(restored, name), getattr(result, name))
+
+
+@pytest.mark.parametrize("limb", [0., .5])
+@pytest.mark.parametrize("with_gradient", [False, True])
+def test_default_call_preserves_reliability_without_detailed_diagnostics(limb, with_gradient):
+    model = curve(limb)
+    params = dict(t0=0., u0=.03, tE=1., alpha=-.08, rho=.003, q=.01, s=1.2)
+    times = np.linspace(-.2, .8, 41)
+    ordinary = model(times, params, with_gradient=with_gradient)
+    detailed = model(times, params, with_gradient=with_gradient, with_diagnostics=True)
+    assert ordinary.diagnostics is None
+    assert "seconds" in detailed.diagnostics
+    assert np.any(detailed.support_required)
+    assert np.any(~detailed.support_certified[detailed.support_required])
+    for field in ("magnifications", "status", "value_converged", "support_certified",
+                  "support_required", "seed_support_proven", "frontier_discovery_completed"):
+        np.testing.assert_array_equal(getattr(ordinary, field), getattr(detailed, field))
+    if with_gradient:
+        np.testing.assert_array_equal(ordinary.gradients, detailed.gradients)
+        np.testing.assert_array_equal(ordinary.gradient_valid, detailed.gradient_valid)
+
+
+def test_value_only_native_result_omits_optional_diagnostic_arrays():
+    from lcbinint.algebraic_boundary import lightcurve_value
+    model = curve(.5)
+    params = dict(t0=0., u0=.03, tE=1., alpha=-.08, rho=.003, q=.01, s=1.2)
+    compact = lightcurve_value(model, 0., params, with_diagnostics=False)
+    detailed = lightcurve_value(model, 0., params)
+    for field in ("mu", "value_converged", "fully_converged", "support_certified",
+                  "seed_support_proven", "frontier_discovery_completed", "integrator_used"):
+        np.testing.assert_array_equal(compact[field], detailed[field])
+    assert not {"seconds", "stop", "node_evaluations", "error_estimate"} & compact.keys()
+    assert {"seconds", "stop", "node_evaluations", "error_estimate"} <= detailed.keys()

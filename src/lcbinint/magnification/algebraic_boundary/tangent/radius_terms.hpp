@@ -1,6 +1,6 @@
 #pragma once
 
-// ATPT algebraic-boundary solver (M7) -- one radius: value + derivative integrands.
+// Algebraic-boundary solver -- one radius: value + derivative integrands.
 // Ports historical Python reference: jacobian.py:
 //   polish_endpoint, _real_root_thetas, arc_intervals, _grid_intervals,
 //   _full_circle_terms, radius_terms.  The fixed-grid helper remains only as
@@ -397,16 +397,9 @@ inline int& boundary_mv_transport_override() {
     return v;
 }
 
-// Process-wide opt-out: BOUNDARY_MV_TRANSPORT_LEGACY=1 restores the pre-flip
-// behaviour (arc endpoints re-solved cold with real_root_thetas_warm at
-// every radial node).  Default: the (m,v) root-pair transport -- proven
-// bit-parity vs the cold path (max |dmu| 2.53e-14, 0 status downgrades,
-// checkpoint sec. 25.7) at -8.7% epoch median / all percentiles
-// non-regressing (checkpoint sec. 29,
-// evidence/holonomic/algebraic-boundary_3solver_benchmark.txt).  The kept flag is
-// the A/B escape hatch; the arc-birth disc-sign guard, branch-aware
-// acceptance and from_warm_d14 thin-arc cross-check make the transport
-// fail closed to the cold solve on every topology change.
+// BOUNDARY_MV_TRANSPORT_LEGACY=1 disables (m,v) root-pair transport.
+// Arc-birth, branch-acceptance and thin-arc guards retry a cold solve
+// when transport cannot establish the current topology.
 inline bool boundary_mv_transport_enabled() {
     const int o = boundary_mv_transport_override();
     if (o >= 0) return o != 0;
@@ -1418,7 +1411,7 @@ inline RadiusTerms radius_terms(double R, const PrimaryFrame& pf,
     return rt;
 }
 
-// ---- radius_value : Phase D value-only sibling of radius_terms -----------
+// ---- radius_value : value-only sibling of radius_terms -----------
 //
 // F0 always; F_half only when `want_fh` (the linear-LD blend needs it iff
 // u != 0).  No derivative accumulators, no per-endpoint IFT dtheta/dP, no

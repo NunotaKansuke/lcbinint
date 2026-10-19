@@ -335,7 +335,8 @@ std::vector<lcbinint::model::MagnificationExecutionPlan> algebraic_boundary_exec
 
 py::dict compute_algebraic_boundary_diagnostic(
     const lcbinint::lc::LightCurve& lc, const TimesArray& times,
-    const lcbi_params& params, double mu_atol, double mu_rtol);
+    const lcbi_params& params, double mu_atol, double mu_rtol,
+    bool with_diagnostics = true);
 
 py::array_t<double> compute_algebraic_boundary_magnification(
     const lcbinint::lc::LightCurve& lc, const TimesArray& times,
@@ -347,19 +348,69 @@ py::array_t<double> compute_algebraic_boundary_magnification(
 
 py::dict compute_algebraic_boundary_diagnostic(
     const lcbinint::lc::LightCurve& lc, const TimesArray& times,
-    const lcbi_params& params, double mu_atol, double mu_rtol)
+    const lcbi_params& params, double mu_atol, double mu_rtol,
+    bool with_diagnostics)
 {
     const auto tv = times_from_array(times);
     const auto plan = algebraic_boundary_execution_plan(tv.size(), mu_atol, mu_rtol);
+    using Method = lcbinint::magnification::FiniteSourceMethod;
+    if (!with_diagnostics) {
+        const auto resolved = lc.apply_coords(params);
+        const auto cpp_params = lcbinint::model::from_c_params(resolved);
+        if (!cpp_params.is_valid()) throw std::runtime_error("invalid argument");
+        const auto options = lc.runtime_options();
+        lcbinint::model::LensModel model(
+            cpp_params, lcbinint::model::from_c_options(&options), lc.site());
+        const auto count = tv.size();
+        py::array_t<double> mu(count), point_mu(count);
+        py::array_t<bool> values_ok(count), fully_ok(count), support(count);
+        py::array_t<bool> seeds(count), discovery(count);
+        py::array_t<int> methods(count);
+        auto* mu_data = mu.mutable_data();
+        auto* point_data = point_mu.mutable_data();
+        auto* values_data = values_ok.mutable_data();
+        auto* fully_data = fully_ok.mutable_data();
+        auto* support_data = support.mutable_data();
+        auto* seeds_data = seeds.mutable_data();
+        auto* discovery_data = discovery.mutable_data();
+        auto* methods_data = methods.mutable_data();
+        {
+            py::gil_scoped_release release;
+            for (std::size_t i = 0; i < count; ++i) {
+                const auto result = model.magnification(tv[i], plan[i]);
+                const bool integral = result.finite_source_method ==
+                    static_cast<int>(Method::algebraic_boundary);
+                const bool converged = result.status == lcbinint::EvaluationStatus::ok &&
+                    result.finite_source_converged;
+                mu_data[i] = std::isfinite(result.magnification)
+                    ? result.magnification : result.finite_source_magnification;
+                point_data[i] = result.point_source_magnification;
+                values_data[i] = integral
+                    ? result.finite_source_value_converged : converged;
+                fully_data[i] = converged;
+                support_data[i] = result.integral_support_certified;
+                seeds_data[i] = result.seed_support_proven;
+                discovery_data[i] = result.frontier_discovery_completed;
+                methods_data[i] = result.finite_source_method;
+            }
+        }
+        py::dict output;
+        output["mu"] = std::move(mu);
+        output["point_source_magnification"] = std::move(point_mu);
+        output["value_converged"] = std::move(values_ok);
+        output["fully_converged"] = std::move(fully_ok);
+        output["support_certified"] = std::move(support);
+        output["seed_support_proven"] = std::move(seeds);
+        output["frontier_discovery_completed"] = std::move(discovery);
+        output["finite_source_method"] = std::move(methods);
+        return output;
+    }
     std::vector<lcbinint::MagnificationResult> results;
     std::vector<double> epoch_seconds;
     {
         py::gil_scoped_release release;
-        results = lc.evaluate_preplanned_diagnostic(
-            tv, params, plan, &epoch_seconds);
+        results = lc.evaluate_preplanned_diagnostic(tv, params, plan, &epoch_seconds);
     }
-
-    using Method = lcbinint::magnification::FiniteSourceMethod;
     std::vector<double> magnifications, point_source_magnifications, errors;
     std::vector<int> converged, value_converged, support_certified;
     std::vector<int> frontier_discovery_completed, seed_support_proven;
@@ -2292,16 +2343,17 @@ LightCurves with a ground Site apply the terrestrial correction.)")
             py::arg("resolutions"))
         .def("_evaluate_algebraic_boundary",
             [&](const LC& lc, const TimesArray& times, py::dict d,
-                double mu_atol, double mu_rtol, bool with_gradient) {
+                double mu_atol, double mu_rtol, bool with_gradient, bool with_diagnostics) {
                 if (with_gradient) {
                     return compute_algebraic_boundary_value_gradient(
                         lc, times, params_from_dict(d));
                 }
                 return compute_algebraic_boundary_diagnostic(
-                    lc, times, params_from_dict(d), mu_atol, mu_rtol);
+                    lc, times, params_from_dict(d), mu_atol, mu_rtol, with_diagnostics);
             },
             py::arg("times"), py::arg("params"), py::arg("mu_atol"),
-            py::arg("mu_rtol"), py::arg("with_gradient") = false)
+            py::arg("mu_rtol"), py::arg("with_gradient") = false,
+            py::arg("with_diagnostics") = true)
         .def("_algebraic_boundary_jacobian",
             [&](const LC& lc, const TimesArray& times, py::dict d,
                 const std::vector<int>& route_methods,

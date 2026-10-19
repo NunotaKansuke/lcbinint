@@ -46,6 +46,7 @@ def _curve(lcbinint, **options):
     return lcbinint.LightCurve(
         lens="binary",
         options=lcbinint.Options(
+            finite_source_backend="default",
             coordinates="center_of_mass",
             inverse_ray_grid="cartesian",
             **options,
@@ -103,6 +104,7 @@ def test_certificate_finds_a_cap_entering_between_cached_caustic_vertices(
     curve = lcbinint.LightCurve(
         lens="binary",
         options=lcbinint.Options(
+            finite_source_backend="default",
             coordinates="vbm",
             inverse_ray_grid="cartesian",
             source_bins=50,
@@ -232,8 +234,19 @@ def test_uncalibrated_relative_tolerance_fails_closed():
         max_source_bins=4096,
     )
 
-    with pytest.raises(RuntimeError, match="unsupported_tolerance"):
-        _magnification(curve)
+    result = curve(
+        [SOURCE_X],
+        t0=0.0,
+        tE=1.0,
+        u0=SOURCE_Y,
+        alpha=0.0,
+        s=SEPARATION,
+        q=MASS_RATIO,
+        rho=SOURCE_RADIUS,
+    )
+    assert all(value > 0.0 for value in result.magnifications)
+    assert not result.all_converged
+    assert not result.value_converged[0]
 
 
 def test_tangency_sweep_stays_accurate_on_both_sides():
@@ -286,16 +299,27 @@ def test_certified_support_leaves_clear_geometries_alone(
     reference = reference_engine.BinaryMag2(
         separation, mass_ratio, y1, y2, source_radius)
 
-    value = lcbinint.LightCurve(
-        lens="binary",
-        options=lcbinint.Options(
-            coordinates="center_of_mass",
-            inverse_ray_grid="cartesian",
-            source_bins=128,
-            max_source_bins=128,
-        ),
-    ).magnification(
-        y1, t0=0.0, tE=1.0, u0=y2, alpha=0.0,
-        s=separation, q=mass_ratio, rho=source_radius,
-    ).item()
+    value = (
+        lcbinint.LightCurve(
+            lens="binary",
+            options=lcbinint.Options(
+                finite_source_backend="default",
+                coordinates="center_of_mass",
+                inverse_ray_grid="cartesian",
+                source_bins=128,
+                max_source_bins=128,
+            ),
+        )
+        .magnification(
+            y1,
+            t0=0.0,
+            tE=1.0,
+            u0=y2,
+            alpha=0.0,
+            s=separation,
+            q=mass_ratio,
+            rho=source_radius,
+        )
+        .item()
+    )
     assert value == pytest.approx(reference, rel=1.0e-4)

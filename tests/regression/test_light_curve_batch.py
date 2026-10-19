@@ -6,7 +6,9 @@ import pytest
 
 def test_parameter_batch_matches_scalar_light_curve_exactly():
     lcbinint = pytest.importorskip("lcbinint")
-    curve = lcbinint.LightCurve()
+    curve = lcbinint.LightCurve(
+        options=lcbinint.Options(finite_source_backend="default")
+    )
     times = np.linspace(-1.0, 1.0, 41)
     rows = [
         {
@@ -31,7 +33,9 @@ def test_parameter_batch_matches_scalar_light_curve_exactly():
 
 def test_parameter_batch_accepts_parameters_and_empty_input():
     lcbinint = pytest.importorskip("lcbinint")
-    curve = lcbinint.LightCurve()
+    curve = lcbinint.LightCurve(
+        options=lcbinint.Options(finite_source_backend="default")
+    )
     times = np.asarray([-0.5, 0.0, 0.5])
     parameter = lcbinint.Parameters(
         t0=0.0, tE=10.0, u0=0.1, s=1.2, q=0.05, alpha=0.3, rho=0.0
@@ -67,7 +71,9 @@ def test_binary_source_native_batch_preserves_scalar_semantics():
     expected = np.asarray([curve(times, row) for row in rows])
     np.testing.assert_array_equal(curve.magnification_batch(times, rows), expected)
 
-    single = lcbinint.LightCurve()
+    single = lcbinint.LightCurve(
+        options=lcbinint.Options(finite_source_backend="default")
+    )
     first = rows[0]
     source1 = dict(first, rho=first["rho1"])
     source2 = dict(
@@ -135,7 +141,9 @@ def test_binary_source_rejects_removed_mass_and_flux_aliases(legacy_key):
 @pytest.mark.parametrize("flux_mode", ["fit", "marginalize"])
 def test_fused_gaussian_likelihood_matches_numpy_reference(flux_mode):
     lcbinint = pytest.importorskip("lcbinint")
-    curve = lcbinint.LightCurve()
+    curve = lcbinint.LightCurve(
+        options=lcbinint.Options(finite_source_backend="default")
+    )
     times = np.linspace(-0.8, 0.8, 23)
     rows = [
         {
@@ -179,7 +187,9 @@ def test_fused_gaussian_likelihood_matches_numpy_reference(flux_mode):
 
 def test_fused_sampled_flux_ignores_inference_flux_parameter_names():
     lcbinint = pytest.importorskip("lcbinint")
-    curve = lcbinint.LightCurve()
+    curve = lcbinint.LightCurve(
+        options=lcbinint.Options(finite_source_backend="default")
+    )
     times = np.linspace(-0.4, 0.4, 9)
     rows = [
         {
@@ -233,7 +243,9 @@ def test_fused_sampled_flux_ignores_inference_flux_parameter_names():
 )
 def test_fused_sampled_flux_rejects_invalid_observations(flux, error):
     lcbinint = pytest.importorskip("lcbinint")
-    curve = lcbinint.LightCurve()
+    curve = lcbinint.LightCurve(
+        options=lcbinint.Options(finite_source_backend="default")
+    )
     times = np.asarray([-0.1, 0.0, 0.1])
     rows = [{
         "t0": 0.0,

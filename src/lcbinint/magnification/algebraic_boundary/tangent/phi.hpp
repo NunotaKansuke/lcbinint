@@ -1,6 +1,6 @@
 #pragma once
 
-// ATPT algebraic-boundary solver -- phi and its closed-form gradient.
+// Algebraic-boundary solver -- phi and its closed-form gradient.
 // Direct port of historical Python reference: jacobian.py:phi_grad.
 //
 //   phi = 1 - |f(z) - zeta|^2 / rho^2,  z = R e^{i theta}
@@ -174,7 +174,7 @@ inline PhiValDtheta phi_val_dtheta(double R, double theta,
 }
 
 // phi only, shared core (bit-identical to phi_val_dP(...).phi and
-// phi_val_dtheta(...).phi).  The Phase D value lane's angular sqrt(phi)
+// phi_val_dtheta(...).phi).  The value lane's angular sqrt(phi)
 // quadrature uses this so F_half matches the fused pass exactly while
 // paying nothing for the unused dP / dphi_dtheta.
 inline double phi_val(double R, double theta, const PrimaryFrame& pf) {

@@ -1,6 +1,6 @@
 #pragma once
 
-// ATPT algebraic-boundary solver -- the boundary root pair (m, v) of one image arc.
+// Algebraic-boundary solver -- the boundary root pair (m, v) of one image arc.
 //
 // Direct port of historical Python reference: root_pair.py (plan sec. 8, 11).
 // An image arc on |z| = R is bounded by two real roots t_- < t_+ of the
@@ -90,12 +90,6 @@ inline EOJac eo_jacobian(const RootPair& rp, const std::array<double, 5>& pc) {
             0.5 * d.P2 + 2.0 * v * p4,  // E_v
             d.P2 + 4.0 * v * p4,     // O_m
             d.P3 / 6.0};             // O_v
-}
-
-// The boxed identity value -1/2 P''(m)^2 (Jacobian det at v = 0).
-inline double tangency_determinant(double m, const std::array<double, 5>& pc) {
-    const double P2 = p_derivs(pc, m).P2;
-    return -0.5 * P2 * P2;
 }
 
 // dt/dR = -P_R(t) / P_t(t) for one boundary root t at radius R.

@@ -7444,7 +7444,7 @@ AlgebraicBoundaryResult FiniteSourceMagnifier::algebraic_boundary_binary_mag(
     bool barycentric_frame) const
 {
     PointSourceMagnifier point_magnifier;
-    const double point_mag = point_magnifier.binary_mag0(
+    const double point_mag = point_magnifier.binary_safety_diagnostic_cached(
         separation, mass_ratio, source).magnification;
     if (point_source_magnification != nullptr)
         *point_source_magnification = point_mag;

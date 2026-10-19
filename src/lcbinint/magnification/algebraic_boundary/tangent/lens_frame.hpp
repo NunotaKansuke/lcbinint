@@ -1,6 +1,6 @@
 #pragma once
 
-// ATPT algebraic-boundary solver (M7) -- lens parametrisation.
+// Algebraic-boundary solver -- lens parametrisation.
 //
 // Ports historical Python reference: polynomial_family.py:LensParams.
 //

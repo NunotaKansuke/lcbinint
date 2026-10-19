@@ -364,7 +364,9 @@ def test_native_algebraic_boundary_lightcurve_gradient_contract():
     np.testing.assert_array_equal(
         failed_gradient.support_certified, failed_value.support_certified
     )
-    assert failed_gradient.status.tolist() == [lcbinint.LightCurveInfo.SUPPORT_UNPROVEN]
+    assert failed_gradient.status.tolist() == [lcbinint.LightCurveInfo.COVERAGE_UNCERTIFIED]
+    assert failed_gradient.all_values_converged
+    assert failed_gradient.seed_support_proven.tolist() == [True]
     assert np.all(np.isfinite(failed_gradient.magnifications))
     # The old ForwardJet path failed here. The shared seeded tangent is usable,
     # independently of the still-unproved global support certificate.

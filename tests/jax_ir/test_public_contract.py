@@ -1,4 +1,4 @@
-"""Regression tests for the public JAX LightCurve contract."""
+"""Regression tests for the standard-router JAX LightCurve contract."""
 
 from types import SimpleNamespace
 
@@ -24,7 +24,7 @@ PARAMETERS = {
 
 def test_jax_warmup_compiles_public_path_without_memoizing_values():
     curve = lcbinint.LightCurve(
-        options=lcbinint.Options(jax=True, nbin=16)
+        options=lcbinint.Options(finite_source_backend="default", jax=True, nbin=16)
     )
     times = np.linspace(-0.1, 0.1, 3)
 
@@ -46,7 +46,7 @@ def test_jax_warmup_compiles_public_path_without_memoizing_values():
     assert np.all(np.asarray(report.resolutions) >= 0)
     assert not hasattr(curve, "_warmup_values")
     assert report.geometry is not None
-    assert isinstance(values, jax.Array)
+    assert isinstance(values.magnifications, jax.Array)
     np.testing.assert_array_less(
         np.abs(np.asarray(values) - report.reference),
         report.budget + np.finfo(float).eps,
@@ -58,7 +58,7 @@ def test_jax_warmup_compiles_public_path_without_memoizing_values():
 
 
 def test_options_keep_positional_api_and_jax_selector_outside_c_options():
-    options = lcbinint.Options("center_of_mass")
+    options = lcbinint.Options("center_of_mass", finite_source_backend="default")
     assert options.param_type == "center_of_mass"
     assert not options.jax
 
@@ -67,12 +67,14 @@ def test_options_keep_positional_api_and_jax_selector_outside_c_options():
     assert "backend='jax'" in repr(options)
 
     curve = lcbinint.LightCurve(options=options)
-    assert isinstance(curve(jnp.asarray(0.0), PARAMETERS), jax.Array)
+    assert isinstance(curve(jnp.asarray(0.0), PARAMETERS).magnifications, jax.Array)
     curve.options.jax = False
-    assert isinstance(curve(np.asarray(0.0), PARAMETERS), np.ndarray)
+    assert isinstance(curve(np.asarray(0.0), PARAMETERS).magnifications, np.ndarray)
 
-    disabled = lcbinint.LightCurve(options=lcbinint.Options(jax=True), jax=False)
-    assert isinstance(disabled(np.asarray(0.0), PARAMETERS), np.ndarray)
+    disabled = lcbinint.LightCurve(
+        options=lcbinint.Options(finite_source_backend="default", jax=True), jax=False
+    )
+    assert isinstance(disabled(np.asarray(0.0), PARAMETERS).magnifications, np.ndarray)
 
 
 def test_options_repr_is_safe_when_native_initialization_fails():
@@ -81,7 +83,7 @@ def test_options_repr_is_safe_when_native_initialization_fails():
     with pytest.raises(AttributeError):
         getattr(options, "param_type")
     with pytest.raises(TypeError) as error:
-        lcbinint.Options(object())
+        lcbinint.Options(object(), finite_source_backend="default")
     assert "RecursionError" not in repr(error.value)
 
 
@@ -92,13 +94,16 @@ def test_public_options_are_accepted_by_binary_ray_shooting():
         s=1.2,
         q=0.1,
         rho=0.01,
-        options=lcbinint.Options("center_of_mass", source_bins=24),
+        options=lcbinint.Options(
+            "center_of_mass", finite_source_backend="default", source_bins=24
+        ),
     )
     assert np.isfinite(value)
 
 
 def test_binary_ray_shooting_jax_selector_matches_native_and_differentiates():
     options = lcbinint.Options(
+        finite_source_backend="default",
         jax=True,
         coordinates="center_of_mass",
         tol=1.0e-4,
@@ -115,6 +120,7 @@ def test_binary_ray_shooting_jax_selector_matches_native_and_differentiates():
         0.3,
         0.4,
         options=lcbinint.Options(
+            finite_source_backend="default",
             coordinates="center_of_mass",
             tol=1.0e-4,
             reltol=1.0e-4,
@@ -131,7 +137,7 @@ def test_binary_ray_shooting_jax_selector_matches_native_and_differentiates():
 
 
 def test_binary_ray_shooting_explicit_jax_override_has_constructor_precedence():
-    selected = lcbinint.Options(jax=True, nbin=32)
+    selected = lcbinint.Options(finite_source_backend="default", jax=True, nbin=32)
     native = lcbinint.binary_ray_shooting(
         0.3,
         0.4,
@@ -147,7 +153,7 @@ def test_binary_ray_shooting_explicit_jax_override_has_constructor_precedence():
         s=1.4,
         q=1.0e-3,
         rho=0.01,
-        options=lcbinint.Options(nbin=32),
+        options=lcbinint.Options(finite_source_backend="default", nbin=32),
         jax=True,
     )
     assert isinstance(native, float)
@@ -180,7 +186,9 @@ def test_binary_ray_shooting_jax_validation_matches_native_contract():
 
 
 def test_jax_magnification_batch_preserves_native_row_major_contract():
-    curve = lcbinint.LightCurve(options=lcbinint.Options(jax=True))
+    curve = lcbinint.LightCurve(
+        options=lcbinint.Options(finite_source_backend="default", jax=True)
+    )
     times = jnp.asarray((-1.0, 0.0, 1.0))
     rows = (PARAMETERS, {**PARAMETERS, "u0": 0.12})
     actual = curve.magnification_batch(times, rows)
@@ -198,7 +206,9 @@ def test_jax_magnification_batch_preserves_native_row_major_contract():
 
 
 def test_jax_info_reports_the_selected_backend_pipeline():
-    curve = lcbinint.LightCurve(options=lcbinint.Options(jax=True))
+    curve = lcbinint.LightCurve(
+        options=lcbinint.Options(finite_source_backend="default", jax=True)
+    )
     times = jnp.asarray((-1.0, 0.0, 1.0))
     diagnostics = curve.info(times, PARAMETERS)
 
@@ -238,6 +248,7 @@ def test_jax_auto_curve_fails_closed_when_requested_accuracy_is_unmet():
     # relative -- so 1e-5 is genuinely met and only 1e-6 is out of reach.
     curve = lcbinint.LightCurve(
         options=lcbinint.Options(
+            finite_source_backend="default",
             jax=True,
             coordinates="center_of_mass",
             tol=0.0,
@@ -249,8 +260,9 @@ def test_jax_auto_curve_fails_closed_when_requested_accuracy_is_unmet():
     magnification = curve(times, parameters)
     diagnostics = curve.info(times, parameters)
 
-    assert bool(jnp.isnan(magnification[0]))
-    assert bool(jnp.isnan(diagnostics.magnifications[0]))
+    assert bool(jnp.isfinite(magnification[0]))
+    assert bool(jnp.isfinite(diagnostics.magnifications[0]))
+    assert magnification.status[0] != lcbinint.LightCurveInfo.OK
     assert bool(jnp.isfinite(diagnostics.finite_source_magnifications[0]))
     assert not diagnostics.all_converged
     assert diagnostics.unconverged_indices == [0]
@@ -261,6 +273,7 @@ def test_jax_auto_curve_fails_closed_when_requested_accuracy_is_unmet():
 def test_jax_light_curve_honors_fixed_nbin_and_grid_options(grid):
     native = lcbinint.LightCurve(
         options=lcbinint.Options(
+            finite_source_backend="default",
             nbin=32,
             inverse_ray_grid=grid,
             coordinates="center_of_mass",
@@ -268,6 +281,7 @@ def test_jax_light_curve_honors_fixed_nbin_and_grid_options(grid):
     )
     differentiable = lcbinint.LightCurve(
         options=lcbinint.Options(
+            finite_source_backend="default",
             jax=True,
             nbin=32,
             inverse_ray_grid=grid,
@@ -275,7 +289,7 @@ def test_jax_light_curve_honors_fixed_nbin_and_grid_options(grid):
         )
     )
     times = jnp.asarray((-0.1, 0.0, 0.1))
-    actual = differentiable(times, PARAMETERS)
+    actual = differentiable(times, PARAMETERS).magnifications
     expected = native(np.asarray(times), PARAMETERS)
     diagnostics = differentiable.info(times, PARAMETERS)
 
@@ -286,7 +300,9 @@ def test_jax_light_curve_honors_fixed_nbin_and_grid_options(grid):
 
 def test_jax_geometry_helpers_share_the_public_trajectory_and_ad():
     native = lcbinint.LightCurve()
-    curve = lcbinint.LightCurve(options=lcbinint.Options(jax=True))
+    curve = lcbinint.LightCurve(
+        options=lcbinint.Options(finite_source_backend="default", jax=True)
+    )
     times = jnp.asarray((-1.0, 0.0, 1.0))
     trajectory = curve.source_trajectory(times, PARAMETERS)
     geometry = curve.finite_source_geometry(times, PARAMETERS)
@@ -315,7 +331,9 @@ def test_jax_geometry_helpers_share_the_public_trajectory_and_ad():
 
 
 def test_jax_batch_likelihood_keeps_magnification_and_flux_fit_differentiable():
-    curve = lcbinint.LightCurve(options=lcbinint.Options(jax=True))
+    curve = lcbinint.LightCurve(
+        options=lcbinint.Options(finite_source_backend="default", jax=True)
+    )
     times = jnp.asarray((-1.0, -0.5, 0.0, 0.5, 1.0))
     rows = (PARAMETERS, {**PARAMETERS, "u0": 0.12})
     model = curve.magnification_batch(times, rows)
@@ -347,7 +365,9 @@ def test_jax_batch_likelihood_keeps_magnification_and_flux_fit_differentiable():
 
 
 def test_jax_batch_student_t_sample_flux_matches_closed_form():
-    curve = lcbinint.LightCurve(options=lcbinint.Options(jax=True))
+    curve = lcbinint.LightCurve(
+        options=lcbinint.Options(finite_source_backend="default", jax=True)
+    )
     times = jnp.asarray((-0.5, 0.0, 0.5))
     row = {**PARAMETERS, "Fs_survey": 100.0, "Fb_survey": 5.0}
     magnification = curve(times, PARAMETERS)
@@ -374,7 +394,9 @@ def test_jax_batch_student_t_sample_flux_matches_closed_form():
 
 
 def test_jax_batch_gaussian_marginalization_reports_native_flux_statistics():
-    curve = lcbinint.LightCurve(options=lcbinint.Options(jax=True))
+    curve = lcbinint.LightCurve(
+        options=lcbinint.Options(finite_source_backend="default", jax=True)
+    )
     times = jnp.asarray((-1.0, -0.4, 0.1, 0.6, 1.2))
     magnification = curve(times, PARAMETERS)
     flux = 80.0 * magnification + 3.0 + jnp.asarray((0.03, -0.02, 0.01, -0.01, 0.02))
@@ -420,8 +442,12 @@ def test_jax_parameter_aliases_match_native_light_curve():
         "q": PARAMETERS["q"],
         "rho1": PARAMETERS["rho"],
     }
-    native = lcbinint.LightCurve(options=lcbinint.Options())
-    jax_curve = lcbinint.LightCurve(options=lcbinint.Options(jax=True))
+    native = lcbinint.LightCurve(
+        options=lcbinint.Options(finite_source_backend="default")
+    )
+    jax_curve = lcbinint.LightCurve(
+        options=lcbinint.Options(finite_source_backend="default", jax=True)
+    )
     times = jnp.asarray((-1.0, 0.0, 1.0))
 
     np.testing.assert_allclose(
@@ -443,8 +469,12 @@ def test_jax_alias_precedence_matches_native_mapping(parameters, expected_t0):
     normalized = _normalize_parameters(parameters)
     assert normalized["t0"] == expected_t0
 
-    native = lcbinint.LightCurve(options=lcbinint.Options())
-    jax_curve = lcbinint.LightCurve(options=lcbinint.Options(jax=True))
+    native = lcbinint.LightCurve(
+        options=lcbinint.Options(finite_source_backend="default")
+    )
+    jax_curve = lcbinint.LightCurve(
+        options=lcbinint.Options(finite_source_backend="default", jax=True)
+    )
     times = jnp.asarray((-1.0, 0.0, 1.0))
     canonical = {**PARAMETERS, "t0": expected_t0}
     np.testing.assert_allclose(
@@ -478,7 +508,9 @@ def test_xallarap_velocity_aliases_share_native_storage_and_precedence():
 
 
 def test_jax_rejects_unknown_mapping_keys_like_native():
-    curve = lcbinint.LightCurve(options=lcbinint.Options(jax=True))
+    curve = lcbinint.LightCurve(
+        options=lcbinint.Options(finite_source_backend="default", jax=True)
+    )
     with pytest.raises(KeyError, match="unknown parameter 'not_a_parameter'"):
         curve(jnp.asarray((0.0,)), {**PARAMETERS, "not_a_parameter": 1.0})
 
@@ -488,20 +520,28 @@ def test_jax_triple_requires_positive_q2(q2):
     parameters = dict(PARAMETERS)
     if q2 is not None:
         parameters["q2"] = q2
-    curve = lcbinint.LightCurve(lens="triple", options=lcbinint.Options(jax=True))
+    curve = lcbinint.LightCurve(
+        lens="triple",
+        options=lcbinint.Options(finite_source_backend="default", jax=True),
+    )
 
     with pytest.raises(RuntimeError, match="requires a positive q2"):
         curve(jnp.asarray((0.0,)), parameters)
 
 
 def test_jax_binary_rejects_positive_q2():
-    curve = lcbinint.LightCurve(options=lcbinint.Options(jax=True))
+    curve = lcbinint.LightCurve(
+        options=lcbinint.Options(finite_source_backend="default", jax=True)
+    )
     with pytest.raises(RuntimeError, match="cannot be used with a positive q2"):
         curve(jnp.asarray((0.0,)), {**PARAMETERS, "q2": 0.01})
 
 
 def test_jitted_triple_q2_remains_differentiable_while_checked_at_runtime():
-    curve = lcbinint.LightCurve(lens="triple", options=lcbinint.Options(jax=True))
+    curve = lcbinint.LightCurve(
+        lens="triple",
+        options=lcbinint.Options(finite_source_backend="default", jax=True),
+    )
     parameters = {**PARAMETERS, "q2": 0.01, "sep2": 1.3, "ang": 0.5}
 
     def value(q2):
@@ -514,7 +554,8 @@ def test_jitted_triple_q2_remains_differentiable_while_checked_at_runtime():
     invalid = jax.jit(lambda q2: curve(jnp.asarray((0.0,)), {**parameters, "q2": q2}))(
         0.0
     )
-    assert jnp.all(jnp.isnan(invalid))
+    assert jnp.all(invalid.status != lcbinint.LightCurveInfo.OK)
+    assert not jnp.any(invalid.value_converged)
 
 
 @pytest.mark.parametrize(
@@ -544,7 +585,7 @@ def test_public_jax_triple_uses_smallest_static_moment_kernel(
     curve = lcbinint.LightCurve(
         lens="triple",
         limb_darkening=lcbinint.LimbDarkening(limb_c, limb_d),
-        options=lcbinint.Options(jax=True),
+        options=lcbinint.Options(finite_source_backend="default", jax=True),
     )
     parameters = {
         **PARAMETERS,
@@ -563,15 +604,19 @@ def test_jax_higher_order_model_requires_t_ref():
     curve = lcbinint.LightCurve(
         parallax=True,
         sky=lcbinint.obs.SkyCoord(270.0, -30.0),
-        options=lcbinint.Options(jax=True),
+        options=lcbinint.Options(finite_source_backend="default", jax=True),
     )
     with pytest.raises(RuntimeError, match="t_ref must be set"):
         curve(jnp.asarray((0.0,)), PARAMETERS)
 
 
 def test_jax_scalar_time_matches_native_single_epoch_shape_and_value():
-    native = lcbinint.LightCurve(options=lcbinint.Options())
-    jax_curve = lcbinint.LightCurve(options=lcbinint.Options(jax=True))
+    native = lcbinint.LightCurve(
+        options=lcbinint.Options(finite_source_backend="default")
+    )
+    jax_curve = lcbinint.LightCurve(
+        options=lcbinint.Options(finite_source_backend="default", jax=True)
+    )
 
     actual = jax_curve(jnp.asarray(0.0), PARAMETERS)
     expected = native(np.asarray(0.0), PARAMETERS)

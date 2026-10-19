@@ -1,6 +1,6 @@
 #pragma once
 
-// ATPT algebraic-boundary solver -- regularized flux transport (rescue spikes a/b/c).
+// Algebraic-boundary solver -- regularized flux transport.
 //
 // Replaces the per-arc 64-point Gauss-Chebyshev-1 angular sqrt(phi) sweep in
 // radius_terms (the F_half value + Jacobian integrand) with the deflated
@@ -14,9 +14,7 @@
 // where (p4, d1, d0) deflate the boundary quartic P(.; R) by its two real
 // arc-boundary roots t_-, t_+ -- needs ONLY the symmetric pair
 //   m = (t_- + t_+) / 2 ,  v = ((t_+ - t_-) / 2)^2
-// and NO root solve (checkpoint sec. 26: J_{1/2} = v K exact; K finite and
-// smooth as v -> 0; feasibility GO sec. 28,
-// evidence/holonomic/coupled_transport_feasibility.txt).
+// without another root solve. K remains finite as v tends to zero.
 //
 // Nodes are Gauss-Chebyshev of the *2nd* kind (sin^2 weight) -- a different
 // rule from angular_rule.hpp's Cheb1 (sqrt(1-x^2) weight).

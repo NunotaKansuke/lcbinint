@@ -12,11 +12,17 @@ import numpy as np
 def _validated_value_request(curve, times, params, mu_atol, mu_rtol):
     # Match lcbi_default_params rather than requiring optional trajectory keys.
     values = dict(t0=0., u0=0., tE=1., alpha=0., rho=0., q=1., s=1.)
-    values.update(curve._merge_params(params))
+    aliases = {
+        "t_0": "t0",
+        "t_E": "tE",
+        "umin": "u0",
+        "theta": "alpha",
+        "sep": "s",
+        "rho1": "rho",
+    }
+    for name, value in curve._merge_params(params).items():
+        values[aliases.get(name, name)] = value
     names = ("t0", "u0", "tE", "alpha", "rho", "q", "s")
-    missing = [name for name in names if name not in values]
-    if missing:
-        raise ValueError("missing light-curve parameters: " + ", ".join(missing))
     t0, u0, tE, alpha, rho, q, separation = (float(values[name]) for name in names)
     if not all(math.isfinite(x) for x in (t0, u0, tE, alpha, rho, q, separation)):
         raise ValueError("light-curve parameters must be finite")
@@ -63,7 +69,8 @@ def _validated_value_request(curve, times, params, mu_atol, mu_rtol):
 
 
 def lightcurve_value(
-    curve, times, params=None, *, mu_atol=None, mu_rtol=None, with_gradient=False
+    curve, times, params=None, *, mu_atol=None, mu_rtol=None, with_gradient=False,
+    with_diagnostics=True,
 ):
     """Routed algebraic-boundary values with error and method diagnostics.
 
@@ -74,7 +81,8 @@ def lightcurve_value(
         curve, times, params, mu_atol, mu_rtol
     )
     output = curve._native._evaluate_algebraic_boundary(
-        t, values, requested_atol, requested_rtol, bool(with_gradient)
+        t, values, requested_atol, requested_rtol, bool(with_gradient),
+        bool(with_diagnostics),
     )
     for key in (
         "mu", "point_source_magnification", "error_estimate",
@@ -112,10 +120,10 @@ def lightcurve_value(
             if isinstance(value, (list, tuple)) or (isinstance(value, np.ndarray) and value.ndim):
                 output[key] = value[0]
     else:
-        output["stop"] = list(output["stop"])
-        output["finite_source_method_name"] = list(
-            output["finite_source_method_name"]
-        )
+        if "stop" in output:
+            output["stop"] = list(output["stop"])
+        if "finite_source_method_name" in output:
+            output["finite_source_method_name"] = list(output["finite_source_method_name"])
     return output
 
 

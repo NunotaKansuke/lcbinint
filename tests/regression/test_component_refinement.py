@@ -48,16 +48,11 @@ TRIPLE_CAP_RHO = 6.497855561e-03 / 0.99
 # include the accurate sub-cell horizontal boundary location used by the
 # Cartesian row walk.
 CLEAR_GEOMETRIES = (
-    ("wide_equal_mass", dict(s=1.8, q=1.0), 0.30, 0.10, 0.02, 128,
-     1.644318018080),
-    ("close_binary", dict(s=0.6, q=0.5), 0.05, 0.02, 0.01, 128,
-     12.302093936985),
-    ("planetary", dict(s=1.05, q=1.0e-3), 0.05, 0.02, 0.005, 128,
-     17.450204716764),
-    ("caustic_crossing", dict(s=1.0, q=0.2), 0.10, 0.05, 0.01, 128,
-     5.366034638431),
-    ("far_from_caustic", dict(s=1.0, q=1.0e-3), 0.40, 0.30, 0.01, 128,
-     2.177131051261),
+    ("wide_equal_mass", dict(s=1.8, q=1.0), 0.30, 0.10, 0.02, 128, 1.644318018080),
+    ("close_binary", dict(s=0.6, q=0.5), 0.05, 0.02, 0.01, 128, 12.302093936985),
+    ("planetary", dict(s=1.05, q=1.0e-3), 0.05, 0.02, 0.005, 128, 17.450205542801175),
+    ("caustic_crossing", dict(s=1.0, q=0.2), 0.10, 0.05, 0.01, 128, 5.366034638431),
+    ("far_from_caustic", dict(s=1.0, q=1.0e-3), 0.40, 0.30, 0.01, 128, 2.177131051261),
 )
 
 
@@ -66,7 +61,9 @@ def _magnification(lcbinint, lens, params, x, u0, rho, bins):
                    max_source_bins=bins)
     if lens == "binary":
         options["coordinates"] = "center_of_mass"
-    curve = lcbinint.LightCurve(lens=lens, options=lcbinint.Options(**options))
+    curve = lcbinint.LightCurve(
+        lens=lens, options=lcbinint.Options(finite_source_backend="default", **options)
+    )
     return curve.magnification(
         x, t0=0.0, tE=1.0, u0=u0, alpha=0.0, rho=rho, **params).item()
 

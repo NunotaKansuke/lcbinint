@@ -15,7 +15,11 @@ import pytest
 
 
 def _point_magnification(lcbinint, s, q, x, y):
-    curve = lcbinint.LightCurve(options=lcbinint.Options(coordinates="center_of_mass"))
+    curve = lcbinint.LightCurve(
+        options=lcbinint.Options(
+            finite_source_backend="default", coordinates="center_of_mass"
+        )
+    )
     return curve([0.0], t0=-x, tE=1.0, u0=y, alpha=0.0,
                  s=s, q=q, rho=0.0)[0]
 
@@ -23,7 +27,9 @@ def _point_magnification(lcbinint, s, q, x, y):
 def test_binary_trajectory_uses_validated_root_continuation():
     lcbinint = pytest.importorskip("lcbinint")
     curve = lcbinint.LightCurve(
-        options=lcbinint.Options(coordinates="center_of_mass")
+        options=lcbinint.Options(
+            finite_source_backend="default", coordinates="center_of_mass"
+        )
     )
     times = np.linspace(-0.8, 0.8, 64)
     params = {
@@ -73,6 +79,7 @@ def test_planetary_caustic_safety_vetoes_point_and_hex_fast_paths():
     lcbinint = pytest.importorskip("lcbinint")
     light_curve = lcbinint.LightCurve(
         options=lcbinint.Options(
+            finite_source_backend="default",
             coordinates="center_of_mass",
             caustic_bins=400,
             nbin="auto",
@@ -108,6 +115,7 @@ def test_cusp_safety_can_fall_through_to_accurate_hexadecapole():
     vbm_module = pytest.importorskip("VBMicrolensing")
     light_curve = lcbinint.LightCurve(
         options=lcbinint.Options(
+            finite_source_backend="default",
             coordinates="center_of_mass",
             caustic_bins=400,
             nbin="auto",
@@ -151,6 +159,7 @@ def test_ghost_safety_margin_blocks_fold_outside_false_point_source():
 
     light_curve = lcbinint.LightCurve(
         options=lcbinint.Options(
+            finite_source_backend="default",
             coordinates="center_of_mass",
             caustic_bins=400,
             nbin="auto",
@@ -194,6 +203,7 @@ def test_ghost_safety_margin_is_independently_safe_on_broad_sweep_case():
 
     light_curve = lcbinint.LightCurve(
         options=lcbinint.Options(
+            finite_source_backend="default",
             coordinates="center_of_mass",
             caustic_bins=400,
             nbin="auto",
@@ -223,7 +233,7 @@ def test_refined_distance_releases_remote_planetary_topology_proxy():
     rho = math.exp(-7.08071184808)
     lcbinint = pytest.importorskip("lcbinint")
     light_curve = lcbinint.LightCurve(
-        options=lcbinint.Options(coordinates="vbm")
+        options=lcbinint.Options(finite_source_backend="default", coordinates="vbm")
     )
     info = light_curve.info(
         [t0 - 5.0, t0 - 3.0],
@@ -252,6 +262,7 @@ def test_forced_cartesian_high_magnification_does_not_truncate_image_area():
     lcbinint = pytest.importorskip("lcbinint")
     light_curve = lcbinint.LightCurve(
         options=lcbinint.Options(
+            finite_source_backend="default",
             coordinates="center_of_mass",
             caustic_bins=600,
             source_bins=40,
@@ -284,6 +295,7 @@ def test_forced_cartesian_fold_walk_uses_global_magnification_guard():
     lcbinint = pytest.importorskip("lcbinint")
     light_curve = lcbinint.LightCurve(
         options=lcbinint.Options(
+            finite_source_backend="default",
             coordinates="center_of_mass",
             caustic_bins=1200,
             source_bins=16,

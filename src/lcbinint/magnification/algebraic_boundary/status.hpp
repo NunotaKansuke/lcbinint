@@ -1,6 +1,6 @@
 #pragma once
 
-// ATPT algebraic-boundary solver (M7) -- status enum (implementation plan sec. 12.2).
+// Algebraic-boundary solver -- status enum.
 // Fail closed: a solve that cannot certify its result returns a non-OK
 // status, never a silent approximation.
 

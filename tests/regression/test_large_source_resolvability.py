@@ -47,6 +47,7 @@ def _info(lcbinint, source_radius, **options):
     curve = lcbinint.LightCurve(
         lens="binary",
         options=lcbinint.Options(
+            finite_source_backend="default",
             coordinates="vbm",
             inverse_ray_grid="cartesian",
             **options,

@@ -1,26 +1,10 @@
 #pragma once
 
-// ATPT algebraic-boundary solver (M7) -- polynomial root finding.
-//
-// Two needs, two precisions:
-//
-//  * the boundary quartic P(t; R) (degree 4, ascending real coeffs) -- arc
-//    endpoints; well-conditioned (radial_events.py: "np.roots ... accurate"),
-//    solved at `double` with Aberth-Ehrlich;
-//  * the radial-event polynomials D14(v) (degree 14), p4(R) (degree 6),
-//    L(v) (degree 2).  D14's monomial basis is ill-conditioned
-//    (radial_events.py docstring, kappa ~ 1e9); a `double` companion
-//    silently turns real double roots into spurious complex pairs and
-//    misses band births.  Solved with Aberth-Ehrlich in `__float128`
-//    (~34 digits): the retained D14 coefficients are built with no
-//    catastrophic cancellation (only the two spurious top coefficients,
-//    ~1e-25 relative, cancel -- they are trimmed), and 113-bit
-//    root-finding recovers every real root to < 1e-9 even for the
-//    near-double clusters (verified against sympy exact isolation on the
-//    7 M7 cases).
-//
-// Aberth-Ehrlich: simultaneous iteration with cubic local convergence,
-// robust for clustered roots.  Fixed work, no heap, no dynamic dispatch.
+// Polynomial roots for boundary quartics and radial events.
+// Quartic endpoints use double-precision Aberth-Ehrlich iteration. The
+// ill-conditioned degree-14 event polynomial uses compensated arithmetic
+// and __float128 refinement; double precision alone can turn close real
+// roots into complex pairs and miss the birth of an image band.
 
 #include <algorithm>
 #include <array>

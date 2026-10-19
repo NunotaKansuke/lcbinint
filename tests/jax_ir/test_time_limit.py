@@ -172,6 +172,7 @@ def test_time_limit_rejects_concrete_times_and_masks_traced_times():
     result = jax.jit(lambda times: jax_curve(times, _PARAMETERS))(
         jnp.asarray((8989.0, 9000.0, 9011.0))
     )
-    assert jnp.isnan(result[0])
+    np.testing.assert_array_equal(result.value_converged, [False, True, False])
+    assert result.status[0] != lcbinint.LightCurveInfo.OK
     assert jnp.isfinite(result[1])
-    assert jnp.isnan(result[2])
+    assert result.status[2] != lcbinint.LightCurveInfo.OK

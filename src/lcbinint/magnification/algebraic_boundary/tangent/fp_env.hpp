@@ -1,6 +1,6 @@
 #pragma once
 
-// ATPT algebraic-boundary solver -- floating-point environment guard.
+// Algebraic-boundary solver -- floating-point environment guard.
 //
 // The boundary-quartic Aberth iteration converges onto near-exact roots,
 // so its intermediate residuals |p|, Newton steps |w|, and pair gaps

@@ -1,4 +1,5 @@
 import math
+import numpy as np
 import sys
 from pathlib import Path
 
@@ -50,7 +51,10 @@ def _vbm_binary_mag_dark(separation, mass_ratio, y1, y2, rho, limb_darkening_c):
 def _lcbinint_binary_mag0(separation, mass_ratio, y1, y2):
     lcbinint = pytest.importorskip("lcbinint")
     curve = lcbinint.LightCurve(
-        lens="binary", options=lcbinint.Options(coordinates="center_of_mass")
+        lens="binary",
+        options=lcbinint.Options(
+            finite_source_backend="default", coordinates="center_of_mass"
+        ),
     )
     return curve.magnification(
         y1, t0=0.0, tE=1.0, u0=y2, alpha=0.0,
@@ -69,13 +73,16 @@ def _lcbinint_function_api_mag0(separation, mass_ratio, y1, y2):
         q=mass_ratio,
         sep=separation,
     )
-    options = lcbinint.Options(coordinates="center_of_mass")
+    options = lcbinint.Options(
+        finite_source_backend="default", coordinates="center_of_mass"
+    )
 
     return _model(lcbinint, params, options).magnification(y1)
 
 
 def _copy_options(lcbinint, options, *, source_bins=None):
     return lcbinint.Options(
+        finite_source_backend="default",
         source_bins=options.source_bins if source_bins is None else source_bins,
         inverse_ray_grid=options.inverse_ray_grid,
         caustic_bins=options.caustic_bins,
@@ -276,7 +283,7 @@ def test_lcbinint_function_api_wide_binary_original_offset_matches_vbm():
         q=mass_ratio,
         sep=separation,
     )
-    options = lcbinint.Options(coordinates="lcbinint")
+    options = lcbinint.Options(finite_source_backend="default", coordinates="lcbinint")
     actual = _model(lcbinint, params, options).magnification(y1)
 
     assert math.isfinite(actual)
@@ -299,7 +306,9 @@ def test_lcbinint_function_api_binary_finite_source_matches_vbm(
         sep=separation,
         rho=rho,
     )
-    options = lcbinint.Options(coordinates="center_of_mass", source_bins=80)
+    options = lcbinint.Options(
+        finite_source_backend="default", coordinates="center_of_mass", source_bins=80
+    )
     actual = _model(lcbinint, params, options).magnification(y1)
 
     assert math.isfinite(actual)
@@ -324,7 +333,12 @@ def test_lcbinint_function_api_polar_finite_source_matches_vbm():
         sep=separation,
         rho=rho,
     )
-    options = lcbinint.Options(coordinates="center_of_mass", inverse_ray_grid="polar", source_bins=80)
+    options = lcbinint.Options(
+        finite_source_backend="default",
+        coordinates="center_of_mass",
+        inverse_ray_grid="polar",
+        source_bins=80,
+    )
     actual = _model(lcbinint, params, options).magnification(y1)
 
     assert math.isfinite(actual)
@@ -355,6 +369,7 @@ def test_lcbinint_polar_high_magnification_curve_matches_vbm_without_cartesian_f
 
     func = lcbinint.LightCurve(
         options=lcbinint.Options(
+            finite_source_backend="default",
             coordinates="vbm",
             inverse_ray_grid="polar",
             source_bins=50,
@@ -386,6 +401,7 @@ def test_lcbinint_auto_inverse_ray_uses_polar_only_for_high_magnification():
     lcbinint = pytest.importorskip("lcbinint")
 
     options = lcbinint.Options(
+        finite_source_backend="default",
         coordinates="vbm",
         inverse_ray_grid="auto",
         nbin="auto",
@@ -413,14 +429,17 @@ def test_lcbinint_auto_inverse_ray_uses_polar_only_for_high_magnification():
     high_budget = 1.0e-4 + 1.0e-3 * max(abs(high.magnifications[0]), 1.0)
     assert high.finite_source_error_estimates[0] <= high_budget
 
-    explicit_default = lcbinint.LightCurve(options=lcbinint.Options(
-        coordinates="vbm",
-        inverse_ray_grid="auto",
-        nbin="auto",
-        reltol=1.0e-3,
-        point_source_threshold=1.0e9,
-        hexadecapole_threshold=1.0e9,
-    )).info([0.004], **common)
+    explicit_default = lcbinint.LightCurve(
+        options=lcbinint.Options(
+            finite_source_backend="default",
+            coordinates="vbm",
+            inverse_ray_grid="auto",
+            nbin="auto",
+            reltol=1.0e-3,
+            point_source_threshold=1.0e9,
+            hexadecapole_threshold=1.0e9,
+        )
+    ).info([0.004], **common)
     assert explicit_default.magnifications == high.magnifications
     assert explicit_default.finite_source_error_estimates == high.finite_source_error_estimates
     assert explicit_default.finite_source_refinement_levels == high.finite_source_refinement_levels
@@ -452,11 +471,15 @@ def test_lcbinint_auto_nbin_reproduces_independent_validation_row():
     )
     limb = lcbinint.LimbDarkening.linear(0.5)
     auto = lcbinint.LightCurve(
-        options=lcbinint.Options(nbin="auto", **common_options),
+        options=lcbinint.Options(
+            finite_source_backend="default", nbin="auto", **common_options
+        ),
         limb_darkening=limb,
     ).info([source_x], **params)
     fixed = lcbinint.LightCurve(
-        options=lcbinint.Options(nbin=40, **common_options),
+        options=lcbinint.Options(
+            finite_source_backend="default", nbin=40, **common_options
+        ),
         limb_darkening=limb,
     ).info([source_x], **params)
 
@@ -488,6 +511,7 @@ def test_lcbinint_auto_nbin_accepts_second_order_smooth_resonant_boundary():
     def evaluate(nbin, max_source_bins=400):
         return lcbinint.LightCurve(
             options=lcbinint.Options(
+                finite_source_backend="default",
                 coordinates="vbm",
                 nbin=nbin,
                 max_source_bins=max_source_bins,
@@ -606,6 +630,7 @@ def test_lcbinint_auto_inverse_ray_avoids_tiny_source_cartesian_aliasing():
 
     func = lcbinint.LightCurve(
         options=lcbinint.Options(
+            finite_source_backend="default",
             coordinates="vbm",
             inverse_ray_grid="auto",
             source_bins=50,
@@ -650,6 +675,7 @@ def test_lcbinint_polar_uses_radius_aware_angular_resolution_for_low_magnificati
 
     func = lcbinint.LightCurve(
         options=lcbinint.Options(
+            finite_source_backend="default",
             coordinates="vbm",
             inverse_ray_grid="polar",
             source_bins=50,
@@ -693,7 +719,9 @@ def test_lcbinint_function_api_linear_limb_darkening_matches_vbm(
         rho=rho,
         limb_darkening_c=limb_darkening_c,
     )
-    options = lcbinint.Options(coordinates="center_of_mass", source_bins=80)
+    options = lcbinint.Options(
+        finite_source_backend="default", coordinates="center_of_mass", source_bins=80
+    )
     actual = _model(lcbinint, params, options).magnification(y1)
 
     assert math.isfinite(actual)
@@ -722,6 +750,7 @@ def test_lcbinint_function_api_limb_darkening_matches_vbm(
         limb_darkening_c=limb_darkening_c,
     )
     options = lcbinint.Options(
+        finite_source_backend="default",
         coordinates="center_of_mass",
         inverse_ray_grid=inverse_ray_grid,
         source_bins=80,
@@ -775,6 +804,7 @@ def test_lcbinint_caustic_light_curve_points_match_vbm(
         limb_darkening_c=limb_darkening_c if limb_darkened else 0.0,
     )
     options = lcbinint.Options(
+        finite_source_backend="default",
         coordinates="center_of_mass",
         inverse_ray_grid=inverse_ray_grid,
         source_bins=80,
@@ -816,6 +846,7 @@ def test_lcbinint_high_magnification_light_curve_matches_vbm(
         rho=rho,
     )
     options = lcbinint.Options(
+        finite_source_backend="default",
         coordinates="center_of_mass",
         inverse_ray_grid=inverse_ray_grid,
         point_source_threshold=1.0e9,
@@ -859,7 +890,9 @@ def test_lcbinint_coordinates_mode_matches_binary_light_curve(
         sep=separation,
         rho=rho,
     )
-    options = lcbinint.Options(coordinates="vbm", source_bins=80)
+    options = lcbinint.Options(
+        finite_source_backend="default", coordinates="vbm", source_bins=80
+    )
     actual = _model(lcbinint, params, options).light_curve(times).magnifications
 
     for actual_value, reference_value in zip(actual, reference):
@@ -896,6 +929,7 @@ def test_lcbinint_coordinates_large_source_planetary_caustic_crossing(inverse_ra
         rho=rho,
     )
     options = lcbinint.Options(
+        finite_source_backend="default",
         coordinates="vbm",
         source_bins=200,
         inverse_ray_grid=inverse_ray_grid,
@@ -935,10 +969,12 @@ def test_lcbinint_auto_nbin_selects_resolution_and_meets_runtime_budget():
         rho=rho,
     )
     fixed_options = lcbinint.Options(
+        finite_source_backend="default",
         coordinates="vbm",
         source_bins=50,
     )
     adaptive_options = lcbinint.Options(
+        finite_source_backend="default",
         coordinates="vbm",
         nbin="auto",
         max_source_bins=200,
@@ -994,13 +1030,20 @@ def test_lcbinint_cartesian_ir_seeds_grazing_caustic_limb_images():
         sep=separation,
         rho=rho,
     )
-    fixed = _model(lcbinint, 
+    fixed = _model(
+        lcbinint,
         params,
-        lcbinint.Options(source_bins=50),
+        lcbinint.Options(finite_source_backend="default", source_bins=50),
     ).magnification(time)
-    adaptive = _model(lcbinint, 
+    adaptive = _model(
+        lcbinint,
         params,
-        lcbinint.Options(nbin="auto", reltol=1.0e-3, max_source_bins=400),
+        lcbinint.Options(
+            finite_source_backend="default",
+            nbin="auto",
+            reltol=1.0e-3,
+            max_source_bins=400,
+        ),
     ).magnification(time)
 
     assert math.isfinite(fixed)
@@ -1019,15 +1062,18 @@ def test_explicit_binary_grid_does_not_fall_back_to_source_plane(grid):
     where the old route was reproducibly selected.
     """
     lcbinint = pytest.importorskip("lcbinint")
-    curve = lcbinint.LightCurve(options=lcbinint.Options(
-        coordinates="vbm",
-        inverse_ray_grid=grid,
-        nbin=64,
-        max_source_bins=64,
-        point_source_threshold=0.0,
-        hexadecapole_threshold=0.0,
-        adaptive_hex_threshold=0.0,
-    ))
+    curve = lcbinint.LightCurve(
+        options=lcbinint.Options(
+            finite_source_backend="default",
+            coordinates="vbm",
+            inverse_ray_grid=grid,
+            nbin=64,
+            max_source_bins=64,
+            point_source_threshold=0.0,
+            hexadecapole_threshold=0.0,
+            adaptive_hex_threshold=0.0,
+        )
+    )
     info = curve.info(
         -0.019735930969284804,
         t0=0.0,
@@ -1050,14 +1096,17 @@ def test_binary_auto_uses_inverse_ray_for_grazing_source():
     from silently switching integrators again.
     """
     lcbinint = pytest.importorskip("lcbinint")
-    curve = lcbinint.LightCurve(options=lcbinint.Options(
-        coordinates="vbm",
-        inverse_ray_grid="auto",
-        nbin="auto",
-        reltol=1.0e-3,
-        max_source_bins=400,
-        caustic_bins=1400,
-    ))
+    curve = lcbinint.LightCurve(
+        options=lcbinint.Options(
+            finite_source_backend="default",
+            coordinates="vbm",
+            inverse_ray_grid="auto",
+            nbin="auto",
+            reltol=1.0e-3,
+            max_source_bins=400,
+            caustic_bins=1400,
+        )
+    )
     info = curve.info(
         [0.006015037593984918],
         t0=0.0,
@@ -1101,9 +1150,10 @@ def test_lcbinint_cartesian_ir_keeps_same_parity_fold_branch_seed():
         sep=separation,
         rho=rho,
     )
-    actual = _model(lcbinint, 
+    actual = _model(
+        lcbinint,
         params,
-        lcbinint.Options(source_bins=50),
+        lcbinint.Options(finite_source_backend="default", source_bins=50),
     ).magnification(time)
 
     assert abs(actual / reference - 1.0) < 1.0e-3
@@ -1139,9 +1189,15 @@ def test_lcbinint_local_boundary_estimate_avoids_ld_over_refinement():
         rho=rho,
         limb_darkening_c=limb_darkening_c,
     )
-    curve = _model(lcbinint, 
+    curve = _model(
+        lcbinint,
         params,
-        lcbinint.Options(nbin="auto", max_source_bins=400, reltol=1.0e-3),
+        lcbinint.Options(
+            finite_source_backend="default",
+            nbin="auto",
+            max_source_bins=400,
+            reltol=1.0e-3,
+        ),
     ).light_curve([time])
 
     assert curve.finite_source_refinement_levels[0] <= 1
@@ -1177,8 +1233,10 @@ def test_lcbinint_cartesian_ir_does_not_clip_moderate_fold_image_area():
         rho=rho,
     )
     options = lcbinint.Options(
+        finite_source_backend="default",
         source_bins=50,
-        inverse_ray_grid="cartesian",    )
+        inverse_ray_grid="cartesian",
+    )
     actual = _model(lcbinint, params, options).light_curve([time]).magnifications[0]
 
     # Regression for the old |J| < 0.5 fold guard, which clipped a valid image
@@ -1213,10 +1271,19 @@ def test_lcbinint_cartesian_ir_does_not_double_subtract_wide_caustic_fold_overla
         sep=separation,
         rho=rho,
     )
-    actual = _model(lcbinint, 
-        params,
-        lcbinint.Options(source_bins=50, inverse_ray_grid="cartesian"),
-    ).light_curve([time]).magnifications[0]
+    actual = (
+        _model(
+            lcbinint,
+            params,
+            lcbinint.Options(
+                finite_source_backend="default",
+                source_bins=50,
+                inverse_ray_grid="cartesian",
+            ),
+        )
+        .light_curve([time])
+        .magnifications[0]
+    )
 
     # At this grid phase the old overlap bookkeeping processed two equivalent
     # fold components and subtracted the same previous component twice, causing
@@ -1261,6 +1328,7 @@ def test_lcbinint_adaptive_large_source_seed_refinement_regressions(
         rho=rho,
     )
     options = lcbinint.Options(
+        finite_source_backend="default",
         coordinates="vbm",
         nbin="auto",
         max_source_bins=400,
@@ -1367,9 +1435,11 @@ def test_lcbinint_adaptive_does_not_accept_known_local_error_underestimates(
         rho=rho,
         limb_darkening_c=limb_darkening_c,
     )
-    curve = _model(lcbinint, 
+    curve = _model(
+        lcbinint,
         params,
         lcbinint.Options(
+            finite_source_backend="default",
             source_bins=source_bins,
             max_source_bins=400,
             reltol=reltol,
@@ -1381,7 +1451,8 @@ def test_lcbinint_adaptive_does_not_accept_known_local_error_underestimates(
     abs_error = abs(actual - reference)
 
     assert math.isfinite(actual)
-    assert math.isfinite(curve.magnifications[0]) == curve.finite_source_converged[0]
+    assert math.isfinite(curve.magnifications[0])
+    assert curve.all_converged == bool(curve.finite_source_converged[0])
     assert (not curve.finite_source_converged[0]) or abs_error <= 1.05 * target
 
 
@@ -1402,6 +1473,7 @@ def test_absolute_only_tolerance_does_not_inherit_default_relative_budget():
         lcbinint,
         params,
         lcbinint.Options(
+            finite_source_backend="default",
             nbin="auto",
             max_source_bins=400,
             tol=1.0e-5,
@@ -1410,8 +1482,9 @@ def test_absolute_only_tolerance_does_not_inherit_default_relative_budget():
         ),
     ).light_curve([-0.11634042842617024])
 
-    assert curve.statuses == ["unsupported_tolerance"]
-    assert math.isnan(curve.magnifications[0])
+    assert curve.status[0] != lcbinint.LightCurveInfo.OK
+    assert math.isfinite(curve.magnifications[0])
+    assert curve.diagnostics.statuses == ["unsupported_tolerance"]
     assert curve.finite_source_converged == [False]
     assert not curve.all_converged
 
@@ -1419,6 +1492,7 @@ def test_absolute_only_tolerance_does_not_inherit_default_relative_budget():
         lcbinint,
         params,
         lcbinint.Options(
+            finite_source_backend="default",
             nbin=400,
             tol=1.0e-5,
             reltol=0.0,
@@ -1442,12 +1516,15 @@ def test_tightening_absolute_tolerance_is_monotonic_and_order_independent():
     time = -0.11634042842617024
 
     def evaluate(tol, times):
-        return lcbinint.LightCurve(options=lcbinint.Options(
-            nbin=80,
-            tol=tol,
-            reltol=0.0,
-            inverse_ray_grid="cartesian",
-        )).info(times, **params)
+        return lcbinint.LightCurve(
+            options=lcbinint.Options(
+                finite_source_backend="default",
+                nbin=80,
+                tol=tol,
+                reltol=0.0,
+                inverse_ray_grid="cartesian",
+            )
+        ).info(times, **params)
 
     loose = evaluate(1.0e-2, [time])
     tight = evaluate(1.0e-5, [time])
@@ -1459,14 +1536,15 @@ def test_tightening_absolute_tolerance_is_monotonic_and_order_independent():
     times = [time, -0.11]
     forward = evaluate(1.0e-5, times)
     reverse = evaluate(1.0e-5, list(reversed(times)))
-    assert forward.finite_source_magnifications == list(
-        reversed(reverse.finite_source_magnifications)
+    np.testing.assert_array_equal(
+        forward.finite_source_magnifications, reverse.finite_source_magnifications[::-1]
     )
-    assert forward.finite_source_error_estimates == list(
-        reversed(reverse.finite_source_error_estimates)
+    np.testing.assert_array_equal(
+        forward.finite_source_error_estimates,
+        reverse.finite_source_error_estimates[::-1],
     )
-    assert forward.finite_source_converged == list(
-        reversed(reverse.finite_source_converged)
+    np.testing.assert_array_equal(
+        forward.finite_source_converged, reverse.finite_source_converged[::-1]
     )
 
 
@@ -1475,6 +1553,7 @@ def test_explicit_polar_tolerance_has_measured_convergence_state():
     lcbinint = pytest.importorskip("lcbinint")
 
     options = lcbinint.Options(
+        finite_source_backend="default",
         coordinates="vbm",
         inverse_ray_grid="polar",
         nbin=50,
@@ -1505,15 +1584,18 @@ def test_explicit_polar_tolerance_has_measured_convergence_state():
 def test_explicit_cartesian_tolerance_cross_checks_optimistic_area_estimate():
     """A coarse/fine check catches a known low-amplitude lattice alias."""
     lcbinint = pytest.importorskip("lcbinint")
-    light_curve = lcbinint.LightCurve(options=lcbinint.Options(
-        coordinates="center_of_mass",
-        caustic_bins=600,
-        nbin=240,
-        tol=1.0e-5,
-        reltol=0.0,
-        hex_tol=1.0e-5,
-        inverse_ray_grid="cartesian",
-    ))
+    light_curve = lcbinint.LightCurve(
+        options=lcbinint.Options(
+            finite_source_backend="default",
+            coordinates="center_of_mass",
+            caustic_bins=600,
+            nbin=240,
+            tol=1.0e-5,
+            reltol=0.0,
+            hex_tol=1.0e-5,
+            inverse_ray_grid="cartesian",
+        )
+    )
     params = dict(
         t0=0.0,
         tE=1.0,
@@ -1528,14 +1610,15 @@ def test_explicit_cartesian_tolerance_cross_checks_optimistic_area_estimate():
     assert curve.finite_source_method_names == ["inverse_ray_cartesian"]
     assert curve.finite_source_error_estimates[0] > 1.0e-5
     assert curve.finite_source_converged == [False]
-    with pytest.raises(RuntimeError, match="numerical error"):
-        light_curve.magnification([-9.872063992894269], **params)
+    candidate = light_curve.magnification([-9.872063992894269], **params)
+    assert math.isfinite(candidate[0])
+    assert not candidate.all_converged
 
 
 def test_lcbinint_options_exposes_fields():
     lcbinint = pytest.importorskip("lcbinint")
 
-    default_options = lcbinint.Options()
+    default_options = lcbinint.Options(finite_source_backend="default")
     assert default_options.source_bins == 50
     assert default_options.nbin == "auto"
     assert default_options.max_source_bins == 400
@@ -1549,6 +1632,7 @@ def test_lcbinint_options_exposes_fields():
     assert default_options.polar_grid_ratio is None
 
     options = lcbinint.Options(
+        finite_source_backend="default",
         caustic_bins=128,
         nbin=40,
         inverse_ray_grid="polar",
@@ -1585,11 +1669,13 @@ def test_lcbinint_options_exposes_fields():
     assert options.polar_source_bins is None
     assert options.polar_grid_ratio is None
 
-    auto_options = lcbinint.Options(reltol=1.0e-3)
+    auto_options = lcbinint.Options(finite_source_backend="default", reltol=1.0e-3)
     assert auto_options.nbin == "auto"
     assert auto_options.finite_source_reltol == 1.0e-3
 
-    adaptive_options = lcbinint.Options(nbin="auto", reltol=1.0e-3)
+    adaptive_options = lcbinint.Options(
+        finite_source_backend="default", nbin="auto", reltol=1.0e-3
+    )
     assert adaptive_options.nbin == "auto"
     assert adaptive_options.finite_source_reltol == 1.0e-3
 
@@ -1598,9 +1684,9 @@ def test_lcbinint_options_exposes_fields():
     adaptive_options.nbin = "auto"
     assert adaptive_options.nbin == "auto"
     with pytest.raises(ValueError, match="positive integer or 'auto'"):
-        lcbinint.Options(nbin="adaptive")
+        lcbinint.Options(finite_source_backend="default", nbin="adaptive")
     with pytest.raises(ValueError, match="positive integer or 'auto'"):
-        lcbinint.Options(nbin=0)
+        lcbinint.Options(finite_source_backend="default", nbin=0)
 
 
 def test_lcbinint_finite_source_smoke():
@@ -1614,7 +1700,12 @@ def test_lcbinint_finite_source_smoke():
         sep=1.0,
         rho=0.02,
     )
-    options = lcbinint.Options(coordinates="vbm", caustic_bins=128, source_bins=20)
+    options = lcbinint.Options(
+        finite_source_backend="default",
+        coordinates="vbm",
+        caustic_bins=128,
+        source_bins=20,
+    )
 
     actual = _model(lcbinint, params, options).magnification(0.2)
 
@@ -1640,16 +1731,16 @@ def test_lcbinint_function_api_light_curve_exposes_source_trajectory():
         q=0.1,
         sep=1.0,
     )
-    options = lcbinint.Options(coordinates="vbm")
+    options = lcbinint.Options(finite_source_backend="default", coordinates="vbm")
     model = _model(lcbinint, params, options)
     times = [8.0, 10.0, 12.0]
 
     curve = model.light_curve(times)
 
-    assert curve.times == times
+    np.testing.assert_array_equal(curve.times, times)
     assert curve.source_x == [-1.0, 0.0, 1.0]
     assert curve.source_y == [0.1, 0.1, 0.1]
-    assert curve.magnifications == model.magnifications(times)
+    np.testing.assert_array_equal(curve.magnifications, model.magnifications(times))
     assert model.source_position(10.0) == (0.0, 0.1)
     assert model.source_positions(times) == [(-1.0, 0.1), (0.0, 0.1), (1.0, 0.1)]
     assert len(curve.point_source_magnifications) == len(times)
@@ -1668,12 +1759,16 @@ def test_lcbinint_function_api_light_curve_exposes_source_trajectory():
 
 def test_lcbinint_function_api_light_curve_accepts_empty_times():
     lcbinint = pytest.importorskip("lcbinint")
-    model = _model(lcbinint, lcbinint.LensParams(), lcbinint.Options())
+    model = _model(
+        lcbinint,
+        lcbinint.LensParams(),
+        lcbinint.Options(finite_source_backend="default"),
+    )
 
     curve = model.light_curve([])
 
-    assert curve.times == []
-    assert curve.magnifications == []
+    assert curve.times.size == 0
+    assert curve.magnifications.size == 0
     assert model.magnifications([]) == []
     assert model.source_positions([]) == []
 
@@ -1681,7 +1776,9 @@ def test_lcbinint_function_api_light_curve_accepts_empty_times():
 def test_lcbinint_callable_geometry_source_trajectory_matches_info():
     lcbinint = pytest.importorskip("lcbinint")
 
-    func = lcbinint.LightCurve(options=lcbinint.Options(coordinates="vbm"))
+    func = lcbinint.LightCurve(
+        options=lcbinint.Options(finite_source_backend="default", coordinates="vbm")
+    )
     times = [-1.0, 0.0, 1.0]
 
     trajectory = func.source_trajectory(
@@ -1712,7 +1809,9 @@ def test_lcbinint_callable_geometry_source_trajectory_matches_info():
 def test_lcbinint_callable_geometry_caustics_and_critical_curves_have_branches():
     lcbinint = pytest.importorskip("lcbinint")
 
-    func = lcbinint.LightCurve(options=lcbinint.Options(coordinates="vbm"))
+    func = lcbinint.LightCurve(
+        options=lcbinint.Options(finite_source_backend="default", coordinates="vbm")
+    )
 
     caustics = func.caustics(s=1.0, q=1.0e-3, n_points=64)
     critical_curves = func.critical_curves(s=1.0, q=1.0e-3, n_points=64)
@@ -1764,7 +1863,9 @@ def test_light_curve_is_the_only_high_level_evaluation_api():
     times = np.asarray([-0.1, -0.02, 0.0, 0.03, 0.1])
     curve = lcbinint.LightCurve(
         lens="binary",
-        options=lcbinint.Options(coordinates="vbm", source_bins=50),
+        options=lcbinint.Options(
+            finite_source_backend="default", coordinates="vbm", source_bins=50
+        ),
         limb_darkening=lcbinint.LimbDarkening.linear(0.5),
         sky=lcbinint.obs.SkyCoord(267.6, -29.1),
         t_ref=2459000.0,
@@ -1824,7 +1925,9 @@ def test_lcbinint_circular_lom_light_curve_func_matches_vbm():
     func = lcbinint.LightCurve(
         lens="binary",
         t_ref=0.0,
-        options=lcbinint.Options(coordinates="vbm", source_bins=50),
+        options=lcbinint.Options(
+            finite_source_backend="default", coordinates="vbm", source_bins=50
+        ),
         limb_darkening=lcbinint.LimbDarkening.none(),
         orbital_motion_mode=lcbinint.OrbitalMotionMode.CIRCULAR,
     )
@@ -1894,7 +1997,9 @@ def test_lcbinint_kepler_lom_light_curve_func_matches_vbm_when_reference_is_t0()
     func = lcbinint.LightCurve(
         lens="binary",
         t_ref=vbm_reference_time,
-        options=lcbinint.Options(coordinates="vbm", source_bins=50),
+        options=lcbinint.Options(
+            finite_source_backend="default", coordinates="vbm", source_bins=50
+        ),
         limb_darkening=lcbinint.LimbDarkening.none(),
         orbital_motion_mode=lcbinint.OrbitalMotionMode.KEPLER,
     )
@@ -1938,14 +2043,18 @@ def test_lcbinint_kepler_lom_reference_time_is_fixed_by_tfix():
     moving_reference = lcbinint.LightCurve(
         lens="binary",
         t_ref=0.0,
-        options=lcbinint.Options(coordinates="vbm", source_bins=50),
+        options=lcbinint.Options(
+            finite_source_backend="default", coordinates="vbm", source_bins=50
+        ),
         limb_darkening=lcbinint.LimbDarkening.none(),
         orbital_motion_mode=lcbinint.OrbitalMotionMode.KEPLER,
     )
     fixed_reference = lcbinint.LightCurve(
         lens="binary",
         t_ref=7000.0,
-        options=lcbinint.Options(coordinates="vbm", source_bins=50),
+        options=lcbinint.Options(
+            finite_source_backend="default", coordinates="vbm", source_bins=50
+        ),
         limb_darkening=lcbinint.LimbDarkening.none(),
         orbital_motion_mode=lcbinint.OrbitalMotionMode.KEPLER,
     )
@@ -1984,7 +2093,9 @@ def test_lcbinint_function_api_estimates_source_bins_from_self_convergence():
         sep=1.4,
         rho=0.025,
     )
-    options = lcbinint.Options(coordinates="vbm", source_bins=80)
+    options = lcbinint.Options(
+        finite_source_backend="default", coordinates="vbm", source_bins=80
+    )
     model = _model(lcbinint, params, options)
     times = [-2.0, -1.0, -0.5, -0.25, 0.0, 0.25, 0.5, 1.0, 2.0]
 
@@ -2038,7 +2149,11 @@ def test_lcbinint_annual_parallax_source_trajectory_matches_jacscanomaly():
         dec=dec_deg,
         tfix=tref,
     )
-    actual = _model(lcbinint, params, lcbinint.Options(coordinates="vbm")).source_positions(times)
+    actual = _model(
+        lcbinint,
+        params,
+        lcbinint.Options(finite_source_backend="default", coordinates="vbm"),
+    ).source_positions(times)
 
     # jacscanomaly currently retains its historical piecewise-linear Earth
     # ephemeris interpolation.  lcbinint uses the Hermite table path, so this
@@ -2148,7 +2263,9 @@ def test_lcbinint_light_curve_separation_uses_instantaneous_lom_state():
     )
     curve = lcbinint.LightCurve(
         lens="binary",
-        options=lcbinint.Options(coordinates="center_of_mass"),
+        options=lcbinint.Options(
+            finite_source_backend="default", coordinates="center_of_mass"
+        ),
         orbital_motion="circular",
         t_ref=0.5,
     )

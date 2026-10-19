@@ -1,6 +1,6 @@
 #pragma once
 
-// ATPT algebraic-boundary solver -- D14 low-degree block representation
+// Algebraic-boundary solver -- D14 low-degree block representation
 // (D14_structure_ideas_ja.md, sections 2-3).
 //
 // The degree-14 radial-event discriminant D14(v) (v = R^2) is normally

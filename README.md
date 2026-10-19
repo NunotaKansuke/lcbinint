@@ -11,9 +11,9 @@ performance-oriented development are strongly informed by
 This is an early developer release.  The Python API is intended to provide
 lightweight, reusable callables for repeated model evaluation.
 
-## Experimental algebraic-boundary route
+## Algebraic-boundary route
 
-On `experiment/algebraic_boundary`, static single-source binary curves use one
+Static single-source binary curves use one
 shared C++ controller for values and optional gradients: the common point/hex
 selector followed by caustic-aware seeded radial-frontier / nested-Fejer
 integration. Gradient mode retains the normalized source-disk coordinate repair
@@ -24,10 +24,8 @@ reported separately.
 
 The implementation lives in `src/lcbinint/magnification/algebraic_boundary/`;
 its private `tangent/` kernel is compiled directly, without generated source
-overlays. The separate Holonomic backend, its Python reference package, and
-legacy image-boundary/Gauss–Kronrod solvers have been removed from this branch.
-Historical documents and evidence retain their original paths and terminology;
-the retired research programs are recoverable from Git history.
+overlays. Historical development records are kept separately under `evidence/`
+and `docs/`; they do not define the current API.
 Finite value and gradient candidates are returned even when diagnostic flags
 are false. A missing finite numerical candidate raises an explicit error rather
 than returning NaN or an invented replacement.
@@ -172,9 +170,10 @@ The ordinary call always returns its finite magnification estimates and the
 per-epoch value status. Detailed backend diagnostics are opt-in through
 `with_diagnostics=True` on the same call. A requested gradient call returns
 the computed candidate for every epoch; `gradient_valid` separately reports
-whether the candidate passed the backend's reliability checks. If the
-analytic pass has no finite row, the API computes a finite-difference
-candidate from the same value route. Diagnostics never replace a candidate
+whether the candidate passed the backend's reliability checks. The
+algebraic-boundary route raises an explicit error if its analytic pass has no
+finite candidate. The standard router can compute a finite-difference
+candidate from its value route. Diagnostics never replace a candidate
 with zero or `None`.
 
 `curve.info(...)` remains a compatibility alias and keeps detailed diagnostics

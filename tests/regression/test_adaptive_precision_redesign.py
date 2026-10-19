@@ -29,7 +29,7 @@ class TestPhase1MaxStepsDecoupling:
 
         # Phase 1: max_steps is now 500k (bins-independent)
         # This ensures flood-fill completes, producing finite results
-        opts_low = lcbinint.Options(source_bins=20)
+        opts_low = lcbinint.Options(finite_source_backend="default", source_bins=20)
         result_low = lc_curve(case, times, opts_low)
         mag_low = np.array(result_low.magnifications)
 
@@ -56,11 +56,11 @@ class TestPhase2GridSpacingRefinement:
         times = np.linspace(case.t_min, case.t_max, case.n_times)
 
         # Compare bins=20 with bins=50 (both low, but difference shows grid effect)
-        opts_low = lcbinint.Options(source_bins=20)
+        opts_low = lcbinint.Options(finite_source_backend="default", source_bins=20)
         result_low = lc_curve(case, times, opts_low)
         mag_low = np.array(result_low.magnifications)
 
-        opts_nominal = lcbinint.Options(source_bins=50)
+        opts_nominal = lcbinint.Options(finite_source_backend="default", source_bins=50)
         result_nominal = lc_curve(case, times, opts_nominal)
         mag_nominal = np.array(result_nominal.magnifications)
 
@@ -90,6 +90,7 @@ class TestPhase3EmpiricalResolution:
 
         # Tight tolerance: 0.01% (requires significant bins)
         opts_tight = lcbinint.Options(
+            finite_source_backend="default",
             nbin="auto",
             max_source_bins=200,
             reltol=1e-4,  # 0.01% target
@@ -124,6 +125,7 @@ class TestOneShotAutoResolution:
 
         # Moderate tolerance
         opts = lcbinint.Options(
+            finite_source_backend="default",
             nbin="auto",
             max_source_bins=200,
             reltol=1e-3,  # 0.1% target
@@ -155,7 +157,7 @@ class TestRegressionNoPerformanceDegradation:
         times = np.linspace(case.t_min, case.t_max, case.n_times)
 
         # Fixed bins (no adaptive)
-        opts_fixed = lcbinint.Options(source_bins=50)
+        opts_fixed = lcbinint.Options(finite_source_backend="default", source_bins=50)
         result_fixed = lc_curve(case, times, opts_fixed)
         mag_fixed = np.array(result_fixed.magnifications)
 
@@ -179,6 +181,7 @@ class TestRegressionNoPerformanceDegradation:
 
         # Adaptive with 1% target (looser tolerance for reliability)
         opts = lcbinint.Options(
+            finite_source_backend="default",
             nbin="auto",
             max_source_bins=200,
             reltol=1e-2,  # 1% target
@@ -208,7 +211,7 @@ class TestEdgeCases:
         )
         times = np.linspace(case.t_min, case.t_max, case.n_times)
 
-        opts = lcbinint.Options(source_bins=15)
+        opts = lcbinint.Options(finite_source_backend="default", source_bins=15)
         result = lc_curve(case, times, opts)
         mag = np.array(result.magnifications)
 
@@ -226,9 +229,10 @@ class TestEdgeCases:
         times = np.linspace(case.t_min, case.t_max, case.n_times)
 
         opts = lcbinint.Options(
+            finite_source_backend="default",
             nbin="auto",
             max_source_bins=200,
-            reltol=1e-4
+            reltol=1e-4,
         )
         result = lc_curve(case, times, opts)
         mag = np.array(result.magnifications)

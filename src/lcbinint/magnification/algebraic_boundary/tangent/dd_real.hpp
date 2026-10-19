@@ -1,11 +1,6 @@
 #pragma once
 
-// ATPT algebraic-boundary solver (M7) -- double-double real arithmetic (Phase B1).
-//
-// D14(v) (degree 14, monomial basis kappa ~ 1e9) currently gets an
-// __float128 (libquadmath, ~113-bit, fully software) Aberth-Ehrlich
-// polish.  That polish is ~68% of `radial_events` and ~32% of the full
-// value+5-Jacobian epoch (evidence/holonomic/d14_solve_cost_split.txt).
+// Algebraic-boundary solver -- double-double real arithmetic.
 //
 // `DD` is an unevaluated-sum double-double: value = hi + lo, |lo| <= ulp(hi)/2.
 // ~106 significant bits, all in hardware `double` + one FMA per product

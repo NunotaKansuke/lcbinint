@@ -25,8 +25,11 @@ TRIPLE_PARAMETERS = {
 
 
 def curves(lens="binary", **kwargs):
-    native_options = lcbinint.Options(tol=1.0e-4, reltol=1.0e-4, **kwargs)
+    native_options = lcbinint.Options(
+        finite_source_backend="default", tol=1.0e-4, reltol=1.0e-4, **kwargs
+    )
     jax_options = lcbinint.Options(
+        finite_source_backend="default",
         jax=True,
         tol=1.0e-4,
         reltol=1.0e-4,
@@ -39,8 +42,8 @@ def curves(lens="binary", **kwargs):
 
 
 def test_options_select_jax_without_changing_native_default():
-    native = lcbinint.Options()
-    selected = lcbinint.Options(jax=True)
+    native = lcbinint.Options(finite_source_backend="default")
+    selected = lcbinint.Options(finite_source_backend="default", jax=True)
 
     assert not native.jax
     assert selected.jax
@@ -58,7 +61,7 @@ def test_public_jax_light_curve_matches_native_and_differentiates(
     expected = native(np.asarray(TIMES), parameters)
     actual = jax_curve(TIMES, parameters)
 
-    assert isinstance(actual, jax.Array)
+    assert isinstance(actual.magnifications, jax.Array)
     np.testing.assert_allclose(actual, expected, rtol=5.0e-5, atol=5.0e-4)
 
     def loss(impact_parameter):
@@ -98,9 +101,11 @@ def test_public_jax_api_supports_static_binary_sources():
         "u0_2": 0.2,
         "flux_ratio": 0.3,
     }
-    native_options = lcbinint.Options(tol=1.0e-4, reltol=1.0e-4)
+    native_options = lcbinint.Options(
+        finite_source_backend="default", tol=1.0e-4, reltol=1.0e-4
+    )
     jax_options = lcbinint.Options(
-        jax=True, tol=1.0e-4, reltol=1.0e-4
+        finite_source_backend="default", jax=True, tol=1.0e-4, reltol=1.0e-4
     )
     native = lcbinint.LightCurve(source="binary", options=native_options)
     jax_curve = lcbinint.LightCurve(source="binary", options=jax_options)
@@ -177,13 +182,15 @@ def test_public_jax_api_composes_higher_order_effects_and_gradient():
     native = lcbinint.LightCurve(
         model=model,
         site=site,
-        options=lcbinint.Options(tol=1.0e-4, reltol=1.0e-4),
+        options=lcbinint.Options(
+            finite_source_backend="default", tol=1.0e-4, reltol=1.0e-4
+        ),
     )
     jax_curve = lcbinint.LightCurve(
         model=model,
         site=site,
         options=lcbinint.Options(
-            jax=True, tol=1.0e-4, reltol=1.0e-4
+            finite_source_backend="default", jax=True, tol=1.0e-4, reltol=1.0e-4
         ),
     )
 
@@ -235,12 +242,14 @@ def test_public_jax_api_supports_space_parallax_and_gradient():
     native = lcbinint.LightCurve(
         model=model,
         site=site,
-        options=lcbinint.Options(coordinates="vbm"),
+        options=lcbinint.Options(finite_source_backend="default", coordinates="vbm"),
     )
     jax_curve = lcbinint.LightCurve(
         model=model,
         site=site,
-        options=lcbinint.Options(jax=True, coordinates="vbm"),
+        options=lcbinint.Options(
+            finite_source_backend="default", jax=True, coordinates="vbm"
+        ),
     )
 
     np.testing.assert_allclose(
@@ -351,11 +360,13 @@ def test_public_jax_api_supports_binary_source_xallarap(
     model = lcbinint.Model(**model_arguments)
     native = lcbinint.LightCurve(
         model=model,
-        options=lcbinint.Options(coordinates="vbm"),
+        options=lcbinint.Options(finite_source_backend="default", coordinates="vbm"),
     )
     jax_curve = lcbinint.LightCurve(
         model=model,
-        options=lcbinint.Options(jax=True, coordinates="vbm"),
+        options=lcbinint.Options(
+            finite_source_backend="default", jax=True, coordinates="vbm"
+        ),
     )
 
     np.testing.assert_allclose(
@@ -419,12 +430,14 @@ def test_public_jax_api_composes_space_parallax_and_binary_source_xallarap():
     native = lcbinint.LightCurve(
         model=model,
         site=site,
-        options=lcbinint.Options(coordinates="vbm"),
+        options=lcbinint.Options(finite_source_backend="default", coordinates="vbm"),
     )
     jax_curve = lcbinint.LightCurve(
         model=model,
         site=site,
-        options=lcbinint.Options(jax=True, coordinates="vbm"),
+        options=lcbinint.Options(
+            finite_source_backend="default", jax=True, coordinates="vbm"
+        ),
     )
 
     np.testing.assert_allclose(
@@ -473,11 +486,13 @@ def test_public_jax_api_supports_triple_binary_source_xallarap():
     )
     native = lcbinint.LightCurve(
         model=model,
-        options=lcbinint.Options(coordinates="vbm"),
+        options=lcbinint.Options(finite_source_backend="default", coordinates="vbm"),
     )
     jax_curve = lcbinint.LightCurve(
         model=model,
-        options=lcbinint.Options(jax=True, coordinates="vbm"),
+        options=lcbinint.Options(
+            finite_source_backend="default", jax=True, coordinates="vbm"
+        ),
     )
 
     np.testing.assert_allclose(

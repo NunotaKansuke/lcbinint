@@ -58,6 +58,40 @@ The returned value is not made accurate merely by requesting a tolerance.
 Inspect `finite_source_converged` and `finite_source_error_estimates` when the
 result matters scientifically.
 
+## Value convergence and image coverage
+
+For the default algebraic-boundary CPU path, inspect these independent fields
+on the returned `LightCurveInfo`, including when diagnostics are disabled:
+
+- `value_converged`: the value met the integration error budget.
+- `support_required`: this epoch used the finite-source integral.
+- `seed_support_proven`: the component-seeding check passed.
+- `frontier_discovery_completed`: local radial exploration finished; false is
+  also expected when a smooth source-disk chart was used instead.
+- `support_certified`: global coverage was certified. The current integral
+  does not produce this certificate, even when seeding and integration pass.
+
+`status_names` distinguishes `unconverged` (value budget not met),
+`support_unproven` (seeding remains unresolved), and `coverage_uncertified`
+(value converged and seeding passed, but global coverage remains uncertified).
+Value failure takes priority; inspect diagnostics for the integration stop.
+`coverage_uncertified` has numeric code 3; existing codes 0, 1, and 2 retain
+their values. `all_values_converged` checks value convergence alone, whereas
+`all_converged` remains false for every uncertified epoch. Neither finite
+values nor seeding success certify numerical accuracy or global coverage.
+
+The JAX FFI currently exports only value convergence and aggregate support
+flags. Its unresolved support remains `support_unproven`; the finer seeding
+and discovery fields are `None` when unavailable. Other backends retain
+their existing support contracts. Do not interpret a false seed/discovery
+flag at an epoch with `support_required=False` as a failed integral.
+
+Value-only calls use the native path without building optional diagnostic
+arrays, strings, or per-epoch timings. Request `with_diagnostics=True` to
+include those details. Both modes apply the same numerical settings and retain
+the convergence and support fields above. No JAX setting or warmup is needed
+for this default path.
+
 ## Evaluation modes
 
 A finite-source light curve can move between several methods from epoch to
@@ -116,10 +150,10 @@ useful for reproducibility experiments and is also one-shot.
 | `max_source_bins` | Ceiling applied to the automatic resolution prediction. | Leave at the calibrated default unless diagnostics require more. |
 | `inverse_ray_grid` | `"auto"`, `"cartesian"`, or `"polar"`. | `"auto"` |
 | `polar_nbin` | Optional independent polar resolution. | `None` |
-| `caustic_bins` | Sampling used only for caustic/critical-curve visualization. | Increase for denser scatter plots. |
+| `caustic_bins` | Sampling for detailed caustic fallback geometry and visualization. | Leave at the default for calculations. |
 | `hex_tol` | Fourth-order self-consistency threshold. | Leave at the default unless validating method selection. |
 | `point_source_threshold` | Geometric point-source safety margin. | Advanced validation only. |
-| `finite_source_backend` | Select the model-appropriate branch default or explicitly request the standard router (`"default"`). | Algebraic boundary for supported static binary curves. |
+| `finite_source_backend` | Select the model-appropriate default or explicitly request the standard router (`"default"`). | Algebraic boundary for supported static binary curves. |
 
 ## Inspect the selected method
 

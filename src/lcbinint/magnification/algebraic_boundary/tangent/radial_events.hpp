@@ -1,6 +1,6 @@
 #pragma once
 
-// ATPT algebraic-boundary solver (M7) -- radial event enumeration (plan sec. 3).
+// Algebraic-boundary solver -- radial event enumeration.
 // Ports historical Python reference: radial_events.py.
 //
 // The circle |z| = R meets phi = 0 in an arc count that is piecewise
@@ -499,12 +499,8 @@ inline bool double_root_is_real(double R, const PrimaryFrame& pf,
     return probe_double_root(R, pf, tol).physically_real;
 }
 
-// Process-wide opt-out: BOUNDARY_D14_LEGACY_SOLVE=1 forces the original
-// __float128-only warm polish.  Default: the Phase-B1 compensated
-// (double-double) polish, which reproduces the same roots at
-// residual <= the __float128 path but without libquadmath in the hot
-// loop (evidence/holonomic/d14_compensated_bench.txt).  The kept flag is
-// the A/B escape hatch.
+// BOUNDARY_D14_LEGACY_SOLVE=1 selects __float128-only warm polish.
+// The default uses compensated double-double arithmetic.
 inline bool boundary_d14_compensated_enabled() {
     static const bool on = [] {
         const char* e = std::getenv("BOUNDARY_D14_LEGACY_SOLVE");
@@ -585,20 +581,8 @@ inline D14RealScheduleConfig boundary_d14_real_schedule_config() {
     return config;
 }
 
-// Process-wide opt-out: BOUNDARY_D14_STRUCT_LEGACY=1 forces Horner on the
-// expanded degree-14 coefficient vector.  Default: run the Aberth polish
-// against the C3/G4/Z3 block-form D/D' evaluator (d14_structure.hpp), and
-// build the (still expanded, for the residual / Newton-sum gates)
-// coefficient vector from the same exact blocks.  The blocks carry no
-// high-order cancellation, so the polish sees ~1e-32 coefficients where
-// the expansion route carries ~1e-28 -- the difference that forced the
-// rand028-class near-multiple clusters to escalate to __float128.  The
-// block form is ~1.8x the flops per Aberth node (isolated solve_d14
-// median 0.83x) but collapses the latency tail: epoch p90 1.14x / p99
-// 1.64x / max 1.72x, all percentiles non-regressing; identity exact to
-// 3.2e-28, parity 0/115, no new cold fallbacks
-// (evidence/holonomic/d14_structure_bench.txt, checkpoint 34).  Isolated
-// algebraic-boundary build only -- header-only, no shared .so wiring.
+// Evaluate D14 and its derivative from low-degree exact blocks to reduce
+// cancellation. BOUNDARY_D14_STRUCT_LEGACY=1 selects expanded coefficients.
 inline bool boundary_d14_struct_enabled() {
     static const bool on = [] {
         const char* e = std::getenv("BOUNDARY_D14_STRUCT_LEGACY");
@@ -1290,7 +1274,7 @@ inline D14ActivePresearchResult d14_active_presearch(
 //
 // Backstop (either path): non-finite presearch or a failed residual gate
 // -> cold __float128 Aberth (tier 2 / -1).
-// `warm_seed` (optional, Phase B2): a previous epoch's D14 root set in the
+// `warm_seed` (optional): a previous epoch's D14 root set in the
 // same v = R^2 space, length deg.  When present and finite it seeds the
 // `double` root-basin presearch instead of a cold Aberth-Ehrlich spread --
 // on a smoothly drifting trajectory the roots move O(drift), so a short
@@ -2441,10 +2425,10 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
 
 // Port of radial_events.radial_events.  Returns events sorted by radius and
 // merged within `merge_tol` per kind; `r_max` via the same formula.
-// `d14_warm` (optional, Phase B2): a previous epoch's full D14 root set
+// `d14_warm` (optional): a previous epoch's full D14 root set
 // (v = R^2 space, all 14 incl. complex) used to warm-seed the solve.
 // `d14_roots_out` (optional): receives this epoch's full post-symmetrised
-// D14 root set for the next epoch / a prepared-geometry cache (Phase E).
+// D14 root set for the next epoch / a prepared-geometry cache.
 // Explicit isolated research scope; fixed-n_r callers never consult this policy.
 enum class D14EventPolicy { AllComplexSoft, NoProjectedComplexSoft, PositiveReal };
 inline thread_local D14EventPolicy d14_event_policy = D14EventPolicy::AllComplexSoft;

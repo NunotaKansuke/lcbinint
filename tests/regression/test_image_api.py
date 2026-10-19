@@ -34,9 +34,7 @@ def test_binary_image_positions_match_light_curve_point_magnification():
         rho=0.0,
     )
 
-    assert table["magnification"].sum() == pytest.approx(
-        info.point_source_magnifications[0]
-    )
+    assert table["magnification"].sum() == pytest.approx(info.magnifications[0])
     assert all(math.isfinite(value) for value in table["jacobian_determinant"])
 
 

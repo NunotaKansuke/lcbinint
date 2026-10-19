@@ -1,14 +1,13 @@
 #pragma once
 
-// ATPT algebraic-boundary solver -- radial cell classification.
+// Algebraic-boundary solver -- radial cell classification.
 // Ports historical Python reference: topology.py:classify_cells.
 //
 // The radial events partition (0, r_max] into cells of constant arc
 // topology.  Each cell is probed at one interior radius.
 //
-// M7/M8 used fixed angular grids as a cross-check and, on disagreement,
-// allowed the grid to overwrite the quartic result.  That is not a complete
-// topology test: a positive arc can be narrower than every fixed grid.
+// A fixed angular grid cannot certify topology: a positive arc can be
+// narrower than every grid interval.
 //
 // The cell authority is now the boundary quartic plus a certified degree-4
 // Sturm real-root count at one interior radius.  D14 events already cut the
@@ -119,7 +118,7 @@ inline TopologyResult classify_event_cells(const PrimaryFrame& pf,std::vector<Ra
     return out;
 }
 
-// `d14_warm` / `d14_roots_out` (optional, Phase B2 / E): forwarded to
+// `d14_warm` / `d14_roots_out` (optional): forwarded to
 // `radial_events` -- a previous epoch's D14 root set to warm-seed the solve,
 // and an out-slot for this epoch's full root set for a prepared-geometry cache.
 inline TopologyResult classify_cells(

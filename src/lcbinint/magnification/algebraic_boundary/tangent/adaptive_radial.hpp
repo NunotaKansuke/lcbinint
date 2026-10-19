@@ -517,10 +517,6 @@ inline GradientReason gradient_reason(AdaptiveStop s) {
     }
     return GradientReason::BudgetExceeded;
 }
-inline bool invalid_gradient_stop(AdaptiveStop s) {
-    return s==AdaptiveStop::TopologyUnresolved || s==AdaptiveStop::Nonfinite ||
-           s==AdaptiveStop::InvalidConfig;
-}
 inline AdaptiveResult failure_result(AdaptiveStop stop,GradientPolicy policy) {
     AdaptiveResult r;
     r.stop=r.value_stop_reason=r.gradient_stop_reason=stop;

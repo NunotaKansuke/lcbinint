@@ -5,7 +5,7 @@ from ._lcbinint import *          # noqa: F401, F403
 from ._lcbinint import obs
 from . import image
 from .image import ImagePlane
-from .warmup import WarmupReport
+from .warmup import WarmupReport as WarmupReport
 
 _NativeOptions = _native.Options
 
@@ -43,7 +43,7 @@ def _normalize_finite_source_backend(value):
 
 
 def _default_finite_source_backend(native_curve):
-    """Select the branch default for the model supported by this backend."""
+    """Select the backend supported by the model."""
     model = native_curve.model
     if (
         model.lens == "binary"
@@ -70,7 +70,7 @@ class Options:
 
     ``jax`` and ``t_lim`` deliberately live outside ``lcbi_options`` so these
     controls do not change the layout of the public C ABI structure.
-    ``finite_source_backend=None`` selects the branch default after the model
+    ``finite_source_backend=None`` selects the backend after the model
     is known: static single-source binary curves use algebraic boundary, while
     models outside that backend's support keep the standard router. Pass
     ``'default'`` explicitly to request the standard router for a binary curve.
@@ -212,6 +212,7 @@ class LightCurveInfo:
     OK = 0
     UNCONVERGED = 1
     SUPPORT_UNPROVEN = 2
+    COVERAGE_UNCERTIFIED = 3
 
     times: object
     magnifications: object
@@ -222,6 +223,9 @@ class LightCurveInfo:
     value_converged: object = None
     support_certified: object = None
     diagnostics: object = None
+    seed_support_proven: object = None
+    frontier_discovery_completed: object = None
+    support_required: object = None
 
     __array_priority__ = 1000
 
@@ -242,9 +246,9 @@ class LightCurveInfo:
     def finite_source_magnifications(self):
         """Alias for the estimate in ``magnifications``.
 
-        If finite-source image support is unproven, this may be the point-source
-        fallback; inspect ``status`` and ``diagnostics`` before using it as a
-        finite-source result.
+        The algebraic-boundary backend retains its integral candidate when
+        coverage is uncertified. Other backends may return a fallback;
+        inspect ``status`` and ``diagnostics`` before using the estimate.
         """
         return self.magnifications
 
@@ -253,6 +257,15 @@ class LightCurveInfo:
         import numpy as np
 
         return bool(np.all(np.asarray(self.status) == self.OK))
+
+    @property
+    def all_values_converged(self):
+        """Whether every value met its integration budget, independently of coverage."""
+        import numpy as np
+
+        return self.value_converged is not None and bool(
+            np.all(np.asarray(self.value_converged))
+        )
 
     @property
     def unconverged_indices(self):
@@ -268,6 +281,7 @@ class LightCurveInfo:
             self.OK: "ok",
             self.UNCONVERGED: "unconverged",
             self.SUPPORT_UNPROVEN: "support_unproven",
+            self.COVERAGE_UNCERTIFIED: "coverage_uncertified",
         }
         return np.asarray(
             [names.get(int(code), "unconverged") for code in np.asarray(self.status).reshape(-1)],
@@ -360,12 +374,16 @@ class LightCurveInfo:
             self.gradient_valid,
             self.value_converged,
             self.support_certified,
+            self.seed_support_proven,
+            self.frontier_discovery_completed,
+            self.support_required,
         )
         return children, self.gradient_parameters
 
     @classmethod
     def tree_unflatten(cls, gradient_parameters, children):
-        times, magnifications, status, gradients, gradient_valid, converged, support = children
+        (times, magnifications, status, gradients, gradient_valid, converged,
+         support, seeds, discovery, required) = children
         return cls(
             times=times,
             magnifications=magnifications,
@@ -375,6 +393,9 @@ class LightCurveInfo:
             gradient_parameters=gradient_parameters,
             value_converged=converged,
             support_certified=support,
+            seed_support_proven=seeds,
+            frontier_discovery_completed=discovery,
+            support_required=required,
         )
 
 
@@ -723,7 +744,9 @@ class LightCurve:
                 "finite_source_backend='algebraic_boundary' requires a static binary trajectory"
             )
 
-    def _evaluate_values(self, times, merged, *, with_gradient=False):
+    def _evaluate_values(
+        self, times, merged, *, with_gradient=False, with_diagnostics=True
+    ):
         """Build the common value/status record for every public call mode."""
         import numpy as np
 
@@ -802,16 +825,13 @@ class LightCurve:
                     self._native, self._options, time_array, merged
                 )
                 estimates = raw.magnification
-                accepted = raw.value_converged & (
-                    ~raw.support_required | raw.support_certified
-                )
                 status = jnp.where(
-                    accepted,
-                    LightCurveInfo.OK,
+                    ~raw.value_converged,
+                    LightCurveInfo.UNCONVERGED,
                     jnp.where(
                         raw.support_required & ~raw.support_certified,
                         LightCurveInfo.SUPPORT_UNPROVEN,
-                        LightCurveInfo.UNCONVERGED,
+                        LightCurveInfo.OK,
                     ),
                 ).astype(jnp.int8)
                 return LightCurveInfo(
@@ -820,6 +840,7 @@ class LightCurve:
                     status=status,
                     value_converged=raw.value_converged,
                     support_certified=raw.support_certified,
+                    support_required=raw.support_required,
                     diagnostics=raw,
                 )
             values = magnification(
@@ -933,33 +954,43 @@ class LightCurve:
             from .algebraic_boundary import lightcurve_value
 
             raw = lightcurve_value(
-                self, time_array, merged, with_gradient=with_gradient
+                self, time_array, merged, with_gradient=with_gradient,
+                with_diagnostics=with_diagnostics,
             )
             values = np.asarray(raw["mu"], dtype=float).reshape(-1)
             converged = np.asarray(raw["fully_converged"], dtype=bool).reshape(-1)
             converged &= np.isfinite(values)
             support = np.asarray(raw["support_certified"], dtype=bool).reshape(-1)
             integrated = np.asarray(raw["integrator_used"], dtype=bool).reshape(-1)
-            support_failed = integrated & ~support
+            value_converged = np.asarray(raw["value_converged"], dtype=bool).reshape(-1)
+            value_converged = value_converged & np.isfinite(values)
+            seeds = np.asarray(raw["seed_support_proven"], dtype=bool).reshape(-1)
+            discovery = np.asarray(raw["frontier_discovery_completed"], dtype=bool).reshape(-1)
             raw["value_fallback_used"] = np.zeros(values.shape, dtype=bool)
             raw["value_fallback_kind"] = np.full(values.shape, "none")
             status = np.where(
-                converged,
-                LightCurveInfo.OK,
+                ~value_converged,
+                LightCurveInfo.UNCONVERGED,
                 np.where(
-                    support_failed,
+                    integrated & ~seeds,
                     LightCurveInfo.SUPPORT_UNPROVEN,
-                    LightCurveInfo.UNCONVERGED,
+                    np.where(
+                        integrated & ~support,
+                        LightCurveInfo.COVERAGE_UNCERTIFIED,
+                        np.where(converged, LightCurveInfo.OK, LightCurveInfo.UNCONVERGED),
+                    ),
                 ),
             ).astype(np.int8)
             return LightCurveInfo(
                 times=time_array,
                 magnifications=values,
                 status=status,
-                value_converged=np.asarray(raw["value_converged"], dtype=bool).reshape(-1) &
-                    np.isfinite(values),
+                value_converged=value_converged,
                 support_certified=support,
                 diagnostics=raw,
+                seed_support_proven=seeds,
+                frontier_discovery_completed=discovery,
+                support_required=integrated,
             )
 
         if self._native.model.source == "single":
@@ -1112,7 +1143,7 @@ class LightCurve:
             if name == "orbital_motion_mode":
                 continue
             try:
-                scalar = float(value)
+                float(value)
             except (TypeError, ValueError):
                 continue
             names.append(name)
@@ -1136,7 +1167,6 @@ class LightCurve:
             return None
         gradients = np.full((time_array.size, len(names)), np.nan, dtype=np.float64)
         gradient_valid = np.zeros(time_array.size, dtype=bool)
-        accepted = status_array == LightCurveInfo.OK
 
         if not isinstance(diagnostics, dict):
             return None
@@ -1403,7 +1433,8 @@ class LightCurve:
             and self._options.finite_source_backend == "algebraic_boundary"
         )
         result = self._evaluate_values(
-            times, merged, with_gradient=native_algebraic_gradient
+            times, merged, with_gradient=native_algebraic_gradient,
+            with_diagnostics=with_diagnostics,
         )
         if not with_gradient:
             return (
@@ -1439,6 +1470,9 @@ class LightCurve:
                     value_converged=result.value_converged,
                     support_certified=result.support_certified,
                     diagnostics=output_diagnostics(),
+                    seed_support_proven=result.seed_support_proven,
+                    frontier_discovery_completed=result.frontier_discovery_completed,
+                    support_required=result.support_required,
                 )
         names, gradients, valid = self._evaluate_gradients(
             times, merged, eligible=result.status,
@@ -1454,6 +1488,9 @@ class LightCurve:
             value_converged=result.value_converged,
             support_certified=result.support_certified,
             diagnostics=output_diagnostics(),
+            seed_support_proven=result.seed_support_proven,
+            frontier_discovery_completed=result.frontier_discovery_completed,
+            support_required=result.support_required,
         )
 
     def magnification(
