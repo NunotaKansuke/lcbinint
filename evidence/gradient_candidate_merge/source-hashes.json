@@ -1,0 +1,6 @@
+{
+  "src/lcbinint/magnification/algebraic_boundary/fused_gradient.cpp": "d9a1c45e53225ef26a1f2dc78519a05c2cbfae28f31126838b1cc6c208d9cf8e",
+  "src/lcbinint/magnification/finite_source_magnifier.cpp": "e2944f19830c42f1fddbab4cfd031dca7acddafd8a8b244d5a21f2ce3931b507",
+  "tests/regression/test_algebraic_boundary_unified.py": "c43d19a90c3a594ddfac6ca0513d280b5b8442b8aaeed363649ddbe7bce8e147",
+  "tests/unit/test_core.cpp": "7a71c0438947498ea1324c94572f6ec347b12c65d36d3bb66f59456daf046780"
+}

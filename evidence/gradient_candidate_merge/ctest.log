@@ -1,0 +1,8 @@
+Internal ctest changing into directory: /moao38_7/nunota/binfit/work/MB23169/runs/nuts_static_500w100s_depth10/gradient_candidate_repair_build
+Test project /extern/moao38_7/nunota/binfit/work/MB23169/runs/nuts_static_500w100s_depth10/gradient_candidate_repair_build
+    Start 1: unit_core
+1/1 Test #1: unit_core ........................   Passed    1.28 sec
+
+100% tests passed, 0 tests failed out of 1
+
+Total Test time (real) =   1.35 sec

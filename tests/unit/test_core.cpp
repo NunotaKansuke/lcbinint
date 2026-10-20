@@ -1100,6 +1100,54 @@ int main()
                 return 126;
         }
     }
+    {
+        using namespace lcbinint::magnification;
+        FiniteSourceSettings settings;
+        settings.source_bins = 80;
+        settings.max_source_bins = 400;
+        settings.limb_darkening_c = 0.6584;
+        settings.finite_source_tol = 1e-4;
+        settings.finite_source_reltol = 1e-3;
+        const FiniteSourceMagnifier magnifier(settings);
+        const lcbinint::SourcePosition sources[] = {
+            {1.9483916678579025e-05, -2.6048659958853258e-05},
+            {9.510709675452556e-06, -1.3070887672932013e-05},
+            {2.8765908804010926e-06, -4.4381496767249629e-06},
+            {-1.3291057832425399e-05, 1.6600224772742906e-05}
+        };
+        AlgebraicBoundarySettings tolerances;
+        tolerances.absolute_tolerance = 1e-4;
+        tolerances.relative_tolerance = 1e-3;
+        for (const auto& source : sources) {
+            magnifier.clear_binary_epoch_caches();
+            FiniteSourceResult value;
+            magnifier.algebraic_boundary_binary_mag(
+                0.5860467981775465, 1 / 2.9795910469372738e-5, source,
+                2.6295524980988746e-6, tolerances, &value, nullptr, true);
+            if (!(std::isfinite(value.magnification) && value.magnification > 0.0) ||
+                value.decision.estimated_evaluations == 0)
+                return 132;
+            if (value.diagnostic_stop.find("initial_stop=EventLocationLimited") == std::string::npos)
+                return 133;
+            FiniteSourceResult derivative;
+            const auto jacobian = magnifier.algebraic_boundary_binary_jacobian(
+                0.5860467981775465, 1 / 2.9795910469372738e-5, source,
+                2.6295524980988746e-6, tolerances, &derivative, nullptr, true);
+            if (std::abs(value.magnification - derivative.magnification) >
+                tolerances.absolute_tolerance + tolerances.relative_tolerance * std::abs(value.magnification))
+                return 134;
+            if (source.y == -4.4381496767249629e-06) {
+                bool nonzero = false;
+                for (const auto component : jacobian.jacobian) {
+                    if (!std::isfinite(component)) return 135;
+                    nonzero = nonzero || component != 0.0;
+                }
+                if (!nonzero || jacobian.grad_reliable) return 136;
+                if (derivative.diagnostic_stop.find("unresolved_outer_edge_pair") == std::string::npos)
+                    return 137;
+            }
+        }
+    }
 #if defined(__SSE__)
     {
         namespace tangent = lcbinint::algebraic_boundary::tangent;

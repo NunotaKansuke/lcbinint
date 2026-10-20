@@ -1,0 +1,5 @@
+[  7%] Built target lcbinint_fused_gradient
+[ 37%] Built target lcbinint_magnification
+[ 74%] Built target lcbinint_lightcurve
+[ 81%] Built target test_core
+[100%] Built target lcbinint_python

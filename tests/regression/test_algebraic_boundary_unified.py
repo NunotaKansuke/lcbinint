@@ -11,6 +11,37 @@ ROOT = Path(__file__).resolve().parents[2]
 ORDER = ("t0", "u0", "tE", "alpha", "rho", "q", "s")
 
 
+def test_unresolved_outer_edge_returns_computed_gradient_candidate():
+    jax = pytest.importorskip("jax")
+    import jax.numpy as jnp
+
+    jax.config.update("jax_enable_x64", True)
+    model = lc.LightCurve(lens="binary", options=lc.Options(
+        param_type="vbm", source_bins=80, max_source_bins=400,
+        finite_source_tol=1e-4, finite_source_reltol=1e-3,
+        finite_source_backend="algebraic_boundary"),
+        limb_darkening=lc.LimbDarkening.linear(0.6584))
+    params = dict(s=0.5860467981775465, q=2.9795910469372738e-5,
+                  u0=4.2345762431841034e-7, alpha=2.22602246134627,
+                  rho=2.6295524980988746e-6, tE=2033.082239820582,
+                  t0=10068.977085148737)
+    epochs = np.array([10068.966367])
+    result = model(epochs, params, with_gradient=True, with_diagnostics=True)
+    assert not result.gradient_valid[0]
+    assert np.isfinite(result.gradients).all()
+    assert np.any(result.gradients != 0)
+    assert "unresolved_outer_edge_pair" in result.diagnostics["stop"][0]
+    local = result.diagnostics["local_gradients"][0]
+    np.testing.assert_allclose(local, [42552153555.271843, -9190385671.3383465,
+        19319360648.881779, 11.177209980384188, -1148496.3863479905], rtol=1e-6)
+    value, gradient = jax.jit(jax.value_and_grad(lambda rho:
+        model(jnp.asarray(epochs), dict(params, rho=rho)).magnifications.sum()))(
+            jnp.asarray(params["rho"]))
+    assert np.isfinite(float(value)) and np.isfinite(float(gradient))
+    np.testing.assert_allclose(value, result.magnifications[0], rtol=1e-3)
+    np.testing.assert_allclose(gradient, result.gradients[0, ORDER.index("rho")], rtol=1e-3)
+
+
 def curve(limb=0., tol=1e-3, coordinates="vbm"):
     return lc.LightCurve(lens="binary", options=lc.Options(
         param_type=coordinates, nbin="auto", finite_source_tol=tol,

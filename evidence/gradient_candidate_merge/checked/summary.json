@@ -1,0 +1,62 @@
+{
+  "pytest_exit_code": 0,
+  "parameters": {
+    "s": 0.5860467981775465,
+    "q": 2.9795910469372738e-05,
+    "u0": 4.2345762431841034e-07,
+    "alpha": 2.22602246134627,
+    "rho": 2.6295524980988746e-06,
+    "tE": 2033.082239820582,
+    "t0": 10068.977085148737
+  },
+  "value": [
+    161148.03302349045
+  ],
+  "value_converged": [
+    true
+  ],
+  "gradients": [
+    [
+      16337665.834117768,
+      -28139978307.214874,
+      -86.13007825622834,
+      162415.84693573997,
+      19319360648.88178,
+      -12589836456.157999,
+      -1148496.3863479905
+    ]
+  ],
+  "gradient_parameters": [
+    "t0",
+    "u0",
+    "tE",
+    "alpha",
+    "rho",
+    "q",
+    "s"
+  ],
+  "local_gradients": [
+    [
+      42552153555.27184,
+      -9190385671.338346,
+      19319360648.88178,
+      11.177209980384188,
+      -1148496.3863479905
+    ]
+  ],
+  "gradient_valid": [
+    false
+  ],
+  "stop": [
+    "Converged; gradient_candidate=regular_radial; gradient_uncertified=unresolved_outer_edge_pair; initial_stop=EventLocationLimited; tangent_chart=radial_frontier"
+  ],
+  "jax_value": 161148.03302349045,
+  "jax_rho_gradient": 19319360648.88178,
+  "scientific_acceptance": false,
+  "hashes": {
+    "/moao38_7/nunota/binfit/work/MB23169/tool/validate_gradient_candidate_export.py": "d532f98f48f71338cbf811701376144ddca8a0d4becb6e36ff652405fccbb4da",
+    "/moao38_7/nunota/binfit/work/MB23169/runs/nuts_static_500w100s_depth10/gradient_candidate_repair_build/lcbinint/_lcbinint.cpython-310-x86_64-linux-gnu.so": "80db156d472e6d8f965fbc8c93c7c4519d69e5a3b1f714212ba4eeaf77bb3389",
+    "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/regression/test_algebraic_boundary_unified.py": "c43d19a90c3a594ddfac6ca0513d280b5b8442b8aaeed363649ddbe7bce8e147",
+    "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/src/lcbinint/magnification/algebraic_boundary/fused_gradient.cpp": "d9a1c45e53225ef26a1f2dc78519a05c2cbfae28f31126838b1cc6c208d9cf8e"
+  }
+}

@@ -33,6 +33,12 @@ FusedGradientResult epoch_fused_gradient(const LensParams& p,double u,
     if(support_plan && support_plan->completed && !gradients_usable(result.integral)) {
         FusedGradientResult failed;
         failed.mu=result.integral.mu;
+        failed.grad_mu=result.integral.grad_mu;
+        failed.value_error_estimate=result.integral.estimated_abs_error_mu;
+        failed.value_converged=result.integral.value_converged;
+        failed.node_evaluations=result.integral.stats.node_evaluations;
+        failed.support_certified=result.frontier.coverage_certified;
+        failed.frontier_discovery_completed=result.frontier.discovery_completed;
         failed.stop="prepared_radial_support_unresolved";
         return failed;
     }
@@ -59,12 +65,10 @@ FusedGradientResult epoch_fused_gradient(const LensParams& p,double u,
     std::size_t total_nodes=result.integral.stats.node_evaluations;
     const bool topology_failure=event_location_failure ||
         initial_stop==kernel::AdaptiveStop::TopologyUnresolved;
-    // A TopologyUnresolved retry can only recover the value; its gradient is
-    // deliberately kept invalid. Skip that work when the original value has
-    // already converged. EventLocationLimited still retries because the
-    // regular map may recover a usable gradient.
     const bool retry_can_help=event_location_failure ||
         !result.integral.value_converged;
+    bool uncertified_candidate_used=false;
+    std::string candidate_reason;
     const auto export_result=[&]() {
         FusedGradientResult out;
         out.reliability_retried=no_fold_retry ||
@@ -74,13 +78,31 @@ FusedGradientResult epoch_fused_gradient(const LensParams& p,double u,
         out.frontier_discovery_completed=result.frontier.discovery_completed;
         out.value_converged=result.integral.value_converged;
         out.stop=kernel::adaptive_stop_name(result.integral.stop);
+        if(uncertified_candidate_used) {
+            out.stop+="; gradient_candidate=regular_radial; gradient_uncertified="+candidate_reason;
+            out.stop+="; initial_stop=";
+            out.stop+=kernel::adaptive_stop_name(initial_stop);
+        }
         out.support_certified=result.frontier.coverage_certified;
         out.node_evaluations=total_nodes;
         for(int j=0;j<5;++j)out.gradient_valid[j]=
+            !uncertified_candidate_used &&
             result.integral.grad_quality[j]!=kernel::GradientQuality::Invalid &&
             result.integral.grad_quality[j]!=kernel::GradientQuality::NotRequested &&
             std::isfinite(out.grad_mu[j]);
         return out;
+    };
+    const auto retain_uncertified_candidate=[&](const kernel::AdaptiveResult& candidate,
+                                                const char* reason) {
+        if(candidate.stats.node_evaluations==0 || !std::isfinite(candidate.mu) ||
+           candidate.mu<=0.0)return false;
+        for(int j=0;j<5;++j)
+            if(!std::isfinite(candidate.grad_mu[j]) ||
+               candidate.grad_quality[j]==kernel::GradientQuality::NotRequested)return false;
+        result.integral=candidate;
+        uncertified_candidate_used=true;
+        candidate_reason=reason;
+        return true;
     };
     // Use the same smooth-disk certificate and quadrature as the caller's
     // late repair. If it succeeds, no discarded regular-chart solve is needed.
@@ -110,14 +132,11 @@ FusedGradientResult epoch_fused_gradient(const LensParams& p,double u,
         if(contact.value_converged && gradients_usable(contact) &&
            contact.stop==kernel::AdaptiveStop::Converged)
             result.integral=std::move(contact);
+        else
+            retain_uncertified_candidate(contact,"contact_retry_unverified");
     }
     if(!no_fold_retry && topology_failure && retry_can_help &&
        !gradients_usable(result.integral)) {
-        // Retry rare unresolved geometry with complete D14 topology and the
-        // regular radial coordinate. The value can be recovered without a
-        // certified event coordinate. A gradient replaces the first result
-        // only for EventLocationLimited, where the fold endpoint was the sole
-        // blocker; topology failures remain fail-closed for derivatives.
         auto fallback_cfg=cfg;
         fallback_cfg.fold_maps=false;
         // This route is entered only after an unresolved epoch. Start at the
@@ -132,11 +151,11 @@ FusedGradientResult epoch_fused_gradient(const LensParams& p,double u,
         if(event_location_failure && !unresolved_outer_edge_pair &&
            gradients_usable(fallback)) {
             result.integral=std::move(fallback);
-        } else if(fallback.value_converged) {
-            // Preserve the original gradient status and values. A finite
-            // no-fold derivative at a topology failure is not enough to
-            // establish a classical derivative at a caustic-limb contact.
+        } else if(!retain_uncertified_candidate(fallback,unresolved_outer_edge_pair
+                    ? "unresolved_outer_edge_pair" : "topology_or_gradient_unverified") &&
+                  fallback.value_converged) {
             result.integral.mu=fallback.mu;
+            result.integral.estimated_abs_error_mu=fallback.estimated_abs_error_mu;
             result.integral.value_converged=true;
         }
     }

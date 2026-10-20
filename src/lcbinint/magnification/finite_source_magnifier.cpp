@@ -7762,6 +7762,31 @@ FiniteSourceResult FiniteSourceMagnifier::algebraic_boundary_deep_solve(
                 &center_image_seeds,false);
             integral=solve(*prepared_seeds);
         }
+        const auto initial_stop = integral.integral.stop;
+        bool regular_radial_retry = false;
+        if (initial_stop == algebraic_boundary::AdaptiveStop::EventLocationLimited) {
+            algebraic_boundary::AdaptiveConfig retry_config;
+            retry_config.tol.mu_atol = algebraic_settings.absolute_tolerance;
+            retry_config.tol.mu_rtol = algebraic_settings.relative_tolerance;
+            retry_config.gradient_policy = algebraic_boundary::GradientPolicy::None;
+            retry_config.fold_maps = false;
+            retry_config.initial_level = 8;
+            algebraic_boundary::AdaptiveWorkspace retry_workspace;
+            auto retry = algebraic_boundary::epoch_seeded_radial_frontier(
+                params, settings_.limb_darkening_c, prepared_seeds->radial_seeds,
+                retry_config, retry_workspace, false, &prepared_seeds->support_plan);
+            regular_radial_retry = true;
+            const auto retry_nodes = retry.integral.stats.node_evaluations;
+            retry.integral.stats.node_evaluations += integral.integral.stats.node_evaluations;
+            if (std::isfinite(retry.integral.mu) && retry.integral.mu > 0.0 &&
+                (retry.integral.value_converged || !std::isfinite(integral.integral.mu) ||
+                 integral.integral.mu <= 0.0 || retry.integral.estimated_abs_error_mu <
+                     integral.integral.estimated_abs_error_mu)) {
+                integral = std::move(retry);
+            } else {
+                integral.integral.stats.node_evaluations += retry_nodes;
+            }
+        }
         result.magnification = integral.integral.mu;
         result.error_estimate = integral.integral.estimated_abs_error_mu;
         result.integral_support_certified = integral.frontier.coverage_certified;
@@ -7769,6 +7794,10 @@ FiniteSourceResult FiniteSourceMagnifier::algebraic_boundary_deep_solve(
         result.decision.estimated_evaluations =
             static_cast<int>(integral.integral.stats.node_evaluations);
         result.diagnostic_stop = algebraic_boundary::adaptive_stop_name(integral.integral.stop);
+        if (regular_radial_retry) {
+            result.diagnostic_stop += "; value_repair=regular_radial; initial_stop=";
+            result.diagnostic_stop += algebraic_boundary::adaptive_stop_name(initial_stop);
+        }
         value_converged = integral.integral.value_converged;
     }
     if (prepared_seeds) {
