@@ -1013,6 +1013,17 @@ bool polish_binary_root_set(
     return true;
 }
 
+bool binary_root_step_is_local(
+    const FastBinaryGeometry& previous, const FastBinaryGeometry& next)
+{
+    const double dx = next.y.re - previous.y.re;
+    const double dy = next.y.im - previous.y.im;
+    return dx * dx + dy * dy <= 0.25 * 0.25 &&
+        previous.a * next.a > 0.0 &&
+        std::abs(next.a - previous.a) <= 0.01 * (1.0 + std::abs(previous.a)) &&
+        std::abs(next.m1 - previous.m1) <= 0.01;
+}
+
 void apply_binary_image_predictor(
     const FastBinaryGeometry& previous_geometry,
     const FastBinaryGeometry& next_geometry,
@@ -1020,25 +1031,19 @@ void apply_binary_image_predictor(
     const std::array<bool, 5>* physical_hint = nullptr,
     const std::array<SourcePosition, 5>* derivative_hint = nullptr)
 {
-    // The analytic predictor assumes fixed lens positions and masses. Dynamic
-    // geometries still use the retained roots as zero-order continuation
-    // seeds and are protected by the ordinary validation/cold fallback.
-    if (previous_geometry.a != next_geometry.a ||
-        previous_geometry.m1 != next_geometry.m1 ||
-        previous_geometry.m2 != next_geometry.m2) {
-        return;
-    }
+    const bool dynamic = previous_geometry.a != next_geometry.a ||
+        previous_geometry.m1 != next_geometry.m1 || previous_geometry.m2 != next_geometry.m2;
+    const double delta_a=next_geometry.a-previous_geometry.a;
+    const double delta_m1=next_geometry.m1-previous_geometry.m1;
+    const double delta_m2=next_geometry.m2-previous_geometry.m2;
+    if (!binary_root_step_is_local(previous_geometry, next_geometry)) return;
     const FastComplex delta_source {
         next_geometry.y.re - previous_geometry.y.re,
         next_geometry.y.im - previous_geometry.y.im,
     };
     const double source_step_squared =
         delta_source.re*delta_source.re + delta_source.im*delta_source.im;
-    // Do not extrapolate across the end-to-start jump of a repeated light
-    // curve. The predictor is intended for locally contiguous trajectory and
-    // probe samples; zero-order continuation remains the safer large-step
-    // seed.
-    if (!(source_step_squared > 0.0) || source_step_squared > 0.25*0.25) {
+    if (!dynamic && !(source_step_squared > 0.0)) {
         return;
     }
 
@@ -1074,10 +1079,23 @@ void apply_binary_image_predictor(
         // The real inverse Jacobian gives the same analytic predictor without
         // complex division or hypot. Its guard is still the same image-step
         // radius; the ordinary polynomial/lens checks validate the result.
+        // Linearize the lens equation in source, lens position and masses:
+        // dz + K*dconj(z) = dy + dm1/(conj(z)-a) + dm2/conj(z)
+        //                        + m1*da/(conj(z)-a)^2.
+        FastComplex rhs=delta_source;
+        if(dynamic) {
+            const double x=roots[i].re,y=roots[i].im,xa=x-previous_geometry.a;
+            const double d1=xa*xa+y*y,d2=x*x+y*y;
+            if(!(d1>0.0 && d2>0.0))continue;
+            const double inv1=1.0/d1,inv2=1.0/d2;
+            const double lens_motion=previous_geometry.m1*delta_a*inv1*inv1;
+            rhs.re+=delta_m1*xa*inv1+delta_m2*x*inv2+lens_motion*(xa*xa-y*y);
+            rhs.im+=delta_m1*y*inv1+delta_m2*y*inv2+2.0*lens_motion*xa*y;
+        }
         const double inverse_jacobian = 1.0/jacobian;
         const FastComplex delta_image {
-            ((1.0-kappa.re)*delta_source.re-kappa.im*delta_source.im)*inverse_jacobian,
-            ((1.0+kappa.re)*delta_source.im-kappa.im*delta_source.re)*inverse_jacobian,
+            ((1.0-kappa.re)*rhs.re-kappa.im*rhs.im)*inverse_jacobian,
+            ((1.0+kappa.re)*rhs.im-kappa.im*rhs.re)*inverse_jacobian,
         };
         if (!std::isfinite(delta_image.re) ||
             !std::isfinite(delta_image.im) ||
@@ -1231,12 +1249,13 @@ PointSourceResult PointSourceMagnifier::binary_mag0_impl(
     std::array<::complex, 6> coefficients;
     std::array<::complex, 5> roots;
     binary_polynomial_coefficients(geometry, coefficients);
-    // Continuation remains useful for slowly changing orbital separation as
-    // well as a static trajectory. The polynomial/Vieta and lens-residual
-    // checks below make a geometry jump fail closed to the cold solver.
-    const bool can_polish_from_cache =
-        use_root_cache &&
-        root_cache_valid_;
+    // Cache ordering for caustic geometry need not preserve source locality.
+    // Try continuation only in the predictor's local domain; the existing
+    // complete-root and physical-residual checks still validate warm solves.
+    const bool can_polish_from_cache = use_root_cache && root_cache_valid_ &&
+        binary_root_step_is_local(make_fast_vbm_geometry(
+            root_cache_separation_, root_cache_mass_ratio_, root_cache_source_),
+            geometry);
     bool used_cold_retry = false;
     PhysicalRootSelection selection;
     bool selection_valid = false;
@@ -1315,10 +1334,7 @@ void PointSourceMagnifier::binary_mag0_batch(
     for (std::size_t i = 0; i < count; ++i) {
         const FastBinaryGeometry geometry = make_fast_vbm_geometry(constants, sources[i]);
         binary_polynomial_coefficients(geometry, coefficients);
-        // Batch sources are spatially contiguous (hexadecapole rings, ring
-        // quadrature), so the previous sample's roots are excellent starting
-        // points; fall back to a cold solve when polishing drifts.
-        if (warm) {
+        if (warm && binary_root_step_is_local(previous_geometry, geometry)) {
             apply_binary_image_predictor(previous_geometry, geometry, roots);
             if (!polish_binary_root_set(coefficients, roots) ||
                 !polynomial_roots_are_usable(coefficients, roots) ||
@@ -1379,8 +1395,10 @@ std::vector<BinaryImageCandidate> PointSourceMagnifier::binary_image_candidates(
     // Use the previous centre/probe solve as a continuation seed even when a
     // dynamic binary changed separation; validation below decides whether it
     // was close enough and retries cold otherwise.
-    const bool can_polish_from_cache =
-        root_cache_valid_;
+    const bool can_polish_from_cache = root_cache_valid_ &&
+        binary_root_step_is_local(make_fast_vbm_geometry(
+            root_cache_separation_, root_cache_mass_ratio_, root_cache_source_),
+            geometry);
     if (same_cached_source) {
         // Image seeds requested after routing use the already validated
         // centre roots, even if hexadecapole probes were evaluated in between.

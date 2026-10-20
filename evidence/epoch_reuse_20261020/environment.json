@@ -1,0 +1,13 @@
+{
+  "python": "3.10.19 (main, Oct 21 2025, 16:43:05) [GCC 11.2.0]",
+  "hostname": "rogue1",
+  "versions": {
+    "numpy": "2.2.6",
+    "scipy": "1.15.3",
+    "jax": "0.6.2",
+    "jaxlib": "0.6.2",
+    "pytest": "9.0.1",
+    "VBMicrolensing": "5.5"
+  },
+  "cpu_model": "INTEL(R) XEON(R) GOLD 6530"
+}

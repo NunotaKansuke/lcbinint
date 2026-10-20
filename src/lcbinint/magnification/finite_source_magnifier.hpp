@@ -163,6 +163,11 @@ public:
 
     const FiniteSourceSettings& settings() const { return settings_; }
 
+    bool has_binary_caustic_geometry(double separation, double mass_ratio) const {
+        return caustic_cache_valid_ && caustic_cache_separation_ == separation &&
+            caustic_cache_mass_ratio_ == mass_ratio;
+    }
+
     FiniteSourceResult binary_mag(
         double separation,
         double mass_ratio,
@@ -318,6 +323,9 @@ private:
         double caustic_distance) const;
 
     FiniteSourceSettings settings_;
+    mutable bool binary_separation_seen_ = false;
+    mutable bool binary_separation_changes_ = false;
+    mutable double binary_last_separation_ = 0.0;
     mutable bool caustic_cache_valid_ = false;
     mutable double caustic_cache_separation_ = 0.0;
     mutable double caustic_cache_mass_ratio_ = 0.0;

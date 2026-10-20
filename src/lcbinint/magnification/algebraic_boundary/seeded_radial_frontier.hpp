@@ -7,6 +7,7 @@
 #include "lcbinint/magnification/algebraic_boundary/seeded_boundary_events.hpp"
 #include "lcbinint/magnification/algebraic_boundary/quartic_fast_count.hpp"
 #include <complex>
+#include "lcbinint/magnification/algebraic_boundary/radial_support_plan_types.hpp"
 
 namespace lcbinint::algebraic_boundary {
 namespace seeded_frontier_detail {
@@ -64,8 +65,10 @@ struct SeededFrontierResult {
 inline SeededFrontierResult epoch_seeded_radial_frontier(
     const LensParams& p,double u,const std::vector<Cplx<double>>& seeds,
     const AdaptiveConfig& cfg,AdaptiveWorkspace& workspace,
-    bool midpoint_split=false) {
+    bool midpoint_split=false,
+    const ::lcbinint::algebraic_boundary::RadialSupportPlan* support_plan=nullptr) {
     SeededFrontierResult out;
+    const auto* radial_bands=support_plan && support_plan->completed?&support_plan->brackets:nullptr;
     const auto start=adaptive_detail::Clock::now();
     const auto policy=cfg.effective_gradient_policy();
     if(!adaptive_detail::valid_epoch_config(p,u,cfg) || seeds.empty()) {
@@ -115,6 +118,7 @@ inline SeededFrontierResult epoch_seeded_radial_frontier(
             image_starts.push_back({r,z});
         }
     }
+    if(radial_bands)radii=support_plan->radii;
     std::sort(radii.begin(),radii.end());
     radii.erase(std::unique(radii.begin(),radii.end()),radii.end());
     out.frontier.seeds=static_cast<int>(radii.size());
@@ -162,7 +166,20 @@ inline SeededFrontierResult epoch_seeded_radial_frontier(
     };
     struct Band {double r_lo,r_hi,outer_lo,outer_hi,near_outer_lo,near_outer_hi;};
     std::vector<Band> bands;
-    for(double r:radii) {
+    if(radial_bands && !radial_bands->empty()) {
+        for(std::size_t i=0;i<support_plan->radii.size();++i)
+            probes.emplace_back(support_plan->radii[i],support_plan->crossings[i]);
+        for(const auto& b:*radial_bands) {
+            // Exact radial isolation supplies one empty witness beyond each
+            // exterior fold. Keep the count witnesses for local event repair.
+            const int lo=has_image(b[0]),hi=has_image(b[1]);
+            const int outer_lo=has_image(b[2]),outer_hi=has_image(b[3]);
+            if(lo!=1 || hi!=1 || outer_lo!=0 || outer_hi!=0) {
+                out.integral=adaptive_detail::failure_result(AdaptiveStop::TopologyUnresolved,policy); return out;
+            }
+            bands.push_back({b[0],b[1],b[2],b[3],b[2],b[3]});
+        }
+    } else for(double r:radii) {
         // Radial overlap is not image-component connectivity. Even a seed
         // whose band was visited contributes its cheap topology witness;
         // only the duplicate outward/inward march is skipped.
@@ -358,7 +375,7 @@ inline SeededFrontierResult epoch_seeded_radial_frontier(
         bool seeded=false;
 #ifndef BOUNDARY_FRONTIER_LEGACY_IMAGE_START
         ++out.frontier.image_start_attempts;
-        seeded=local_event(.5*(lo+hi),lo,hi,event,true);
+        seeded=!radial_bands && local_event(.5*(lo+hi),lo,hi,event,true);
         if(seeded)++out.frontier.image_start_accepted;
 #endif
         if(seeded || local_event(.5*(lo+hi),lo,hi,event)) {
@@ -376,6 +393,15 @@ inline SeededFrontierResult epoch_seeded_radial_frontier(
         // A coarse bracket locates the two exterior folds. Correct only
         // those endpoints, retaining split radii for the existing fold map.
         auto endpoint=[&](double R,double exterior,double refined_exterior) {
+            if(radial_bands) {
+                for(int j=0;j<8;++j) {
+                    const double mid=.5*(R+exterior);
+                    const int count=has_image(mid);
+                    if(count<0)break;
+                    if(count)R=mid;else exterior=mid;
+                }
+                refined_exterior=exterior;
+            }
 #ifdef BOUNDARY_FRONTIER_COST_PROFILE
         V2ProfileTimer endpoint_timer(&V2Profile::frontier_endpoint_ms);
 #endif
@@ -392,7 +418,7 @@ inline SeededFrontierResult epoch_seeded_radial_frontier(
             // A seed proposal is accepted only within that bracket; otherwise
             // retain the original quartic proposal and local fallback.
             ++out.frontier.image_start_attempts;
-            seeded=local_event(R,std::min(R,refined_exterior),std::max(R,refined_exterior),e,true);
+            seeded=!radial_bands && local_event(R,std::min(R,refined_exterior),std::max(R,refined_exterior),e,true);
             if(seeded)++out.frontier.image_start_accepted;
 #endif
             if(!seeded && !local_event(R,std::min(R,exterior),
@@ -440,6 +466,9 @@ inline SeededFrontierResult epoch_seeded_radial_frontier(
     topo.status=topo.cells.empty() || !endpoints_resolved?Status::TOPOLOGY_UNCERTAIN:Status::OK;
     out.frontier.bands=static_cast<int>(merged.size());
     out.frontier.discovery_completed=topo.status==Status::OK;
+    if(!endpoints_resolved && radial_bands) {
+        out.integral=adaptive_detail::failure_result(AdaptiveStop::TopologyUnresolved,policy); return out;
+    }
     out.frontier.reason=endpoints_resolved?"local_discovery_completed":"endpoint_unresolved";
     out.frontier.planning_ms=adaptive_detail::ms(start);
     // Deliberately no global event repair or legacy restart. Only the existing

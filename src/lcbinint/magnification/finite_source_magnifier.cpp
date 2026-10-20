@@ -6,6 +6,7 @@
 #include "lcbinint/magnification/cartesian_run_fill.hpp"
 #include "lcbinint/magnification/component_certificate.hpp"
 #include "lcbinint/magnification/binary_caustic_enclosure.hpp"
+#include "lcbinint/magnification/binary_caustic_tree.hpp"
 
 #include "lcbinint/magnification/point_source_magnifier.hpp"
 #include "lcbinint/magnification/probe_diagnostics.hpp"
@@ -1633,19 +1634,27 @@ std::vector<std::vector<SourcePosition>> build_binary_critical_curves(
         int bins = 0;
         std::vector<std::vector<Complex>> roots;
         std::vector<std::array<std::array<Complex, 4>, 4>> predictors;
+        std::vector<std::array<Complex, 4>> mass_predictors;
     };
     thread_local PhaseRoots previous;
-    const bool warm = previous.bins == bins && previous.mass_ratio == mass_ratio &&
+    const bool warm = previous.bins == bins &&
+        previous.mass_ratio > 0.0 && mass_ratio > 0.0 &&
+        (previous.mass_ratio < 1.0) == (mass_ratio < 1.0) &&
+        std::abs(mass_ratio-previous.mass_ratio) < 0.001*mass_ratio &&
         std::abs(separation-previous.separation) < 0.001*std::abs(separation);
     if (!warm) {
         previous.roots.assign(bins/2+1, {});
         previous.predictors.resize(bins/2+1);
+        previous.mass_predictors.resize(bins/2+1);
     }
     const double sign = std::abs(mass_ratio) < 1.0 ? -1.0 : 1.0;
     const double delta = sign*(std::abs(separation)-std::abs(previous.separation));
     const double a = sign*std::abs(separation);
     const double q = std::min(std::abs(mass_ratio),1.0/std::abs(mass_ratio));
     const double m1 = 1.0/(1.0+q), m2 = q*m1;
+    const double previous_q = warm
+        ? std::min(previous.mass_ratio,1.0/previous.mass_ratio) : q;
+    const double mass_delta = m2-previous_q/(1.0+previous_q);
     math::PolynomialRootSolver solver;
     for (int i = 0; i <= bins/2; ++i) {
         const Complex phase = std::polar(1.0, 2.0*kPi*i/bins);
@@ -1655,7 +1664,8 @@ std::vector<std::vector<SourcePosition>> build_binary_critical_curves(
             roots.resize(4);
             for (int j = 0; j < 4; ++j) {
                 const auto& c = previous.predictors[i][j];
-                roots[j] = ((c[3]*delta+c[2])*delta+c[1])*delta+c[0];
+                roots[j] = ((c[3]*delta+c[2])*delta+c[1])*delta+c[0]
+                    + mass_delta*previous.mass_predictors[i][j];
             }
         }
         if (!warm || !continue_critical_roots(coefficients, roots))
@@ -1672,9 +1682,11 @@ std::vector<std::vector<SourcePosition>> build_binary_critical_curves(
                 3.0*(-2.0*hzz*u-4.0*hz)*first*first+6.0*hz*first +
                 3.0*(pzz*first+pza)*second)/pz;
             previous.predictors[i][j] = {z,first,second/2.0,third/6.0};
+            // dQ/dm2=(z-a)^2-z^2, with m1=1-m2.
+            previous.mass_predictors[i][j] = (z*z-u*u)/pz;
         }
     }
-    // Predictors are only starting points. Every epoch still checks residuals
+    // Separation and mass predictors are only starting points. Every epoch still checks residuals
     // and the full reconstructed polynomial, with a cold-solve fallback.
     if (!warm) {
         previous.separation = separation; previous.mass_ratio = mass_ratio; previous.bins = bins;
@@ -6880,6 +6892,9 @@ std::vector<SourcePosition> FiniteSourceMagnifier::cached_binary_image_seeds(
 void FiniteSourceMagnifier::clear_binary_epoch_caches() const
 {
     algebraic_boundary::source_disk_detail::clear_epoch_cache();
+    detail::clear_binary_caustic_tree_cache();
+    binary_separation_seen_ = false;
+    binary_separation_changes_ = false;
     caustic_enclosure_attempted_ = false;
     caustic_enclosure_half_width_ = 0.0;
     caustic_interval_disabled_ = false;
@@ -7673,10 +7688,6 @@ FiniteSourceResult FiniteSourceMagnifier::algebraic_boundary_deep_solve(
             params, settings_.limb_darkening_c, options, *this, point_magnifier,
             integral, smooth_images);
         if (!smooth_chart) {
-            const auto& seeds = seeds_for_frontier();
-            std::vector<std::array<double, 2>> positions;
-            positions.reserve(seeds.radial_seeds.size());
-            for (const auto& z : seeds.radial_seeds) positions.push_back({z.re, z.im});
             bool repair_attempted = false;
             const auto repair_smooth = [&](algebraic_boundary::FusedGradientResult& candidate) {
                 repair_attempted = true;
@@ -7685,8 +7696,21 @@ FiniteSourceResult FiniteSourceMagnifier::algebraic_boundary_deep_solve(
                     candidate, smooth_images, true);
                 return smooth_chart;
             };
-            integral = algebraic_boundary::epoch_fused_gradient(
-                params, settings_.limb_darkening_c, positions, options, repair_smooth);
+            const auto solve = [&](const algebraic_boundary::CausticAwareBinarySeeds& seeds) {
+                std::vector<std::array<double,2>> positions;
+                for(const auto& z:seeds.radial_seeds)positions.push_back({z.re,z.im});
+                return algebraic_boundary::epoch_fused_gradient(params,
+                    settings_.limb_darkening_c,positions,options,repair_smooth,&seeds.support_plan);
+            };
+            integral=solve(seeds_for_frontier());
+            if(prepared_seeds->support_plan.completed &&
+               (!integral.value_converged || !std::all_of(integral.gradient_valid.begin(),
+                    integral.gradient_valid.end(),[](bool valid){return valid;}))) {
+                prepared_seeds=algebraic_boundary::make_caustic_aware_binary_seeds(
+                    *this,point_magnifier,separation,mass_ratio,source,source_radius,
+                    &center_image_seeds,false);
+                integral=solve(*prepared_seeds);
+            }
             if (!smooth_chart && !repair_attempted && (integral.reliability_retried || !std::all_of(
                     integral.gradient_valid.begin(), integral.gradient_valid.end(),
                     [](bool valid) { return valid; }))) {
@@ -7724,12 +7748,20 @@ FiniteSourceResult FiniteSourceMagnifier::algebraic_boundary_deep_solve(
                     : "radial_tangent_unreliable:" + integral.stop;
         }
     } else {
-        const auto& seeds = seeds_for_frontier();
         algebraic_boundary::AdaptiveWorkspace workspace;
-        const auto integral = algebraic_boundary::epoch_seeded_radial_frontier_value(
-            params, settings_.limb_darkening_c, seeds.radial_seeds,
-            algebraic_settings.absolute_tolerance, algebraic_settings.relative_tolerance,
-            workspace);
+        const auto solve = [&](const algebraic_boundary::CausticAwareBinarySeeds& seeds) {
+            return algebraic_boundary::epoch_seeded_radial_frontier_value(
+                params,settings_.limb_darkening_c,seeds.radial_seeds,
+                algebraic_settings.absolute_tolerance,algebraic_settings.relative_tolerance,
+                workspace,&seeds.support_plan);
+        };
+        auto integral=solve(seeds_for_frontier());
+        if(prepared_seeds->support_plan.completed && !integral.integral.value_converged) {
+            prepared_seeds=algebraic_boundary::make_caustic_aware_binary_seeds(
+                *this,point_magnifier,separation,mass_ratio,source,source_radius,
+                &center_image_seeds,false);
+            integral=solve(*prepared_seeds);
+        }
         result.magnification = integral.integral.mu;
         result.error_estimate = integral.integral.estimated_abs_error_mu;
         result.integral_support_certified = integral.frontier.coverage_certified;
@@ -8281,6 +8313,11 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
     autodiff::AlgebraicBoundaryJacobian* jacobian_out,
     std::array<std::vector<BinaryImage>, 13>* image_stencil) const
 {
+    if (binary_separation_seen_ && separation != binary_last_separation_)
+        binary_separation_changes_ = true;
+    binary_separation_seen_ = true;
+    binary_last_separation_ = separation;
+
     const double default_algebraic_boundary_atol =
         has_explicit_finite_source_tolerance(settings_)
         ? settings_.finite_source_tol
@@ -8412,106 +8449,105 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
         }
     }
 
-    // Fast PS exit for sources outside the caustic bounding box by kinji_threshold·ρ.
-    // The caustic cache is built (or validated) inside binary_sampled_caustic_distance,
-    // making the bbox members available immediately after the call.
-    const double bbox_margin = settings_.kinji_threshold * source_radius;
-    constexpr bool adaptive_ir_requested = false;
-    const double adaptive_bbox_margin = adaptive_ir_requested
-        ? std::max(bbox_margin, 60.0 * source_radius)
-        : bbox_margin;
-    const double topology_margin = binary_topology_boundary_margin(
-        separation, mass_ratio);
-    const double caustic_reuse_tolerance = std::min(
-        0.25 * source_radius, 0.02 * topology_margin);
-    double sampled_dist = binary_sampled_caustic_distance(
-        separation, mass_ratio, source, adaptive_bbox_margin,
-        caustic_reuse_tolerance);
-    bool reused_caustic_geometry = caustic_cache_separation_ != separation;
-    if (point_safety.point_source_safe() &&
-        !reused_caustic_geometry &&
-        (source.x < caustic_cache_min_x_ - adaptive_bbox_margin ||
-        source.x > caustic_cache_max_x_ + adaptive_bbox_margin ||
-        source.y < caustic_cache_min_y_ - adaptive_bbox_margin ||
-        source.y > caustic_cache_max_y_ + adaptive_bbox_margin)) {
-        FiniteSourceDecision decision {
-            FiniteSourceMethod::point_source,
-            settings_.caustic_bins * 4,
-            "source outside caustic bounding box",
-        };
-        const double estimated_error =
-            (point_safety.diagnostic.quadrupole_indicator +
-                point_safety.diagnostic.cusp_indicator) *
-            source_radius * source_radius;
-        return cache_and_return({
-            point_source_magnification,
-            point_safety.diagnostic.image_count,
-            std::move(decision),
-            estimated_error,
-            0,
-            finite_source_error_within_budget(
-                settings_, point_source_magnification, estimated_error),
-        });
-    }
+    double refined_dist=0.0;
+    bool topology_certified=false;
+    if(use_algebraic_boundary && binary_separation_changes_ &&
+       !has_binary_caustic_geometry(separation,mass_ratio)) {
+        // Prove only the clearance needed to enter the hexadecapole branch.
+        // A smaller lower bound makes its distance-based error test stricter.
+        const double required=std::max(3.0,settings_.hex_threshold)*source_radius;
+        refined_dist=detail::binary_caustic_disk_clearance(
+            separation,mass_ratio,source,required,source_radius);
+        topology_certified=refined_dist>required;
+        if(!topology_certified)refined_dist=0.0;
+    } else {
+        // Fast PS exit for sources outside the caustic bounding box by kinji_threshold·ρ.
+        // The caustic cache is built (or validated) inside binary_sampled_caustic_distance,
+        // making the bbox members available immediately after the call.
+        const double bbox_margin = settings_.kinji_threshold * source_radius;
+        constexpr bool adaptive_ir_requested = false;
+        const double adaptive_bbox_margin = adaptive_ir_requested
+            ? std::max(bbox_margin, 60.0 * source_radius)
+            : bbox_margin;
+        const double topology_margin = binary_topology_boundary_margin(
+            separation, mass_ratio);
+        const double caustic_reuse_tolerance = std::min(
+            0.25 * source_radius, 0.02 * topology_margin);
+        double sampled_dist = binary_sampled_caustic_distance(
+            separation, mass_ratio, source, adaptive_bbox_margin,
+            caustic_reuse_tolerance);
+        bool reused_caustic_geometry = caustic_cache_separation_ != separation;
+        if (point_safety.point_source_safe() &&
+            !reused_caustic_geometry &&
+            (source.x < caustic_cache_min_x_ - adaptive_bbox_margin ||
+            source.x > caustic_cache_max_x_ + adaptive_bbox_margin ||
+            source.y < caustic_cache_min_y_ - adaptive_bbox_margin ||
+            source.y > caustic_cache_max_y_ + adaptive_bbox_margin)) {
+            FiniteSourceDecision decision {
+                FiniteSourceMethod::point_source,
+                settings_.caustic_bins * 4,
+                "source outside caustic bounding box",
+            };
+            const double estimated_error =
+                (point_safety.diagnostic.quadrupole_indicator +
+                    point_safety.diagnostic.cusp_indicator) *
+                source_radius * source_radius;
+            return cache_and_return({
+                point_source_magnification,
+                point_safety.diagnostic.image_count,
+                std::move(decision),
+                estimated_error,
+                0,
+                finite_source_error_within_budget(
+                    settings_, point_source_magnification, estimated_error),
+            });
+        }
 
-    // VBM-style adaptive mode selection.  When the source center is far enough
-    // from the caustic the hexadecapole approximation is tried first; its
-    // self-consistency error estimate (|a4 correction| / |magnification|) then
-    // determines whether hex is accurate enough or IR is needed.
-    //
-    // When the source is close to the caustic (sampled_dist < hex_threshold·ρ)
-    // the hex Taylor expansion can give a misleadingly small a4 term even when
-    // the result is wrong (e.g. a4≈0 when a1_plus and a1_cross both happen to
-    // be large and cancel through a2rho2).  Skip hex and go straight to IR.
-    // Use segment-based (refined) caustic distance for accurate near-caustic detection.
-    // The sampled distance uses only discrete caustic points and can badly overestimate
-    // the true distance (e.g. 7x rho) when the caustic is sparsely sampled; the segment
-    // distance queries the actual line segments between consecutive points and returns the
-    // correct distance.  We pass sampled_dist as a hint to skip the O(N) point scan.
-    double refined_dist = binary_caustic_distance(
-        separation, mass_ratio, source, sampled_dist,
-        caustic_reuse_tolerance);
-    // Approximate anchor geometry is only a far-field routing accelerator.
-    // Rebuild at the exact epoch near the caustic and around the measured
-    // 20-rho topology-release boundary.  This also guarantees that any later
-    // inverse-ray seed request, which asks for exact branches, cannot inherit
-    // an approximate caustic.
-    if (reused_caustic_geometry && std::isfinite(refined_dist)) {
-        const double distance_ratio = refined_dist / source_radius;
-        if (distance_ratio < 6.0 ||
-            std::abs(distance_ratio - 20.0) < 2.0) {
-            sampled_dist = binary_sampled_caustic_distance(
-                separation, mass_ratio, source, adaptive_bbox_margin, 0.0);
-            refined_dist = binary_caustic_distance(
-                separation, mass_ratio, source, sampled_dist, 0.0);
-            reused_caustic_geometry = false;
+        // VBM-style adaptive mode selection.  When the source center is far enough
+        // from the caustic the hexadecapole approximation is tried first; its
+        // self-consistency error estimate (|a4 correction| / |magnification|) then
+        // determines whether hex is accurate enough or IR is needed.
+        //
+        // When the source is close to the caustic (sampled_dist < hex_threshold·ρ)
+        // the hex Taylor expansion can give a misleadingly small a4 term even when
+        // the result is wrong (e.g. a4≈0 when a1_plus and a1_cross both happen to
+        // be large and cancel through a2rho2).  Skip hex and go straight to IR.
+        // Use segment-based (refined) caustic distance for accurate near-caustic detection.
+        // The sampled distance uses only discrete caustic points and can badly overestimate
+        // the true distance (e.g. 7x rho) when the caustic is sparsely sampled; the segment
+        // distance queries the actual line segments between consecutive points and returns the
+        // correct distance.  We pass sampled_dist as a hint to skip the O(N) point scan.
+        refined_dist = binary_caustic_distance(
+            separation, mass_ratio, source, sampled_dist,
+            caustic_reuse_tolerance);
+        // Approximate anchor geometry is only a far-field routing accelerator.
+        // Rebuild at the exact epoch near the caustic and around the measured
+        // 20-rho topology-release boundary.  This also guarantees that any later
+        // inverse-ray seed request, which asks for exact branches, cannot inherit
+        // an approximate caustic.
+        if (reused_caustic_geometry && std::isfinite(refined_dist)) {
+            const double distance_ratio = refined_dist / source_radius;
+            if (distance_ratio < 6.0 ||
+                std::abs(distance_ratio - 20.0) < 2.0) {
+                sampled_dist = binary_sampled_caustic_distance(
+                    separation, mass_ratio, source, adaptive_bbox_margin, 0.0);
+                refined_dist = binary_caustic_distance(
+                    separation, mass_ratio, source, sampled_dist, 0.0);
+                reused_caustic_geometry = false;
+            }
         }
     }
     caustic_distance_out = refined_dist;
 
-    // The ghost and planetary checks are inexpensive local-topology proxies.
-    // They are deliberately conservative close to a caustic, but disconnected
-    // binary caustics can make them veto a broad region even when the source is
-    // far from every actual caustic segment.  Once the refined segment distance
-    // reaches the same calibrated 20-rho point-source boundary used by the
-    // triple-lens selector, the measured geometry supersedes those proxies.
-    // Point-source acceptance still has to pass the tolerance-aware derivative
-    // check below; otherwise the independently checked hexadecapole route is
-    // tried before inverse rays.
-    // The local ghost/planetary topology proxies are intentionally
-    // conservative, but keeping their veto all the way to the point-source
-    // boundary sends a broad, demonstrably smooth 10--20 rho annulus to
-    // inverse rays without even trying the independently error-checked
-    // hexadecapole approximation.  Once the nearest caustic segment has been
-    // measured at ten source radii, that geometry is a stronger topology
-    // discriminator than the local proxy.  Hexadecapole still has to pass its
-    // own tolerance-aware self-consistency check before it is accepted.
+    // A continuous caustic exclusion certifies topology without sampling.
+    // The standard router retains its measured ten-rho release. Both routes
+    // still apply the distance-dependent point/hex error safety factor.
     constexpr double kMeasuredTopologyReleaseDistance = 10.0;
     const bool measured_topology_safe =
         std::isfinite(refined_dist) &&
         refined_dist >= kMeasuredTopologyReleaseDistance * source_radius;
     const bool effective_topology_safe =
-        point_safety.topology_safe() || measured_topology_safe;
+        point_safety.topology_safe() || measured_topology_safe || topology_certified;
     const bool effective_point_source_safe =
         point_safety.quadrupole_cusp_safe && effective_topology_safe;
     const double hex_dist_threshold = settings_.hex_threshold * source_radius;

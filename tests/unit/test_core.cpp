@@ -1,6 +1,10 @@
 #include "lcbinint/lcbinint.h"
 #include "lcbinint/magnification/cartesian_run_fill.hpp"
 #include "lcbinint/magnification/binary_caustic_enclosure.hpp"
+#include "lcbinint/magnification/binary_caustic_tree.hpp"
+#include "lcbinint/magnification/binary_local_seeds.hpp"
+#include "lcbinint/magnification/algebraic_boundary/radial_support_plan.hpp"
+#include "lcbinint/magnification/algebraic_boundary/tangent/geometry.hpp"
 #include "lcbinint/magnification/finite_source_magnifier.hpp"
 #include "lcbinint/magnification/point_source_magnifier.hpp"
 #include "lcbinint/magnification/probe_diagnostics.hpp"
@@ -668,6 +672,25 @@ int main()
                 !close_relative(after_scalar.magnification, expected.magnification, 1e-10)) return 151;
         }
     }
+    // Geometry derivatives must agree with independent cold solves even when
+    // only the lenses move, and on both sides of the q=1 frame change.
+    for(double q_base : {0.01, 100.0, 0.3, 1.0/0.3, 1.0}) {
+        for(bool moving_source : {false, true}) {
+            lcbinint::magnification::PointSourceMagnifier retained;
+            for(int i=0;i<160;++i) {
+                const double s=0.9+0.002*std::sin(0.13*i);
+                const double q=q_base*(1.0+0.0005*std::sin(0.17*i));
+                const lcbinint::SourcePosition source{
+                    0.02+(moving_source?0.01*std::sin(0.11*i):0.0), 0.03};
+                lcbinint::magnification::PointSourceMagnifier cold;
+                const auto expected=cold.binary_safety_diagnostic_cached(s,q,source);
+                const auto actual=retained.binary_safety_diagnostic_cached(s,q,source);
+                if(actual.image_count!=expected.image_count ||
+                   actual.ghost_count!=expected.ghost_count ||
+                   !close_relative(actual.magnification,expected.magnification,1e-9))return 155;
+            }
+        }
+    }
     // Optional batch image handoff must preserve the scalar flux and satisfy
     // the physical lens equation on both sides of the q=1 frame convention.
     for (const double q : {0.01, 0.5, 2.0}) {
@@ -894,8 +917,10 @@ int main()
         lcbinint::magnification::FiniteSourceSettings settings;
         settings.caustic_bins = bins;
         lcbinint::magnification::FiniteSourceMagnifier finite(settings);
-        for (double q_input : {1e-4, 0.1, 1.0, 10.0, 1e4}) {
+        for (double q_base : {1e-4, 0.1, 1.0, 10.0, 1e4}) {
             for (double s : {0.7, 0.700001, 1.999999, 2.0, 2.000001, 3.0, 0.7}) {
+              for(double factor : {1.0, 1.0001, 0.9998, 1.002}) {
+                const double q_input=q_base*factor;
                 const auto curves = finite.binary_critical_curve_branches(s, q_input);
                 std::size_t count = 0;
                 for (const auto& curve : curves) count += curve.size();
@@ -914,9 +939,193 @@ int main()
                         if (!(nearest < 1e-7*(1.0+std::abs(z)))) return 99;
                     }
                 }
+              }
             }
         }
     }
 
+    int tree_accepts = 0;
+    lcbinint::magnification::detail::BinaryCausticTree tree;
+    for (double s : {0.3, 0.7, 1.0, 1.2, 2.0, 3.0}) {
+        for (double q_input : {1e-4, 0.01, 1.0, 10.0, 1e4}) {
+            const double width = 1e-4*std::min(s, 1.0);
+            tree.clearance(s, q_input, {3.0, 2.0}, 1e-4, width);
+            for (double offset : {-2.0, -0.9, 0.0, 0.9, 2.0}) {
+                const double current = s+offset*width;
+                const double q = std::min(q_input, 1.0/q_input);
+                const double a = q_input < 1.0 ? -current : current;
+                const double m1 = 1.0/(1.0+q), m2 = 1.0-m1;
+                for (int k = 0; k < 17; ++k) {
+                    const auto phase = std::polar(1.0, 6.283185307179586*(k+0.371)/17);
+                    const auto roots = solver.solve({m2*a*a, -2.0*m2*a,
+                        1.0-phase*a*a, 2.0*phase*a, -phase});
+                    for (const auto z : roots.roots) {
+                        const auto w = z-m1/(std::conj(z)-a)-m2/std::conj(z)-a*m1;
+                        for (double radius : {1e-4, 0.01, 0.1}) {
+                            const lcbinint::SourcePosition source {
+                                w.real()+0.7*radius, w.imag()+0.2*radius};
+                            if (tree.clearance(current, q_input, source, radius, width)>radius)
+                                return 100;
+                        }
+                    }
+                }
+                tree_accepts += tree.clearance(current, q_input, {3.0, 2.0}, 1e-4, width)>1e-4;
+            }
+        }
+    }
+    if (tree_accepts == 0) return 101;
+    lcbinint::magnification::detail::clear_binary_caustic_tree_cache();
+    if (lcbinint::magnification::detail::binary_caustic_disk_clearance(
+            1.2, 0.01, {3.0, 2.0}, 0.001, 0.001)<=0.001) return 102;
+    if (lcbinint::magnification::detail::binary_caustic_disk_clearance(
+            1.2, 0.01, {NAN, 2.0}, 0.001, 0.001)!=0.0) return 103;
+
+    // A source disk containing a critical point must not be classified as
+    // having no critical arcs. Verify returned seeds through the lens map,
+    // independently of the phase enclosure's source-plane disk centres.
+    int local_completed = 0;
+    for(double separation : {0.5, 1.0, 1.7, 3.0})
+      for(double mass_ratio : {1e-3, 0.1, 1.0, 10.0, 1e3}) {
+        const double q=std::min(mass_ratio,1.0/mass_ratio);
+        const double a=mass_ratio<1 ? -separation : separation;
+        const double m1=1/(1+q),m2=q*m1;
+        const auto phase=std::polar(1.0,0.731);
+        const auto critical=solver.solve({m2*a*a,-2*m2*a,
+            1.0-phase*a*a,2.0*phase*a,-phase});
+        for(auto z:critical.roots)for(double rho : {1e-4, 0.01, 0.3}) {
+            const auto w=z-m1/(std::conj(z)-a)-m2/std::conj(z)-a*m1;
+            const lcbinint::SourcePosition source{w.real()+0.5*rho,w.imag()+0.2*rho};
+            auto local=lcbinint::magnification::detail::binary_local_image_seeds(
+                separation,mass_ratio,source,rho,1024);
+            if(local.completed) {
+                ++local_completed;
+                if(local.seeds.empty())return 104;
+                for(auto seed:local.seeds) {
+                    const lcbinint::Complex image(seed.x,seed.y);
+                    const auto mapped=image-m1/(std::conj(image)-a)-m2/std::conj(image)-a*m1;
+                    if(!(std::abs(mapped-lcbinint::Complex(source.x,source.y))<rho))return 105;
+                }
+            }
+        }
+      }
+    if(local_completed==0)return 106;
+    if(lcbinint::magnification::detail::binary_local_image_seeds(
+        1.2,0.01,{0.0,0.0},0.001,0).completed)return 107;
+    if(lcbinint::magnification::detail::binary_local_image_seeds(
+        1.2,0.01,{NAN,0.0},0.001).completed)return 108;
+
+    namespace exact = lcbinint::algebraic_boundary::exact_support_detail;
+    auto exact_roots_match = [](const std::array<exact::Dyadic, 5>& p,
+                               const std::vector<double>& expected) {
+        const auto roots = exact::angular_roots(p);
+        if (!roots.completed || roots.boxes.size() != expected.size()) return false;
+        for (std::size_t i = 0; i < expected.size(); ++i)
+            if (!(roots.boxes[i].lo <= expected[i] &&
+                  roots.boxes[i].hi >= expected[i])) return false;
+        return true;
+    };
+    using D = exact::Dyadic;
+    if (!exact_roots_match({D(.03515625), D(0), D(-.625), D(0), D(1)},
+                          {-.75, -.25, .25, .75})) return 109;
+    if (!exact_roots_match({D(-.0625), D(0), D(0), D(0), D(1)},
+                          {-.5, .5})) return 110;
+    if (!exact_roots_match({D(0), D(.5), D(-1), D(-.5), D(1)},
+                          {-1, 0, .5, 1})) return 111;
+    if (!exact_roots_match({D(.0625), D(-.5), D(1), D(0), D(0)},
+                          {.25})) return 112;
+    if (exact::angular_roots({}).completed) return 113;
+
+    const D exact_zero = D(0)*D(.1);
+    if (exact_zero.n != 0 || exact_zero.e != 0) return 114;
+    if (!exact_roots_match({D(1), D(0), D(0), D(0), exact_zero}, {})) return 115;
+
+    if(exact::exact_angular_count({D(.140625),D(0),D(-.8125),D(0),D(1)},1)!=4)return 116;
+    if(exact::exact_angular_count({D(-.0625),D(0),D(0),D(0),D(1)},-1)!=2)return 117;
+    if(exact::exact_angular_count({D(1),D(0),D(0),D(0),D(1)},1)!=0)return 118;
+    if(exact::exact_angular_count({D(1),D(0),D(0),D(0),D(1)},0)!=-1)return 119;
+    if(exact::radial_plan({1.,.5,0.,0.,0.}).completed)return 120;
+    namespace bounded = exact::bounded_detail;
+    for(int n=-101;n<=101;++n)for(int bits=0;bits<=14;++bits)
+        if(bounded::floor_div(bounded::Coefficient(n),bits)!=
+           static_cast<long long>(std::floor(std::ldexp(double(n),-bits))))return 121;
+    for(unsigned error:{0u,3u,1000u}) {
+        bounded::CoefficientBox box;box.hi=1;box.error=error;
+        exact::Box lower,upper;lower.hi=upper.hi=1;
+        for(int i=0;i<15;++i) {
+            box.b[i]=(bounded::Coefficient(1)<<223)+(17*i-143);
+            if(i%2)box.b[i]=-box.b[i];
+            lower.b[i]=exact::Integer(box.b[i])-error;
+            upper.b[i]=exact::Integer(box.b[i])+error;
+        }
+        exact::Integer scale=1;
+        for(int depth=0;depth<12;++depth) {
+            auto ball_children=bounded::split(box);
+            auto low_children=exact::split(lower),high_children=exact::split(upper);
+            box=depth%2?std::move(ball_children.first):std::move(ball_children.second);
+            lower=depth%2?std::move(low_children.first):std::move(low_children.second);
+            upper=depth%2?std::move(high_children.first):std::move(high_children.second);
+            scale*=16384;
+            for(int i=0;i<15;++i) {
+                const exact::Integer center(box.b[i]);
+                if((center-box.error)*scale>lower.b[i] ||
+                   (center+box.error)*scale<upper.b[i])return 122;
+            }
+        }
+    }
+    exact::Box uncertain;uncertain.hi=1;
+    for(auto& coefficient:uncertain.b)coefficient=exact::Integer(1)<<200;
+    uncertain.b[0]=1;
+    if(bounded::isolate_box(uncertain,32).completed)return 123;
+    if(bounded::isolate_box(uncertain,225).completed)return 124;
+    {
+        using lcbinint::SourcePosition;
+        using lcbinint::magnification::PointSourceMagnifier;
+        PointSourceMagnifier cached;
+        const auto first = cached.binary_mag0_cached(1.2, 0.1, {0.2, 0.3});
+        const auto nearby = cached.binary_mag0_cached(1.2, 0.1, {0.20001, 0.30001});
+        const auto distant = cached.binary_mag0_cached(1.2, 0.1, {10.0, -20.0});
+        const auto changed_lens = cached.binary_mag0_cached(1.8, 0.1, {10.0, -20.0});
+        if (first.root_used_warm_start || !nearby.root_used_warm_start ||
+            distant.root_used_warm_start || changed_lens.root_used_warm_start)
+            return 125;
+        const SourcePosition sources[]{{0.2, 0.3}, {10.0, -20.0},
+                                      {-8.0, 15.0}, {0.20001, 0.30001}};
+        double values[4]{};
+        cached.binary_mag0_batch(1.2, 0.1, sources, values, 4);
+        for (int j = 0; j < 4; ++j) {
+            PointSourceMagnifier cold;
+            const auto reference = cold.binary_mag0(1.2, 0.1, sources[j]);
+            if (!std::isfinite(values[j]) || std::abs(values[j] - reference.magnification) >
+                    1e-9 * std::max(1.0, std::abs(reference.magnification)))
+                return 126;
+        }
+    }
+#if defined(__SSE__)
+    {
+        namespace tangent = lcbinint::algebraic_boundary::tangent;
+        namespace geometry = tangent::geometry_experiment;
+        const auto saved = _mm_getcsr();
+        _mm_setcsr(saved | 0x8040u);
+        const auto entry = _mm_getcsr();
+        tangent::TopologyResult topology;
+        tangent::CellPlan cell;
+        cell.kind = tangent::ArcKind::kEmpty;
+        cell.r_lo = 0.5;
+        cell.r_hi = 1.5;
+        topology.cells.push_back(cell);
+        const auto frame = tangent::PrimaryFrame::from({0.2, 0.3, 0.001, 0.1, 1.2, true});
+        const auto clear_before = geometry::screen_stats.epochs_clear;
+        bool complete = false;
+        const auto pairs = geometry::detect(frame, topology, {}, &complete);
+        const bool restored = _mm_getcsr() == entry;
+        const bool screened = geometry::screen_stats.epochs_clear == clear_before + 1;
+        geometry::known_internal_pairs(frame, topology, 7);
+        geometry::known_upper_edge_pairs(frame, topology, 7);
+        const bool helpers_restored = _mm_getcsr() == entry;
+        _mm_setcsr(saved);
+        if (!restored || !helpers_restored) return 127;
+        if (!screened || !complete || !pairs.empty()) return 128;
+    }
+#endif
     return 0;
 }

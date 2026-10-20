@@ -3,6 +3,7 @@
 #include "lcbinint/magnification/algebraic_boundary/tangent/radial_events.hpp"
 #include "lcbinint/magnification/algebraic_boundary/tangent/cells.hpp"
 #include "fused_geometry_screen.hpp"
+#include "fp_env.hpp"
 namespace lcbinint::algebraic_boundary::tangent::geometry_experiment {
 using Q=__float128;
 }
@@ -12,6 +13,7 @@ struct Pair {double center=0,scale=0,left=0,right=0,band_lo=0,band_hi=0;bool rea
 // Existing support edges are normal image endpoints. Only mutually closest
 // INTERNAL physical folds are candidates for additional near-pair treatment.
 inline std::vector<Pair> known_internal_pairs(const PrimaryFrame&pf,const TopologyResult&topo,int resolution){
+ const ScopedNoFlushDenormals proof_environment;
  std::vector<Pair> out;
  std::optional<ScreenBlocks<ScreenInterval>> blocks;
  std::optional<ScreenBlocks<positive_detail::Ball>> precise;
@@ -40,6 +42,7 @@ inline std::vector<Pair> known_internal_pairs(const PrimaryFrame&pf,const Topolo
 // select a regular radial chart for the contact derivative.
 inline std::vector<Pair> known_upper_edge_pairs(const PrimaryFrame&pf,
         const TopologyResult&topo,int resolution,bool* unresolved_out=nullptr) {
+ const ScopedNoFlushDenormals proof_environment;
  std::vector<Pair> out;
  if(unresolved_out)*unresolved_out=false;
  if(resolution<=0)return out;
@@ -96,6 +99,7 @@ inline std::vector<Pair> known_upper_edge_pairs(const PrimaryFrame&pf,
 // even when D's two roots are too close for radial quadrature to see.
 inline std::vector<Pair> detect(const PrimaryFrame&pf,const TopologyResult&topo,
                                const std::vector<Cplx<double>>&seeds,bool*complete_out=nullptr,int resolution=7) {
+ const ScopedNoFlushDenormals proof_environment;
  bool completed=true;
  if(resolution<=0){if(complete_out)*complete_out=false;return {};}
  auto known=known_internal_pairs(pf,topo,resolution);

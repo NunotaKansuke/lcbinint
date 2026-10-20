@@ -6,7 +6,8 @@
 namespace lcbinint::algebraic_boundary {
 FusedGradientResult epoch_fused_gradient(const LensParams& p,double u,
     const std::vector<std::array<double,2>>& image_seeds,const FusedGradientOptions& options,
-    const std::function<bool(FusedGradientResult&)>& smooth_repair) {
+    const std::function<bool(FusedGradientResult&)>& smooth_repair,
+    const RadialSupportPlan* support_plan) {
     namespace kernel=lcbinint::algebraic_boundary::tangent;
     const kernel::LensParams params{p.xs,p.ys,p.rho,p.q,p.a,p.barycentric};
     std::vector<kernel::Cplx<double>> seeds;
@@ -19,7 +20,7 @@ FusedGradientResult epoch_fused_gradient(const LensParams& p,double u,
     cfg.value_first_gradient_node_budget=0;cfg.value_first_gradient_round_budget=0;
     kernel::AdaptiveWorkspace workspace;
     kernel::fused_gradient::reliability_retry_used=false;
-    auto result=kernel::epoch_seeded_radial_frontier(params,u,seeds,cfg,workspace);
+    auto result=kernel::epoch_seeded_radial_frontier(params,u,seeds,cfg,workspace,false,support_plan);
     auto gradients_usable=[](const kernel::AdaptiveResult& integral) {
         if(!integral.value_converged)return false;
         for(int j=0;j<5;++j) {
@@ -29,6 +30,12 @@ FusedGradientResult epoch_fused_gradient(const LensParams& p,double u,
         }
         return true;
     };
+    if(support_plan && support_plan->completed && !gradients_usable(result.integral)) {
+        FusedGradientResult failed;
+        failed.mu=result.integral.mu;
+        failed.stop="prepared_radial_support_unresolved";
+        return failed;
+    }
     bool unresolved_outer_edge_pair=false;
     const auto edge_pairs=kernel::geometry_experiment::known_upper_edge_pairs(
         kernel::PrimaryFrame::from(params),result.topology,

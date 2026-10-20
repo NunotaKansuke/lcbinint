@@ -1,0 +1,5 @@
+{
+  "evidence/kb230598_api_comparison_20261018/inputs.json": "74897ad2d6f7060a0d8ce08ee09ad32ed13800070b84cdf73fde2a22376b2d43",
+  "evidence/kb230598_api_comparison_20261018/epochs.npz": "fd8636f31196b946356f7482a1d7d77bafda27607ac163e6d62b952381af5d4f",
+  "evidence/kb230598_hmc_gradient_20261019/photometry.npz": "4a75e91bc23380557415d655cfeb7954ebebcfc6b175e37d10c5105735ab6838"
+}

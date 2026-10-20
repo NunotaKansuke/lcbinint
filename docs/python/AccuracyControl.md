@@ -110,6 +110,20 @@ failure retains the exact-separation fallback. Unsorted dynamic input is
 processed in an order that reuses geometry, then restored to input order. Nearby
 sources retain the existing geometry checks and topology guards.
 
+For varying separation, a hierarchy of continuous critical-phase enclosures
+can certify that the source disk is separated from every caustic. Each enclosure
+also covers a small interval of separations. Its polynomial reconstruction
+error allows root centres from the previous separation to be reused; roots are
+recomputed when those centres make the enclosure too loose. A failed proof
+uses the boundary integral, with the full caustic geometry retained for seed
+completion when a source disk can intersect a caustic. Constant separation and
+already available exact geometry retain the cached-geometry selector.
+
+The algebraic route's `caustic_distance` diagnostic may be a conservative lower
+bound. Zero means no positive clearance was established by the shortcut; it
+does not locate the source centre on a caustic. Magnification tolerances and
+the point/hex error checks still apply independently of this topology test.
+
 With `with_gradient=True`, the fused native pass computes the five local
 lens derivatives once. A cached JAX trajectory Jacobian maps them to model
 parameters without repeating lens integration. Static curves keep their fixed
@@ -273,3 +287,18 @@ For the calibration evidence and the exact retry rules, continue to
 [Numerical methods](../numerical-methods.md).
 
 [Previous: Limb darkening](LimbDarkening.md) · [Documentation home](readme.md) · [Next: Coordinates and conventions](Coordinates.md)
+
+Critical-curve root prediction also permits nearby mass ratios on the same
+lens-frame branch. The implicit derivative in the secondary mass fraction
+provides an initial guess alongside the separation predictor. Every accepted
+update still passes the polynomial residual and complete coefficient
+reconstruction checks; an unsuccessful update uses the full root solver.
+Caustic interval enclosures likewise try two Newton updates of cached centers
+before a full solve, and retain the complete Rouché enclosure check.
+
+Point-image prediction also includes the explicit changes of lens position and
+mass in the real inverse lens Jacobian. It applies to physical images on the
+same lens-frame branch; rejected polynomial roots retain their ordinary
+continuation seeds. Geometry jumps, singular Jacobians and large predicted
+steps skip the predictor. The polynomial/Vieta, physical-root selection and
+lens-residual checks, including cold fallback, remain unchanged.
