@@ -1,0 +1,142 @@
+[
+  {
+    "ld": 0.0,
+    "axis": "q",
+    "analytic": [
+      -3375699843.4552574
+    ],
+    "value": [
+      103033.77114554138
+    ],
+    "reference_value": [
+      103033.5387158391
+    ],
+    "reference_refinement": [
+      6.8666919073721555e-12
+    ],
+    "gradient_valid": [
+      true
+    ],
+    "steps": [
+      {
+        "fraction": 0.001,
+        "fd": [
+          -3375730483.4846935
+        ],
+        "fd_refined": [
+          -3375730481.3908186
+        ],
+        "relative_error": [
+          9.075942445665012e-06
+        ],
+        "reference_refinement": [
+          6.202731358081531e-10
+        ]
+      },
+      {
+        "fraction": 0.0003,
+        "fd": [
+          -3375501902.0241294
+        ],
+        "fd_refined": [
+          -3375501833.2635403
+        ],
+        "relative_error": [
+          5.865752315065755e-05
+        ],
+        "reference_refinement": [
+          2.0369284092625693e-08
+        ]
+      },
+      {
+        "fraction": 0.0001,
+        "fd": [
+          -3376208909.0048485
+        ],
+        "fd_refined": [
+          -3376209010.0047684
+        ],
+        "relative_error": [
+          0.00015081013882793846
+        ],
+        "reference_refinement": [
+          2.9915185817010417e-08
+        ]
+      }
+    ],
+    "best_step_error": [
+      9.075942445665012e-06
+    ],
+    "passed": true
+  },
+  {
+    "ld": 0.0,
+    "axis": "s",
+    "analytic": [
+      -316766.258006209
+    ],
+    "value": [
+      103033.77114554138
+    ],
+    "reference_value": [
+      103033.5387158391
+    ],
+    "reference_refinement": [
+      6.8666919073721555e-12
+    ],
+    "gradient_valid": [
+      true
+    ],
+    "steps": [
+      {
+        "fraction": 0.001,
+        "fd": [
+          -316748.1589228713
+        ],
+        "fd_refined": [
+          -316748.1598036347
+        ],
+        "relative_error": [
+          5.713424999308134e-05
+        ],
+        "reference_refinement": [
+          2.7804836471212057e-09
+        ]
+      },
+      {
+        "fraction": 0.0003,
+        "fd": [
+          -316854.5547399273
+        ],
+        "fd_refined": [
+          -316854.55877878214
+        ],
+        "relative_error": [
+          0.0002786791924770993
+        ],
+        "reference_refinement": [
+          1.2746715297245391e-08
+        ]
+      },
+      {
+        "fraction": 0.0001,
+        "fd": [
+          -317205.0402681571
+        ],
+        "fd_refined": [
+          -317205.02596732427
+        ],
+        "relative_error": [
+          0.0013832314282450347
+        ],
+        "reference_refinement": [
+          4.508387839165928e-08
+        ]
+      }
+    ],
+    "best_step_error": [
+      5.713424999308134e-05
+    ],
+    "passed": true
+  }
+]

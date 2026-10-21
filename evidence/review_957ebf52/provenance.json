@@ -1,0 +1,6 @@
+{
+  "commit": "957ebf527a242aba3a5cd3d3b512d9dab9cee7f9",
+  "base": "b38a51a6",
+  "source_export": "git archive selected build/test dependencies; no worktree created",
+  "working_tree_unrelated_changes": " M docs/jax-cpu-inverse-ray-mvp.md\n M docs/numerical-methods.md\n M evidence/backend_cleanup_20261018/run_tests.py\n M python/bind_jax_ir.cpp\n M python/lcbinint/jax_backend.py\n M python/lcbinint_jax/api.py\n M python/lcbinint_jax/source_plane.py\n M tests/jax_ir/test_multipole.py\n M tests/jax_ir/test_public_contract.py\n M tests/jax_ir/test_source_plane.py\n"
+}

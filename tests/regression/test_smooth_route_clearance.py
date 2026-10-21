@@ -87,8 +87,17 @@ def _sweep(lcbinint, rng, geometries, per_geometry, draw_lens, lens="binary"):
             step = float(rng.uniform(0.0, 30.0)) * rho
             x = float(vertices_x[index]) + step * np.cos(angle)
             y = float(vertices_y[index]) + step * np.sin(angle)
-            info = curve.info(
-                [x], t0=0.0, tE=1.0, u0=y, alpha=0.0, rho=rho, **params)
+            try:
+                info = curve.info(
+                    [x], t0=0.0, tE=1.0, u0=y, alpha=0.0, rho=rho, **params)
+            except RuntimeError as error:
+                # A missing integral candidate is an explicit refusal, not
+                # acceptance of a smooth approximation across a caustic.
+                if str(error) != "algebraic_boundary: no finite value candidate":
+                    raise
+                continue
+            assert np.all(np.isfinite(info.magnifications))
+            assert np.all(info.magnifications > 0.0)
             method = info.finite_source_method_names[0]
             if method not in SMOOTH_ROUTES:
                 continue

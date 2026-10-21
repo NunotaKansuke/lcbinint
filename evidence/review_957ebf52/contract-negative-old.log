@@ -1,0 +1,65 @@
+NATIVE /moao38_7/nunota/binfit/work/MB23169/runs/nuts_static_500w100s_depth10/gradient_candidate_repair_build/lcbinint/_lcbinint.cpython-310-x86_64-linux-gnu.so 80db156d472e6d8f965fbc8c93c7c4519d69e5a3b1f714212ba4eeaf77bb3389
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+____ test_missing_integral_candidate_never_returns_initialized_zero[False] _____
+
+with_gradient = False
+
+    @pytest.mark.parametrize("with_gradient", [False, True])
+    def test_missing_integral_candidate_never_returns_initialized_zero(with_gradient):
+        model = lc.LightCurve(options=lc.Options(
+            caustic_bins=1400, coordinates="center_of_mass", nbin="auto"))
+        params = dict(t0=0., tE=1., alpha=0., s=1.0969276945030313,
+                      q=0.00010573716122179744, rho=0.015630246022285084,
+                      u0=0.0002088807679604192)
+        try:
+            result = model([0.00037639405005819387], params,
+                           with_gradient=with_gradient, with_diagnostics=True)
+        except RuntimeError as error:
+            expected = ("no finite integral/derivative candidate" if with_gradient
+                        else "no finite value candidate")
+            assert expected in str(error)
+            return
+        # Future solvers may recover this integral; an uncomputed zero is never
+        # an acceptable replacement for either a candidate or an explicit error.
+        assert np.all(np.isfinite(result.magnifications))
+>       assert np.all(result.magnifications > 0.)
+E       assert np.False_
+E        +  where np.False_ = <function all at 0x7fd644b6cd70>(array([0.]) > 0.0)
+E        +    where <function all at 0x7fd644b6cd70> = np.all
+E        +    and   array([0.]) = LightCurveInfo(times=array([0.00037639]), magnifications=array([0.]), status=array([1], dtype=int8), gradients=None, g...e])}, seed_support_proven=array([False]), frontier_discovery_completed=array([ True]), support_required=array([ True])).magnifications
+
+tests/regression/test_algebraic_boundary_unified.py:601: AssertionError
+_____ test_missing_integral_candidate_never_returns_initialized_zero[True] _____
+
+with_gradient = True
+
+    @pytest.mark.parametrize("with_gradient", [False, True])
+    def test_missing_integral_candidate_never_returns_initialized_zero(with_gradient):
+        model = lc.LightCurve(options=lc.Options(
+            caustic_bins=1400, coordinates="center_of_mass", nbin="auto"))
+        params = dict(t0=0., tE=1., alpha=0., s=1.0969276945030313,
+                      q=0.00010573716122179744, rho=0.015630246022285084,
+                      u0=0.0002088807679604192)
+        try:
+            result = model([0.00037639405005819387], params,
+                           with_gradient=with_gradient, with_diagnostics=True)
+        except RuntimeError as error:
+            expected = ("no finite integral/derivative candidate" if with_gradient
+                        else "no finite value candidate")
+            assert expected in str(error)
+            return
+        # Future solvers may recover this integral; an uncomputed zero is never
+        # an acceptable replacement for either a candidate or an explicit error.
+        assert np.all(np.isfinite(result.magnifications))
+>       assert np.all(result.magnifications > 0.)
+E       assert np.False_
+E        +  where np.False_ = <function all at 0x7fd644b6cd70>(array([0.]) > 0.0)
+E        +    where <function all at 0x7fd644b6cd70> = np.all
+E        +    and   array([0.]) = LightCurveInfo(times=array([0.00037639]), magnifications=array([0.]), status=array([1], dtype=int8), gradients=array([...e])}, seed_support_proven=array([False]), frontier_discovery_completed=array([ True]), support_required=array([ True])).magnifications
+
+tests/regression/test_algebraic_boundary_unified.py:601: AssertionError
+=========================== short test summary info ============================
+FAILED tests/regression/test_algebraic_boundary_unified.py::test_missing_integral_candidate_never_returns_initialized_zero[False]
+FAILED tests/regression/test_algebraic_boundary_unified.py::test_missing_integral_candidate_never_returns_initialized_zero[True]
+2 failed in 0.51s

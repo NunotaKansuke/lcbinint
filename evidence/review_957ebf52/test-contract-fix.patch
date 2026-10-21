@@ -1,0 +1,53 @@
+--- tests/regression/test_smooth_route_clearance.py
++++ tests/regression/test_smooth_route_clearance.py
+@@ -87,8 +87,17 @@
+             step = float(rng.uniform(0.0, 30.0)) * rho
+             x = float(vertices_x[index]) + step * np.cos(angle)
+             y = float(vertices_y[index]) + step * np.sin(angle)
+-            info = curve.info(
+-                [x], t0=0.0, tE=1.0, u0=y, alpha=0.0, rho=rho, **params)
++            try:
++                info = curve.info(
++                    [x], t0=0.0, tE=1.0, u0=y, alpha=0.0, rho=rho, **params)
++            except RuntimeError as error:
++                # A missing integral candidate is an explicit refusal, not
++                # acceptance of a smooth approximation across a caustic.
++                if str(error) != "algebraic_boundary: no finite value candidate":
++                    raise
++                continue
++            assert np.all(np.isfinite(info.magnifications))
++            assert np.all(info.magnifications > 0.0)
+             method = info.finite_source_method_names[0]
+             if method not in SMOOTH_ROUTES:
+                 continue
+--- tests/regression/test_algebraic_boundary_unified.py
++++ tests/regression/test_algebraic_boundary_unified.py
+@@ -578,3 +578,28 @@
+         np.testing.assert_array_equal(compact[field], detailed[field])
+     assert not {"seconds", "stop", "node_evaluations", "error_estimate"} & compact.keys()
+     assert {"seconds", "stop", "node_evaluations", "error_estimate"} <= detailed.keys()
++
++
++@pytest.mark.parametrize("with_gradient", [False, True])
++def test_missing_integral_candidate_never_returns_initialized_zero(with_gradient):
++    model = lc.LightCurve(options=lc.Options(
++        caustic_bins=1400, coordinates="center_of_mass", nbin="auto"))
++    params = dict(t0=0., tE=1., alpha=0., s=1.0969276945030313,
++                  q=0.00010573716122179744, rho=0.015630246022285084,
++                  u0=0.0002088807679604192)
++    try:
++        result = model([0.00037639405005819387], params,
++                       with_gradient=with_gradient, with_diagnostics=True)
++    except RuntimeError as error:
++        expected = ("no finite integral/derivative candidate" if with_gradient
++                    else "no finite value candidate")
++        assert expected in str(error)
++        return
++    # Future solvers may recover this integral; an uncomputed zero is never
++    # an acceptable replacement for either a candidate or an explicit error.
++    assert np.all(np.isfinite(result.magnifications))
++    assert np.all(result.magnifications > 0.)
++    assert np.all(result.diagnostics["node_evaluations"] > 0)
++    if with_gradient:
++        assert np.all(np.isfinite(result.gradients))
++        assert np.any(result.gradients != 0.)

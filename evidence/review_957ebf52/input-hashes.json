@@ -1,0 +1,7 @@
+{
+  "evidence/kb230598_api_comparison_20261018/inputs.json": "74897ad2d6f7060a0d8ce08ee09ad32ed13800070b84cdf73fde2a22376b2d43",
+  "evidence/kb230598_api_comparison_20261018/epochs.npz": "fd8636f31196b946356f7482a1d7d77bafda27607ac163e6d62b952381af5d4f",
+  "evidence/kb230598_hmc_gradient_20261019/photometry.npz": "4a75e91bc23380557415d655cfeb7954ebebcfc6b175e37d10c5105735ab6838",
+  "evidence/radial_band_handoff_20261020/baseline-phase2-values.npz": "3d52fd4ad84654c4c5d4370e078e188b2fa382bfc3112a12f5abb63b54f53d98",
+  "evidence/radial_band_handoff_20261020/candidate-phase2-values.npz": "7361fc8c68f7b160f8e4141609643b0be86c4c311502754c2c61ffa48f81d3a4"
+}

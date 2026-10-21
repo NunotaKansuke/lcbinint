@@ -1,0 +1,56 @@
+NATIVE /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/evidence/review_957ebf52/build/lcbinint/_lcbinint.cpython-310-x86_64-linux-gnu.so adf5413ca8e3e158552e6a65bce41fc6eb2c5b1c9a635ca7202c8f04c1eb32ac
+........................................................................ [ 12%]
+........................................................................ [ 24%]
+........................................................................ [ 37%]
+...........F.sss........................................................ [ 49%]
+........................................................................ [ 62%]
+........................................................................ [ 74%]
+........................................................................ [ 86%]
+........................................................................ [ 99%]
+....                                                                     [100%]
+=================================== FAILURES ===================================
+_____________ test_binary_smooth_routes_stay_clear_of_the_caustic ______________
+
+    def test_binary_smooth_routes_stay_clear_of_the_caustic():
+        lcbinint = pytest.importorskip("lcbinint")
+        rng = np.random.default_rng(20260802)
+>       smooth, violations = _sweep(lcbinint, rng, 80, 16, _draw_binary)
+
+tests/regression/test_smooth_route_clearance.py:125:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/regression/test_smooth_route_clearance.py:90: in _sweep
+    info = curve.info(
+../build/lcbinint/__init__.py:1648: in info
+    return self.__call__(
+../build/lcbinint/__init__.py:1490: in __call__
+    result = self._evaluate_values(
+../build/lcbinint/__init__.py:954: in _evaluate_values
+    raw = lightcurve_value(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+curve = <lc.LightCurve param_type='center_of_mass' source_bins=50>
+times = array([0.00037639])
+params = {'alpha': 0.0, 'q': 0.00010573716122179744, 'rho': 0.015630246022285084, 's': 1.0969276945030313, ...}
+
+    def lightcurve_value(
+        curve, times, params=None, *, mu_atol=None, mu_rtol=None, with_gradient=False,
+        with_diagnostics=True,
+    ):
+        """Routed algebraic-boundary values with error and method diagnostics.
+
+        The point/hex selector is shared with ordinary LightCurve. The native C++
+        router owns the caustic and root caches across all epochs in this call.
+        """
+        t, values, requested_atol, requested_rtol, scalar = _validated_value_request(
+            curve, times, params, mu_atol, mu_rtol
+        )
+>       output = curve._native._evaluate_algebraic_boundary(
+            t, values, requested_atol, requested_rtol, bool(with_gradient),
+            bool(with_diagnostics),
+        )
+E       RuntimeError: algebraic_boundary: no finite value candidate
+
+../build/lcbinint/algebraic_boundary.py:81: RuntimeError
+=========================== short test summary info ============================
+FAILED tests/regression/test_smooth_route_clearance.py::test_binary_smooth_routes_stay_clear_of_the_caustic
+1 failed, 576 passed, 3 skipped in 833.01s (0:13:53)

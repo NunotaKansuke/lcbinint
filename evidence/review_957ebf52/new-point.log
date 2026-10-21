@@ -1,0 +1,3 @@
+GEOMETRY [('source_x', [0.00037639405005819387]), ('source_y', [0.0002088807679604192]), ('separation', [1.0969276945030313]), ('mass_ratio', [0.00010573716122179744])]
+EXCEPTION False RuntimeError('algebraic_boundary: no finite value candidate')
+EXCEPTION True RuntimeError('algebraic_boundary: full radial retries produced no finite integral/derivative candidate; xs=0.00037639405005819387 ys=0.00020888076796041921 rho=0.015630246022285084 q=0.00010573716122179744 s=1.0969276945030313 barycentric=1 limb=0 mu=0 grad=[0,0,0,0,0] initial_stop=TopologyUnresolved final_stop=TopologyUnresolved nodes=0 frontier=local_discovery_completed seeds=5')

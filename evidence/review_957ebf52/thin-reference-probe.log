@@ -1,0 +1,18 @@
+LC 0.0 0.001 False [103033.77114554138] [True] ['Converged']
+LC 0.0 0.001 True [103033.77114554138] [True] ['Converged; tangent_chart=radial_frontier']
+LC 0.0 1e-06 False [103033.5296497408] [False] ['TopologyUnresolved; value_repair=regular_radial; initial_stop=TopologyUnresolved']
+LC 0.0 1e-06 True [103033.53331874992] [False] ['RoundoffLimited; gradient_candidate=regular_radial; gradient_uncertified=contact_retry_unverified; initial_stop=EventLocationLimited; tangent_chart=radial_frontier']
+LC 0.0 1e-07 False [103033.53373982984] [False] ['TopologyUnresolved; value_repair=regular_radial; initial_stop=TopologyUnresolved']
+LC 0.0 1e-07 True [103033.53331874992] [False] ['RoundoffLimited; gradient_candidate=regular_radial; gradient_uncertified=contact_retry_unverified; initial_stop=EventLocationLimited; tangent_chart=radial_frontier']
+GEO 0.5860467981775465 [33561.65273177007] -6.111543381074268e-07 1.0032658501559822e-07
+VBM 0.0 1e-08 103033.5387151316
+VBM 0.0 1e-10 103033.5387158391
+LC 0.6584 0.001 False [102887.67805649077] [True] ['Converged']
+LC 0.6584 0.001 True [102887.67805649077] [True] ['Converged; tangent_chart=radial_frontier']
+LC 0.6584 1e-06 False [102885.10820765395] [False] ['TopologyUnresolved; value_repair=regular_radial; initial_stop=TopologyUnresolved']
+LC 0.6584 1e-06 True [102887.87437038004] [False] ['InnerAccuracyLimited; gradient_candidate=regular_radial; gradient_uncertified=contact_retry_unverified; initial_stop=EventLocationLimited; tangent_chart=radial_frontier']
+LC 0.6584 1e-07 False [102885.10821314128] [False] ['TopologyUnresolved; value_repair=regular_radial; initial_stop=TopologyUnresolved']
+LC 0.6584 1e-07 True [102887.87437038004] [False] ['InnerAccuracyLimited; gradient_candidate=regular_radial; gradient_uncertified=contact_retry_unverified; initial_stop=EventLocationLimited; tangent_chart=radial_frontier']
+GEO 0.5860467981775465 [33561.65273177007] -6.111543381074268e-07 1.0032658501559822e-07
+VBM ERROR TypeError('BinaryMagDark(): incompatible function arguments. The following argument types are supported:\n    1. (self: VBMicrolensing.VBMicrolensing.VBMicrolensing, arg0: typing.SupportsFloat | typing.SupportsIndex, arg1: typing.SupportsFloat | typing.SupportsIndex, arg2: typing.SupportsFloat | typing.SupportsIndex, arg3: typing.SupportsFloat | typing.SupportsIndex, arg4: typing.SupportsFloat | typing.SupportsIndex, arg5: typing.SupportsFloat | typing.SupportsIndex) -> float\n\nInvoked with: <VBMicrolensing.VBMicrolensing.VBMicrolensing object at 0x7efee5c9d6f0>, 0.5860467981775465, 33561.65273177007, -6.111543381074268e-07, 1.0032658501559822e-07, 2.6295524980988746e-06, 0.6584, 1e-08')
+VBM ERROR TypeError('BinaryMagDark(): incompatible function arguments. The following argument types are supported:\n    1. (self: VBMicrolensing.VBMicrolensing.VBMicrolensing, arg0: typing.SupportsFloat | typing.SupportsIndex, arg1: typing.SupportsFloat | typing.SupportsIndex, arg2: typing.SupportsFloat | typing.SupportsIndex, arg3: typing.SupportsFloat | typing.SupportsIndex, arg4: typing.SupportsFloat | typing.SupportsIndex, arg5: typing.SupportsFloat | typing.SupportsIndex) -> float\n\nInvoked with: <VBMicrolensing.VBMicrolensing.VBMicrolensing object at 0x7efee5c9d6f0>, 0.5860467981775465, 33561.65273177007, -6.111543381074268e-07, 1.0032658501559822e-07, 2.6295524980988746e-06, 0.6584, 1e-10')

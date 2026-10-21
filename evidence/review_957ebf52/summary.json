@@ -1,0 +1,103 @@
+{
+  "reviewed_commit": "957ebf527a242aba3a5cd3d3b512d9dab9cee7f9",
+  "reviewed_base": "b38a51a6",
+  "production_implementation_changes_by_this_review": false,
+  "test_contract_patch": [
+    "tests/regression/test_algebraic_boundary_unified.py",
+    "tests/regression/test_smooth_route_clearance.py"
+  ],
+  "cpp_passed": true,
+  "targeted_after_patch_passed": 64,
+  "full_passed": 579,
+  "full_skipped": 3,
+  "independent_value_conditions": 349,
+  "max_value_normalized_error": 1.9913460079927885e-05,
+  "max_tight_value_normalized_error": 2.7904028196558823e-11,
+  "directional_fd_epochs": 153,
+  "max_best_step_directional_fd_error": 6.575148888780276e-05,
+  "supplementary_self_fd_reliable": [
+    {
+      "ld": 0.0,
+      "axis": "q",
+      "epoch": 10068.966367,
+      "best_step_error": 3.6964226315092356e-07
+    },
+    {
+      "ld": 0.0,
+      "axis": "q",
+      "epoch": 10068.90835,
+      "best_step_error": 2.9595893256150163e-08
+    },
+    {
+      "ld": 0.0,
+      "axis": "s",
+      "epoch": 10068.966367,
+      "best_step_error": 6.808679691870507e-06
+    },
+    {
+      "ld": 0.0,
+      "axis": "s",
+      "epoch": 10068.90835,
+      "best_step_error": 7.475234388070837e-09
+    },
+    {
+      "ld": 0.6584,
+      "axis": "q",
+      "epoch": 10068.966367,
+      "best_step_error": 1.9547338665705896e-07
+    },
+    {
+      "ld": 0.6584,
+      "axis": "q",
+      "epoch": 10068.90835,
+      "best_step_error": 5.9495212645476295e-09
+    },
+    {
+      "ld": 0.6584,
+      "axis": "s",
+      "epoch": 10068.966367,
+      "best_step_error": 2.785305893272134e-06
+    },
+    {
+      "ld": 0.6584,
+      "axis": "s",
+      "epoch": 10068.90835,
+      "best_step_error": 7.536874832601477e-09
+    }
+  ],
+  "supplementary_self_fd_reference_unconverged": [
+    {
+      "ld": 0.0,
+      "axis": "q",
+      "epoch": 10068.978004,
+      "best_step_error": null
+    },
+    {
+      "ld": 0.0,
+      "axis": "s",
+      "epoch": 10068.978004,
+      "best_step_error": null
+    },
+    {
+      "ld": 0.6584,
+      "axis": "q",
+      "epoch": 10068.978004,
+      "best_step_error": null
+    },
+    {
+      "ld": 0.6584,
+      "axis": "s",
+      "epoch": 10068.978004,
+      "best_step_error": null
+    }
+  ],
+  "supplementary_uniform_independent_fd_passed": true,
+  "supplementary_extreme_ld_independent_fd": "inconclusive: roundoff and bounded reference timeout; no derivative accepted from incomplete checks",
+  "gradient_accuracy_globally_certified": false,
+  "posterior_or_HMC_acceptance_tested": false,
+  "new_performance_claim": false,
+  "native_sha256": "adf5413ca8e3e158552e6a65bce41fc6eb2c5b1c9a635ca7202c8f04c1eb32ac",
+  "source_exact_commit_except_two_test_files": true,
+  "external_claude_review": "not executed: automatic approval rejected external source disclosure; local review performed",
+  "verdict": "implementation/regression review accepted within tested scope; numerical limits retained; no global derivative certificate"
+}

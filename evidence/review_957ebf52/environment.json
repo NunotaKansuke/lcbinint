@@ -1,0 +1,14 @@
+{
+  "python": "3.10.19 (main, Oct 21 2025, 16:43:05) [GCC 11.2.0]",
+  "versions": {
+    "numpy": "2.2.6",
+    "scipy": "1.15.3",
+    "jax": "0.6.2",
+    "jaxlib": "0.6.2",
+    "pytest": "9.0.1",
+    "VBMicrolensing": "5.5"
+  },
+  "native": "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/evidence/review_957ebf52/build/lcbinint/_lcbinint.cpython-310-x86_64-linux-gnu.so",
+  "build": "Release, GNU, JAX FFI enabled, OpenMP disabled, one CPU; no event-specific source override",
+  "affinity": "initial checks CPU0; final regression and final bounded LD reference CPU2; not a speed comparison"
+}

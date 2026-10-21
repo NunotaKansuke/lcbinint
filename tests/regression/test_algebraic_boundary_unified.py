@@ -578,3 +578,28 @@ def test_value_only_native_result_omits_optional_diagnostic_arrays():
         np.testing.assert_array_equal(compact[field], detailed[field])
     assert not {"seconds", "stop", "node_evaluations", "error_estimate"} & compact.keys()
     assert {"seconds", "stop", "node_evaluations", "error_estimate"} <= detailed.keys()
+
+
+@pytest.mark.parametrize("with_gradient", [False, True])
+def test_missing_integral_candidate_never_returns_initialized_zero(with_gradient):
+    model = lc.LightCurve(options=lc.Options(
+        caustic_bins=1400, coordinates="center_of_mass", nbin="auto"))
+    params = dict(t0=0., tE=1., alpha=0., s=1.0969276945030313,
+                  q=0.00010573716122179744, rho=0.015630246022285084,
+                  u0=0.0002088807679604192)
+    try:
+        result = model([0.00037639405005819387], params,
+                       with_gradient=with_gradient, with_diagnostics=True)
+    except RuntimeError as error:
+        expected = ("no finite integral/derivative candidate" if with_gradient
+                    else "no finite value candidate")
+        assert expected in str(error)
+        return
+    # Future solvers may recover this integral; an uncomputed zero is never
+    # an acceptable replacement for either a candidate or an explicit error.
+    assert np.all(np.isfinite(result.magnifications))
+    assert np.all(result.magnifications > 0.)
+    assert np.all(result.diagnostics["node_evaluations"] > 0)
+    if with_gradient:
+        assert np.all(np.isfinite(result.gradients))
+        assert np.any(result.gradients != 0.)
