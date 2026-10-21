@@ -11,6 +11,53 @@ ROOT = Path(__file__).resolve().parents[2]
 ORDER = ("t0", "u0", "tE", "alpha", "rho", "q", "s")
 
 
+@pytest.mark.parametrize("radius_factor", [.5, 1., 2.])
+@pytest.mark.parametrize("relative_tolerance", [1e-3, 1e-7])
+def test_value_only_precise_retry_matches_tangent_without_requesting_gradient(
+        radius_factor, relative_tolerance):
+    jax = pytest.importorskip("jax")
+    import jax.numpy as jnp
+    from lcbinint_jax import binary_algebraic_boundary_batch_ffi
+
+    jax.config.update("jax_enable_x64", True)
+    point = jnp.asarray([9.3455853692711944e-8, -1.3751070916121869e-7,
+                         .53460147483028242, 15499133.519658864,
+                         6.6117332425490384e-9*radius_factor])
+
+    def value(parameters):
+        return binary_algebraic_boundary_batch_ffi(
+            parameters[:1], parameters[1:2], parameters[2], parameters[3], parameters[4],
+            limb_c=.6101, absolute_tolerance=1e-4,
+            relative_tolerance=relative_tolerance).sum()
+
+    primal = float(jax.jit(value)(point))
+    tangent, gradient = jax.jit(jax.value_and_grad(value))(point)
+    assert np.isfinite(primal) and primal > 0
+    assert np.isfinite(np.asarray(gradient)).all()
+    np.testing.assert_allclose(primal, tangent, rtol=2*relative_tolerance, atol=2e-4)
+
+
+@pytest.mark.parametrize("radius_factor", [.99, 1., 1.01])
+def test_precise_frontier_count_retains_extreme_image_candidate(radius_factor):
+    jax = pytest.importorskip("jax")
+    import jax.numpy as jnp
+    from lcbinint_jax import binary_algebraic_boundary_batch_ffi
+
+    jax.config.update("jax_enable_x64", True)
+    point = jnp.asarray([9.3455853692711944e-8, -1.3751070916121869e-7,
+                         .53460147483028242, 15499133.519658864,
+                         6.6117332425490384e-9*radius_factor])
+
+    def value(parameters):
+        return binary_algebraic_boundary_batch_ffi(
+            parameters[:1], parameters[1:2], parameters[2], parameters[3], parameters[4],
+            limb_c=.6101, absolute_tolerance=1e-4, relative_tolerance=1e-3).sum()
+
+    magnitude, gradient = jax.jit(jax.value_and_grad(value))(point)
+    assert float(magnitude) > 0
+    assert np.isfinite(float(magnitude)) and np.isfinite(np.asarray(gradient)).all()
+
+
 @pytest.mark.parametrize("radius_factor", [.99, 1., 1.01])
 def test_regular_retry_carries_detected_edge_fold_into_rho_derivative(radius_factor):
     jax = pytest.importorskip("jax")

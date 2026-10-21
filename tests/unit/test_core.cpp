@@ -1440,5 +1440,26 @@ int main()
         if (!screened || !complete || !pairs.empty()) return 128;
     }
 #endif
+    {
+        namespace recovery=lcbinint::algebraic_boundary::tangent;
+        if(recovery::seeded_frontier_detail::physical_crossing_count(1.,{0.,1.,0.,0.,0.})!=-1)
+            return 202;
+        for(double radius_factor:{.5,1.,2.}) {
+            const recovery::LensParams parameters{9.3455853692711944e-8,-1.3751070916121869e-7,
+                6.6117332425490384e-9*radius_factor,15499133.519658864,.53460147483028242,true};
+            const auto frame=recovery::PrimaryFrame::from(parameters);
+            const double radius=.76956415773798681,angle=1.719581327546285;
+            double full_angular,full_radial,value_angular,value_radial;
+            const auto full=recovery::fused_precise_phi(
+                radius,angle,frame,&full_angular,&full_radial);
+            const auto value=recovery::fused_precise_phi<false>(
+                radius,angle,frame,&value_angular,&value_radial);
+            if(full.phi!=value.phi || full_angular!=value_angular ||
+               full_radial!=value_radial)return 203;
+            if(!(recovery::fused_precise_phi(radius,angle,frame).phi>0) ||
+               !(recovery::fused_precise_phi(radius,angle+.1,frame).phi<0))return 200;
+            if(recovery::seeded_frontier_detail::physical_crossing_count(radius,frame)!=2)return 201;
+        }
+    }
     return 0;
 }

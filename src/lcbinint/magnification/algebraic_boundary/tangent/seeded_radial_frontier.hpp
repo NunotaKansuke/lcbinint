@@ -12,6 +12,20 @@
 
 namespace lcbinint::algebraic_boundary::tangent {
 namespace seeded_frontier_detail {
+inline int physical_crossing_count(double radius,const PrimaryFrame& frame) {
+    const auto quantities=local_fold_quantities<__float128>((__float128)radius,0,frame);
+    std::array<__float128,5> coefficients{{quantities.P,quantities.Pt,
+        quantities.Ptt/2,quantities.Psss/6,quantities.Pssss/24}};
+    __float128 scale=0;
+    for(const auto value:coefficients)scale=std::max(scale,fabsq(value));
+    if(!(scale>0))return -1;
+    for(auto& value:coefficients)value/=scale;
+    if(coefficients[4]==0)
+        coefficients={coefficients[4],-coefficients[3],coefficients[2],-coefficients[1],coefficients[0]};
+    const auto physical=quartic_sturm_detail::count_chain(coefficients);
+    return quartic_sturm_detail::stable(physical,2) && physical.count>=0 &&
+        !(physical.count&1)?physical.count:-1;
+}
 // Keep only new sample witnesses. An in-place sample correction is noticed
 // whenever its radius or certified count changes. Invalid samples remain
 // eligible on a later pass; the union is identical to repeated collection.
@@ -144,7 +158,9 @@ inline SeededFrontierResult epoch_seeded_radial_frontier(
             }
         }
         bool direct=false;
-        const int count=boundary_quartic_count(stable_coeff(R),&direct);
+        const int count=precise_events
+            ?seeded_frontier_detail::physical_crossing_count(R,pf)
+            :boundary_quartic_count(stable_coeff(R),&direct);
         if(direct)++out.frontier.invariant_count_probes;
         else ++out.frontier.sturm_count_probes;
         if(count<0)return -1;

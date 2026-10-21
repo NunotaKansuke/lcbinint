@@ -7783,38 +7783,25 @@ FiniteSourceResult FiniteSourceMagnifier::algebraic_boundary_deep_solve(
             integral.integral.stats.node_evaluations=total_nodes;
         }
         const auto initial_stop = integral.integral.stop;
+        std::optional<algebraic_boundary::PreciseValueResult> precise_value_retry;
         bool regular_radial_retry = false;
         if (initial_stop == algebraic_boundary::AdaptiveStop::EventLocationLimited ||
             initial_stop == algebraic_boundary::AdaptiveStop::TopologyUnresolved ||
             !(integral.integral.mu > 0.0) || !std::isfinite(integral.integral.mu)) {
-            algebraic_boundary::AdaptiveConfig retry_config;
-            retry_config.tol.mu_atol = algebraic_settings.absolute_tolerance;
-            retry_config.tol.mu_rtol = algebraic_settings.relative_tolerance;
-            retry_config.gradient_policy = algebraic_boundary::GradientPolicy::None;
-            retry_config.fold_maps = false;
-            retry_config.initial_level = 8;
-            algebraic_boundary::AdaptiveWorkspace retry_workspace;
-            auto retry = algebraic_boundary::epoch_seeded_radial_frontier(
-                params, settings_.limb_darkening_c, prepared_seeds->radial_seeds,
-                retry_config, retry_workspace, false, &prepared_seeds->support_plan);
-            if (retry_workspace.panels.empty() || !(retry.integral.mu > 0.0) ||
-                !std::isfinite(retry.integral.mu)) {
-                const auto frontier_nodes = retry.integral.stats.node_evaluations;
-                retry.integral = algebraic_boundary::epoch_adaptive(
-                    params, settings_.limb_darkening_c, retry_config, retry_workspace);
-                retry.integral.stats.node_evaluations += frontier_nodes;
-                retry.frontier.coverage_certified = false;
-            }
+            std::vector<std::array<double,2>> retry_seeds;
+            retry_seeds.reserve(prepared_seeds->radial_seeds.size());
+            for(const auto& image:prepared_seeds->radial_seeds)
+                retry_seeds.push_back({image.re,image.im});
+            auto retry=algebraic_boundary::epoch_precise_value(
+                params,settings_.limb_darkening_c,retry_seeds,
+                algebraic_settings.absolute_tolerance,algebraic_settings.relative_tolerance);
             regular_radial_retry = true;
-            const auto retry_nodes = retry.integral.stats.node_evaluations;
-            retry.integral.stats.node_evaluations += integral.integral.stats.node_evaluations;
-            if (std::isfinite(retry.integral.mu) && retry.integral.mu > 0.0 &&
-                (retry.integral.value_converged || !std::isfinite(integral.integral.mu) ||
-                 integral.integral.mu <= 0.0 || retry.integral.estimated_abs_error_mu <=
+            integral.integral.stats.node_evaluations+=retry.node_evaluations;
+            if (std::isfinite(retry.mu) && retry.mu > 0.0 &&
+                (retry.value_converged || !std::isfinite(integral.integral.mu) ||
+                 integral.integral.mu <= 0.0 || retry.value_error_estimate <=
                      integral.integral.estimated_abs_error_mu)) {
-                integral = std::move(retry);
-            } else {
-                integral.integral.stats.node_evaluations += retry_nodes;
+                precise_value_retry=std::move(retry);
             }
         }
         result.magnification = integral.integral.mu;
@@ -7824,11 +7811,19 @@ FiniteSourceResult FiniteSourceMagnifier::algebraic_boundary_deep_solve(
         result.decision.estimated_evaluations =
             static_cast<int>(integral.integral.stats.node_evaluations);
         result.diagnostic_stop = algebraic_boundary::adaptive_stop_name(integral.integral.stop);
+        if(precise_value_retry) {
+            result.magnification=precise_value_retry->mu;
+            result.error_estimate=precise_value_retry->value_error_estimate;
+            result.integral_support_certified=precise_value_retry->support_certified;
+            result.frontier_discovery_completed=precise_value_retry->frontier_discovery_completed;
+            result.diagnostic_stop=precise_value_retry->stop;
+        }
         if (regular_radial_retry) {
-            result.diagnostic_stop += "; value_repair=regular_radial; initial_stop=";
+            result.diagnostic_stop += "; value_repair=precise_radial; initial_stop=";
             result.diagnostic_stop += algebraic_boundary::adaptive_stop_name(initial_stop);
         }
-        value_converged = integral.integral.value_converged;
+        value_converged = precise_value_retry?precise_value_retry->value_converged:
+            integral.integral.value_converged;
     }
     if (prepared_seeds) {
         result.image_count = static_cast<int>(prepared_seeds->center_images.size());

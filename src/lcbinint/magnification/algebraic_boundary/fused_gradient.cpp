@@ -6,6 +6,38 @@
 #include <stdexcept>
 
 namespace lcbinint::algebraic_boundary {
+PreciseValueResult epoch_precise_value(const LensParams& p,double u,
+    const std::vector<std::array<double,2>>& image_seeds,
+    double absolute_tolerance,double relative_tolerance) {
+    namespace kernel=lcbinint::algebraic_boundary::tangent;
+    const kernel::LensParams params{p.xs,p.ys,p.rho,p.q,p.a,p.barycentric};
+    std::vector<kernel::Cplx<double>> seeds;
+    seeds.reserve(image_seeds.size());
+    for(const auto& image:image_seeds)seeds.push_back({image[0],image[1]});
+    kernel::AdaptiveConfig config;
+    config.tol.mu_atol=absolute_tolerance;config.tol.mu_rtol=relative_tolerance;
+    config.with_jacobian=false;
+    config.gradient_policy=kernel::GradientPolicy::None;
+    config.fold_maps=false;
+    kernel::AdaptiveWorkspace workspace;
+    kernel::fused_gradient::PreciseTangentScope precision;
+    const auto result=kernel::epoch_seeded_radial_frontier(
+        params,u,seeds,config,workspace,false,nullptr,true);
+    PreciseValueResult out;
+    out.mu=result.integral.mu;
+    out.value_error_estimate=result.integral.estimated_abs_error_mu;
+    out.value_converged=result.integral.value_converged;
+    out.support_certified=result.frontier.coverage_certified;
+    out.frontier_discovery_completed=result.frontier.discovery_completed;
+    out.node_evaluations=result.integral.stats.node_evaluations;
+    out.stop=kernel::adaptive_stop_name(result.integral.stop);
+    if(!result.frontier.discovery_completed) {
+        out.stop+="; frontier=";
+        out.stop+=result.frontier.reason;
+    }
+    return out;
+}
+
 FusedGradientResult epoch_fused_gradient(const LensParams& p,double u,
     const std::vector<std::array<double,2>>& image_seeds,const FusedGradientOptions& options,
     const std::function<bool(FusedGradientResult&)>& smooth_repair,

@@ -9,6 +9,20 @@
 #include <vector>
 
 namespace lcbinint::algebraic_boundary {
+struct PreciseValueResult {
+    double mu=0;
+    double value_error_estimate=std::numeric_limits<double>::infinity();
+    bool value_converged=false;
+    bool support_certified=false;
+    bool frontier_discovery_completed=false;
+    std::size_t node_evaluations=0;
+    std::string stop;
+};
+
+PreciseValueResult epoch_precise_value(const LensParams& p,double limb_darkening,
+    const std::vector<std::array<double,2>>& primary_image_seeds,
+    double absolute_tolerance,double relative_tolerance);
+
 struct FusedGradientOptions {
     double mu_atol=1e-8;
     double mu_rtol=1e-4;

@@ -1612,7 +1612,8 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
         double de=std::fabs(ge.phi/ge.dphi_dtheta),dl=std::fabs(gl.phi/gl.dphi_dtheta);
         // Floating point lens-map cancellation grows as 1/rho. This is an
         // arithmetic sensitivity estimate, NOT an interval enclosure.
-        double map_noise=eps*(std::fabs(R)+std::fabs(pf.X)+std::fabs(pf.Y)+1)/pf.rho;
+        double map_noise=(precise_boundary_required(R,pf)?double(FLT128_EPSILON):eps)*
+            (std::fabs(R)+std::fabs(pf.X)+std::fabs(pf.Y)+1)/pf.rho;
         de+=(map_noise+eps*std::fabs(te)*std::fabs(ge.dphi_dtheta))/std::fabs(ge.dphi_dtheta);
         dl+=(map_noise+eps*std::fabs(tl)*std::fabs(gl.dphi_dtheta))/std::fabs(gl.dphi_dtheta);
         const double width=tl-te;

@@ -144,6 +144,7 @@ inline bool thin_boundary_geometry(double R,const PrimaryFrame& pf) {
 inline bool precise_boundary_required(double R,const PrimaryFrame& pf) {
  return fused_gradient::precise_tangent_replay&&thin_boundary_geometry(R,pf);
 }
+template<bool WithParameterDerivatives=true>
 inline PhiValDP fused_precise_phi(double R,double theta,const PrimaryFrame&pf,double* angular=nullptr,double* radial_slope=nullptr){
  using Q=__float128;struct Z{Q re,im;};
  auto add=[](Z a,Z b){return Z{a.re+b.re,a.im+b.im};};
@@ -163,6 +164,13 @@ inline PhiValDP fused_precise_phi(double R,double theta,const PrimaryFrame&pf,do
   const Z product=mul(zb,k);
   const Z velocity{-z.im+product.im,z.re-product.re};
   *angular=double(-2*dot(g,velocity)/r2);
+ }
+ if constexpr(!WithParameterDerivatives) {
+  if(radial_slope) {
+   const Z radial=scale(add(add(z,scale(i,m)),scale(mul(mul(j,j),zb),n)),1/r);
+   *radial_slope=double(-2*dot(g,radial)/r2);
+  }
+  return out;
  }
  std::array<Q,5> derivatives{{2*g.re/r2,2*g.im/r2,2*norm/(rho*r2),
           -2*dot(g,sub(j,i))/r2,2*n*dot(g,mul(j,j))/r2}};
@@ -216,7 +224,7 @@ inline PhiValDtheta phi_val_dtheta(double R, double theta,
                                   const PrimaryFrame& pf) {
     if(precise_boundary_required(R,pf)) {
         double angular;
-        const auto precise=fused_precise_phi(R,theta,pf,&angular);
+        const auto precise=fused_precise_phi<false>(R,theta,pf,&angular);
         return {precise.phi,angular};
     }
     const phi_detail::Core c = phi_detail::core(R, theta, pf);
@@ -229,7 +237,7 @@ inline PhiValDtheta phi_val_dtheta(double R, double theta,
 // paying nothing for the unused dP / dphi_dtheta.
 inline double phi_val(double R, double theta, const PrimaryFrame& pf) {
     const double value=phi_detail::core(R, theta, pf).phi;
-    return value<1e-8?fused_precise_phi(R,theta,pf).phi:value;
+    return value<1e-8?fused_precise_phi<false>(R,theta,pf).phi:value;
 }
 
 // phi only, straight from the lens equation (topology._phi) -- the
