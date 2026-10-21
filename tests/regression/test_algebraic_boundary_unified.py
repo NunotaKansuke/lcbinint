@@ -11,6 +11,116 @@ ROOT = Path(__file__).resolve().parents[2]
 ORDER = ("t0", "u0", "tE", "alpha", "rho", "q", "s")
 
 
+@pytest.mark.parametrize("radius_factor", [.99, 1., 1.01])
+def test_regular_retry_carries_detected_edge_fold_into_rho_derivative(radius_factor):
+    jax = pytest.importorskip("jax")
+    import jax.numpy as jnp
+    from lcbinint_jax import binary_algebraic_boundary_batch_ffi
+
+    jax.config.update("jax_enable_x64", True)
+    radius = 1.9744542129953203e-6*radius_factor
+
+    def value(source_radius):
+        return binary_algebraic_boundary_batch_ffi(
+            jnp.asarray([-4.4264421197973816e-7]), jnp.asarray([-9.248813492409009e-9]),
+            .57918659571672504, 44218.353678937485, source_radius,
+            limb_c=.6584, absolute_tolerance=1e-4, relative_tolerance=1e-7).sum()
+
+    evaluate = jax.jit(jax.value_and_grad(value))
+    magnitude, derivative = evaluate(jnp.asarray(radius))
+    assert np.isfinite(float(magnitude)) and np.isfinite(float(derivative))
+    step = radius*.03
+    magnitudes = []
+    for offset in [-2, -1, 1, 2]:
+        candidate, candidate_derivative = evaluate(jnp.asarray(radius+offset*step))
+        assert np.isfinite(float(candidate_derivative))
+        magnitudes.append(float(candidate))
+    reference = (magnitudes[0]-8*magnitudes[1]+8*magnitudes[2]-magnitudes[3])/(12*step)
+    np.testing.assert_allclose(derivative, reference, rtol=2e-3, atol=0)
+
+
+@pytest.mark.parametrize("radius_factor", [.999, 1., 1.001])
+@pytest.mark.parametrize("point,expected", [
+    ([-4.4264421197973816e-7, -9.248813492409009e-9, .57918659571672504,
+      44218.353678937485, 1.9744542129953203e-6], 138742.),
+    ([2.1818342880858221e-6, -3.2406334809690517e-6, .55324440915935458,
+      40688.138518897671, 1.5846510113090483e-6], 209685.),
+])
+def test_refined_frontier_endpoints_preserve_integral_candidate(radius_factor, point, expected):
+    jax = pytest.importorskip("jax")
+    import jax.numpy as jnp
+    from lcbinint_jax import binary_algebraic_boundary_batch_ffi
+
+    jax.config.update("jax_enable_x64", True)
+    parameters = jnp.asarray(point).at[4].multiply(radius_factor)
+
+    def value(point):
+        return binary_algebraic_boundary_batch_ffi(point[:1], point[1:2],
+            point[2], point[3], point[4], limb_c=.6584,
+            absolute_tolerance=1e-4, relative_tolerance=1e-3).sum()
+
+    magnitude, gradient = jax.jit(jax.value_and_grad(value))(parameters)
+    np.testing.assert_allclose(magnitude, expected, rtol=1e-3)
+    assert np.isfinite(np.asarray(gradient)).all()
+    assert np.all(np.asarray(gradient) != 0)
+
+
+def test_failed_gaussian_replay_returns_full_integrated_tangent():
+    jax = pytest.importorskip("jax")
+    import jax.numpy as jnp
+
+    jax.config.update("jax_enable_x64", True)
+    model = lc.LightCurve(lens="binary", options=lc.Options(
+        param_type="vbm", source_bins=80, max_source_bins=400,
+        finite_source_tol=1e-4, finite_source_reltol=1e-3,
+        finite_source_backend="algebraic_boundary"),
+        limb_darkening=lc.LimbDarkening.linear(.6584))
+    params = dict(s=.5871802887641477, q=3.0467643042352905e-5,
+                  u0=3.816215217738804e-7, alpha=2.2231984683456436,
+                  rho=2.74595032535453e-6, tE=1948.7502783769364,
+                  t0=10068.977111052587)
+    epochs = np.array([10068.966367])
+    result = model(epochs, params, with_gradient=True, with_diagnostics=True)
+    np.testing.assert_allclose(result.magnifications, [163624.77605788625], rtol=1e-6)
+    assert np.isfinite(result.gradients).all()
+    assert np.all(np.asarray(result.diagnostics["local_gradients"]) != 0)
+    assert not result.support_certified[0]
+    value, gradient = jax.jit(jax.value_and_grad(lambda rho:
+        model(jnp.asarray(epochs), dict(params, rho=rho)).magnifications.sum()))(
+            jnp.asarray(params["rho"]))
+    np.testing.assert_allclose(value, result.magnifications[0], rtol=1e-3)
+    np.testing.assert_allclose(gradient, result.gradients[0, ORDER.index("rho")], rtol=1e-3)
+
+
+@pytest.mark.parametrize("position", [
+    [-0.5343556322225544, 0.060577536394565853, 0.0008609241753183762,
+     2.22602246134627, 0.005346096482560667, 7.617308265255118, 10068.977085148737],
+    [-0.5343554660567305, 0.060577508429898036, 0.0008609162347723387,
+     2.226021650697565, 0.005346084369817453, 7.617305091849514, 10068.977085155946],
+])
+@pytest.mark.parametrize("epoch,limb,expected", [
+    (10068.978004, .6584, 102885.),
+    (10068.936543, .6101, 28784.5),
+    (10068.927908, .6101, 27264.9),
+])
+def test_failed_panel_does_not_discard_remaining_integral(position, epoch, limb, expected):
+    timescale = np.exp(position[5])
+    params = dict(s=np.exp(position[0]), q=position[1]/timescale,
+                  u0=position[2]/timescale, alpha=position[3],
+                  rho=position[4]/timescale, tE=timescale, t0=position[6])
+    model = lc.LightCurve(lens="binary", options=lc.Options(
+        param_type="vbm", source_bins=80, max_source_bins=400,
+        finite_source_tol=1e-4, finite_source_reltol=1e-3,
+        finite_source_backend="algebraic_boundary"),
+        limb_darkening=lc.LimbDarkening.linear(limb))
+    value = model([epoch], params, with_diagnostics=True)
+    tangent = model([epoch], params, with_gradient=True, with_diagnostics=True)
+    np.testing.assert_allclose(value.magnifications, [expected], rtol=1e-3)
+    np.testing.assert_allclose(value.magnifications, tangent.magnifications, rtol=1e-3)
+    assert np.isfinite(tangent.gradients).all()
+    assert not value.support_certified[0]
+
+
 def test_unresolved_outer_edge_returns_computed_gradient_candidate():
     jax = pytest.importorskip("jax")
     import jax.numpy as jnp
@@ -32,14 +142,105 @@ def test_unresolved_outer_edge_returns_computed_gradient_candidate():
     assert np.any(result.gradients != 0)
     assert "unresolved_outer_edge_pair" in result.diagnostics["stop"][0]
     local = result.diagnostics["local_gradients"][0]
-    np.testing.assert_allclose(local, [42552153555.271843, -9190385671.3383465,
-        19319360648.881779, 11.177209980384188, -1148496.3863479905], rtol=1e-6)
-    value, gradient = jax.jit(jax.value_and_grad(lambda rho:
-        model(jnp.asarray(epochs), dict(params, rho=rho)).magnifications.sum()))(
-            jnp.asarray(params["rho"]))
-    assert np.isfinite(float(value)) and np.isfinite(float(gradient))
+    np.testing.assert_allclose(local[2], result.gradients[0, ORDER.index("rho")], rtol=1e-12)
+    vector = jnp.asarray([params[name] for name in ORDER])
+    value, gradient = jax.jit(jax.value_and_grad(lambda values:
+        model(jnp.asarray(epochs), dict(zip(ORDER, values))).magnifications.sum()))(vector)
+    assert np.isfinite(float(value)) and np.isfinite(np.asarray(gradient)).all()
     np.testing.assert_allclose(value, result.magnifications[0], rtol=1e-3)
-    np.testing.assert_allclose(gradient, result.gradients[0, ORDER.index("rho")], rtol=1e-3)
+    np.testing.assert_allclose(gradient, result.gradients[0], rtol=1e-3)
+
+
+@pytest.mark.parametrize("prime_cache", [False, True])
+def test_thin_image_separation_gradient_matches_lcbinint_difference(prime_cache):
+    model = lc.LightCurve(lens="binary", options=lc.Options(
+        param_type="vbm", source_bins=80, max_source_bins=400,
+        finite_source_tol=1e-4, finite_source_reltol=1e-3,
+        finite_source_backend="algebraic_boundary"),
+        limb_darkening=lc.LimbDarkening.linear(0.6584))
+    params = dict(s=0.5860467981775465, q=2.9795910469372738e-5,
+                  u0=4.2345762431841034e-7, alpha=2.22602246134627,
+                  rho=2.6295524980988746e-6, tE=2033.082239820582,
+                  t0=10068.977085148737)
+    if prime_cache:
+        model([10068.955876], params)
+    result = model([10068.978004], params, with_gradient=True)
+    reference = lc.LightCurve(lens="binary", options=lc.Options(
+        param_type="vbm", source_bins=80, max_source_bins=400,
+        finite_source_tol=1e-6, finite_source_reltol=1e-3,
+        finite_source_backend="algebraic_boundary"),
+        limb_darkening=lc.LimbDarkening.linear(0.6584))
+    estimates = []
+    for step in (.002, .0012, .0006, .0004):
+        lower = reference([10068.978004], dict(params, s=params["s"]-step))
+        upper = reference([10068.978004], dict(params, s=params["s"]+step))
+        assert lower.value_converged[0] and upper.value_converged[0]
+        estimates.append((upper.magnifications[0]-lower.magnifications[0])/(2*step))
+    np.testing.assert_allclose(estimates, np.full(len(estimates), estimates[0]), rtol=2e-3)
+    np.testing.assert_allclose(result.gradients[0, ORDER.index("s")], estimates, rtol=2e-3)
+
+
+@pytest.mark.parametrize("epoch", [10068.90835, 10068.902049])
+def test_thin_image_radius_gradient_matches_lcbinint_difference(epoch):
+    model = lc.LightCurve(lens="binary", options=lc.Options(
+        param_type="vbm", source_bins=80, max_source_bins=400,
+        finite_source_tol=1e-4, finite_source_reltol=1e-3,
+        finite_source_backend="algebraic_boundary"),
+        limb_darkening=lc.LimbDarkening.linear(0.6101))
+    params = dict(s=0.5860467981775465, q=2.9795910469372738e-5,
+                  u0=4.2345762431841034e-7, alpha=2.22602246134627,
+                  rho=2.6295524980988746e-6, tE=2033.082239820582,
+                  t0=10068.977085148737)
+    result = model([epoch], params, with_gradient=True)
+    reference = lc.LightCurve(lens="binary", options=lc.Options(
+        param_type="vbm", source_bins=80, max_source_bins=400,
+        finite_source_tol=1e-6, finite_source_reltol=1e-6,
+        finite_source_backend="algebraic_boundary"),
+        limb_darkening=lc.LimbDarkening.linear(0.6101))
+    estimates = []
+    for fraction in (.02, .01, .005):
+        step = fraction*params["rho"]
+        lower = reference([epoch], dict(params, rho=params["rho"]-step))
+        upper = reference([epoch], dict(params, rho=params["rho"]+step))
+        assert lower.value_converged[0] and upper.value_converged[0]
+        estimates.append((upper.magnifications[0]-lower.magnifications[0])/(2*step))
+    np.testing.assert_allclose(estimates, np.full(len(estimates), estimates[0]), rtol=2e-3)
+    np.testing.assert_allclose(result.gradients[0, ORDER.index("rho")], estimates, rtol=2e-3)
+
+
+@pytest.mark.parametrize("geometry,steps", [
+    ([-6.223668442569351e-7, 9.431949650091298e-8,
+      .5869060472959381, 33743.839035992525, 2.593160843075081e-6], (.008, .004, .002)),
+    ([-6.1545940024148303e-7, 1.0262576006676361e-7,
+      .58581547234577547, 32847.071943362222, 2.656870730615185e-6], (.006, .003, .002, .0012)),
+])
+def test_physical_fold_roots_rescue_retains_com_tangent(geometry, steps):
+    jax = pytest.importorskip("jax")
+    import jax.numpy as jnp
+    from lcbinint_jax import binary_algebraic_boundary_batch_ffi
+
+    jax.config.update("jax_enable_x64", True)
+    point = jnp.asarray(geometry)
+
+    def info(geometry):
+        return binary_algebraic_boundary_batch_ffi(
+            geometry[:1], geometry[1:2], geometry[2], geometry[3], geometry[4],
+            limb_c=.6584, return_info=True)
+
+    def value(geometry):
+        return info(geometry).magnification.sum()
+
+    magnitude, gradient = jax.jit(jax.value_and_grad(value))(point)
+    assert float(magnitude)>0 and np.isfinite(np.asarray(gradient)).all()
+    scalar = jax.jit(info)
+    estimates = []
+    for step in steps:
+        offset = jnp.asarray([0., 0., step, 0., 0.])
+        lower, upper = scalar(point-offset), scalar(point+offset)
+        assert bool(lower.value_converged[0]) and bool(upper.value_converged[0])
+        estimates.append(float((upper.magnification[0]-lower.magnification[0])/(2*step)))
+    np.testing.assert_allclose(estimates, np.full(len(estimates), estimates[0]), rtol=2e-3)
+    np.testing.assert_allclose(float(gradient[2]), estimates, rtol=2e-3)
 
 
 def curve(limb=0., tol=1e-3, coordinates="vbm"):
@@ -108,14 +309,14 @@ def test_case117_exact_limb_and_handoff_epoch_return_candidates():
     assert result.gradients[0, ORDER.index("q")] == pytest.approx(reference, rel=1e-3)
 
 
-def test_unproven_seed_support_keeps_finite_candidate_and_false_reliability():
+def test_case010_exact_plan_resolves_seed_support_without_discarding_candidates():
     case = saved_case(10)
     times = np.linspace(-case["span"], case["span"], 33)*case["params"]["tE"]
     result = curve(case["limb"])(times, case["params"],
                                 with_gradient=True, with_diagnostics=True)
     assert np.all(np.isfinite(result.gradients))
-    assert np.any(~result.gradient_valid)
-    assert "seed_support_unproven" in result.diagnostics["gradient_stop"]
+    assert np.all(result.seed_support_proven)
+    assert np.any(result.support_required)
 
 
 def test_case081_preserves_smooth_disk_cancellation_repair():
@@ -313,13 +514,25 @@ def test_value_failure_takes_priority_over_uncertified_coverage():
     assert "InnerAccuracyLimited" in result.diagnostics["stop"][0]
 
 
-def test_seed_failure_remains_distinct_from_missing_coverage_certificate():
-    case = saved_case(10)
-    times = np.linspace(-case["span"], case["span"], 33)*case["params"]["tE"]
-    result = curve(case["limb"])(times, case["params"], with_gradient=True)
+def test_seed_failure_remains_distinct_from_missing_coverage_certificate(monkeypatch):
+    import lcbinint.algebraic_boundary as boundary
+
+    case = saved_case(117)
+    model = curve(case["limb"])
+    times = np.array([0.0])
+    raw = boundary.lightcurve_value(model, times, case["params"],
+                                    with_gradient=True, with_diagnostics=True)
+    raw["seed_support_proven"] = np.zeros_like(raw["seed_support_proven"], dtype=bool)
+    raw["gradient_valid"] = np.zeros_like(raw["gradient_valid"], dtype=bool)
+    raw["fully_converged"] = np.zeros_like(raw["fully_converged"], dtype=bool)
+    monkeypatch.setattr(boundary, "lightcurve_value", lambda *args, **kwargs: dict(raw))
+    result = model(times, case["params"], with_gradient=True)
     missing = np.asarray(result.support_required) & ~np.asarray(result.seed_support_proven)
     assert np.any(missing)
     np.testing.assert_array_equal(result.status[missing], lc.LightCurveInfo.SUPPORT_UNPROVEN)
+    np.testing.assert_array_equal(result.magnifications, raw["mu"])
+    np.testing.assert_array_equal(result.gradients, raw["gradients"])
+    assert not np.any(result.gradient_valid)
 
 
 def test_support_metadata_survives_jax_pytree_roundtrip():

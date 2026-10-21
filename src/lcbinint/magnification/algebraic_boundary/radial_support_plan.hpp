@@ -38,7 +38,7 @@ inline RadialSupportPlan radial_plan(const PrimaryFrame& pf) {
     const int power=radial_domain_power(pf);
     if(power < 0) return out;
 
-    struct Cell {double lo,hi; bool occupied;};
+    struct Cell {double lo,hi,witness,left_witness,right_witness; bool occupied;};
     std::vector<Cell> cells;
     auto sample=[&](double lo, double hi, int discriminant_sign) {
         if(!(hi > lo)) return false;
@@ -53,9 +53,21 @@ inline RadialSupportPlan radial_plan(const PrimaryFrame& pf) {
             if(crossings < 0) return false;
             occupied=crossings > 0 || p[0].n > 0;
         }
-        cells.push_back({lo,hi,occupied});
-        out.radii.push_back(R);
-        out.crossings.push_back(occupied && crossings == 0 ? -2 : crossings);
+        const auto interior=[&](double candidate) {
+            const __float128 square=(__float128)candidate*candidate;
+            return square>lo&&square<hi&&candidate!=pf.a;
+        };
+        double left_witness=std::nextafter(std::sqrt(lo),INFINITY);
+        double right_witness=std::nextafter(std::sqrt(hi),0.0);
+        if(lo==0)left_witness=R;
+        if(!interior(left_witness))left_witness=R;
+        if(!interior(right_witness))right_witness=R;
+        cells.push_back({lo,hi,R,left_witness,right_witness,occupied});
+        for(double witness:{left_witness,R,right_witness}) {
+            if(!out.radii.empty()&&out.radii.back()==witness)continue;
+            out.radii.push_back(witness);
+            out.crossings.push_back(occupied && crossings == 0 ? -2 : crossings);
+        }
         return true;
     };
     // Bernstein endpoint coefficients have the polynomial's exact sign.
@@ -73,9 +85,9 @@ inline RadialSupportPlan radial_plan(const PrimaryFrame& pf) {
         const auto begin=i;
         while(i+1 < cells.size() && cells[i+1].occupied) ++i;
         if(begin == 0 || i+1 == cells.size()) return out;
-        out.brackets.push_back({std::sqrt(cells[begin].lo),
-            std::sqrt(cells[i].hi), std::sqrt(cells[begin-1].hi),
-            std::sqrt(cells[i+1].lo)});
+        out.brackets.push_back({cells[begin].witness,
+            cells[i].witness, cells[begin-1].right_witness,
+            cells[i+1].left_witness});
     }
     out.completed=!out.brackets.empty();
     return out;

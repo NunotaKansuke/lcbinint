@@ -7647,8 +7647,17 @@ FiniteSourceMagnifier::algebraic_boundary_binary_jacobian(
     }
     if (!std::isfinite(value.magnification) ||
         !std::all_of(jacobian.jacobian.begin(), jacobian.jacobian.end(),
-            [](double component) { return std::isfinite(component); }))
-        throw std::runtime_error("algebraic_boundary: no finite value/derivative candidate");
+            [](double component) { return std::isfinite(component); })) {
+        char message[2048];
+        std::snprintf(message, sizeof(message),
+            "algebraic_boundary: no finite value/derivative candidate; x=%.17g y=%.17g s=%.17g q=%.17g rho=%.17g limb=%.17g mu=%.17g method=%d jac=(%.17g,%.17g,%.17g,%.17g,%.17g) reason=%s stop=%s",
+            source.x, source.y, separation, mass_ratio, source_radius,
+            settings_.limb_darkening_c, value.magnification, int(value.decision.method),
+            jacobian.jacobian[0], jacobian.jacobian[1], jacobian.jacobian[2],
+            jacobian.jacobian[3], jacobian.jacobian[4],
+            jacobian.unsafe_reason.c_str(), value.diagnostic_stop.c_str());
+        throw std::runtime_error(message);
+    }
     if (value_result) *value_result = std::move(value);
     return jacobian;
 }
@@ -7696,20 +7705,26 @@ FiniteSourceResult FiniteSourceMagnifier::algebraic_boundary_deep_solve(
                     candidate, smooth_images, true);
                 return smooth_chart;
             };
-            const auto solve = [&](const algebraic_boundary::CausticAwareBinarySeeds& seeds) {
+            const auto solve = [&](const algebraic_boundary::CausticAwareBinarySeeds& seeds,
+                const std::vector<std::array<double,2>>* inherited_edge_pairs=nullptr) {
                 std::vector<std::array<double,2>> positions;
                 for(const auto& z:seeds.radial_seeds)positions.push_back({z.re,z.im});
                 return algebraic_boundary::epoch_fused_gradient(params,
-                    settings_.limb_darkening_c,positions,options,repair_smooth,&seeds.support_plan);
+                    settings_.limb_darkening_c,positions,options,repair_smooth,
+                    &seeds.support_plan,inherited_edge_pairs);
             };
             integral=solve(seeds_for_frontier());
-            if(prepared_seeds->support_plan.completed &&
-               (!integral.value_converged || !std::all_of(integral.gradient_valid.begin(),
-                    integral.gradient_valid.end(),[](bool valid){return valid;}))) {
+            if(prepared_seeds->support_plan.completed && !integral.value_converged) {
                 prepared_seeds=algebraic_boundary::make_caustic_aware_binary_seeds(
                     *this,point_magnifier,separation,mass_ratio,source,source_radius,
                     &center_image_seeds,false);
-                integral=solve(*prepared_seeds);
+                auto retry=solve(*prepared_seeds,&integral.radial_edge_pairs);
+                const auto total_nodes=integral.node_evaluations+retry.node_evaluations;
+                if(retry.mu>0.0 && std::isfinite(retry.mu) &&
+                   std::all_of(retry.grad_mu.begin(),retry.grad_mu.end(),
+                       [](double component){return std::isfinite(component);}))
+                    integral=std::move(retry);
+                integral.node_evaluations=total_nodes;
             }
             if (!smooth_chart && !repair_attempted && (integral.reliability_retried || !std::all_of(
                     integral.gradient_valid.begin(), integral.gradient_valid.end(),
@@ -7760,11 +7775,18 @@ FiniteSourceResult FiniteSourceMagnifier::algebraic_boundary_deep_solve(
             prepared_seeds=algebraic_boundary::make_caustic_aware_binary_seeds(
                 *this,point_magnifier,separation,mass_ratio,source,source_radius,
                 &center_image_seeds,false);
-            integral=solve(*prepared_seeds);
+            auto retry=solve(*prepared_seeds);
+            const auto total_nodes=integral.integral.stats.node_evaluations+
+                retry.integral.stats.node_evaluations;
+            if(retry.integral.mu>0.0 && std::isfinite(retry.integral.mu))
+                integral=std::move(retry);
+            integral.integral.stats.node_evaluations=total_nodes;
         }
         const auto initial_stop = integral.integral.stop;
         bool regular_radial_retry = false;
-        if (initial_stop == algebraic_boundary::AdaptiveStop::EventLocationLimited) {
+        if (initial_stop == algebraic_boundary::AdaptiveStop::EventLocationLimited ||
+            initial_stop == algebraic_boundary::AdaptiveStop::TopologyUnresolved ||
+            !(integral.integral.mu > 0.0) || !std::isfinite(integral.integral.mu)) {
             algebraic_boundary::AdaptiveConfig retry_config;
             retry_config.tol.mu_atol = algebraic_settings.absolute_tolerance;
             retry_config.tol.mu_rtol = algebraic_settings.relative_tolerance;
@@ -7775,12 +7797,20 @@ FiniteSourceResult FiniteSourceMagnifier::algebraic_boundary_deep_solve(
             auto retry = algebraic_boundary::epoch_seeded_radial_frontier(
                 params, settings_.limb_darkening_c, prepared_seeds->radial_seeds,
                 retry_config, retry_workspace, false, &prepared_seeds->support_plan);
+            if (retry_workspace.panels.empty() || !(retry.integral.mu > 0.0) ||
+                !std::isfinite(retry.integral.mu)) {
+                const auto frontier_nodes = retry.integral.stats.node_evaluations;
+                retry.integral = algebraic_boundary::epoch_adaptive(
+                    params, settings_.limb_darkening_c, retry_config, retry_workspace);
+                retry.integral.stats.node_evaluations += frontier_nodes;
+                retry.frontier.coverage_certified = false;
+            }
             regular_radial_retry = true;
             const auto retry_nodes = retry.integral.stats.node_evaluations;
             retry.integral.stats.node_evaluations += integral.integral.stats.node_evaluations;
             if (std::isfinite(retry.integral.mu) && retry.integral.mu > 0.0 &&
                 (retry.integral.value_converged || !std::isfinite(integral.integral.mu) ||
-                 integral.integral.mu <= 0.0 || retry.integral.estimated_abs_error_mu <
+                 integral.integral.mu <= 0.0 || retry.integral.estimated_abs_error_mu <=
                      integral.integral.estimated_abs_error_mu)) {
                 integral = std::move(retry);
             } else {
@@ -7805,7 +7835,7 @@ FiniteSourceResult FiniteSourceMagnifier::algebraic_boundary_deep_solve(
         result.augmented_seed_count = static_cast<int>(prepared_seeds->radial_seeds.size());
         result.seed_support_proven = result.seed_support_proven || prepared_seeds->support_proven;
     }
-    if (!std::isfinite(result.magnification))
+    if (!(result.magnification > 0.0) || !std::isfinite(result.magnification))
         throw std::runtime_error("algebraic_boundary: no finite value candidate");
     result.center_image_count = result.image_count;
     result.value_converged = value_converged &&

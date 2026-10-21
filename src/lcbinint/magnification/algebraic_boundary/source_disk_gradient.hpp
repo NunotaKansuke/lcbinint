@@ -122,7 +122,9 @@ inline bool evaluate(const LensParams&p,double limb,const FusedGradientOptions&o
    }
   }
   if(n>2&&fabsl(value-previous)<=std::max(opts.mu_atol,opts.mu_rtol*double(fabsl(value)))){
-   result.mu=double(value);for(int k=0;k<5;++k){result.grad_mu[k]=double(grad[k]);result.gradient_valid[k]=std::isfinite(result.grad_mu[k]);if(!result.gradient_valid[k])return false;}
+   auto candidate=result;
+   candidate.mu=double(value);for(int k=0;k<5;++k){candidate.grad_mu[k]=double(grad[k]);candidate.gradient_valid[k]=std::isfinite(candidate.grad_mu[k]);if(!candidate.gradient_valid[k])return false;}
+   result=std::move(candidate);
    result.value_error_estimate=double(fabsl(value-previous));
    result.frontier_discovery_completed=false;
    result.value_converged=true;result.gradient_precision_checked=false;result.support_certified=false;result.stop="Converged";result.node_evaluations+=work;return true;

@@ -117,7 +117,7 @@ namespace lcbinint::algebraic_boundary::tangent::fused_gradient {
 struct MaterialMap {
     long double a=0,b=0;
     std::array<double,5> da{},db{};
-    bool valid=false;
+    bool valid=false,derivatives_complete=false;
     Motion at(double R,double lo,double jac) const {
         Motion result;
         const long double width=b-a,x=((long double)R+lo-a)/width;
@@ -151,17 +151,21 @@ inline MaterialMap make_material_map(const Event& left,const Event& right,const 
             return false;
         }
         const double theta=reciprocal?2*std::atan(m)+kPi:2*std::atan(m);
-        const auto c=phi_detail::core(event.radius,theta,pf);
-        const auto gradient=phi_detail::dP_from(c,pf);
-        using namespace phi_detail;
-        const C radial=(c.z+C{pf.m0,0}*c.inv_zb+C{c.m1,0}*(c.inv_zba*c.inv_zba)*c.zb)/C{event.radius,0};
-        const double slope=-2*(c.g.re*radial.re+c.g.im*radial.im)*c.inv_r2;
+        const RadiusOffsetScope offset(event.radius_lo);
+        const MotionScope fixed(nullptr);
+        double angular,slope;
+        const auto sample=fused_precise_phi(event.radius,theta,pf,&angular,&slope);
         if(!std::isfinite(slope)||slope==0)return false;
-        const double angular=phi_detail::dphi_dtheta_from(c,pf);
-        if(std::fabs(c.phi)>1e-3 || std::fabs(angular)>1e-5*std::max(1.,std::fabs(event.radius*slope)))return false;
-        for(int j=0;j<5;++j){output[j]=-gradient[j]/slope;if(!std::isfinite(output[j]))return false;}
+        if(std::fabs(sample.phi)>1e-3 || std::fabs(angular)>1e-5*std::max(1.,std::fabs(event.radius*slope)))return false;
+        for(int j=0;j<5;++j){output[j]=-sample.dP[j]/slope;if(!std::isfinite(output[j]))return false;}
         return true;
     };
-    map.valid=(left_fixed || derivative(left,map.da))&&(right_fixed || derivative(right,map.db));return map;
+    const bool left_valid=left_fixed || derivative(left,map.da);
+    const bool right_valid=right_fixed || derivative(right,map.db);
+    if(!left_valid)map.da.fill(0.0);
+    if(!right_valid)map.db.fill(0.0);
+    map.valid=true;
+    map.derivatives_complete=left_valid&&right_valid;
+    return map;
 }
 }

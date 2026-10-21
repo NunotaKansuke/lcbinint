@@ -365,7 +365,7 @@ inline bool coupled_fold_newton(T& r, T& t, const PrimaryFrame& pf,
 
 template <class T>
 inline void store_refined_radius(EventLocation& out, T r, double last_step,
-                                 int tier) {
+                                 int tier, bool converged=true) {
     const double rounded = static_cast<double>(r);
     const T hi(rounded);
     const double lo = static_cast<double>(r - hi);
@@ -384,8 +384,9 @@ inline void store_refined_radius(EventLocation& out, T r, double last_step,
                                 std::fabs(lo) +
                                     (std::isfinite(last_step) ? last_step : 0.0)});
     out.precision_tier = tier;
-    out.needs_qf = tier < 2;
-    out.qf_refined = tier >= 2;
+    out.needs_qf = tier < 2 || !converged;
+    out.qf_refined = tier >= 2 && converged;
+    if(!converged)out.uncertainty=std::numeric_limits<double>::infinity();
 }
 inline EventLocation double_event_estimate(double R,const PrimaryFrame& pf,double value_budget,
                                            bool coordinate_only=false) {
@@ -551,6 +552,8 @@ inline EventLocation refine_event(double R, double radius_lo, double t_seed,
     best.qf_reason = ok ? EventDecisionReason::QfRefined
                         : EventDecisionReason::QfFailed;
     if (!ok) {
+        if(r>0 && event_finite(r) && event_finite(t) && residual<=1e-24)
+            store_refined_radius(best,r,last_step,2,false);
         // A failed local high-precision solve must not leave the finite
         // binary64 probe uncertainty in place.  The caller's panel guard then
         // fails closed instead of integrating across an uncertified event.
@@ -650,8 +653,8 @@ inline EventLocation topology_event_estimate(const RadialEvent& event,
         out.seed_reciprocal=true;out.needs_qf=!ok;out.qf_refined=ok;
         out.qf_reason=ok?EventDecisionReason::QfRefined:EventDecisionReason::QfFailed;
         out.double_reason=EventDecisionReason::TopologySeedReused;
-        if(ok) {
-            store_refined_radius(out,r,last_step,2);
+        if(ok || (r>0 && event_finite(r) && event_finite(u) && residual<=1e-24)) {
+            store_refined_radius(out,r,last_step,2,ok);
             const auto f=reciprocal_local_fold_quantities<Q>(r,u,pf);
             out.uncertainty=std::max(out.uncertainty,event_abs(f.P)/
                 std::max(event_abs(f.PR),64.0*(double)FLT128_EPSILON));
@@ -1042,10 +1045,42 @@ inline std::vector<double> adaptive_sturm_thetas(
     return out;
 }
 
+inline ArcSet physical_sturm_arcs(double radius,const PrimaryFrame& frame,int expected) {
+    using Wide=__float128;
+    const auto quantities=local_fold_quantities<Wide>(Wide(radius)+fused_gradient::radius_offset,Wide(0),frame);
+    std::array<Wide,5> coefficients{{quantities.P,quantities.Pt,
+        quantities.Ptt/2,quantities.Psss/6,quantities.Pssss/24}};
+    const bool reciprocal=fabsq(coefficients[4])<fabsq(coefficients[0]);
+    if(reciprocal)coefficients={coefficients[4],-coefficients[3],coefficients[2],-coefficients[1],coefficients[0]};
+    Wide scale=0;
+    for(const auto coefficient:coefficients)scale=std::max(scale,fabsq(coefficient));
+    if(!(scale>0))return {ArcKind::kDegenerate,{}};
+    for(auto& coefficient:coefficients)coefficient/=scale;
+    const auto roots=quartic_sturm_detail::isolate_coefficients(coefficients,expected);
+    if(int(roots.size())!=expected)return {ArcKind::kDegenerate,{}};
+    std::vector<double> angles;
+    for(const auto root:roots) {
+        double angle=2*std::atan(root)+(reciprocal?kPi:0);
+        if(angle<0)angle+=kTwoPi;
+        if(angle>=kTwoPi)angle-=kTwoPi;
+        angles.push_back(angle);
+    }
+    std::sort(angles.begin(),angles.end());
+    return arc_set_from_root_thetas(radius,frame,angles,true);
+}
+
+struct AdaptiveEndpointRecord {
+    std::array<PolishResult,2> roots{};
+    std::array<PhiValDtheta,2> values{};
+};
+
 inline ArcSet adaptive_arc_intervals(
     double R,const PrimaryFrame& pf,QuarticWarm* qw,RootPairWarm* rpw,
     QuarticCoeffs* out_pc,int expected_crossings,
-    const QuarticCoeffs* prepared_pc=nullptr) {
+    const QuarticCoeffs* prepared_pc=nullptr,
+    std::vector<AdaptiveEndpointRecord>* endpoint_cache=nullptr) {
+    if(endpoint_cache)endpoint_cache->clear();
+    std::vector<AdaptiveEndpointRecord> records;
     #ifdef BOUNDARY_DISABLE_COUNT_REUSE
     ArcSet arcs=arc_intervals(R,pf,qw,rpw,out_pc,prepared_pc);
 #else
@@ -1057,7 +1092,42 @@ inline ArcSet adaptive_arc_intervals(
         (expected_crossings>0 && arcs.kind!=ArcKind::kArcs) ||
         (arcs.kind==ArcKind::kArcs &&
          static_cast<int>(arcs.arcs.size()*2)!=expected_crossings);
-    if(!mismatch)return arcs;
+    bool physical_mismatch=false;
+    if(precise_boundary_required(R,pf)&&expected_crossings>0) {
+        if(arcs.kind==ArcKind::kArcs)
+            for(auto& interval:arcs.arcs) {
+                AdaptiveEndpointRecord record;
+                physical_mismatch|=!(phi_val(R,.5*(interval[0]+interval[1]),pf)>0);
+                const double width=interval[1]-interval[0];
+                for(int side=0;side<2;++side) {
+                    const double angle=interval[side];
+                    PhiValDtheta endpoint{};
+                    const auto polished=polish_endpoint(R,angle,pf,6,&endpoint,0,width);
+                    const double angular_roundoff=4*std::numeric_limits<double>::epsilon()*
+                        std::max(1.,std::fabs(polished.theta));
+                    physical_mismatch|=!polished.reliable ||
+                        std::fabs(polished.theta-angle)>width ||
+                        (side==0?endpoint.dphi_dtheta<=0:endpoint.dphi_dtheta>=0) ||
+                        !std::isfinite(endpoint.phi) ||
+                        !std::isfinite(endpoint.dphi_dtheta) ||
+                        endpoint.dphi_dtheta==0 ||
+                        std::fabs(endpoint.phi)>angular_roundoff*std::fabs(endpoint.dphi_dtheta);
+                    interval[side]=polished.theta;
+                    record.roots[side]=polished;
+                    record.values[side]=endpoint;
+                }
+                if(endpoint_cache)records.push_back(record);
+            }
+    }
+    if(!mismatch&&!physical_mismatch) {
+        if(endpoint_cache)*endpoint_cache=std::move(records);
+        return arcs;
+    }
+    if(precise_boundary_required(R,pf)&&expected_crossings>0) {
+        const auto physical=physical_sturm_arcs(R,pf,expected_crossings);
+        if(physical.kind==ArcKind::kArcs&&int(physical.arcs.size()*2)==expected_crossings)
+            return physical;
+    }
     QuarticCoeffs q=out_pc?*out_pc:boundary_quartic(R,pf);
     const QuarticSturmCertificate cert=certify_quartic(q.p);
     if(!cert.certified || cert.root_count!=expected_crossings)return arcs;
@@ -1322,17 +1392,19 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
     QuarticCoeffs node_pc{};
     int node_crossings=cell.n_crossings;
     ArcKind node_kind=cell.kind;
-    if(cell.n_crossings<0) {
+    if(cell.n_crossings<0 || (precise_boundary_required(R,pf)&&!prepared_pc)) {
 #ifdef BOUNDARY_FRONTIER_COST_PROFILE
         const QuarticCoeffs pc=[&] {
             V2ProfileTimer coeff_timer(&V2Profile::mapped_coeff_ms);
-            return boundary_quartic(R,pf);
+            return with_jac&&fused_gradient::precise_tangent_replay
+                ?boundary_quartic_extended(R,pf):boundary_quartic(R,pf);
         }();
 #else
-        const QuarticCoeffs pc=boundary_quartic(R,pf);
+        const QuarticCoeffs pc=with_jac&&fused_gradient::precise_tangent_replay
+            ?boundary_quartic_extended(R,pf):boundary_quartic(R,pf);
 #endif
 #ifdef BOUNDARY_FRONTIER_COST_PROFILE
-        const QuarticSturmCertificate cert=[&] {
+        QuarticSturmCertificate cert=[&] {
             V2ProfileTimer timer(&V2Profile::dynamic_count_ms);
             if constexpr(PlainValue) {
                 if(adaptive_cfg && adaptive_cfg->reuse_frontier_count_kernel) {
@@ -1345,7 +1417,7 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
             return certify_quartic(pc.p);
         }();
 #else
-        const QuarticSturmCertificate cert=[&] {
+        QuarticSturmCertificate cert=[&] {
             if constexpr(PlainValue) {
                 if(adaptive_cfg && adaptive_cfg->reuse_frontier_count_kernel) {
                     QuarticSturmCertificate result;
@@ -1357,6 +1429,21 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
             return certify_quartic(pc.p);
         }();
 #endif
+        if(precise_boundary_required(R,pf)) {
+            using Wide=__float128;
+            const auto quantities=local_fold_quantities<Wide>(Wide(R)+radius_lo,Wide(0),pf);
+            std::array<Wide,5> coefficients{{quantities.P,quantities.Pt,
+                quantities.Ptt/2,quantities.Psss/6,quantities.Pssss/24}};
+            Wide coefficient_scale=0;
+            for(const auto coefficient:coefficients)
+                coefficient_scale=std::max(coefficient_scale,fabsq(coefficient));
+            if(coefficient_scale>0)for(auto& coefficient:coefficients)coefficient/=coefficient_scale;
+            if(coefficients[4]==0)
+                coefficients={coefficients[4],-coefficients[3],coefficients[2],-coefficients[1],coefficients[0]};
+            const auto counted=quartic_sturm_detail::count_chain(coefficients);
+            cert.certified=quartic_sturm_detail::stable(counted,2);
+            cert.root_count=counted.count;
+        }
         if(!cert.certified || cert.root_count<0 || (cert.root_count&1))
             return reject(AdaptiveSampleRejectReason::DegenerateChart);
         if(cert.root_count==0) {
@@ -1404,8 +1491,9 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
     out.roots.certify=warm;
     if(adaptive_cfg)out.quartic.seed_tolerance=adaptive_cfg->warm_root_seed_tolerance;
     QuarticCoeffs arc_pc{};
+    std::vector<AdaptiveEndpointRecord> endpoint_cache;
     auto arcs=adaptive_arc_intervals(R,pf,&out.quartic,&out.roots,&arc_pc,
-                                     node_crossings,prepared_pc);
+                                     node_crossings,prepared_pc,&endpoint_cache);
     if(arcs.kind==ArcKind::kDegenerate)
         return reject(AdaptiveSampleRejectReason::DegenerateChart);
     if(arcs.kind!=node_kind)
@@ -1484,7 +1572,10 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
     std::shared_ptr<NestedAngularCache> angular_nested_cache;
     size_t angular_point_evaluations=0,angular_cached_point_reuses=0;
     size_t angular_work=0;
+    std::size_t arc_index=0;
     for(auto a:arcs.arcs) {
+        const auto* cached_endpoint=arc_index<endpoint_cache.size()?&endpoint_cache[arc_index]:nullptr;
+        ++arc_index;
 #ifdef BOUNDARY_FRONTIER_COST_PROFILE
         V2ProfileTimer arc_body_timer(&V2Profile::mapped_arc_body_ms);
 #endif
@@ -1494,10 +1585,14 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
         // boundary-strip sensitivity is at most the uniform-brightness term.
         // Keep residuals in the existing geometry ledger; gradients retain
         // the original endpoint solver. This is a residual estimate, not a bound.
-        const double endpoint_tolerance=adaptive_cfg && u>=0.0 && u<=1.0 && (!with_jac || adaptive_cfg->fused_value_mesh)
+        const double endpoint_tolerance=adaptive_cfg && u>=0.0 && u<=1.0 &&
+            (!with_jac || adaptive_cfg->fused_value_mesh) && !fused_gradient::precise_tangent_replay
             ? adaptive_cfg->uniform_endpoint_budget_fraction*adaptive_cfg->tol.mu_rtol*(a[1]-a[0]) : 0.0;
-        auto pe=polish_endpoint(R,a[0],pf,6,&endpoint_e,endpoint_tolerance),
-             pl=polish_endpoint(R,a[1],pf,6,&endpoint_l,endpoint_tolerance);
+        if(cached_endpoint) {
+            endpoint_e=cached_endpoint->values[0];endpoint_l=cached_endpoint->values[1];
+        }
+        auto pe=cached_endpoint?cached_endpoint->roots[0]:polish_endpoint(R,a[0],pf,6,&endpoint_e,endpoint_tolerance),
+             pl=cached_endpoint?cached_endpoint->roots[1]:polish_endpoint(R,a[1],pf,6,&endpoint_l,endpoint_tolerance);
 #else
         auto pe=polish_endpoint(R,a[0],pf),pl=polish_endpoint(R,a[1],pf);
 #endif
@@ -1767,6 +1862,7 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
         // derivatives come from regular E=O=0, not singular endpoint IFTs.
         const std::array<double,5> zero{};
         for(bool reciprocal:{false,true}) {
+            if(with_jac&&fused_gradient::com_tangent_replay&&fused_gradient::precise_tangent_replay)break;
             auto ap=reciprocal?arc_pair_jac_reciprocal(te,tl,zero,zero):arc_pair_jac(te,tl,zero,zero);
             if(!ap.ok)continue;
             auto cp=reciprocal?boundary_quartic_reciprocal(pc):pc;
@@ -1775,9 +1871,9 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
                 bool regular=true;
                 const auto tangents=fused_gradient::root_pair_tangents(RootPair{ap.m,ap.v},cp.p,dp.dp);
                 for(int j=0;j<5;++j) {
-                    const auto& d=tangents[j];
-                    regular=regular&&d.ok&&std::isfinite(d.dm_dR)&&std::isfinite(d.dv_dR);
-                    ap.dm[j]=d.dm_dR;ap.dv[j]=d.dv_dR;
+                    const auto& derivative=tangents[j];
+                    regular=regular&&derivative.ok&&std::isfinite(derivative.dm_dR)&&std::isfinite(derivative.dv_dR);
+                    ap.dm[j]=derivative.dm_dR;ap.dv[j]=derivative.dv_dR;
                 }
                 if(!regular)continue;
 #ifdef BOUNDARY_ADAPTIVE_KJAC_24_DIAGNOSTIC
@@ -1856,16 +1952,43 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
             const auto& high=ang_rule();
             double vh=0,vl=0;std::array<double,5> dh{},dd{};
             double half=0.5*width,mid=te+half;
-            for(int k=0;k<64;++k){double th=mid+half*high.x[k];
-                if(with_jac){auto g=phi_val_dP(R,th,pf);if(!(g.phi>0))return reject(AdaptiveSampleRejectReason::InnerPhiNonpositive);double sq=std::sqrt(g.phi);vh+=high.w[k]*sq;for(int j=0;j<5;++j)dh[j]+=high.w[k]*(jac*g.dP[j])/(2*sq);}
-                else{double ph=phi_val(R,th,pf);if(!(ph>0))return reject(AdaptiveSampleRejectReason::InnerPhiNonpositive);vh+=high.w[k]*std::sqrt(ph);}}
-            for(int k=0;k<32;++k){double th=mid+half*low.x[k];
-                if(with_jac){auto g=phi_val_dP(R,th,pf);if(!(g.phi>0))return reject(AdaptiveSampleRejectReason::InnerPhiNonpositive);double sq=std::sqrt(g.phi);vl+=low.w[k]*sq;for(int j=0;j<5;++j)dd[j]+=low.w[k]*(jac*g.dP[j])/(2*sq);}
-                else{double ph=phi_val(R,th,pf);if(!(ph>0))return reject(AdaptiveSampleRejectReason::InnerPhiNonpositive);vl+=low.w[k]*std::sqrt(ph);}}
+            const auto angular_sum=[&](const auto& rule,double& value,std::array<double,5>& derivative) {
+                for(std::size_t index=0;index<rule.x.size();++index) {
+                    const double theta=mid+half*rule.x[index];
+                    if(with_jac) {
+                        const auto sample=phi_grad_quadrature(R,theta,pf);
+                        if(!(sample.phi>0))return false;
+                        const double root=std::sqrt(sample.phi);
+                        value+=rule.w[index]*root;
+                        for(int axis=0;axis<5;++axis) {
+                            const double angle_motion=.5*((1-rule.x[index])*dte[axis]+
+                                (1+rule.x[index])*dtl[axis]);
+                            derivative[axis]+=rule.w[index]*(jac*sample.dP[axis]+
+                                sample.dphi_dtheta*angle_motion)/(2*root);
+                        }
+                    } else {
+                        const double phi=phi_val(R,theta,pf);
+                        if(!(phi>0))return false;
+                        value+=rule.w[index]*std::sqrt(phi);
+                    }
+                }
+                return true;
+            };
+            bool angular_valid;
+            if(with_jac&&precise_boundary_required(R,pf)) {
+                static const Cheb1<32> precise_low;
+                static const Cheb1<64> precise_high;
+                angular_valid=angular_sum(precise_high,vh,dh)&&angular_sum(precise_low,vl,dd);
+            } else angular_valid=angular_sum(high,vh,dh)&&angular_sum(low,vl,dd);
+            if(!angular_valid)return reject(AdaptiveSampleRejectReason::InnerPhiNonpositive);
             fh+=R*half*vh;efh+=R*half*std::fabs(vh-vl);
             if(with_jac)if(const auto* motion=fused_gradient::active_motion)
                 for(int j=0;j<5;++j)dfh[j]+=jac*motion->radius[j]*half*vh;
-            if(with_jac)for(int j=0;j<5;++j){dfh[j]+=R*half*dh[j];edfh[j]+=R*half*std::fabs(dh[j]-dd[j]);}
+            if(with_jac)for(int j=0;j<5;++j){
+                dfh[j]+=R*(half*dh[j]+.5*(dtl[j]-dte[j])*vh);
+                edfh[j]+=R*(half*std::fabs(dh[j]-dd[j])+
+                    .5*std::fabs(dtl[j]-dte[j])*std::fabs(vh-vl));
+            }
         }
     }
 #ifdef BOUNDARY_FRONTIER_COST_PROFILE
@@ -2140,10 +2263,7 @@ inline AdaptiveResult flux_adaptive_integrate(const LensParams& p,double u,
             if(interval.first==c.r_lo && interval.second==c.r_hi)weighted_candidate=true;
         if(cfg.weighted_radial && (u==0 || cfg.split_ld_radial) && weighted_candidate &&
            panel.map.left && panel.map.right && empty_left && empty_right) {
-            bool material_ok=true;
-            if(policy!=GradientPolicy::None) {
-                material_ok=material_maps[i].valid;
-            }
+            const bool material_ok=true;
             if(material_ok) {
                 panel.split_ld=u!=0 && cfg.split_ld_radial;
                 panel.weighted=true;panel.map.left=panel.map.right=false;
@@ -2221,12 +2341,19 @@ inline AdaptiveResult flux_adaptive_integrate(const LensParams& p,double u,
             invalid.reject_reason=AdaptiveSampleRejectReason::Nonfinite;
             return invalid;
         }
-        const bool node_with_jacobian=with_jacobian && !fused_gradient::defer_sample_tangents;
+        const bool node_with_jacobian=with_jacobian &&
+            (!cfg.fused_value_mesh||fused_gradient::precise_tangent_replay)&&
+            !fused_gradient::defer_sample_tangents;
         const bool node_plain_value_lane=!node_with_jacobian && !cfg.angular_adaptive &&
             !cfg.gradient_adaptive && !cfg.same_node_hermite_shadow && !active_atlas_samples;
+        const bool thin_tangent=node_with_jacobian&&
+            p.rho<std::sqrt(std::sqrt(std::numeric_limits<double>::epsilon()))*std::max(1.,p.a);
+        const fused_gradient::ComTangentScope node_coordinates(fused_gradient::com_tangent_replay||thin_tangent);
+        const fused_gradient::PreciseTangentScope node_precision(thin_tangent);
         const CellPlan& cell=integration_plan.spans[static_cast<std::size_t>(i)].cell;
         fused_gradient::Motion material_motion;
-        const bool material_active=cfg.material_coordinate_motion&&node_with_jacobian&&material_maps[i].valid;
+        const bool material_active=!fused_gradient::com_tangent_replay&&cfg.fold_maps&&cfg.material_coordinate_motion&&node_with_jacobian&&
+            fused_gradient::precise_tangent_replay&&material_maps[i].valid;
         if(material_active)material_motion=material_maps[i].at(R,radius_lo,jac);
         fused_gradient::MotionScope motion_scope(material_active?&material_motion:nullptr);
         fused_gradient::RadiusOffsetScope radius_scope(radius_lo);
@@ -2388,18 +2515,58 @@ inline AdaptiveResult flux_adaptive_integrate(const LensParams& p,double u,
     auto result=adaptive_detail::integrate(workspace,radial_cfg,evaluate);
     bool deferred_children=false;
     for(const auto& panel:workspace.panels)deferred_children|=panel.active && panel.depth>0;
-    const bool geometry_special=geometry_experiment::active &&
-        !geometry_experiment::active->empty();
     // A value-converged mesh may have no deferred children even when a
     // close-root geometry screen found a gradient-sensitive epoch. Replay
     // its tangents on the existing fixed Gaussian rules in that case too;
     // the trigger is geometric and does not estimate derivative error.
-    if(cfg.fused_value_mesh && with_jacobian && result.value_converged &&
-       (deferred_children || geometry_special)) {
-        const auto tangent=fused_gradient::gaussian_replay(workspace,radial_cfg,evaluate,result.stats.node_evaluations);
+    if(cfg.tangent_replay && with_jacobian && !workspace.panels.empty()) {
+        const fused_gradient::ComTangentScope com_coordinates(
+            p.rho<std::sqrt(std::sqrt(std::numeric_limits<double>::epsilon()))*std::max(1.,p.a));
+        AdaptiveResult tangent;
+        try {
+            tangent=fused_gradient::gaussian_replay(workspace,radial_cfg,evaluate,result.stats.node_evaluations);
+        } catch(const fused_gradient::GaussianReplayFailure& failure) {
+            const auto used=result.stats.node_evaluations+failure.node_evaluations;
+            AdaptiveConfig retry_cfg=cfg;
+            retry_cfg.tangent_replay=false;
+            retry_cfg.fused_value_mesh=false;
+            retry_cfg.gradient_adaptive=false;
+            retry_cfg.max_node_evals=used<cfg.max_node_evals?cfg.max_node_evals-used:0;
+            AdaptiveWorkspace retry_workspace;
+            tangent=flux_adaptive_integrate(p,u,topo,retry_cfg,retry_workspace);
+            bool complete=!retry_workspace.panels.empty();
+            for(const auto& panel:retry_workspace.panels)
+                if(panel.active && panel.level==0)complete=false;
+            for(double component:tangent.grad_mu)
+                complete=complete&&std::isfinite(component);
+            if(!complete && !deferred_children && !cfg.fused_value_mesh) {
+                tangent.grad_mu=result.grad_mu;
+                complete=std::all_of(tangent.grad_mu.begin(),tangent.grad_mu.end(),
+                    [](double component){return std::isfinite(component);});
+            }
+            if(!complete) {
+                char context[768];
+                std::snprintf(context,sizeof(context),
+                    "algebraic_boundary: incomplete tangent candidate; xs=%.17g ys=%.17g rho=%.17g q=%.17g s=%.17g limb=%.17g R=%.17g rejection=%d order=%d stop=%s nodes=%zu",
+                    p.xs,p.ys,p.rho,p.q,p.a,u,failure.radius,failure.rejection,failure.order,
+                    adaptive_stop_name(tangent.stop),tangent.stats.node_evaluations);
+                throw std::runtime_error(context);
+            }
+            tangent.stats.node_evaluations+=failure.node_evaluations;
+            tangent.grad_quality.fill(GradientQuality::Invalid);
+            tangent.grad_reason.fill(failure.reason==AdaptiveStop::BudgetExceeded
+                ?GradientReason::BudgetExceeded:GradientReason::TopologyUnresolved);
+            tangent.stop=failure.reason;
+        }
         result.grad_mu=tangent.grad_mu;result.grad_quality=tangent.grad_quality;result.grad_reason=tangent.grad_reason;
-        result.grad_converged.fill(false);result.gradient_stop_reason=tangent.stop==AdaptiveStop::Converged?AdaptiveStop::BudgetExceeded:tangent.stop;
-        result.estimated_abs_error_grad.fill(kAdaptiveUnresolvedError);
+        if(!result.value_converged&&tangent.mu>0&&std::isfinite(tangent.mu)) {
+            result.mu=tangent.mu;
+            result.estimated_abs_error_mu=std::numeric_limits<double>::infinity();
+        }
+        for(int axis=0;axis<5;++axis)
+            result.grad_converged[axis]=tangent.grad_quality[axis]==GradientQuality::ToleranceMet;
+        result.gradient_stop_reason=tangent.stop;
+        result.estimated_abs_error_grad=tangent.estimated_abs_error_grad;
         result.stats.node_evaluations+=tangent.stats.node_evaluations;
     }
     result.stats.setup_ms=setup_total_ms;

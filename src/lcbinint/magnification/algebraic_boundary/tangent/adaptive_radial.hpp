@@ -151,6 +151,7 @@ struct AdaptiveConfig {
     GradientPolicy gradient_policy=GradientPolicy::None;
     bool material_coordinate_motion=true;
     bool fused_value_mesh=false;
+    bool tangent_replay=true;
     bool with_jacobian=false,require_bound=false,fold_maps=true;
     bool reuse_samples=true; // isolated A/B control; default keeps nested samples
     bool collect_costs=false; // inner clocks only when explicitly requested
@@ -1337,8 +1338,16 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
         return out;
     }
     for(size_t i=0;i<w.panels.size();++i)if(w.panels[i].active) {
-        failure=refine(i,std::max(w.panels[i].level,cfg.initial_level));
-        if(failure!=AdaptiveStop::Converged)break;
+        const int target_level=std::max(w.panels[i].level,cfg.initial_level);
+        for(int level=std::max(3,w.panels[i].level);level<=target_level;++level) {
+            const auto panel_failure=refine(i,level);
+            if(panel_failure!=AdaptiveStop::Converged) {
+                if(failure==AdaptiveStop::Converged)failure=panel_failure;
+                w.panels[i].value_resolved=false;
+                w.panels[i].gradient_resolved.fill(false);
+                break;
+            }
+        }
     }
     auto gather=[&](bool* value_pass_out,bool* gradient_pass_out){
         auto start=cost_now();std::array<Sum,6> total,errors,rad,inn,geo,evt,rnd;
@@ -1356,13 +1365,15 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
                 }
             }
         }
-        bool value_pass=resolved_value;
+        bool value_pass=resolved_value && failure==AdaptiveStop::Converged;
         std::array<bool,5> gradient_pass{},gradient_error_pass{};
         for(int j=0;j<nc;++j){double Q=total[j].get(),E=errors[j].get();bool pass=E<=cfg.tol.budget(j,Q);
             if(j){out.grad_mu[j-1]=Q;out.estimated_abs_error_grad[j-1]=E;gradient_error_pass[j-1]=pass;gradient_pass[j-1]=pass&&resolved_gradient[j-1]&&!invalid_gradient_local[j-1];}
             else{out.mu=Q;out.estimated_abs_error_mu=E;value_pass=value_pass&&pass;}
             out.radial_error[j]=rad[j].get();out.inner_error[j]=inn[j].get();out.geometry_error[j]=geo[j].get();out.event_error[j]=evt[j].get();out.roundoff_error[j]=rnd[j].get();
         }
+        if(failure!=AdaptiveStop::Converged)
+            out.estimated_abs_error_mu=std::numeric_limits<double>::infinity();
         if(value_pass && !value_snapshot.valid){
             value_snapshot.valid=true;value_snapshot.q=out.mu;value_snapshot.error=out.estimated_abs_error_mu;
             value_snapshot.ledger[0]=out.radial_error[0];value_snapshot.ledger[1]=out.inner_error[0];value_snapshot.ledger[2]=out.geometry_error[0];value_snapshot.ledger[3]=out.event_error[0];value_snapshot.ledger[4]=out.roundoff_error[0];

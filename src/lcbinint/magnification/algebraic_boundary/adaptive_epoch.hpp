@@ -363,7 +363,7 @@ inline bool coupled_fold_newton(T& r, T& t, const PrimaryFrame& pf,
 
 template <class T>
 inline void store_refined_radius(EventLocation& out, T r, double last_step,
-                                 int tier) {
+                                 int tier, bool converged=true) {
     const double rounded = static_cast<double>(r);
     const T hi(rounded);
     const double lo = static_cast<double>(r - hi);
@@ -382,8 +382,9 @@ inline void store_refined_radius(EventLocation& out, T r, double last_step,
                                 std::fabs(lo) +
                                     (std::isfinite(last_step) ? last_step : 0.0)});
     out.precision_tier = tier;
-    out.needs_qf = tier < 2;
-    out.qf_refined = tier >= 2;
+    out.needs_qf = tier < 2 || !converged;
+    out.qf_refined = tier >= 2 && converged;
+    if(!converged)out.uncertainty=std::numeric_limits<double>::infinity();
 }
 inline EventLocation double_event_estimate(double R,const PrimaryFrame& pf,double value_budget,
                                            bool coordinate_only=false) {
@@ -549,6 +550,8 @@ inline EventLocation refine_event(double R, double radius_lo, double t_seed,
     best.qf_reason = ok ? EventDecisionReason::QfRefined
                         : EventDecisionReason::QfFailed;
     if (!ok) {
+        if(r>0 && event_finite(r) && event_finite(t) && residual<=1e-24)
+            store_refined_radius(best,r,last_step,2,false);
         // A failed local high-precision solve must not leave the finite
         // binary64 probe uncertainty in place.  The caller's panel guard then
         // fails closed instead of integrating across an uncertified event.
@@ -648,8 +651,8 @@ inline EventLocation topology_event_estimate(const RadialEvent& event,
         out.seed_reciprocal=true;out.needs_qf=!ok;out.qf_refined=ok;
         out.qf_reason=ok?EventDecisionReason::QfRefined:EventDecisionReason::QfFailed;
         out.double_reason=EventDecisionReason::TopologySeedReused;
-        if(ok) {
-            store_refined_radius(out,r,last_step,2);
+        if(ok || (r>0 && event_finite(r) && event_finite(u) && residual<=1e-24)) {
+            store_refined_radius(out,r,last_step,2,ok);
             const auto f=reciprocal_local_fold_quantities<Q>(r,u,pf);
             out.uncertainty=std::max(out.uncertainty,event_abs(f.P)/
                 std::max(event_abs(f.PR),64.0*(double)FLT128_EPSILON));

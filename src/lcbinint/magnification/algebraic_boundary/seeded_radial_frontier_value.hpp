@@ -47,7 +47,7 @@ inline CausticAwareBinarySeeds make_caustic_aware_binary_seeds(
         separation,mass_ratio,source,source_radius,source_radius)>source_radius;
     const auto positions = [&]() {
         if(regular)return result.center_images;
-        if(allow_radial_plan && !finite.has_binary_caustic_geometry(separation,mass_ratio)) {
+        if(allow_radial_plan) {
             result.support_plan=exact_support_detail::radial_plan(PrimaryFrame::from(
                 {source.x,source.y,source_radius,mass_ratio,separation,true}));
             if(result.support_plan.completed) {

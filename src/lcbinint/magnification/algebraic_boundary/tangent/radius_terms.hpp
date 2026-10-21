@@ -59,7 +59,8 @@ struct PolishResult {
 inline PolishResult polish_endpoint(double R, double theta,
                                     const PrimaryFrame& pf, int iters = 6,
                                     PhiValDtheta* final_phi = nullptr,
-                                    double angular_tolerance = 0.0) {
+                                    double angular_tolerance = 0.0,
+                                    double maximum_step = std::numeric_limits<double>::infinity()) {
     V2Profile* prof = v2_profile_current();
     if (prof) ++prof->endpoint_calls;
     V2ProfileTimer endpoint_timer(&V2Profile::endpoint_ms);
@@ -86,6 +87,10 @@ inline PolishResult polish_endpoint(double R, double theta,
             return {th, dth, false};
         }
         double step = g.phi / dth;
+        if(!std::isfinite(step)||std::fabs(step)>maximum_step) {
+            if(final_phi)*final_phi=g;
+            return {th,dth,false};
+        }
         // Retain the actual residual in final_phi: the adaptive geometry
         // ledger, rather than this stopping tolerance, decides acceptance.
         if(final_phi && angular_tolerance>0 && std::isfinite(step) &&

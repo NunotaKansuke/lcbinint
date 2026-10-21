@@ -22,7 +22,9 @@
 //   phi_val_dtheta -- {phi, dphi/dtheta}         (Newton endpoint polish)
 
 #include <array>
+#include <algorithm>
 #include <cmath>
+#include <limits>
 #include <quadmath.h>
 #include "fused_motion.hpp"
 
@@ -115,6 +117,13 @@ inline std::array<double, 5> dP_from(const Core& c, const PrimaryFrame& pf) {
 inline std::array<double,5> fused_material_phi_dp(const phi_detail::Core& c,
     double R,const PrimaryFrame& pf) {
     auto result=phi_detail::dP_from(c,pf);
+    if(fused_gradient::com_tangent_replay&&fused_gradient::precise_tangent_replay) {
+        using namespace phi_detail;
+        const C velocity=C{1,0}+C{pf.m0,0}*(c.inv_zb*c.inv_zb)+
+            C{c.m1,0}*(c.inv_zba*c.inv_zba);
+        const double translation=-2*(c.g.re*velocity.re+c.g.im*velocity.im)*c.inv_r2;
+        result[3]-=pf.a*translation;result[4]+=c.m1*translation;
+    }
     if(const auto* motion=fused_gradient::active_motion) {
         using namespace phi_detail;
         const C radial=(c.z+C{pf.m0,0}*c.inv_zb+
@@ -128,7 +137,14 @@ inline std::array<double,5> fused_material_phi_dp(const phi_detail::Core& c,
 // A boundary square root can be much smaller than the two quantities whose
 // difference defines phi. Re-evaluate that rare cancellation in binary128,
 // preserving the radial low part; a genuinely negative result still fails.
-inline PhiValDP fused_precise_phi(double R,double theta,const PrimaryFrame&pf){
+inline bool thin_boundary_geometry(double R,const PrimaryFrame& pf) {
+ return pf.rho<std::sqrt(std::sqrt(std::numeric_limits<double>::epsilon()))*
+     std::max({1.0,std::fabs(R),std::fabs(pf.a),std::fabs(pf.X),std::fabs(pf.Y)});
+}
+inline bool precise_boundary_required(double R,const PrimaryFrame& pf) {
+ return fused_gradient::precise_tangent_replay&&thin_boundary_geometry(R,pf);
+}
+inline PhiValDP fused_precise_phi(double R,double theta,const PrimaryFrame&pf,double* angular=nullptr,double* radial_slope=nullptr){
  using Q=__float128;struct Z{Q re,im;};
  auto add=[](Z a,Z b){return Z{a.re+b.re,a.im+b.im};};
  auto sub=[](Z a,Z b){return Z{a.re-b.re,a.im-b.im};};
@@ -142,17 +158,36 @@ inline PhiValDP fused_precise_phi(double R,double theta,const PrimaryFrame&pf){
  const Z g=sub(sub(sub(z,scale(i,m)),scale(j,n)),{pf.X,pf.Y});
  const Q norm=dot(g,g),r2=rho*rho;
  PhiValDP out;out.phi=double((r2-norm)/r2);
- out.dP={double(2*g.re/r2),double(2*g.im/r2),double(2*norm/(rho*r2)),
-          double(-2*dot(g,sub(j,i))/r2),double(2*n*dot(g,mul(j,j))/r2)};
- if(const auto*motion=fused_gradient::active_motion){
+ if(angular) {
+  const Z k=add(scale(mul(i,i),m),scale(mul(j,j),n));
+  const Z product=mul(zb,k);
+  const Z velocity{-z.im+product.im,z.re-product.re};
+  *angular=double(-2*dot(g,velocity)/r2);
+ }
+ std::array<Q,5> derivatives{{2*g.re/r2,2*g.im/r2,2*norm/(rho*r2),
+          -2*dot(g,sub(j,i))/r2,2*n*dot(g,mul(j,j))/r2}};
+ if(fused_gradient::com_tangent_replay&&fused_gradient::precise_tangent_replay) {
+  const Z velocity=add({1,0},add(scale(mul(i,i),m),scale(mul(j,j),n)));
+  const Q translation=-2*dot(g,velocity)/r2;
+  derivatives[3]-=Q(pf.a)*translation;derivatives[4]+=n*translation;
+ }
+ if(radial_slope||fused_gradient::active_motion){
   const Z radial=scale(add(add(z,scale(i,m)),scale(mul(mul(j,j),zb),n)),1/r);
   const Q slope=-2*dot(g,radial)/r2;
-  for(int k=0;k<5;++k)out.dP[k]+=double(slope*motion->radius[k]);
+  if(radial_slope)*radial_slope=double(slope);
+  if(const auto*motion=fused_gradient::active_motion)
+   for(int k=0;k<5;++k)derivatives[k]+=slope*motion->radius[k];
  }
+ for(int k=0;k<5;++k)out.dP[k]=double(derivatives[k]);
  return out;
 }
 
 inline PhiGrad phi_grad(double R, double theta, const PrimaryFrame& pf) {
+    if(precise_boundary_required(R,pf)) {
+        double angular;
+        const auto precise=fused_precise_phi(R,theta,pf,&angular);
+        return {precise.phi,angular,precise.dP};
+    }
     const phi_detail::Core c = phi_detail::core(R, theta, pf);
     PhiGrad out;
     out.phi = c.phi;
@@ -167,8 +202,23 @@ inline PhiValDP phi_val_dP(double R, double theta, const PrimaryFrame& pf) {
     return {c.phi, fused_material_phi_dp(c, R, pf)};
 }
 
+inline PhiGrad phi_grad_quadrature(double R,double theta,const PrimaryFrame& pf) {
+    const auto core=phi_detail::core(R,theta,pf);
+    if(core.phi<1e-8) {
+        double angular;
+        const auto precise=fused_precise_phi(R,theta,pf,&angular);
+        return {precise.phi,angular,precise.dP};
+    }
+    return {core.phi,phi_detail::dphi_dtheta_from(core,pf),fused_material_phi_dp(core,R,pf)};
+}
+
 inline PhiValDtheta phi_val_dtheta(double R, double theta,
-                                   const PrimaryFrame& pf) {
+                                  const PrimaryFrame& pf) {
+    if(precise_boundary_required(R,pf)) {
+        double angular;
+        const auto precise=fused_precise_phi(R,theta,pf,&angular);
+        return {precise.phi,angular};
+    }
     const phi_detail::Core c = phi_detail::core(R, theta, pf);
     return {c.phi, phi_detail::dphi_dtheta_from(c, pf)};
 }

@@ -48,6 +48,29 @@ inline void t_complex_coeffs(double R, double a, double m0, double X, double Y,
     cT2 = n1 - n0 - n2;
 }
 
+inline QuarticCoeffs boundary_quartic_extended(double R, const PrimaryFrame& pf) {
+    using Wide = long double;
+    using Complex = std::complex<Wide>;
+    const Wide radius=R, separation=pf.a, mass=pf.m0;
+    const Wide squared=radius*radius;
+    const Complex source(pf.X,pf.Y);
+    const Complex numerator0=-source*squared;
+    const Complex numerator1=radius*(squared-Wide(1)+separation*source);
+    const Complex numerator2(separation*(mass-squared),0);
+    const Complex constant=numerator0+numerator1+numerator2;
+    const Complex linear=Complex(0,2)*(numerator2-numerator0);
+    const Complex quadratic=numerator1-numerator0-numerator2;
+    const Wide scale=Wide(pf.rho)*pf.rho*squared;
+    const Wide lower=(radius-separation)*(radius-separation);
+    const Wide upper=(radius+separation)*(radius+separation);
+    return QuarticCoeffs{{
+        double(scale*lower-std::norm(constant)),
+        double(-2*(constant*std::conj(linear)).real()),
+        double(scale*(lower+upper)-std::norm(linear)-2*(constant*std::conj(quadratic)).real()),
+        double(-2*(linear*std::conj(quadratic)).real()),
+        double(scale*upper-std::norm(quadratic))}};
+}
+
 inline QuarticCoeffs boundary_quartic(double R, const PrimaryFrame& pf) {
     const double rho2 = pf.rho * pf.rho;
     const double R2 = R * R;
@@ -55,16 +78,13 @@ inline QuarticCoeffs boundary_quartic(double R, const PrimaryFrame& pf) {
     const double bp = (R + pf.a) * (R + pf.a);
     cd cT0, cT1, cT2;
     t_complex_coeffs(R, pf.a, pf.m0, pf.X, pf.Y, cT0, cT1, cT2);
-
     const double k = rho2 * R2;
     const double lin0 = k * bm, lin2 = k * (bm + bp), lin4 = k * bp;
-
     const double a0 = std::norm(cT0);
     const double a1 = 2.0 * (cT0 * std::conj(cT1)).real();
     const double a2 = std::norm(cT1) + 2.0 * (cT0 * std::conj(cT2)).real();
     const double a3 = 2.0 * (cT1 * std::conj(cT2)).real();
     const double a4 = std::norm(cT2);
-
     return QuarticCoeffs{{lin0 - a0, -a1, lin2 - a2, -a3, lin4 - a4}};
 }
 

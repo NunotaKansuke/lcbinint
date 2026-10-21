@@ -129,6 +129,16 @@ inline SeededFrontierResult epoch_seeded_radial_frontier(
         V2ProfileTimer timer(&V2Profile::frontier_count_ms);
         ++out.frontier.radius_probes;
         if(!(R>0))return 0;
+        if(radial_bands && support_plan->radii.size()==support_plan->crossings.size()) {
+            const auto known=std::lower_bound(support_plan->radii.begin(),support_plan->radii.end(),R);
+            if(known!=support_plan->radii.end() && *known==R) {
+                const int crossings=support_plan->crossings[known-support_plan->radii.begin()];
+                if(crossings==0 || crossings==2 || crossings==4 || crossings==-2) {
+                    probes.emplace_back(R,crossings);
+                    return crossings==0?0:1;
+                }
+            }
+        }
         bool direct=false;
         const int count=boundary_quartic_count(stable_coeff(R),&direct);
         if(direct)++out.frontier.invariant_count_probes;
@@ -242,9 +252,10 @@ inline SeededFrontierResult epoch_seeded_radial_frontier(
                         24,1e-28,1e-24,&iterations,&residual,&step)
                     : adaptive_detail::coupled_fold_newton<__float128,false>(rr,tt,pf,
                         24,1e-28,1e-24,&iterations,&residual,&step);
-                if(!ok || !(rr>0 && rr<image_radius_bound))return false;
+                if(!(rr>0 && rr<image_radius_bound) || !adaptive_detail::event_finite(tt) ||
+                   (!ok && !(residual<=1e-24)))return false;
                 adaptive_detail::EventLocation location;
-                adaptive_detail::store_refined_radius(location,rr,step,2);
+                adaptive_detail::store_refined_radius(location,rr,step,2,ok);
                 candidate.radius=location.radius;candidate.radius_lo=location.radius_lo;
                 candidate.radius_uncertainty=location.uncertainty;candidate.precision_tier=2;
                 candidate.kind="physical_real";candidate.physically_real=true;
@@ -390,9 +401,12 @@ inline SeededFrontierResult epoch_seeded_radial_frontier(
     repair_observed();
     bool endpoints_resolved=true;
     for(auto b:merged) {
+        bool band_resolved=true;
+        const double inside_lo=b.r_lo,inside_hi=b.r_hi;
         // A coarse bracket locates the two exterior folds. Correct only
         // those endpoints, retaining split radii for the existing fold map.
         auto endpoint=[&](double R,double exterior,double refined_exterior) {
+            const double certified_exterior=exterior;
             if(radial_bands) {
                 for(int j=0;j<8;++j) {
                     const double mid=.5*(R+exterior);
@@ -434,7 +448,7 @@ inline SeededFrontierResult epoch_seeded_radial_frontier(
                 }
                 if(!local_event(R,std::min(R,exterior),
                                   std::max(R,exterior),e)) {
-                    endpoints_resolved=false;return R;
+                    endpoints_resolved=false;band_resolved=false;return certified_exterior;
                 }
             }
             for(const auto& old:topo.events)if(std::fabs(e.radius-old.radius)<=
@@ -447,13 +461,15 @@ inline SeededFrontierResult epoch_seeded_radial_frontier(
         bool retains_seed=false;
         for(double r:radii)if(r>=b.r_lo && r<=b.r_hi){retains_seed=true;break;}
         if(!(b.r_hi>b.r_lo) || !retains_seed) {
-            endpoints_resolved=false;
-            break;
+            endpoints_resolved=false;band_resolved=false;
+            b.r_lo=b.outer_lo;b.r_hi=b.outer_hi;
         }
         if(b.r_lo>topo.r_max)
             topo.cells.push_back({static_cast<int>(topo.cells.size()),topo.r_max,b.r_lo,
                 .5*(topo.r_max+b.r_lo),ArcKind::kEmpty,0,Status::OK});
         std::vector<double> cuts{b.r_lo,b.r_hi};
+        if(!band_resolved)for(double witness:{inside_lo,inside_hi})
+            if(witness>b.r_lo&&witness<b.r_hi)cuts.push_back(witness);
         for(const auto& e:topo.events)if(e.radius>b.r_lo && e.radius<b.r_hi)cuts.push_back(e.radius);
         if(midpoint_split)cuts.push_back(.5*(b.r_lo+b.r_hi));
         std::sort(cuts.begin(),cuts.end());
@@ -463,12 +479,9 @@ inline SeededFrontierResult epoch_seeded_radial_frontier(
                 .5*(cuts[i-1]+cuts[i]),ArcKind::kArcs,-1,Status::OK});
         topo.r_max=std::max(topo.r_max,b.r_hi);
     }
-    topo.status=topo.cells.empty() || !endpoints_resolved?Status::TOPOLOGY_UNCERTAIN:Status::OK;
+    topo.status=topo.cells.empty()?Status::TOPOLOGY_UNCERTAIN:Status::OK;
     out.frontier.bands=static_cast<int>(merged.size());
-    out.frontier.discovery_completed=topo.status==Status::OK;
-    if(!endpoints_resolved && radial_bands) {
-        out.integral=adaptive_detail::failure_result(AdaptiveStop::TopologyUnresolved,policy); return out;
-    }
+    out.frontier.discovery_completed=endpoints_resolved&&topo.status==Status::OK;
     out.frontier.reason=endpoints_resolved?"local_discovery_completed":"endpoint_unresolved";
     out.frontier.planning_ms=adaptive_detail::ms(start);
     // Deliberately no global event repair or legacy restart. Only the existing

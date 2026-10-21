@@ -25,6 +25,7 @@ struct FusedGradientResult {
     bool support_certified=false;
     bool frontier_discovery_completed=false;
     std::size_t node_evaluations=0;
+    std::vector<std::array<double,2>> radial_edge_pairs;
 };
 
 // Optional forward-only route, linked through liblcbinint_fused_gradient.a.
@@ -37,5 +38,6 @@ FusedGradientResult epoch_fused_gradient(const LensParams& p,double limb_darkeni
     const std::vector<std::array<double,2>>& primary_image_seeds,
     const FusedGradientOptions& options={},
     const std::function<bool(FusedGradientResult&)>& smooth_repair={},
-    const RadialSupportPlan* support_plan=nullptr);
+    const RadialSupportPlan* support_plan=nullptr,
+    const std::vector<std::array<double,2>>* inherited_edge_pairs=nullptr);
 }

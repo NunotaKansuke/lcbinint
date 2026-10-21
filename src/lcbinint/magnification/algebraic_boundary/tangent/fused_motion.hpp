@@ -5,6 +5,18 @@ namespace lcbinint::algebraic_boundary::tangent::fused_gradient {
 // tangents until their final geometry has been accepted.
 inline thread_local bool defer_sample_tangents=false;
 inline thread_local bool reliability_retry_used=false;
+inline thread_local bool precise_tangent_replay=false;
+inline thread_local bool com_tangent_replay=false;
+struct ComTangentScope {
+    bool previous;
+    explicit ComTangentScope(bool enabled):previous(com_tangent_replay){com_tangent_replay=enabled;}
+    ~ComTangentScope(){com_tangent_replay=previous;}
+};
+struct PreciseTangentScope {
+    bool previous;
+    explicit PreciseTangentScope(bool enabled=true):previous(precise_tangent_replay){precise_tangent_replay=previous||enabled;}
+    ~PreciseTangentScope(){precise_tangent_replay=previous;}
+};
 struct TangentScheduleScope {
     bool previous;
     explicit TangentScheduleScope(bool defer):previous(defer_sample_tangents){defer_sample_tangents=defer;}

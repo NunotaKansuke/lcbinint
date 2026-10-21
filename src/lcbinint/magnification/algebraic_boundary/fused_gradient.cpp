@@ -2,12 +2,15 @@
 #include "tangent/seeded_radial_frontier.hpp"
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
+#include <stdexcept>
 
 namespace lcbinint::algebraic_boundary {
 FusedGradientResult epoch_fused_gradient(const LensParams& p,double u,
     const std::vector<std::array<double,2>>& image_seeds,const FusedGradientOptions& options,
     const std::function<bool(FusedGradientResult&)>& smooth_repair,
-    const RadialSupportPlan* support_plan) {
+    const RadialSupportPlan* support_plan,
+    const std::vector<std::array<double,2>>* inherited_edge_pairs) {
     namespace kernel=lcbinint::algebraic_boundary::tangent;
     const kernel::LensParams params{p.xs,p.ys,p.rho,p.q,p.a,p.barycentric};
     std::vector<kernel::Cplx<double>> seeds;
@@ -20,7 +23,25 @@ FusedGradientResult epoch_fused_gradient(const LensParams& p,double u,
     cfg.value_first_gradient_node_budget=0;cfg.value_first_gradient_round_budget=0;
     kernel::AdaptiveWorkspace workspace;
     kernel::fused_gradient::reliability_retry_used=false;
-    auto result=kernel::epoch_seeded_radial_frontier(params,u,seeds,cfg,workspace,false,support_plan);
+    std::vector<kernel::geometry_experiment::Pair> retry_edge_pairs;
+    if(inherited_edge_pairs)for(const auto& radii:*inherited_edge_pairs) {
+        kernel::geometry_experiment::Pair pair;
+        pair.left=radii[0];pair.right=radii[1];
+        pair.center=.5*(pair.left+pair.right);pair.scale=.5*(pair.right-pair.left);
+        pair.real=true;pair.upper_edge=true;
+        retry_edge_pairs.push_back(pair);
+    }
+    const auto remember_edge_pairs=[&](const auto& pairs) {
+        for(const auto& pair:pairs) {
+            bool known=false;
+            for(const auto& old:retry_edge_pairs)
+                if(old.left==pair.left && old.right==pair.right)known=true;
+            if(!known)retry_edge_pairs.push_back(pair);
+        }
+    };
+    auto result=kernel::epoch_seeded_radial_frontier(params,u,seeds,cfg,workspace,false,
+        support_plan,!retry_edge_pairs.empty(),&retry_edge_pairs);
+    remember_edge_pairs(result.edge_pairs);
     auto gradients_usable=[](const kernel::AdaptiveResult& integral) {
         if(!integral.value_converged)return false;
         for(int j=0;j<5;++j) {
@@ -30,24 +51,13 @@ FusedGradientResult epoch_fused_gradient(const LensParams& p,double u,
         }
         return true;
     };
-    if(support_plan && support_plan->completed && !gradients_usable(result.integral)) {
-        FusedGradientResult failed;
-        failed.mu=result.integral.mu;
-        failed.grad_mu=result.integral.grad_mu;
-        failed.value_error_estimate=result.integral.estimated_abs_error_mu;
-        failed.value_converged=result.integral.value_converged;
-        failed.node_evaluations=result.integral.stats.node_evaluations;
-        failed.support_certified=result.frontier.coverage_certified;
-        failed.frontier_discovery_completed=result.frontier.discovery_completed;
-        failed.stop="prepared_radial_support_unresolved";
-        return failed;
-    }
     bool unresolved_outer_edge_pair=false;
     const auto edge_pairs=kernel::geometry_experiment::known_upper_edge_pairs(
         kernel::PrimaryFrame::from(params),result.topology,
         std::max(1,(1<<cfg.initial_level)-1),&unresolved_outer_edge_pair);
     const bool interval_certified_edge_pair=
-        !edge_pairs.empty() && !unresolved_outer_edge_pair;
+        !retry_edge_pairs.empty() ||
+        (!edge_pairs.empty() && !unresolved_outer_edge_pair);
     const auto initial_stop=result.integral.stop;
     const bool event_location_failure=
         initial_stop==kernel::AdaptiveStop::EventLocationLimited;
@@ -78,6 +88,10 @@ FusedGradientResult epoch_fused_gradient(const LensParams& p,double u,
         out.frontier_discovery_completed=result.frontier.discovery_completed;
         out.value_converged=result.integral.value_converged;
         out.stop=kernel::adaptive_stop_name(result.integral.stop);
+        if(!result.frontier.discovery_completed) {
+            out.stop+="; frontier=";
+            out.stop+=result.frontier.reason;
+        }
         if(uncertified_candidate_used) {
             out.stop+="; gradient_candidate=regular_radial; gradient_uncertified="+candidate_reason;
             out.stop+="; initial_stop=";
@@ -85,7 +99,9 @@ FusedGradientResult epoch_fused_gradient(const LensParams& p,double u,
         }
         out.support_certified=result.frontier.coverage_certified;
         out.node_evaluations=total_nodes;
+        for(const auto& pair:retry_edge_pairs)out.radial_edge_pairs.push_back({pair.left,pair.right});
         for(int j=0;j<5;++j)out.gradient_valid[j]=
+            result.frontier.discovery_completed &&
             !uncertified_candidate_used &&
             result.integral.grad_quality[j]!=kernel::GradientQuality::Invalid &&
             result.integral.grad_quality[j]!=kernel::GradientQuality::NotRequested &&
@@ -112,7 +128,8 @@ FusedGradientResult epoch_fused_gradient(const LensParams& p,double u,
         auto candidate=export_result();
         if(smooth_repair(candidate))return candidate;
     }
-    if(isolated_edge_contact) {
+    if(isolated_edge_contact && !(support_plan && support_plan->completed &&
+       result.integral.value_converged && gradients_usable(result.integral))) {
         // A certified real close pair at the outer support edge makes the
         // fold-mapped derivative sharply localized. Resolve that rare geometry
         // on a regular radial chart at the caller's unchanged value tolerance.
@@ -121,12 +138,20 @@ FusedGradientResult epoch_fused_gradient(const LensParams& p,double u,
         contact_cfg.fused_value_mesh=false;
         contact_cfg.material_coordinate_motion=false;
         contact_cfg.initial_level=8;
+        if(!retry_edge_pairs.empty())contact_cfg.initial_level=cfg.initial_level;
         // The regular radial chart uses the same value-driven replay policy as
         // epoch_adaptive; no gradient-error adaptation is enabled here.
         contact_cfg.gradient_adaptive=false;
         kernel::AdaptiveWorkspace contact_workspace;
-        auto contact=kernel::epoch_adaptive(
-            params,u,contact_cfg,contact_workspace);
+        kernel::AdaptiveResult contact;
+        if(retry_edge_pairs.empty())
+            contact=kernel::epoch_adaptive(params,u,contact_cfg,contact_workspace);
+        else {
+            auto frontier=kernel::epoch_seeded_radial_frontier(params,u,seeds,contact_cfg,
+                contact_workspace,false,support_plan,true,&retry_edge_pairs);
+            remember_edge_pairs(frontier.edge_pairs);
+            contact=std::move(frontier.integral);
+        }
         total_nodes+=contact.stats.node_evaluations;
         no_fold_retry=true;
         if(contact.value_converged && gradients_usable(contact) &&
@@ -135,8 +160,12 @@ FusedGradientResult epoch_fused_gradient(const LensParams& p,double u,
         else
             retain_uncertified_candidate(contact,"contact_retry_unverified");
     }
-    if(!no_fold_retry && topology_failure && retry_can_help &&
-       !gradients_usable(result.integral)) {
+    const bool missing_candidate=!(result.integral.mu>0.0) ||
+        !std::isfinite(result.integral.mu) || result.integral.stats.node_evaluations==0 ||
+        !std::all_of(result.integral.grad_mu.begin(),result.integral.grad_mu.end(),
+            [](double component){return std::isfinite(component);});
+    if((!no_fold_retry && topology_failure && retry_can_help &&
+        !gradients_usable(result.integral)) || missing_candidate) {
         auto fallback_cfg=cfg;
         fallback_cfg.fold_maps=false;
         // This route is entered only after an unresolved epoch. Start at the
@@ -144,8 +173,23 @@ FusedGradientResult epoch_fused_gradient(const LensParams& p,double u,
         // without changing the caller's value tolerances.
         fallback_cfg.initial_level=8;
         kernel::AdaptiveWorkspace fallback_workspace;
-        auto fallback=kernel::epoch_adaptive(
-            params,u,fallback_cfg,fallback_workspace);
+        auto fallback=kernel::epoch_adaptive(params,u,fallback_cfg,fallback_workspace);
+        if(!(fallback.mu>0.0) || !std::isfinite(fallback.mu) ||
+           !std::all_of(fallback.grad_mu.begin(),fallback.grad_mu.end(),
+               [](double component){return std::isfinite(component);})) {
+            const auto previous_nodes=fallback.stats.node_evaluations;
+            fallback_cfg.initial_level=cfg.initial_level;
+            fallback_cfg.fused_value_mesh=false;
+            fallback_cfg.material_coordinate_motion=false;
+            fallback_cfg.gradient_adaptive=false;
+            fallback_workspace.reset();
+            auto frontier=kernel::epoch_seeded_radial_frontier(
+                params,u,seeds,fallback_cfg,fallback_workspace,false,nullptr,true,
+                &retry_edge_pairs);
+            remember_edge_pairs(frontier.edge_pairs);
+            fallback=std::move(frontier.integral);
+            fallback.stats.node_evaluations+=previous_nodes;
+        }
         total_nodes+=fallback.stats.node_evaluations;
         no_fold_retry=true;
         if(event_location_failure && !unresolved_outer_edge_pair &&
@@ -158,6 +202,19 @@ FusedGradientResult epoch_fused_gradient(const LensParams& p,double u,
             result.integral.estimated_abs_error_mu=fallback.estimated_abs_error_mu;
             result.integral.value_converged=true;
         }
+    }
+    if(!(result.integral.mu>0.0) || !std::isfinite(result.integral.mu) ||
+       !std::all_of(result.integral.grad_mu.begin(),result.integral.grad_mu.end(),
+           [](double component){return std::isfinite(component);})) {
+        char context[2048];
+        std::snprintf(context,sizeof(context),
+            "algebraic_boundary: full radial retries produced no finite integral/derivative candidate; xs=%.17g ys=%.17g rho=%.17g q=%.17g s=%.17g barycentric=%d limb=%.17g mu=%.17g grad=[%.17g,%.17g,%.17g,%.17g,%.17g] initial_stop=%s final_stop=%s nodes=%zu frontier=%s seeds=%zu",
+            p.xs,p.ys,p.rho,p.q,p.a,int(p.barycentric),u,result.integral.mu,
+            result.integral.grad_mu[0],result.integral.grad_mu[1],result.integral.grad_mu[2],
+            result.integral.grad_mu[3],result.integral.grad_mu[4],
+            kernel::adaptive_stop_name(initial_stop),kernel::adaptive_stop_name(result.integral.stop),
+            total_nodes,result.frontier.reason,seeds.size());
+        throw std::runtime_error(context);
     }
     return export_result();
 }

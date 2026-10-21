@@ -302,17 +302,16 @@ struct Interval {
 };
 
 template <class R>
-inline std::vector<double> isolate_roots(const std::array<double, 5>& p,
+inline std::vector<double> isolate_coefficients(const std::array<R, 5>& coeffs,
                                          int expected) {
-    const auto coeffs = normalized<R>(p);
     const Count<R> counted = count_chain(coeffs);
     if (!stable(counted, 2) || counted.count != expected) return {};
 
     R max_ratio = R(0);
-    const R lead = abs_value(R(p[4]));
+    const R lead = abs_value(coeffs[4]);
     if (!(lead > R(0))) return {};
     for (int k = 0; k < 4; ++k) {
-        const R ratio = abs_value(R(p[k])) / lead;
+        const R ratio = abs_value(coeffs[k]) / lead;
         if (ratio > max_ratio) max_ratio = ratio;
     }
     const R bound = R(2) * (R(1) + max_ratio) + R(1);
@@ -364,6 +363,12 @@ inline std::vector<double> isolate_roots(const std::array<double, 5>& p,
             return {};
     }
     return out;
+}
+
+template <class R>
+inline std::vector<double> isolate_roots(const std::array<double, 5>& coefficients,
+                                        int expected) {
+    return isolate_coefficients(normalized<R>(coefficients),expected);
 }
 
 }  // namespace quartic_sturm_detail

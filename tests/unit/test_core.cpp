@@ -5,6 +5,14 @@
 #include "lcbinint/magnification/binary_local_seeds.hpp"
 #include "lcbinint/magnification/algebraic_boundary/radial_support_plan.hpp"
 #include "lcbinint/magnification/algebraic_boundary/tangent/geometry.hpp"
+#include "lcbinint/magnification/algebraic_boundary/adaptive_radial.hpp"
+#include "lcbinint/magnification/algebraic_boundary/fused_gradient.hpp"
+#include "lcbinint/magnification/algebraic_boundary/tangent/adaptive_radial.hpp"
+#include "lcbinint/magnification/algebraic_boundary/tangent/fused_gaussian.hpp"
+#include "lcbinint/magnification/algebraic_boundary/tangent/fused_k.hpp"
+#include "lcbinint/magnification/algebraic_boundary/tangent/adaptive_epoch.hpp"
+#include "lcbinint/magnification/algebraic_boundary/tangent/seeded_radial_frontier.hpp"
+#include "lcbinint/magnification/algebraic_boundary/seeded_radial_frontier_value.hpp"
 #include "lcbinint/magnification/finite_source_magnifier.hpp"
 #include "lcbinint/magnification/point_source_magnifier.hpp"
 #include "lcbinint/magnification/probe_diagnostics.hpp"
@@ -340,6 +348,41 @@ bool cartesian_run_budget_test()
 
 int main()
 {
+    const auto check_complete_candidate=[](auto config, auto workspace, auto sample, auto integrate) {
+        using Panel=typename decltype(workspace.panels)::value_type;
+        for(int index=0;index<2;++index) {
+            Panel panel;
+            panel.map={double(2*index),double(2*index+2),false,false};
+            panel.cell=panel.cell_end=index;
+            workspace.panels.push_back(panel);
+        }
+        config.initial_level=8;
+        const auto evaluate=[&](double, double jacobian, int cell,
+                                const auto*, bool, double, int level) {
+            auto result=sample;
+            result.value.fill(jacobian*(cell+1));
+            result.reliable=cell!=0 || level==3;
+            return result;
+        };
+        const auto result=integrate(workspace,config,evaluate);
+        return !result.value_converged &&
+            std::abs(result.mu-6.0)<1e-10 &&
+            std::isinf(result.estimated_abs_error_mu) &&
+            (!config.with_jacobian || std::abs(result.grad_mu[0]-6.0)<1e-10) &&
+            workspace.panels[0].level==3 && workspace.panels[1].level==8;
+    };
+    namespace boundary=lcbinint::algebraic_boundary;
+    if(!check_complete_candidate(boundary::AdaptiveConfig{},boundary::AdaptiveWorkspace{},
+        boundary::AdaptiveSample{},[](auto& workspace,const auto& config,auto evaluate) {
+            return boundary::adaptive_detail::integrate(workspace,config,evaluate);
+        }))return 110;
+    namespace tangent=boundary::tangent;
+    tangent::AdaptiveConfig tangent_config;
+    tangent_config.with_jacobian=true;
+    if(!check_complete_candidate(tangent_config,tangent::AdaptiveWorkspace{},
+        tangent::AdaptiveSample{},[](auto& workspace,const auto& config,auto evaluate) {
+            return tangent::adaptive_detail::integrate(workspace,config,evaluate);
+        }))return 111;
     if (!cartesian_run_topology_tests()) {
         return 62;
     }
@@ -1078,6 +1121,18 @@ int main()
     if(bounded::isolate_box(uncertain,32).completed)return 123;
     if(bounded::isolate_box(uncertain,225).completed)return 124;
     {
+        const auto plan=exact::radial_plan(lcbinint::algebraic_boundary::PrimaryFrame::from(
+            {6.020866474779279e-6,-8.529681383148756e-6,2.6295524980988746e-6,
+             33561.65273177007,0.5860467981775465,true}));
+        if(!plan.completed)return 144;
+        for(const auto& bracket:plan.brackets)for(std::size_t slot=0;slot<4;++slot) {
+            const auto witness=std::find(plan.radii.begin(),plan.radii.end(),bracket[slot]);
+            if(witness==plan.radii.end())return 145;
+            const int count=plan.crossings[witness-plan.radii.begin()];
+            if((slot<2)!=(count!=0))return 146;
+        }
+    }
+    {
         using lcbinint::SourcePosition;
         using lcbinint::magnification::PointSourceMagnifier;
         PointSourceMagnifier cached;
@@ -1127,7 +1182,8 @@ int main()
             if (!(std::isfinite(value.magnification) && value.magnification > 0.0) ||
                 value.decision.estimated_evaluations == 0)
                 return 132;
-            if (value.diagnostic_stop.find("initial_stop=EventLocationLimited") == std::string::npos)
+            if (value.decision.method == FiniteSourceMethod::algebraic_boundary &&
+                value.diagnostic_stop.empty())
                 return 133;
             FiniteSourceResult derivative;
             const auto jacobian = magnifier.algebraic_boundary_binary_jacobian(
@@ -1147,6 +1203,215 @@ int main()
                     return 137;
             }
         }
+    }
+    {
+        namespace tangent = lcbinint::algebraic_boundary::tangent;
+        tangent::AdaptiveConfig config;
+        struct Endpoint {
+            double radius=0,radius_lo=0,pair_m=0,t_seed=0,u_seed=0;
+            bool pair_motion_valid=false,pair_reciprocal=false;
+            bool t_seed_valid=false,u_seed_valid=false;
+        };
+        tangent::PrimaryFrame frame;
+        frame.a=1.2;frame.m0=1;frame.X=.2;frame.Y=0;frame.rho=1e-7;
+        const long double edge=(long double)frame.X+frame.rho;
+        const long double radius=(edge+sqrtl(edge*edge+4))/2;
+        Endpoint left,right;
+        left.radius=.9;
+        right.radius=double(radius);right.radius_lo=double(radius-right.radius);
+        right.t_seed_valid=true;
+        const auto material=tangent::fused_gradient::make_material_map(left,right,frame);
+        const double expected_motion=1/(1+1/double(radius*radius));
+        if(!material.valid||material.derivatives_complete||
+            std::fabs(material.db[0]-expected_motion)>1e-10)return 147;
+        config.tol.grad_atol.fill(1e-12);
+        config.tol.grad_rtol.fill(1e-8);
+        tangent::AdaptiveWorkspace workspace;
+        tangent::AdaptivePanel panel;
+        panel.map={0.0,1.0,false,false};
+        panel.level=3;panel.active=true;
+        for(int axis=0;axis<5;++axis)panel.q[axis+1]=axis+1;
+        workspace.panels.push_back(panel);
+        const auto evaluator=[](double radius,double jacobian,int,
+            const tangent::AdaptiveSample*,bool,double,int,tangent::AdaptiveHermiteJet*) {
+            tangent::AdaptiveSample sample;
+            for(int axis=0;axis<5;++axis)
+                sample.value[axis+1]=(axis+1)*jacobian*std::exp(40*(radius-1));
+            return sample;
+        };
+        {
+            const tangent::LensParams thin{2.026496540589604e-5,-2.7065010318787755e-5,
+                2.6295524980988746e-6,33561.65273177007,.5860467981775465,true};
+            const auto thin_frame=tangent::PrimaryFrame::from(thin);
+            const auto coefficients=tangent::boundary_quartic_extended(1.3225423068538684,thin_frame);
+            const auto crossings=tangent::certify_quartic(coefficients.p);
+            if(!crossings.certified || crossings.root_count!=2)return 150;
+            const tangent::PrimaryFrame input{.7,.3,.15,-.12,.3};
+            const double radius=1.2,angle=.7,step=1e-6;
+            const tangent::fused_gradient::PreciseTangentScope precision;
+            const tangent::fused_gradient::ComTangentScope com_coordinates(true);
+            const auto center=tangent::fused_precise_phi(radius,angle,input);
+            const auto shifted=[&](int axis,double offset) {
+                auto changed=input;
+                if(axis==3)changed.m0+=offset;
+                else changed.a+=offset;
+                const double image_x=radius*std::cos(angle)+(1-changed.m0)*changed.a-
+                    (1-input.m0)*input.a;
+                const double image_y=radius*std::sin(angle);
+                return tangent::fused_precise_phi(std::hypot(image_x,image_y),
+                    std::atan2(image_y,image_x),changed).phi;
+            };
+            for(int axis:{3,4}) {
+                const double reference=(shifted(axis,step)-shifted(axis,-step))/(2*step);
+                if(std::fabs(center.dP[axis]-reference)>1e-6*std::max(1.,std::fabs(reference)))return 149;
+            }
+        }
+        {
+            const tangent::LensParams parameters{.5,.3,.01,.2,.9,true};
+            tangent::AdaptiveConfig limited;
+            limited.with_jacobian=true;limited.fused_value_mesh=true;
+            limited.gradient_policy=tangent::GradientPolicy::ValueFirst;
+            limited.fold_maps=false;limited.max_node_evals=3;
+            tangent::AdaptiveWorkspace limited_workspace;
+            const auto candidate=tangent::epoch_adaptive(parameters,.5,limited,limited_workspace);
+            if(candidate.value_converged || !(candidate.mu>0) ||
+                candidate.stats.node_evaluations<=limited.max_node_evals)return 152;
+            if(!std::all_of(candidate.grad_mu.begin(),candidate.grad_mu.end(),
+                [](double value){return std::isfinite(value);}) ||
+                !std::any_of(candidate.grad_mu.begin(),candidate.grad_mu.end(),
+                [](double value){return value!=0;}))return 153;
+        }
+        const auto replay=tangent::fused_gradient::gaussian_replay(workspace,config,evaluator,0);
+        auto changed_tolerance=config;
+        changed_tolerance.tol.grad_atol.fill(1e3);
+        changed_tolerance.tol.grad_rtol.fill(.5);
+        const auto unchanged=tangent::fused_gradient::gaussian_replay(
+            workspace,changed_tolerance,evaluator,0);
+        auto exhausted=config;
+        exhausted.max_node_evals=1;
+        const auto completed=tangent::fused_gradient::gaussian_replay(workspace,exhausted,evaluator,1);
+        for(int axis=0;axis<5;++axis) {
+            const double expected=(axis+1)*(1-std::exp(-40.0))/40;
+            if(std::fabs(replay.grad_mu[axis]-expected)>1e-8*expected)return 141;
+            if(replay.grad_mu[axis]!=unchanged.grad_mu[axis]||
+                replay.grad_quality[axis]!=tangent::GradientQuality::FiniteUncertified)return 148;
+            if(completed.grad_mu[axis]!=replay.grad_mu[axis] ||
+                completed.grad_quality[axis]!=tangent::GradientQuality::FiniteUncertified)return 151;
+        }
+        const auto failed=[](double,double,int,const tangent::AdaptiveSample*,
+            bool,double,int,tangent::AdaptiveHermiteJet*) {
+            tangent::AdaptiveSample sample;sample.reliable=false;return sample;
+        };
+        const auto retained=tangent::fused_gradient::gaussian_replay(workspace,config,failed,0);
+        for(int axis=0;axis<5;++axis) {
+            if(retained.grad_mu[axis]!=axis+1)return 142;
+            if(retained.grad_quality[axis]!=tangent::GradientQuality::FiniteUncertified)return 143;
+        }
+    }
+    {
+        namespace boundary = lcbinint::algebraic_boundary;
+        boundary::RadialSupportPlan unresolved;
+        unresolved.completed = true;
+        unresolved.brackets.push_back({10.0, 11.0, 9.0, 12.0});
+        const auto recovered = boundary::epoch_fused_gradient(
+            {0.2, 0.3, 0.01, 0.1, 1.2, true}, 0.6, {{1.0, 0.0}},
+            {1e-4, 1e-3}, {}, &unresolved);
+        if (!(recovered.mu > 0.0) || !std::isfinite(recovered.mu) ||
+            recovered.node_evaluations == 0) return 138;
+        bool nonzero = false;
+        for (const double component : recovered.grad_mu) {
+            if (!std::isfinite(component)) return 139;
+            nonzero = nonzero || component != 0.0;
+        }
+        if (!nonzero || recovered.support_certified) return 140;
+    }
+    {
+        namespace tangent = lcbinint::algebraic_boundary::tangent;
+        const tangent::LensParams parameters{5.2624457017694967e-7,2.434553071365692e-8,
+            4.5103932631467525e-6,26862.57757654888,.562732272146788,true};
+        const auto frame=tangent::PrimaryFrame::from(parameters);
+        const double radius=1.1474092888475518;
+        tangent::fused_gradient::PreciseTangentScope precision;
+        tangent::fused_gradient::ComTangentScope transport(true);
+        const auto coefficients=tangent::boundary_quartic_extended(radius,frame);
+        tangent::QuarticWarm warm;
+        tangent::RootPairWarm roots;
+        tangent::QuarticCoeffs output;
+        const auto arcs=tangent::adaptive_detail::adaptive_arc_intervals(
+            radius,frame,&warm,&roots,&output,2,&coefficients);
+        if(arcs.kind!=tangent::ArcKind::kArcs||arcs.arcs.size()!=1)return 155;
+        const auto& interval=arcs.arcs.front();
+        if(!(interval[1]-interval[0]>0&&interval[1]-interval[0]<2e-9))return 156;
+        for(int index=1;index<64;++index)
+            if(!(tangent::phi_val(radius,interval[0]+(interval[1]-interval[0])*index/64.,frame)>0))return 157;
+    }
+    {
+        namespace tangent = lcbinint::algebraic_boundary::tangent;
+        const tangent::LensParams parameters{-3.8732481187648279e-7,2.4231648232616164e-8,
+            2.132335711843209e-6,40725.031958015978,.56542633134691833,true};
+        const auto frame=tangent::PrimaryFrame::from(parameters);
+        const double radius=.9133331347803566;
+        tangent::fused_gradient::PreciseTangentScope precision;
+        tangent::fused_gradient::ComTangentScope transport(true);
+        const auto coefficients=tangent::boundary_quartic_extended(radius,frame);
+        tangent::QuarticWarm warm;
+        tangent::RootPairWarm roots;
+        tangent::QuarticCoeffs output;
+        const auto arcs=tangent::adaptive_detail::adaptive_arc_intervals(
+            radius,frame,&warm,&roots,&output,2,&coefficients);
+        if(arcs.kind!=tangent::ArcKind::kArcs||arcs.arcs.size()!=1)return 158;
+        const auto& interval=arcs.arcs.front();
+        if(!(interval[1]-interval[0]>4e-9&&interval[1]-interval[0]<5e-9))return 159;
+        for(double angle:interval) {
+            const auto polished=tangent::polish_endpoint(radius,angle,frame);
+            if(!polished.reliable||std::fabs(polished.theta-angle)>2e-15)return 160;
+        }
+        tangent::CellPlan cell;
+        cell.kind=tangent::ArcKind::kArcs;cell.n_crossings=-1;
+        tangent::AdaptiveConfig config;
+        const auto sample=tangent::adaptive_detail::mapped_radius(radius,1,parameters,.6584,
+            frame,cell,true,false,nullptr,&config);
+        if(!sample.reliable)return 161;
+        for(double component:sample.value)if(!std::isfinite(component))return 162;
+        for(int inherited_count:{0,4}) {
+            cell.n_crossings=inherited_count;
+            cell.kind=inherited_count==0?tangent::ArcKind::kEmpty:tangent::ArcKind::kArcs;
+            const auto inherited=tangent::adaptive_detail::mapped_radius(radius,1,parameters,.6584,
+                frame,cell,true,false,nullptr,&config);
+            if(!inherited.reliable||inherited.local_crossings!=2)return 163;
+            if(inherited.value!=sample.value)return 164;
+        }
+    }
+    {
+        namespace boundary = lcbinint::algebraic_boundary;
+        namespace tangent = boundary::tangent;
+        const tangent::LensParams parameters{-4.4264421197973816e-7,-9.248813492409009e-9,
+            1.9744542129953203e-6,44218.353678937485,.57918659571672504,true};
+        lcbinint::magnification::FiniteSourceMagnifier finite({});
+        lcbinint::magnification::PointSourceMagnifier point;
+        const auto seeds=boundary::make_caustic_aware_binary_seeds(finite,point,
+            parameters.a,parameters.q,{parameters.xs,parameters.ys},parameters.rho);
+        std::vector<tangent::Cplx<double>> positions;
+        for(const auto& seed:seeds.radial_seeds)positions.push_back({seed.re,seed.im});
+        tangent::AdaptiveConfig config;
+        config.with_jacobian=true;config.fused_value_mesh=false;config.fold_maps=false;
+        config.material_coordinate_motion=false;config.gradient_adaptive=false;
+        config.gradient_policy=tangent::GradientPolicy::ValueFirst;
+        config.value_first_gradient_node_budget=0;config.value_first_gradient_round_budget=0;
+        config.tol.mu_atol=1e-4;config.tol.mu_rtol=1e-7;
+        tangent::AdaptiveWorkspace workspace;
+        const auto result=tangent::epoch_seeded_radial_frontier(parameters,.6584,positions,
+            config,workspace,false,nullptr,true);
+        const double expected_fold=1.0654764948272739;
+        bool retained=false;
+        for(const auto& event:result.topology.events)
+            if(event.physically_real && std::fabs(event.radius-expected_fold)<1e-14)retained=true;
+        if(!retained)return 165;
+        for(const auto& cell:result.topology.cells)
+            if(cell.r_lo<expected_fold && expected_fold<cell.r_hi)return 166;
+        if(!std::isfinite(result.integral.grad_mu[2]) ||
+           std::fabs(result.integral.grad_mu[2]/1.6253000169243486e9-1)>2e-3)return 167;
+        if(result.frontier.coverage_certified)return 168;
     }
 #if defined(__SSE__)
     {

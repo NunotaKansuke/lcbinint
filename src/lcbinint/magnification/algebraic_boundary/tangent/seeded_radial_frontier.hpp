@@ -61,13 +61,16 @@ struct SeededFrontierResult {
     AdaptiveResult integral;
     SeededFrontierStats frontier;
     TopologyResult topology;
+    std::vector<geometry_experiment::Pair> edge_pairs;
 };
 
 inline SeededFrontierResult epoch_seeded_radial_frontier(
     const LensParams& p,double u,const std::vector<Cplx<double>>& seeds,
     const AdaptiveConfig& cfg,AdaptiveWorkspace& workspace,
     bool midpoint_split=false,
-    const ::lcbinint::algebraic_boundary::RadialSupportPlan* support_plan=nullptr) {
+    const ::lcbinint::algebraic_boundary::RadialSupportPlan* support_plan=nullptr,
+    bool precise_events=false,
+    const std::vector<geometry_experiment::Pair>* inherited_edge_pairs=nullptr) {
     SeededFrontierResult out;
     const auto* radial_bands=support_plan && support_plan->completed?&support_plan->brackets:nullptr;
     const auto start=adaptive_detail::Clock::now();
@@ -130,6 +133,16 @@ inline SeededFrontierResult epoch_seeded_radial_frontier(
         V2ProfileTimer timer(&V2Profile::frontier_count_ms);
         ++out.frontier.radius_probes;
         if(!(R>0))return 0;
+        if(radial_bands && support_plan->radii.size()==support_plan->crossings.size()) {
+            const auto known=std::lower_bound(support_plan->radii.begin(),support_plan->radii.end(),R);
+            if(known!=support_plan->radii.end() && *known==R) {
+                const int crossings=support_plan->crossings[known-support_plan->radii.begin()];
+                if(crossings==0 || crossings==2 || crossings==4 || crossings==-2) {
+                    probes.emplace_back(R,crossings);
+                    return crossings==0?0:1;
+                }
+            }
+        }
         bool direct=false;
         const int count=boundary_quartic_count(stable_coeff(R),&direct);
         if(direct)++out.frontier.invariant_count_probes;
@@ -236,6 +249,23 @@ inline SeededFrontierResult epoch_seeded_radial_frontier(
             if(!high_precision) {
                 if(!seeded_boundary_detail::fold(R,coordinate,reciprocal,pf,
                     image_radius_bound,candidate))return false;
+                if(precise_events) {
+                __float128 refined_radius=(__float128)candidate.radius+candidate.radius_lo;
+                __float128 refined_coordinate=reciprocal?candidate.fold_u_seed:candidate.fold_t_seed;
+                double residual=0,step=0;
+                const bool refined=reciprocal
+                    ? adaptive_detail::coupled_fold_newton<__float128,true>(refined_radius,refined_coordinate,pf,24,1e-28,1e-24,nullptr,&residual,&step)
+                    : adaptive_detail::coupled_fold_newton<__float128,false>(refined_radius,refined_coordinate,pf,24,1e-28,1e-24,nullptr,&residual,&step);
+                if(refined || (refined_radius>0 && adaptive_detail::event_finite(refined_radius) &&
+                   adaptive_detail::event_finite(refined_coordinate) && residual<=1e-24)) {
+                    adaptive_detail::EventLocation location;
+                    adaptive_detail::store_refined_radius(location,refined_radius,step,2,refined);
+                    candidate.radius=location.radius;candidate.radius_lo=location.radius_lo;
+                    candidate.radius_uncertainty=location.uncertainty;candidate.precision_tier=2;
+                    if(reciprocal)candidate.fold_u_seed=(double)refined_coordinate;
+                    else candidate.fold_t_seed=(double)refined_coordinate;
+                }
+                }
             } else {
                 __float128 rr=R,tt=coordinate;double residual=0,step=0;int iterations=0;
                 const bool ok=reciprocal
@@ -243,9 +273,10 @@ inline SeededFrontierResult epoch_seeded_radial_frontier(
                         24,1e-28,1e-24,&iterations,&residual,&step)
                     : adaptive_detail::coupled_fold_newton<__float128,false>(rr,tt,pf,
                         24,1e-28,1e-24,&iterations,&residual,&step);
-                if(!ok || !(rr>0 && rr<image_radius_bound))return false;
+                if(!(rr>0 && rr<image_radius_bound) || !adaptive_detail::event_finite(tt) ||
+                   (!ok && !(residual<=1e-24)))return false;
                 adaptive_detail::EventLocation location;
-                adaptive_detail::store_refined_radius(location,rr,step,2);
+                adaptive_detail::store_refined_radius(location,rr,step,2,ok);
                 candidate.radius=location.radius;candidate.radius_lo=location.radius_lo;
                 candidate.radius_uncertainty=location.uncertainty;candidate.precision_tier=2;
                 candidate.kind="physical_real";candidate.physically_real=true;
@@ -390,10 +421,25 @@ inline SeededFrontierResult epoch_seeded_radial_frontier(
     };
     repair_observed();
     bool endpoints_resolved=true;
+    if(inherited_edge_pairs)for(const auto& pair:*inherited_edge_pairs)
+        for(double radius:{pair.left,pair.right}) {
+            bool known=false;
+            for(const auto& event:topo.events)
+                if(event.physically_real && std::fabs(event.radius-radius)<
+                   std::min(pair.scale*.25,1e-10*(1+radius)))known=true;
+            if(known)continue;
+            RadialEvent event;
+            if(local_event(radius,radius-pair.scale*.5,radius+pair.scale*.5,event))
+                topo.events.push_back(event);
+            else endpoints_resolved=false;
+        }
     for(auto b:merged) {
+        bool band_resolved=true;
+        const double inside_lo=b.r_lo,inside_hi=b.r_hi;
         // A coarse bracket locates the two exterior folds. Correct only
         // those endpoints, retaining split radii for the existing fold map.
         auto endpoint=[&](double R,double exterior,double refined_exterior) {
+            const double certified_exterior=exterior;
             if(radial_bands) {
                 for(int j=0;j<8;++j) {
                     const double mid=.5*(R+exterior);
@@ -435,7 +481,7 @@ inline SeededFrontierResult epoch_seeded_radial_frontier(
                 }
                 if(!local_event(R,std::min(R,exterior),
                                   std::max(R,exterior),e)) {
-                    endpoints_resolved=false;return R;
+                    endpoints_resolved=false;band_resolved=false;return certified_exterior;
                 }
             }
             for(const auto& old:topo.events)if(std::fabs(e.radius-old.radius)<=
@@ -448,13 +494,15 @@ inline SeededFrontierResult epoch_seeded_radial_frontier(
         bool retains_seed=false;
         for(double r:radii)if(r>=b.r_lo && r<=b.r_hi){retains_seed=true;break;}
         if(!(b.r_hi>b.r_lo) || !retains_seed) {
-            endpoints_resolved=false;
-            break;
+            endpoints_resolved=false;band_resolved=false;
+            b.r_lo=b.outer_lo;b.r_hi=b.outer_hi;
         }
         if(b.r_lo>topo.r_max)
             topo.cells.push_back({static_cast<int>(topo.cells.size()),topo.r_max,b.r_lo,
                 .5*(topo.r_max+b.r_lo),ArcKind::kEmpty,0,Status::OK});
         std::vector<double> cuts{b.r_lo,b.r_hi};
+        if(!band_resolved)for(double witness:{inside_lo,inside_hi})
+            if(witness>b.r_lo&&witness<b.r_hi)cuts.push_back(witness);
         for(const auto& e:topo.events)if(e.radius>b.r_lo && e.radius<b.r_hi)cuts.push_back(e.radius);
         if(midpoint_split)cuts.push_back(.5*(b.r_lo+b.r_hi));
         std::sort(cuts.begin(),cuts.end());
@@ -464,12 +512,9 @@ inline SeededFrontierResult epoch_seeded_radial_frontier(
                 .5*(cuts[i-1]+cuts[i]),ArcKind::kArcs,-1,Status::OK});
         topo.r_max=std::max(topo.r_max,b.r_hi);
     }
-    topo.status=topo.cells.empty() || !endpoints_resolved?Status::TOPOLOGY_UNCERTAIN:Status::OK;
+    topo.status=topo.cells.empty()?Status::TOPOLOGY_UNCERTAIN:Status::OK;
     out.frontier.bands=static_cast<int>(merged.size());
-    out.frontier.discovery_completed=topo.status==Status::OK;
-    if(!endpoints_resolved && radial_bands) {
-        out.integral=adaptive_detail::failure_result(AdaptiveStop::TopologyUnresolved,policy); return out;
-    }
+    out.frontier.discovery_completed=endpoints_resolved&&topo.status==Status::OK;
     out.frontier.reason=endpoints_resolved?"local_discovery_completed":"endpoint_unresolved";
     out.frontier.planning_ms=adaptive_detail::ms(start);
     // Deliberately no global event repair or legacy restart. Only the existing
@@ -613,13 +658,20 @@ inline SeededFrontierResult epoch_seeded_radial_frontier(
         return known(pair.left)&&known(pair.right);
     }),pairs.end());
     out.frontier.isolated_real_edge_pair=std::any_of(pairs.begin(),pairs.end(),[](const auto& pair){return pair.real&&pair.upper_edge;});
-    pairs.erase(std::remove_if(pairs.begin(),pairs.end(),[](const auto& pair){return pair.upper_edge;}),pairs.end());
+    for(const auto& pair:pairs)if(pair.real && pair.upper_edge)
+        out.edge_pairs.push_back(pair);
+    bool has_edge_repairs=false;
+    pairs.erase(std::remove_if(pairs.begin(),pairs.end(),[&](const auto& pair){
+        if(!pair.upper_edge)return false;
+        if(cfg.fold_maps || pair.existing)return true;
+        has_edge_repairs=true;return false;
+    }),pairs.end());
     if(pairs.empty()&&geometry_complete){out.frontier.evaluated_nodes=workspace.samples.size();out.integral.stats.topology_ms=out.frontier.planning_ms;return out;}
     // A complex pair changes only tangent replay coordinates, not physical
     // boundaries. Keep the accepted mesh, values and continuation state.
     // Newly discovered real folds still require the existing topology repair.
     const bool retain_geometry=std::all_of(pairs.begin(),pairs.end(),
-        [](const auto&pair){return !pair.real || pair.existing;});
+        [](const auto&pair){return !pair.real || pair.existing || pair.upper_edge;});
     bool geometry_ok=true;
     for(const auto&pair:pairs)if(pair.real){
         for(double r:{pair.left,pair.right}){
@@ -630,7 +682,7 @@ inline SeededFrontierResult epoch_seeded_radial_frontier(
             else geometry_ok=false;
         }
     }
-    if(!geometry_ok){for(int j=0;j<5;++j){out.integral.grad_mu[j]=std::numeric_limits<double>::quiet_NaN();out.integral.grad_quality[j]=GradientQuality::Invalid;out.integral.grad_reason[j]=GradientReason::TopologyUnresolved;}return out;}
+    if(!geometry_ok){for(int j=0;j<5;++j){out.integral.grad_quality[j]=GradientQuality::Invalid;out.integral.grad_reason[j]=GradientReason::TopologyUnresolved;}return out;}
     std::vector<CellPlan> repaired_cells;
     for(const auto&cell:topo.cells){
         if(cell.kind==ArcKind::kEmpty){repaired_cells.push_back(cell);continue;}
@@ -641,17 +693,18 @@ inline SeededFrontierResult epoch_seeded_radial_frontier(
     }
     for(size_t k=0;k<repaired_cells.size();++k)repaired_cells[k].index=int(k);
     topo.cells=std::move(repaired_cells);
+    pairs.erase(std::remove_if(pairs.begin(),pairs.end(),[](const auto& pair){return pair.upper_edge;}),pairs.end());
     geometry_experiment::Scope geometry_scope(pairs);
-    if(!pairs.empty()){
+    if(!pairs.empty() || has_edge_repairs){
         const auto first_nodes=out.integral.stats.node_evaluations;
         AdaptiveConfig extra_cfg=exploration_cfg;
         extra_cfg.max_node_evals=first_nodes<cfg.max_node_evals?cfg.max_node_evals-first_nodes:0;
         if(extra_cfg.max_node_evals>0)out.integral=flux_adaptive_integrate(p,u,topo,extra_cfg,workspace,retain_geometry,
             cfg.collect_diagnostics?nullptr:&epoch_event_errors);
-        else for(int j=0;j<5;++j){out.integral.grad_mu[j]=std::numeric_limits<double>::quiet_NaN();out.integral.grad_quality[j]=GradientQuality::Invalid;out.integral.grad_reason[j]=GradientReason::BudgetExceeded;}
+        else for(int j=0;j<5;++j){out.integral.grad_quality[j]=GradientQuality::Invalid;out.integral.grad_reason[j]=GradientReason::BudgetExceeded;}
         out.integral.stats.node_evaluations+=first_nodes;
     }
-    if(!geometry_complete)for(int j=0;j<5;++j){out.integral.grad_mu[j]=std::numeric_limits<double>::quiet_NaN();out.integral.grad_quality[j]=GradientQuality::Invalid;out.integral.grad_reason[j]=GradientReason::TopologyUnresolved;}
+    if(!geometry_complete)for(int j=0;j<5;++j){out.integral.grad_quality[j]=GradientQuality::Invalid;out.integral.grad_reason[j]=GradientReason::TopologyUnresolved;}
     out.frontier.evaluated_nodes=workspace.samples.size();
     out.integral.stats.topology_ms=out.frontier.planning_ms;
     return out;
