@@ -21,8 +21,19 @@ PreciseValueResult epoch_precise_value(const LensParams& p,double u,
     config.fold_maps=false;
     kernel::AdaptiveWorkspace workspace;
     kernel::fused_gradient::PreciseTangentScope precision;
-    const auto result=kernel::epoch_seeded_radial_frontier(
+    auto result=kernel::epoch_seeded_radial_frontier(
         params,u,seeds,config,workspace,false,nullptr,true);
+    const bool adaptive_fallback=!(result.integral.mu>0.0) ||
+        !std::isfinite(result.integral.mu);
+    if(adaptive_fallback) {
+        const auto frontier_nodes=result.integral.stats.node_evaluations;
+        auto fallback=kernel::epoch_adaptive(params,u,config,workspace);
+        const auto fallback_nodes=fallback.stats.node_evaluations;
+        if(fallback.mu>0.0 && std::isfinite(fallback.mu))
+            result.integral=std::move(fallback);
+        result.integral.stats.node_evaluations=frontier_nodes+fallback_nodes;
+        result.frontier.coverage_certified=false;
+    }
     PreciseValueResult out;
     out.mu=result.integral.mu;
     out.value_error_estimate=result.integral.estimated_abs_error_mu;
@@ -31,6 +42,7 @@ PreciseValueResult epoch_precise_value(const LensParams& p,double u,
     out.frontier_discovery_completed=result.frontier.discovery_completed;
     out.node_evaluations=result.integral.stats.node_evaluations;
     out.stop=kernel::adaptive_stop_name(result.integral.stop);
+    if(adaptive_fallback)out.stop+="; value_fallback=adaptive";
     if(!result.frontier.discovery_completed) {
         out.stop+="; frontier=";
         out.stop+=result.frontier.reason;

@@ -7720,9 +7720,14 @@ FiniteSourceResult FiniteSourceMagnifier::algebraic_boundary_deep_solve(
                     &center_image_seeds,false);
                 auto retry=solve(*prepared_seeds,&integral.radial_edge_pairs);
                 const auto total_nodes=integral.node_evaluations+retry.node_evaluations;
+                const bool incumbent_finite=integral.mu>0.0 && std::isfinite(integral.mu) &&
+                    std::all_of(integral.grad_mu.begin(),integral.grad_mu.end(),
+                        [](double component){return std::isfinite(component);});
                 if(retry.mu>0.0 && std::isfinite(retry.mu) &&
                    std::all_of(retry.grad_mu.begin(),retry.grad_mu.end(),
-                       [](double component){return std::isfinite(component);}))
+                       [](double component){return std::isfinite(component);}) &&
+                   (!incumbent_finite || retry.value_converged ||
+                    retry.value_error_estimate<integral.value_error_estimate))
                     integral=std::move(retry);
                 integral.node_evaluations=total_nodes;
             }

@@ -1461,5 +1461,31 @@ int main()
             if(recovery::seeded_frontier_detail::physical_crossing_count(radius,frame)!=2)return 201;
         }
     }
+    {
+        namespace boundary=lcbinint::algebraic_boundary::tangent;
+        const boundary::LensParams parameters{.0001763733600786604,.00025841859275296266,
+            .00030760727910230425,685.48439331981217,.63860976638688738,true};
+        const auto frame=boundary::PrimaryFrame::from(parameters);
+        const double radius=.36312131494503952;
+        boundary::fused_gradient::RadiusOffsetScope offset(2.2741140567883456e-17);
+        boundary::PhiValDtheta endpoint;
+        const auto polished=boundary::polish_endpoint(radius,3.1276483408048565,
+            frame,6,&endpoint,0,2.1e-6,true);
+        if(!polished.reliable || std::fabs(polished.theta-3.1276483380138075)>2e-14 ||
+           std::fabs(endpoint.phi/endpoint.dphi_dtheta)>2e-15)return 204;
+        boundary::CellPlan cell{0,.35,.38,.365,boundary::ArcKind::kArcs,-1,boundary::Status::OK};
+        boundary::AdaptiveConfig config;
+        config.tol.mu_atol=1e-8;config.tol.mu_rtol=1e-7;
+        double value=0;
+        for(bool with_jacobian:{false,true}) {
+            const auto sample=boundary::adaptive_detail::mapped_radius(radius,1,parameters,
+                .6584,frame,cell,with_jacobian,false,nullptr,&config);
+            if(!sample.reliable || !(sample.value[0]>0))return 205;
+            if(with_jacobian) {
+                if(std::fabs(sample.value[0]/value-1)>1e-7)return 206;
+                for(double component:sample.value)if(!std::isfinite(component))return 207;
+            } else value=sample.value[0];
+        }
+    }
     return 0;
 }

@@ -1579,8 +1579,8 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
 #ifdef BOUNDARY_FRONTIER_COST_PROFILE
         V2ProfileTimer arc_body_timer(&V2Profile::mapped_arc_body_ms);
 #endif
-#if !defined(BOUNDARY_ADAPTIVE_DISABLE_ENDPOINT_CACHE)
         PhiValDtheta endpoint_e{},endpoint_l{};
+#if !defined(BOUNDARY_ADAPTIVE_DISABLE_ENDPOINT_CACHE)
         // For nonnegative normalized LD value-only integration, angular endpoint
         // boundary-strip sensitivity is at most the uniform-brightness term.
         // Keep residuals in the existing geometry ledger; gradients retain
@@ -1596,12 +1596,34 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
 #else
         auto pe=polish_endpoint(R,a[0],pf),pl=polish_endpoint(R,a[1],pf);
 #endif
+        bool physical_endpoint_refinement=false;
+        if(!precise_boundary_required(R,pf)) {
+            const double uncertainty=eps*(std::fabs(R)+std::fabs(pf.X)+std::fabs(pf.Y)+1)/pf.rho;
+            const double angular_uncertainty=uncertainty*(
+                1/std::fabs(pe.dphi_dtheta)+1/std::fabs(pl.dphi_dtheta));
+            const double angular_budget=std::max(
+                4*eps*std::max({1.,std::fabs(a[0]),std::fabs(a[1])}),
+                (adaptive_cfg?adaptive_cfg->tol.mu_rtol:kAngularKRelTol)*(a[1]-a[0]));
+            if(angular_uncertainty>angular_budget) {
+                physical_endpoint_refinement=true;
+                pe=polish_endpoint(R,pe.theta,pf,6,&endpoint_e,0,a[1]-a[0],true);
+                pl=polish_endpoint(R,pl.theta,pf,6,&endpoint_l,0,a[1]-a[0],true);
+            }
+        }
         double te=pe.theta,tl=pl.theta;if(tl<=te)tl+=kTwoPi;
         // No flag override: transformed arithmetic still requires resolvable endpoints.
         if(!pe.reliable||!pl.reliable)
             return reject(AdaptiveSampleRejectReason::EndpointUnreliable);
         PhiGrad ge{},gl{};
-        if(with_jac){ge=phi_grad(R,te,pf);gl=phi_grad(R,tl,pf);}
+        if(with_jac){
+            if(physical_endpoint_refinement) {
+                double angular;
+                const auto first=fused_precise_phi(R,te,pf,&angular);
+                ge={first.phi,angular,first.dP};
+                const auto last=fused_precise_phi(R,tl,pf,&angular);
+                gl={last.phi,angular,last.dP};
+            } else {ge=phi_grad(R,te,pf);gl=phi_grad(R,tl,pf);}
+        }
         else{
 #if !defined(BOUNDARY_ADAPTIVE_DISABLE_ENDPOINT_CACHE)
             auto e=endpoint_e,l=tl==pl.theta?endpoint_l:phi_val_dtheta(R,tl,pf);
@@ -1612,7 +1634,7 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
         double de=std::fabs(ge.phi/ge.dphi_dtheta),dl=std::fabs(gl.phi/gl.dphi_dtheta);
         // Floating point lens-map cancellation grows as 1/rho. This is an
         // arithmetic sensitivity estimate, NOT an interval enclosure.
-        double map_noise=(precise_boundary_required(R,pf)?double(FLT128_EPSILON):eps)*
+        double map_noise=((physical_endpoint_refinement||precise_boundary_required(R,pf))?double(FLT128_EPSILON):eps)*
             (std::fabs(R)+std::fabs(pf.X)+std::fabs(pf.Y)+1)/pf.rho;
         de+=(map_noise+eps*std::fabs(te)*std::fabs(ge.dphi_dtheta))/std::fabs(ge.dphi_dtheta);
         dl+=(map_noise+eps*std::fabs(tl)*std::fabs(gl.dphi_dtheta))/std::fabs(gl.dphi_dtheta);
@@ -1863,7 +1885,8 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
         // derivatives come from regular E=O=0, not singular endpoint IFTs.
         const std::array<double,5> zero{};
         for(bool reciprocal:{false,true}) {
-            if(with_jac&&fused_gradient::com_tangent_replay&&fused_gradient::precise_tangent_replay)break;
+            if(physical_endpoint_refinement ||
+               (with_jac&&fused_gradient::com_tangent_replay&&fused_gradient::precise_tangent_replay))break;
             auto ap=reciprocal?arc_pair_jac_reciprocal(te,tl,zero,zero):arc_pair_jac(te,tl,zero,zero);
             if(!ap.ok)continue;
             auto cp=reciprocal?boundary_quartic_reciprocal(pc):pc;
@@ -1957,7 +1980,12 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
                 for(std::size_t index=0;index<rule.x.size();++index) {
                     const double theta=mid+half*rule.x[index];
                     if(with_jac) {
-                        const auto sample=phi_grad_quadrature(R,theta,pf);
+                        const auto sample=[&]() {
+                            if(!physical_endpoint_refinement)return phi_grad_quadrature(R,theta,pf);
+                            double angular;
+                            const auto value=fused_precise_phi(R,theta,pf,&angular);
+                            return PhiGrad{value.phi,angular,value.dP};
+                        }();
                         if(!(sample.phi>0))return false;
                         const double root=std::sqrt(sample.phi);
                         value+=rule.w[index]*root;
@@ -1968,7 +1996,8 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
                                 sample.dphi_dtheta*angle_motion)/(2*root);
                         }
                     } else {
-                        const double phi=phi_val(R,theta,pf);
+                        const double phi=physical_endpoint_refinement
+                            ?fused_precise_phi<false>(R,theta,pf).phi:phi_val(R,theta,pf);
                         if(!(phi>0))return false;
                         value+=rule.w[index]*std::sqrt(phi);
                     }

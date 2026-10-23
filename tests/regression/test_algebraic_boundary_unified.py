@@ -11,6 +11,57 @@ ROOT = Path(__file__).resolve().parents[2]
 ORDER = ("t0", "u0", "tE", "alpha", "rho", "q", "s")
 
 
+@pytest.mark.parametrize("radius_factor", [.999, 1., 1.001])
+@pytest.mark.parametrize("limb", [0., .6584])
+@pytest.mark.parametrize("relative_tolerance", [1e-7, 1e-9])
+def test_grazing_arc_endpoint_precision_matches_physical_integrand(
+        radius_factor, limb, relative_tolerance):
+    jax = pytest.importorskip("jax")
+    import jax.numpy as jnp
+    from lcbinint_jax import binary_algebraic_boundary_batch_ffi
+
+    jax.config.update("jax_enable_x64", True)
+    point = jnp.asarray([.0001763733600786604, .00025841859275296266,
+                        .63860976638688738, 685.48439331981217,
+                        .00030760727910230425*radius_factor])
+
+    def value(parameters):
+        return binary_algebraic_boundary_batch_ffi(
+            parameters[:1], parameters[1:2], parameters[2], parameters[3], parameters[4],
+            limb_c=limb, absolute_tolerance=1e-10,
+            relative_tolerance=relative_tolerance).sum()
+
+    magnitude, gradient = jax.jit(jax.value_and_grad(value))(point)
+    scalar = jax.jit(value)(point)
+    assert np.isfinite(float(magnitude)) and float(magnitude) > 0
+    assert np.isfinite(np.asarray(gradient)).all()
+    np.testing.assert_allclose(scalar, magnitude, rtol=2*relative_tolerance, atol=2e-10)
+
+
+def test_uncertified_grazing_reseed_preserves_better_integrated_candidate():
+    jax = pytest.importorskip("jax")
+    import jax.numpy as jnp
+    from lcbinint_jax import binary_algebraic_boundary_batch_ffi
+
+    jax.config.update("jax_enable_x64", True)
+    point = jnp.asarray([.0001763733600786604, .00025841859275296266,
+                        .63860976638688738, 685.48439331981217, .00030760727910230425])
+
+    def value(parameters):
+        return binary_algebraic_boundary_batch_ffi(
+            parameters[:1], parameters[1:2], parameters[2], parameters[3], parameters[4],
+            limb_c=.6584, absolute_tolerance=1e-10, relative_tolerance=1e-9).sum()
+
+    scalar = jax.jit(value)
+    magnitude, gradient = jax.jit(jax.value_and_grad(value))(point)
+    np.testing.assert_allclose(magnitude, scalar(point), rtol=2e-9, atol=2e-10)
+    for step in [1e-6, 5e-7]:
+        delta = jnp.zeros(5).at[2].set(step)
+        stencil = [float(scalar(point+offset*delta)) for offset in [-2, -1, 1, 2]]
+        reference = (stencil[0]-8*stencil[1]+8*stencil[2]-stencil[3])/(12*step)
+        np.testing.assert_allclose(gradient[2], reference, rtol=.02, atol=0)
+
+
 @pytest.mark.parametrize("radius_factor", [.5, 1., 2.])
 @pytest.mark.parametrize("relative_tolerance", [1e-3, 1e-7])
 def test_value_only_precise_retry_matches_tangent_without_requesting_gradient(

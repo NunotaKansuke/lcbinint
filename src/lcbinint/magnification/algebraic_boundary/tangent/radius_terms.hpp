@@ -60,11 +60,18 @@ inline PolishResult polish_endpoint(double R, double theta,
                                     const PrimaryFrame& pf, int iters = 6,
                                     PhiValDtheta* final_phi = nullptr,
                                     double angular_tolerance = 0.0,
-                                    double maximum_step = std::numeric_limits<double>::infinity()) {
+                                    double maximum_step = std::numeric_limits<double>::infinity(),
+                                    bool physical = false) {
     V2Profile* prof = v2_profile_current();
     if (prof) ++prof->endpoint_calls;
     V2ProfileTimer endpoint_timer(&V2Profile::endpoint_ms);
     double th = theta, dth = 1.0;
+    const auto evaluate=[&](double angle) {
+        if(!physical)return phi_val_dtheta(R,angle,pf);
+        double angular;
+        const auto value=fused_precise_phi<false>(R,angle,pf,&angular);
+        return PhiValDtheta{value.phi,angular};
+    };
 #ifdef BOUNDARY_ENDPOINT_WORK_PROBE
     double visited[7]{}; int nvisited=0;
     auto record=[&](double arg) {
@@ -80,7 +87,7 @@ inline PolishResult polish_endpoint(double R, double theta,
 #ifdef BOUNDARY_ENDPOINT_WORK_PROBE
         record(th);
 #endif
-        PhiValDtheta g = phi_val_dtheta(R, th, pf);
+        PhiValDtheta g = evaluate(th);
         dth = g.dphi_dtheta;
         if (std::fabs(dth) < 1e-13) {
             if (prof) ++prof->endpoint_unreliable;
@@ -123,7 +130,7 @@ inline PolishResult polish_endpoint(double R, double theta,
 #ifdef BOUNDARY_ENDPOINT_WORK_PROBE
     record(th);
 #endif
-    PhiValDtheta g = phi_val_dtheta(R, th, pf);
+    PhiValDtheta g = evaluate(th);
     if (final_phi) *final_phi = g;
     const bool reliable = std::fabs(g.dphi_dtheta) >= 1e-13;
     if (prof && !reliable) ++prof->endpoint_unreliable;
