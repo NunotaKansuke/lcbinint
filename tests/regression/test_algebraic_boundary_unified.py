@@ -11,6 +11,65 @@ ROOT = Path(__file__).resolve().parents[2]
 ORDER = ("t0", "u0", "tE", "alpha", "rho", "q", "s")
 
 
+@pytest.mark.parametrize("relative_tolerance", [1e-3, 1e-7, 1e-9])
+@pytest.mark.parametrize("limb", [0., .6101, .6584])
+@pytest.mark.parametrize("radius_factor", [.999, 1., 1.001])
+@pytest.mark.parametrize("source_sign", [-1., 1.])
+def test_edge_pair_transverse_gradient_matches_value_difference(
+        relative_tolerance, limb, radius_factor, source_sign):
+    jax = pytest.importorskip("jax")
+    import jax.numpy as jnp
+    from lcbinint_jax import binary_algebraic_boundary_batch_ffi
+
+    jax.config.update("jax_enable_x64", True)
+    point = jnp.asarray([-6.3359522138426355e-05, source_sign*1.9809194818738246e-09,
+                        .63244064975758063, 704.16939274402819,
+                        .00031754130897469404*radius_factor])
+
+    def value(parameters, tolerance):
+        return binary_algebraic_boundary_batch_ffi(
+            parameters[:1], parameters[1:2], parameters[2], parameters[3], parameters[4],
+            limb_c=limb, absolute_tolerance=1e-10,
+            relative_tolerance=tolerance).sum()
+
+    magnitude, gradient = jax.jit(jax.value_and_grad(
+        lambda parameters: value(parameters, relative_tolerance)))(point)
+    scalar = jax.jit(lambda parameters: value(parameters, 1e-9))
+    assert np.isfinite(float(magnitude)) and np.isfinite(np.asarray(gradient)).all()
+    for step in [2e-5, 1e-5]:
+        delta = jnp.asarray([0., step, 0., 0., 0.])
+        stencil = [float(scalar(point+offset*delta)) for offset in [-2, -1, 1, 2]]
+        reference = (stencil[0]-8*stencil[1]+8*stencil[2]-stencil[3])/(12*step)
+        np.testing.assert_allclose(gradient[1], reference, rtol=.02, atol=0)
+
+
+@pytest.mark.parametrize("radius_factor", [.999, 1., 1.001])
+@pytest.mark.parametrize("limb", [0., .6584])
+@pytest.mark.parametrize("relative_tolerance", [1e-3, 1e-7])
+def test_spurious_arc_topology_recovery_matches_value_and_tangent(
+        radius_factor, limb, relative_tolerance):
+    jax = pytest.importorskip("jax")
+    import jax.numpy as jnp
+    from lcbinint_jax import binary_algebraic_boundary_batch_ffi
+
+    jax.config.update("jax_enable_x64", True)
+    point = jnp.asarray([-6.3359522138426355e-05, 1.9809194818738246e-09,
+                        .63244064975758063, 704.16939274402819,
+                        .00031754130897469404*radius_factor])
+
+    def value(parameters):
+        return binary_algebraic_boundary_batch_ffi(
+            parameters[:1], parameters[1:2], parameters[2], parameters[3], parameters[4],
+            limb_c=limb, absolute_tolerance=1e-4,
+            relative_tolerance=relative_tolerance).sum()
+
+    scalar = jax.jit(value)(point)
+    magnitude, gradient = jax.jit(jax.value_and_grad(value))(point)
+    assert np.isfinite(float(scalar)) and float(scalar) > 0
+    assert np.isfinite(np.asarray(gradient)).all()
+    np.testing.assert_allclose(scalar, magnitude, rtol=2*relative_tolerance, atol=2e-4)
+
+
 @pytest.mark.parametrize("radius_factor", [.999, 1., 1.001])
 @pytest.mark.parametrize("limb", [0., .6584])
 @pytest.mark.parametrize("relative_tolerance", [1e-7, 1e-9])

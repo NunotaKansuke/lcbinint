@@ -1,6 +1,13 @@
 #pragma once
 #include <array>
+#include <algorithm>
+#include <cmath>
+#include <limits>
 namespace lcbinint::algebraic_boundary::tangent::fused_gradient {
+inline bool com_tangent_frame(double separation,double source_radius) {
+    return source_radius<std::sqrt(std::sqrt(std::numeric_limits<double>::epsilon()))*
+        std::max(1.,separation);
+}
 // Scoped per-node scheduling: only value-adaptive child panels postpone
 // tangents until their final geometry has been accepted.
 inline thread_local bool defer_sample_tangents=false;

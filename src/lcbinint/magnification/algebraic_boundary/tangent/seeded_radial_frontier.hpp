@@ -76,6 +76,8 @@ struct SeededFrontierResult {
     SeededFrontierStats frontier;
     TopologyResult topology;
     std::vector<geometry_experiment::Pair> edge_pairs;
+    bool edge_pair_replay_completed=false;
+    bool edge_pair_replay_failed=false;
 };
 
 inline SeededFrontierResult epoch_seeded_radial_frontier(
@@ -412,7 +414,8 @@ inline SeededFrontierResult epoch_seeded_radial_frontier(
         for(int j=0;j<8;++j) {
             const double mid=.5*(lo+hi);
             bool direct=false;
-            const int count=boundary_quartic_count(stable_coeff(mid),&direct);
+            const int count=precise_events?seeded_frontier_detail::physical_crossing_count(mid,pf):
+                boundary_quartic_count(stable_coeff(mid),&direct);
             if(direct)++out.frontier.invariant_count_probes;
             else ++out.frontier.sturm_count_probes;
             ++out.frontier.radius_probes;
@@ -679,7 +682,7 @@ inline SeededFrontierResult epoch_seeded_radial_frontier(
     bool has_edge_repairs=false;
     pairs.erase(std::remove_if(pairs.begin(),pairs.end(),[&](const auto& pair){
         if(!pair.upper_edge)return false;
-        if(cfg.fold_maps || pair.existing)return true;
+        if(fused_gradient::com_tangent_frame(p.a,p.rho) && (cfg.fold_maps||pair.existing))return true;
         has_edge_repairs=true;return false;
     }),pairs.end());
     if(pairs.empty()&&geometry_complete){out.frontier.evaluated_nodes=workspace.samples.size();out.integral.stats.topology_ms=out.frontier.planning_ms;return out;}
@@ -709,18 +712,36 @@ inline SeededFrontierResult epoch_seeded_radial_frontier(
     }
     for(size_t k=0;k<repaired_cells.size();++k)repaired_cells[k].index=int(k);
     topo.cells=std::move(repaired_cells);
-    pairs.erase(std::remove_if(pairs.begin(),pairs.end(),[](const auto& pair){return pair.upper_edge;}),pairs.end());
+    if(fused_gradient::com_tangent_frame(p.a,p.rho))
+        pairs.erase(std::remove_if(pairs.begin(),pairs.end(),[](const auto& pair){return pair.upper_edge;}),pairs.end());
     geometry_experiment::Scope geometry_scope(pairs);
     if(!pairs.empty() || has_edge_repairs){
         const auto first_nodes=out.integral.stats.node_evaluations;
         AdaptiveConfig extra_cfg=exploration_cfg;
         extra_cfg.max_node_evals=first_nodes<cfg.max_node_evals?cfg.max_node_evals-first_nodes:0;
-        if(extra_cfg.max_node_evals>0)out.integral=flux_adaptive_integrate(p,u,topo,extra_cfg,workspace,retain_geometry,
-            cfg.collect_diagnostics?nullptr:&epoch_event_errors);
+        if(extra_cfg.max_node_evals>0) {
+            try {
+                out.integral=flux_adaptive_integrate(p,u,topo,extra_cfg,workspace,retain_geometry,
+                    cfg.collect_diagnostics?nullptr:&epoch_event_errors);
+            } catch(const fused_gradient::IncompleteTangentCandidate& failure) {
+                if(!(out.integral.mu>0) || !std::isfinite(out.integral.mu) ||
+                   !std::all_of(out.integral.grad_mu.begin(),out.integral.grad_mu.end(),
+                       [](double component){return std::isfinite(component);}))throw;
+                out.edge_pair_replay_failed=true;
+                out.integral.stats.node_evaluations=failure.node_evaluations;
+                out.integral.grad_quality.fill(GradientQuality::Invalid);
+                out.integral.grad_reason.fill(GradientReason::TopologyUnresolved);
+            }
+        }
         else for(int j=0;j<5;++j){out.integral.grad_quality[j]=GradientQuality::Invalid;out.integral.grad_reason[j]=GradientReason::BudgetExceeded;}
         out.integral.stats.node_evaluations+=first_nodes;
     }
     if(!geometry_complete)for(int j=0;j<5;++j){out.integral.grad_quality[j]=GradientQuality::Invalid;out.integral.grad_reason[j]=GradientReason::TopologyUnresolved;}
+    out.edge_pair_replay_completed=!fused_gradient::com_tangent_frame(p.a,p.rho) && has_edge_repairs && geometry_complete &&
+        std::all_of(out.integral.grad_quality.begin(),out.integral.grad_quality.end(),
+            [](GradientQuality quality){return quality!=GradientQuality::Invalid && quality!=GradientQuality::NotRequested;}) &&
+        std::all_of(out.integral.grad_mu.begin(),out.integral.grad_mu.end(),
+            [](double component){return std::isfinite(component);});
     out.frontier.evaluated_nodes=workspace.samples.size();
     out.integral.stats.topology_ms=out.frontier.planning_ms;
     return out;

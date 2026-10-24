@@ -15,6 +15,44 @@ struct GaussianReplayFailure {
  int order=0;
 };
 struct GaussianRule {std::vector<double> x,w;};
+struct IncompleteTangentCandidate:std::runtime_error {
+ std::size_t node_evaluations;
+ IncompleteTangentCandidate(const char* message,std::size_t nodes):
+     std::runtime_error(message),node_evaluations(nodes){}
+};
+inline const geometry_experiment::Pair* gaussian_panel_pair(const AdaptivePanel& panel) {
+ const geometry_experiment::Pair* hot=nullptr;
+ if(!geometry_experiment::active)return hot;
+ const double mid=com_tangent_replay?.5*(panel.map.a+panel.map.b):
+     panel.map(.5*(panel.xl+panel.xr))[0];
+ for(const auto& pair:*geometry_experiment::active) {
+  const double matching=std::min(pair.scale*.25,1e-10*(1+std::fabs(pair.center)));
+  const bool touches_left=(com_tangent_replay||panel.xl==-1) &&
+      (std::fabs(panel.map.a-pair.left)<matching||std::fabs(panel.map.a-pair.right)<matching);
+  const bool touches_right=(com_tangent_replay||panel.xr==1) &&
+      (std::fabs(panel.map.b-pair.left)<matching||std::fabs(panel.map.b-pair.right)<matching);
+  if(pair.real && !touches_left && !touches_right)continue;
+  if(mid>pair.band_lo&&mid<pair.band_hi &&
+     (!hot||std::fabs(mid-pair.center)<std::fabs(mid-hot->center)))hot=&pair;
+ }
+ return hot;
+}
+inline bool gaussian_panel_split_needed(const AdaptivePanel& panel) {
+ if(com_tangent_replay||!geometry_experiment::active)return false;
+ auto left=panel,right=panel;
+ left.xr=right.xl=.5*(panel.xl+panel.xr);
+ const auto* first=gaussian_panel_pair(left);
+ const auto* last=gaussian_panel_pair(right);
+ return first && last && first!=last && first->real && last->real;
+}
+inline std::vector<AdaptivePanel> gaussian_panel_pieces(const AdaptivePanel& panel) {
+ if(gaussian_panel_split_needed(panel)) {
+  auto left=panel,right=panel;
+  left.xr=right.xl=.5*(panel.xl+panel.xr);
+  return {left,right};
+ }
+ return {panel};
+}
 inline GaussianRule make_gaussian_rule(int n){
  GaussianRule rule;rule.x.resize(n);rule.w.resize(n);
  constexpr long double pi=3.1415926535897932384626433832795029L;
@@ -60,17 +98,11 @@ inline AdaptiveResult gaussian_replay_fixed(AdaptiveWorkspace&workspace,const Ad
  double failed_radius=0;
  int failed_rejection=-1;
  for(const auto&panel:selected?*selected:workspace.panels)if(panel.active){
-  const geometry_experiment::Pair* hot=nullptr;
-  if(geometry_experiment::active)for(const auto&pair:*geometry_experiment::active){
-   const double mid=.5*(panel.map.a+panel.map.b);
-   const double matching=std::min(pair.scale*.25,1e-10*(1+std::fabs(pair.center)));
-   if(pair.real && !(std::fabs(panel.map.a-pair.left)<matching||std::fabs(panel.map.b-pair.left)<matching||std::fabs(panel.map.a-pair.right)<matching||std::fabs(panel.map.b-pair.right)<matching))continue;
-   if(mid>pair.band_lo&&mid<pair.band_hi && (!hot||std::fabs(mid-pair.center)<std::fabs(mid-hot->center)))hot=&pair;
-  }
+  const auto* hot=gaussian_panel_pair(panel);
   // Mixed product integration: exact for A(x)+sqrt(1-x^2)*B(x),
   // with quadratic A and B, including the smooth background. The seven
   // fixed cosine nodes stay away from rounded physical endpoints.
-  const bool pair_interior=hot&&hot->real&&!hot->upper_edge&&panel.xl==-1&&panel.xr==1&&
+  const bool pair_interior=hot&&hot->real&&!hot->upper_edge&&!hot->lower_edge&&panel.xl==-1&&panel.xr==1&&
       std::fabs(panel.map.a-hot->left)<std::min(hot->scale*.25,1e-10*(1+hot->left))&&
       std::fabs(panel.map.b-hot->right)<std::min(hot->scale*.25,1e-10*(1+hot->right));
   if(!forced_order && pair_interior){
@@ -217,12 +249,14 @@ inline AdaptiveResult gaussian_replay(AdaptiveWorkspace& workspace,const Adaptiv
   const auto active_panels=std::count_if(workspace.panels.begin(),workspace.panels.end(),
       [](const auto& panel){return panel.active;});
   if(active_panels==0)throw GaussianReplayFailure{AdaptiveStop::TopologyUnresolved,0};
-  const std::size_t completion_nodes=216*std::size_t(active_panels);
+  std::size_t completion_nodes=0;
+  for(const auto& panel:workspace.panels)if(panel.active)
+   completion_nodes+=216*(gaussian_panel_split_needed(panel)?2:1);
   replay_config.max_node_evals=std::max(cfg.max_node_evals,primal_nodes+completion_nodes);
   std::array<adaptive_detail::Sum,5> sums;
   adaptive_detail::Sum value_sum;
   for(const auto& panel:workspace.panels)if(panel.active) {
-   const std::vector<AdaptivePanel> selected{panel};
+   const auto selected=gaussian_panel_pieces(panel);
    bool computed=false;
    GaussianReplayFailure last_failure{AdaptiveStop::TopologyUnresolved,0};
    std::array<double,5> candidate{};

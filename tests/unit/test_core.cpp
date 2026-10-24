@@ -1487,5 +1487,60 @@ int main()
             } else value=sample.value[0];
         }
     }
+    {
+        namespace boundary=lcbinint::algebraic_boundary::tangent;
+        const boundary::LensParams parameters{-6.3359522138426355e-05,1.9809194818738246e-09,
+            .00031754130897469404,704.16939274402819,.63244064975758063,true};
+        const auto frame=boundary::PrimaryFrame::from(parameters);
+        const double radius=1.1813151226673571;
+        const auto rounded=boundary::certify_quartic(boundary::boundary_quartic(radius,frame).p);
+        if(!rounded.certified || rounded.root_count!=4)return 208;
+        if(boundary::seeded_frontier_detail::physical_crossing_count(radius,frame)!=2)return 209;
+        const auto arcs=boundary::adaptive_detail::physical_sturm_arcs(radius,frame,2);
+        if(arcs.arcs.size()!=1 || std::fabs(arcs.arcs[0][0]-1.0090756938412184)>2e-15 ||
+           std::fabs(arcs.arcs[0][1]-1.0090758363986408)>2e-15)return 210;
+        if(!(boundary::fused_precise_phi<false>(radius,5.274109545196602,frame).phi<0))return 211;
+        boundary::CellPlan cell{0,1.17,1.19,1.18,boundary::ArcKind::kArcs,-1,boundary::Status::OK};
+        boundary::AdaptiveConfig config;
+        config.tol.mu_atol=1e-4;config.tol.mu_rtol=1e-3;
+        for(double limb:{0.,.6584}) {
+            const auto value=boundary::adaptive_detail::mapped_radius<true>(radius,1,parameters,
+                limb,frame,cell,false,false,nullptr,&config);
+            const auto gradient=boundary::adaptive_detail::mapped_radius(radius,1,parameters,
+                limb,frame,cell,true,false,nullptr,&config);
+            if(!value.reliable || !gradient.reliable || value.local_crossings!=2 ||
+               gradient.local_crossings!=2 || !(value.value[0]>0))return 212;
+            if(std::fabs(value.value[0]/gradient.value[0]-1)>1e-7)return 213;
+            for(double component:gradient.value)if(!std::isfinite(component))return 214;
+            for(int component=1;component<6;++component)if(value.value[component]!=0)return 215;
+            config.angular_adaptive=true;
+            const auto angular=boundary::adaptive_detail::mapped_radius(radius,1,parameters,
+                limb,frame,cell,true,false,nullptr,&config);
+            config.angular_adaptive=false;
+            if(!angular.reliable || angular.local_crossings!=2 ||
+               std::fabs(angular.value[0]/gradient.value[0]-1)>1e-7)return 216;
+        }
+    }
+    {
+        namespace boundary=lcbinint::algebraic_boundary::tangent;
+        boundary::AdaptivePanel panel;
+        panel.map={1.,2.,true,true};panel.xl=-1;panel.xr=1;
+        boundary::geometry_experiment::Pair lower,upper;
+        lower.center=.995;lower.scale=.005;lower.left=.99;lower.right=1.;
+        lower.band_lo=.99;lower.band_hi=2.01;lower.real=lower.existing=lower.lower_edge=true;
+        upper.center=2.005;upper.scale=.005;upper.left=2.;upper.right=2.01;
+        upper.band_lo=.99;upper.band_hi=2.01;upper.real=upper.existing=upper.upper_edge=true;
+        const std::vector<boundary::geometry_experiment::Pair> pairs{lower,upper};
+        boundary::geometry_experiment::Scope scope(pairs);
+        const auto pieces=boundary::fused_gradient::gaussian_panel_pieces(panel);
+        if(pieces.size()!=2 || pieces[0].xl!=-1 || pieces[0].xr!=0 ||
+           pieces[1].xl!=0 || pieces[1].xr!=1)return 217;
+        if(boundary::fused_gradient::gaussian_panel_pair(pieces[0])!=&pairs[0] ||
+           boundary::fused_gradient::gaussian_panel_pair(pieces[1])!=&pairs[1])return 218;
+        const auto left_pieces=boundary::fused_gradient::gaussian_panel_pieces(pieces[0]);
+        if(left_pieces.size()!=1)return 219;
+        boundary::fused_gradient::ComTangentScope com_coordinates(true);
+        if(boundary::fused_gradient::gaussian_panel_pieces(panel).size()!=1)return 220;
+    }
     return 0;
 }

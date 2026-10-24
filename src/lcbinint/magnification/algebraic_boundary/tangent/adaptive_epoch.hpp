@@ -1149,7 +1149,7 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
     const AdaptiveConfig* adaptive_cfg=nullptr,double radius_lo=0,
     bool request_radial_hermite_jet=false,
     AdaptiveHermiteJet* hermite_jet_out=nullptr,
-    const QuarticCoeffs* prepared_pc=nullptr) {
+    const QuarticCoeffs* prepared_pc=nullptr,bool physical_topology=false) {
     const bool with_jac=PlainValue?false:input_with_jac;
     const double u=Uniform?0.0:input_u;
 #ifdef BOUNDARY_FRONTIER_COST_PROFILE
@@ -1158,7 +1158,7 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
     AdaptiveSample out;
     out.jac=jac;
     if(hermite_jet_out)*hermite_jet_out=AdaptiveHermiteJet{};
-    const bool request_jet=!PlainValue && request_radial_hermite_jet && hermite_jet_out && adaptive_cfg &&
+    const bool request_jet=!physical_topology && !PlainValue && request_radial_hermite_jet && hermite_jet_out && adaptive_cfg &&
         adaptive_cfg->same_node_hermite_shadow && !with_jac && u==0.0;
     const bool angular_research_requested=!PlainValue && adaptive_cfg &&
         adaptive_cfg->angular_adaptive && u!=0.0;
@@ -1175,7 +1175,7 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
     const bool angular_nested_requested=angular_mode_requested &&
         adaptive_cfg->angular_nested;
     bool nested_angular_attempted=false;
-    if(!PlainValue && !with_jac && !angular_mode_requested &&
+    if(!physical_topology && !PlainValue && !with_jac && !angular_mode_requested &&
        atlas_detail::try_pair_sample(R,radius_lo,jac,p,u,pf,cell,out))return out;
     // Without atlas hooks or angular upgrades the entry state is pristine:
     // its default construction already cleared all sample fields.
@@ -1208,7 +1208,7 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
     // this exact R.  Reuse that immutable state and evaluate only the next
     // fixed GC2 rule; rebuilding the quartic/root pair here would erase the
     // main benefit of the two-dimensional controller.
-    if(angular_mode_requested && seed && seed->angular_valid &&
+    if(!physical_topology && angular_mode_requested && seed && seed->angular_valid &&
        seed->angular_state_valid && seed->angular_order>0 &&
        ((!angular_nested_requested && seed->angular_order<adaptive_cfg->angular_max_order) ||
         (angular_nested_requested && seed->angular_nested &&
@@ -1380,6 +1380,16 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
         }
     }
     auto reject=[&](AdaptiveSampleRejectReason reason) {
+        if(!physical_topology &&
+           ((!fused_gradient::com_tangent_frame(p.a,p.rho) &&
+             (reason==AdaptiveSampleRejectReason::DegenerateChart ||
+              reason==AdaptiveSampleRejectReason::ArcKindMismatch)) ||
+            reason==AdaptiveSampleRejectReason::EndpointUnreliable ||
+            reason==AdaptiveSampleRejectReason::ArcWidthUnresolved ||
+            reason==AdaptiveSampleRejectReason::InnerPhiNonpositive ||
+            reason==AdaptiveSampleRejectReason::RootContinuationMismatch))
+            return mapped_radius<PlainValue,Uniform>(R,jac,p,u,pf,cell,with_jac,false,nullptr,
+                adaptive_cfg,radius_lo,request_radial_hermite_jet,hermite_jet_out,nullptr,true);
         out.reliable=false;out.reject_reason=reason;return out;
     };
     // A negative crossing count is reserved for the certified-component
@@ -1392,7 +1402,7 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
     QuarticCoeffs node_pc{};
     int node_crossings=cell.n_crossings;
     ArcKind node_kind=cell.kind;
-    if(cell.n_crossings<0 || (precise_boundary_required(R,pf)&&!prepared_pc)) {
+    if(physical_topology || cell.n_crossings<0 || (precise_boundary_required(R,pf)&&!prepared_pc)) {
 #ifdef BOUNDARY_FRONTIER_COST_PROFILE
         const QuarticCoeffs pc=[&] {
             V2ProfileTimer coeff_timer(&V2Profile::mapped_coeff_ms);
@@ -1429,7 +1439,7 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
             return certify_quartic(pc.p);
         }();
 #endif
-        if(precise_boundary_required(R,pf)) {
+        if(physical_topology || precise_boundary_required(R,pf)) {
             using Wide=__float128;
             const auto quantities=local_fold_quantities<Wide>(Wide(R)+radius_lo,Wide(0),pf);
             std::array<Wide,5> coefficients{{quantities.P,quantities.Pt,
@@ -1448,7 +1458,7 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
             return reject(AdaptiveSampleRejectReason::DegenerateChart);
         if(cert.root_count==0) {
             const double theta=0.371;
-            if(phi_val(R,theta,pf)>0.0) {
+            if((physical_topology?fused_precise_phi<false>(R,theta,pf).phi:phi_val(R,theta,pf))>0.0) {
                 auto sample=mapped_full_circle(R,jac,p,u,pf,with_jac,adaptive_cfg);
                 sample.local_crossings=-2;return sample;
             }
@@ -1467,11 +1477,10 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
 #else
         const bool retain_recursive_dispatch=(!PlainValue && active_atlas_samples) || angular_mode_requested;
 #endif
-        if(retain_recursive_dispatch) {
+        if(retain_recursive_dispatch && !physical_topology) {
             auto sample=mapped_radius<PlainValue,Uniform>(R,jac,p,u,pf,local,with_jac,warm,seed,
                                  adaptive_cfg,radius_lo,request_radial_hermite_jet,
                                  hermite_jet_out,&pc);
-            sample.local_crossings=cert.root_count;
             return sample;
         }
         node_pc=pc;prepared_pc=&node_pc;
@@ -1487,13 +1496,15 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
     if(node_kind==ArcKind::kEmpty)return out;
     if(node_kind==ArcKind::kDegenerate)
         return reject(AdaptiveSampleRejectReason::DegenerateChart);
+    out.local_crossings=node_crossings;
     if(seed){out.quartic=seed->quartic;out.roots=seed->roots;}
     out.roots.certify=warm;
     if(adaptive_cfg)out.quartic.seed_tolerance=adaptive_cfg->warm_root_seed_tolerance;
     QuarticCoeffs arc_pc{};
     std::vector<AdaptiveEndpointRecord> endpoint_cache;
-    auto arcs=adaptive_arc_intervals(R,pf,&out.quartic,&out.roots,&arc_pc,
-                                     node_crossings,prepared_pc,&endpoint_cache);
+    auto arcs=physical_topology?physical_sturm_arcs(R,pf,node_crossings):
+        adaptive_arc_intervals(R,pf,&out.quartic,&out.roots,&arc_pc,
+                              node_crossings,prepared_pc,&endpoint_cache);
     if(arcs.kind==ArcKind::kDegenerate)
         return reject(AdaptiveSampleRejectReason::DegenerateChart);
     if(arcs.kind!=node_kind)
@@ -1539,7 +1550,7 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
         ((!angular_nested_requested && !seed->angular_nested) ||
          (angular_nested_requested && seed->angular_nested &&
           seed->angular_nested_cache));
-    bool use_angular_research=(angular_research_requested ||
+    bool use_angular_research=!physical_topology && (angular_research_requested ||
                                seed_angular_upgrade) &&
                               arcs.arcs.size()==1;
     const bool use_nested_angular=use_angular_research &&
@@ -1596,21 +1607,23 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
 #else
         auto pe=polish_endpoint(R,a[0],pf),pl=polish_endpoint(R,a[1],pf);
 #endif
-        bool physical_endpoint_refinement=false;
-        if(!precise_boundary_required(R,pf)) {
+        bool physical_endpoint_refinement=physical_topology;
+        if(physical_topology || !precise_boundary_required(R,pf)) {
             const double uncertainty=eps*(std::fabs(R)+std::fabs(pf.X)+std::fabs(pf.Y)+1)/pf.rho;
             const double angular_uncertainty=uncertainty*(
                 1/std::fabs(pe.dphi_dtheta)+1/std::fabs(pl.dphi_dtheta));
             const double angular_budget=std::max(
                 4*eps*std::max({1.,std::fabs(a[0]),std::fabs(a[1])}),
                 (adaptive_cfg?adaptive_cfg->tol.mu_rtol:kAngularKRelTol)*(a[1]-a[0]));
-            if(angular_uncertainty>angular_budget) {
+            if(physical_topology || angular_uncertainty>angular_budget) {
                 physical_endpoint_refinement=true;
                 pe=polish_endpoint(R,pe.theta,pf,6,&endpoint_e,0,a[1]-a[0],true);
                 pl=polish_endpoint(R,pl.theta,pf,6,&endpoint_l,0,a[1]-a[0],true);
             }
         }
-        double te=pe.theta,tl=pl.theta;if(tl<=te)tl+=kTwoPi;
+        const double te=pe.theta,tl=pl.theta;
+        if(!(tl>te) || !(pe.dphi_dtheta>0) || !(pl.dphi_dtheta<0))
+            return reject(AdaptiveSampleRejectReason::EndpointUnreliable);
         // No flag override: transformed arithmetic still requires resolvable endpoints.
         if(!pe.reliable||!pl.reliable)
             return reject(AdaptiveSampleRejectReason::EndpointUnreliable);
@@ -2376,8 +2389,7 @@ inline AdaptiveResult flux_adaptive_integrate(const LensParams& p,double u,
             !fused_gradient::defer_sample_tangents;
         const bool node_plain_value_lane=!node_with_jacobian && !cfg.angular_adaptive &&
             !cfg.gradient_adaptive && !cfg.same_node_hermite_shadow && !active_atlas_samples;
-        const bool thin_tangent=node_with_jacobian&&
-            p.rho<std::sqrt(std::sqrt(std::numeric_limits<double>::epsilon()))*std::max(1.,p.a);
+        const bool thin_tangent=node_with_jacobian&&fused_gradient::com_tangent_frame(p.a,p.rho);
         const fused_gradient::ComTangentScope node_coordinates(fused_gradient::com_tangent_replay||thin_tangent);
         const fused_gradient::PreciseTangentScope node_precision(thin_tangent);
         const CellPlan& cell=integration_plan.spans[static_cast<std::size_t>(i)].cell;
@@ -2550,8 +2562,7 @@ inline AdaptiveResult flux_adaptive_integrate(const LensParams& p,double u,
     // its tangents on the existing fixed Gaussian rules in that case too;
     // the trigger is geometric and does not estimate derivative error.
     if(cfg.tangent_replay && with_jacobian && !workspace.panels.empty()) {
-        const fused_gradient::ComTangentScope com_coordinates(
-            p.rho<std::sqrt(std::sqrt(std::numeric_limits<double>::epsilon()))*std::max(1.,p.a));
+        const fused_gradient::ComTangentScope com_coordinates(fused_gradient::com_tangent_frame(p.a,p.rho));
         AdaptiveResult tangent;
         try {
             tangent=fused_gradient::gaussian_replay(workspace,radial_cfg,evaluate,result.stats.node_evaluations);
@@ -2580,7 +2591,7 @@ inline AdaptiveResult flux_adaptive_integrate(const LensParams& p,double u,
                     "algebraic_boundary: incomplete tangent candidate; xs=%.17g ys=%.17g rho=%.17g q=%.17g s=%.17g limb=%.17g R=%.17g rejection=%d order=%d stop=%s nodes=%zu",
                     p.xs,p.ys,p.rho,p.q,p.a,u,failure.radius,failure.rejection,failure.order,
                     adaptive_stop_name(tangent.stop),tangent.stats.node_evaluations);
-                throw std::runtime_error(context);
+                throw fused_gradient::IncompleteTangentCandidate(context,used+tangent.stats.node_evaluations);
             }
             tangent.stats.node_evaluations+=failure.node_evaluations;
             tangent.grad_quality.fill(GradientQuality::Invalid);

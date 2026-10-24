@@ -85,6 +85,31 @@ FusedGradientResult epoch_fused_gradient(const LensParams& p,double u,
     };
     auto result=kernel::epoch_seeded_radial_frontier(params,u,seeds,cfg,workspace,false,
         support_plan,!retry_edge_pairs.empty(),&retry_edge_pairs);
+    bool precise_retry_incomplete=false;
+    const bool unresolved_primary_geometry=!result.frontier.discovery_completed || result.edge_pair_replay_failed ||
+        std::any_of(result.integral.grad_quality.begin(),result.integral.grad_quality.end(),
+            [](kernel::GradientQuality quality){return quality==kernel::GradientQuality::Invalid;});
+    if(!kernel::fused_gradient::com_tangent_frame(p.a,p.rho) && unresolved_primary_geometry && retry_edge_pairs.empty() &&
+       result.integral.stats.node_evaluations<cfg.max_node_evals) {
+        const auto previous_nodes=result.integral.stats.node_evaluations;
+        auto precise_cfg=cfg;
+        precise_cfg.max_node_evals-=previous_nodes;
+        kernel::AdaptiveWorkspace precise_workspace;
+        try {
+            auto precise=kernel::epoch_seeded_radial_frontier(params,u,seeds,precise_cfg,
+                precise_workspace,false,support_plan,true);
+            if(precise.frontier.discovery_completed && precise.integral.mu>0 &&
+           std::isfinite(precise.integral.mu) &&
+           (precise.integral.value_converged || !result.integral.value_converged)) {
+                precise.integral.stats.node_evaluations+=previous_nodes;
+                result=std::move(precise);
+                workspace=std::move(precise_workspace);
+            } else result.integral.stats.node_evaluations+=precise.integral.stats.node_evaluations;
+        } catch(const kernel::fused_gradient::IncompleteTangentCandidate& failure) {
+            result.integral.stats.node_evaluations+=failure.node_evaluations;
+            precise_retry_incomplete=true;
+        }
+    }
     remember_edge_pairs(result.edge_pairs);
     auto gradients_usable=[](const kernel::AdaptiveResult& integral) {
         if(!integral.value_converged)return false;
@@ -132,6 +157,8 @@ FusedGradientResult epoch_fused_gradient(const LensParams& p,double u,
         out.frontier_discovery_completed=result.frontier.discovery_completed;
         out.value_converged=result.integral.value_converged;
         out.stop=kernel::adaptive_stop_name(result.integral.stop);
+        if(precise_retry_incomplete)out.stop+="; precise_frontier_retry=incomplete";
+        if(result.edge_pair_replay_failed)out.stop+="; edge_pair_retry=incomplete";
         if(!result.frontier.discovery_completed) {
             out.stop+="; frontier=";
             out.stop+=result.frontier.reason;
@@ -172,7 +199,7 @@ FusedGradientResult epoch_fused_gradient(const LensParams& p,double u,
         auto candidate=export_result();
         if(smooth_repair(candidate))return candidate;
     }
-    if(isolated_edge_contact && !(support_plan && support_plan->completed &&
+    if(isolated_edge_contact && !result.edge_pair_replay_completed && !(support_plan && support_plan->completed &&
        result.integral.value_converged && gradients_usable(result.integral))) {
         // A certified real close pair at the outer support edge makes the
         // fold-mapped derivative sharply localized. Resolve that rare geometry

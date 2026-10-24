@@ -9,7 +9,7 @@ using Q=__float128;
 }
 #include "fused_geometry_exact.hpp"
 namespace lcbinint::algebraic_boundary::tangent::geometry_experiment {
-struct Pair {double center=0,scale=0,left=0,right=0,band_lo=0,band_hi=0;bool real=false,existing=false,upper_edge=false;};
+struct Pair {double center=0,scale=0,left=0,right=0,band_lo=0,band_hi=0;bool real=false,existing=false,upper_edge=false,lower_edge=false;};
 // Existing support edges are normal image endpoints. Only mutually closest
 // INTERNAL physical folds are candidates for additional near-pair treatment.
 inline std::vector<Pair> known_internal_pairs(const PrimaryFrame&pf,const TopologyResult&topo,int resolution){
@@ -40,8 +40,8 @@ inline std::vector<Pair> known_internal_pairs(const PrimaryFrame&pf,const Topolo
 // A physically isolated real fold pair can also sit at the outer support edge.
 // Keep this detector separate from internal-pair replay: the caller uses it to
 // select a regular radial chart for the contact derivative.
-inline std::vector<Pair> known_upper_edge_pairs(const PrimaryFrame&pf,
-        const TopologyResult&topo,int resolution,bool* unresolved_out=nullptr) {
+inline std::vector<Pair> known_edge_pairs(const PrimaryFrame&pf,
+        const TopologyResult&topo,int resolution,bool upper,bool* unresolved_out=nullptr) {
  const ScopedNoFlushDenormals proof_environment;
  std::vector<Pair> out;
  if(unresolved_out)*unresolved_out=false;
@@ -65,10 +65,12 @@ inline std::vector<Pair> known_upper_edge_pairs(const PrimaryFrame&pf,
   std::sort(events.begin(),events.end());
   events.erase(std::unique(events.begin(),events.end()),events.end());
   if(events.size()>=3) {
-   const double a=events[events.size()-2],b=events.back(),gap=b-a;
-   const double previous_gap=a-events[events.size()-3];
+   const double a=upper?events[events.size()-2]:events[0];
+   const double b=upper?events.back():events[1],gap=b-a;
+   const double previous_gap=upper?a-events[events.size()-3]:events[2]-b;
    const double edge_tol=8*std::numeric_limits<double>::epsilon()*(1+std::fabs(hi));
-   if(a>lo&&gap>0&&gap<previous_gap&&hi>=b&&hi-b<=edge_tol&&
+   const bool at_edge=upper?(a>lo&&hi>=b&&hi-b<=edge_tol):(b<hi&&a>=lo&&a-lo<=edge_tol);
+   if(at_edge&&gap>0&&gap<previous_gap&&
       .5*gap<(hi-lo)/resolution) {
     using Q=__float128;
     const Q av=Q(a)*a,bv=Q(b)*b;
@@ -83,7 +85,7 @@ inline std::vector<Pair> known_upper_edge_pairs(const PrimaryFrame&pf,
     if(ok) {
      Pair pair;pair.center=a+.5*gap;pair.scale=.5*gap;
      pair.left=a;pair.right=b;pair.band_lo=lo;pair.band_hi=hi;
-     pair.real=true;pair.existing=true;pair.upper_edge=true;out.push_back(pair);
+     pair.real=true;pair.existing=true;pair.upper_edge=upper;pair.lower_edge=!upper;out.push_back(pair);
     } else if(unresolved_out) {
      *unresolved_out=true;
     }
@@ -92,6 +94,15 @@ inline std::vector<Pair> known_upper_edge_pairs(const PrimaryFrame&pf,
   first=last+1;
  }
  return out;
+}
+inline std::vector<Pair> known_upper_edge_pairs(const PrimaryFrame&pf,
+        const TopologyResult&topo,int resolution,bool* unresolved_out=nullptr) {
+ return known_edge_pairs(pf,topo,resolution,true,unresolved_out);
+}
+inline std::vector<Pair> known_lower_edge_pairs(const PrimaryFrame&pf,
+        const TopologyResult&topo,int resolution) {
+ if(fused_gradient::com_tangent_frame(pf.a,pf.rho))return {};
+ return known_edge_pairs(pf,topo,resolution,false);
 }
 // Stationary isolation is local to seeded support bands; it does not certify
 // global image support completeness. Solve D'(v)=0
@@ -104,7 +115,9 @@ inline std::vector<Pair> detect(const PrimaryFrame&pf,const TopologyResult&topo,
  if(resolution<=0){if(complete_out)*complete_out=false;return {};}
  auto known=known_internal_pairs(pf,topo,resolution);
  auto edge_pairs=known_upper_edge_pairs(pf,topo,resolution);
+ auto lower_pairs=known_lower_edge_pairs(pf,topo,resolution);
  known.insert(known.end(),edge_pairs.begin(),edge_pairs.end());
+ known.insert(known.end(),lower_pairs.begin(),lower_pairs.end());
  std::vector<bool> needs;
  const char* screen_setting=std::getenv("LCBININT_GEOMETRY_SCREEN");
  if(!screen_setting||screen_setting[0]!='0'){
@@ -224,7 +237,11 @@ inline std::vector<Pair> detect(const PrimaryFrame&pf,const TopologyResult&topo,
    const Q edge_v_tol=Q(2*hi+edge_radius_tol)*edge_radius_tol;
    const Q pair_enclosure=2*b+edge_v_tol;
    const bool real_upper_candidate=eta<0 && v-b<=vh+edge_v_tol && v+b>=vh-pair_enclosure;
-   if(!(v-b>vl && (v+b<vh || real_upper_candidate))){continue;}
+   const double lower_radius_tol=32*std::numeric_limits<double>::epsilon()*(1+std::fabs(lo));
+   const Q lower_v_tol=Q(2*lo+lower_radius_tol)*lower_radius_tol;
+   const bool real_lower_candidate=!fused_gradient::com_tangent_frame(pf.a,pf.rho) &&
+       eta<0 && v+b>=vl-lower_v_tol && v-b<=vl+2*b+lower_v_tol;
+   if(!((v-b>vl || real_lower_candidate) && (v+b<vh || real_upper_candidate))){continue;}
    // Rouche: the quadratic term dominates all other Taylor terms on
    // |z-v|=2*b. Interval coefficients bound the original exact dyadic input.
    // This proves exactly two discriminant roots in the disk, and rejects
@@ -246,7 +263,8 @@ inline std::vector<Pair> detect(const PrimaryFrame&pf,const TopologyResult&topo,
      if(cabs(step)<1e-23Q*fmaxq(1,cabs(root))){converged=true;break;}}
     const bool inside=root.re>vl&&root.re<vh;
     const bool enclosed_upper=eta<0&&root.re>=vh-edge_v_tol&&root.re<=vh+edge_v_tol;
-    good=good&&converged&&(inside||enclosed_upper);
+    const bool enclosed_lower=real_lower_candidate&&root.re>=vl-lower_v_tol&&root.re<=vl+lower_v_tol;
+    good=good&&converged&&(inside||enclosed_upper||enclosed_lower);
    }
    if(!good){continue;}
    auto sqrtc=[](Cplx<Q> z){Q re=sqrtq((cabs(z)+z.re)/2);return Cplx<Q>(re,z.im/(2*re));};
@@ -254,6 +272,7 @@ inline std::vector<Pair> detect(const PrimaryFrame&pf,const TopologyResult&topo,
    pair.center=double((a.re+broot.re)/2);pair.scale=pair.real?double(fabsq(a.re-broot.re)/2):double(fabsq(a.im));
    pair.left=double(fminq(a.re,broot.re));pair.right=double(fmaxq(a.re,broot.re));pair.band_lo=lo;pair.band_hi=hi;
    pair.upper_edge=pair.real&&std::fabs(pair.right-hi)<=edge_radius_tol;
+   pair.lower_edge=pair.real&&real_lower_candidate&&std::fabs(pair.left-lo)<=lower_radius_tol;
    if(pair.real&&!(pair.left<pair.right)){completed=false;continue;}
    if(!(pair.scale>0&&pair.scale<.5*(hi-lo)))continue;
    // The Newton roots must retain the proposed real/conjugate pair structure.
