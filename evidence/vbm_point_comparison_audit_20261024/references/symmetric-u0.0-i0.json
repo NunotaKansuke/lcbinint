@@ -1,0 +1,36 @@
+{
+  "source": [
+    0.0,
+    0.0
+  ],
+  "limb": 0.0,
+  "rtol": 1e-08,
+  "atol": 0,
+  "maximum_refinements": 1024,
+  "result": {
+    "repeat": 0,
+    "seconds": 0.003544651,
+    "preparation_seconds": 0,
+    "mu": 1.3350459244575081,
+    "error_estimate": 7.632673456756176e-11,
+    "converged": true,
+    "method": -1,
+    "stop": "converged",
+    "nodes": 0,
+    "quad": 0,
+    "boxes": 265,
+    "event_quad_boxes": 0,
+    "event_quad_refinements": 0,
+    "event_double_refinements": 8,
+    "events": 8,
+    "continued_radii": 65,
+    "global_radii": 0,
+    "support_route": "completed",
+    "regular_stop": "not_started",
+    "fast_support_seconds": 0,
+    "bounded_components": 0,
+    "bounded_component_value": 0,
+    "bounded_component_error": 0
+  },
+  "reused_reference": true
+}

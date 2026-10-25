@@ -1,5 +1,7 @@
 #include "lcbinint/magnification/finite_source_magnifier.hpp"
 #include "lcbinint/magnification/algebraic_boundary.hpp"
+#include "lcbinint/magnification/algebraic_boundary/triple/integrator.hpp"
+#include "lcbinint/magnification/algebraic_boundary/triple/frame.hpp"
 #include "lcbinint/magnification/algebraic_boundary_autodiff.hpp"
 #include "lcbinint/magnification/algebraic_boundary/fused_gradient.hpp"
 #include "lcbinint/magnification/algebraic_boundary/source_disk_gradient.hpp"
@@ -7853,6 +7855,48 @@ FiniteSourceResult FiniteSourceMagnifier::algebraic_boundary_deep_solve(
         jacobian.grad_reliable = jacobian.grad_reliable && result.value_converged;
     }
     return result;
+}
+
+FiniteSourceResult FiniteSourceMagnifier::algebraic_boundary_triple_mag(
+    const model::TripleLensGeometry& geometry, SourcePosition source,
+    double source_radius, const AlgebraicBoundarySettings& settings) const
+{
+    namespace kernel=lcbinint::algebraic_boundary::triple;
+    if(settings_.limb_darkening_d!=0)
+        throw std::invalid_argument("triple algebraic supports uniform and linear limb darkening only");
+    std::array<kernel::Complex,3> lenses;
+    for(int j=0;j<3;++j)lenses[j]={geometry.lens_positions[j].x,geometry.lens_positions[j].y};
+    for(double mass:geometry.masses)if(!(mass>0) || !std::isfinite(mass))
+        throw std::invalid_argument("triple algebraic requires positive masses");
+    if(std::abs(geometry.masses[0]+geometry.masses[1]+geometry.masses[2]-1)>1e-12)
+        throw std::invalid_argument("triple algebraic masses must sum to one");
+    const auto frame=kernel::primary_frame(lenses,{source.x,source.y},source_radius,
+        geometry.masses[1],geometry.masses[2]);
+    const auto& p=frame.geometry;
+    const std::array<double,8> identity{p.X,p.Y,p.rho,p.m1,p.m2,p.a,p.bx,p.by};
+    // Repeated identical epochs reuse the complete geometry plan. A different
+    // source or radius cannot accidentally borrow a sibling epoch's support.
+    thread_local std::optional<kernel::RadialEventPlan> cached_plan;
+    if(!cached_plan || cached_plan->identity!=identity)
+        cached_plan=kernel::radial_event_plan(p,1000000);
+    kernel::IntegrationOptions options;
+    options.absolute_tolerance=settings.absolute_tolerance;
+    options.relative_tolerance=settings.relative_tolerance;
+    const auto value=kernel::integrate(p,settings_.limb_darkening_c,options,&*cached_plan);
+    FiniteSourceResult out;
+    out.decision={FiniteSourceMethod::algebraic_boundary,
+        static_cast<int>(value.value_evaluations),"triple_algebraic_nested_fejer"};
+    out.magnification=value.magnification>0?value.magnification:std::numeric_limits<double>::quiet_NaN();
+    out.error_estimate=value.error_estimate;
+    out.refinement_level=value.refinements;
+    out.value_converged=value.converged;
+    out.frontier_discovery_completed=value.support.completed;
+    out.seed_support_proven=value.support_complete;
+    // This is a support-completeness statement, not an enclosure of flux error.
+    out.integral_support_certified=value.support_complete;
+    out.converged=value.converged && value.support_complete;
+    out.diagnostic_stop=value.reason;
+    return out;
 }
 
 FiniteSourceResult FiniteSourceMagnifier::triple_mag(

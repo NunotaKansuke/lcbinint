@@ -31,8 +31,14 @@ def _validated_value_request(curve, times, params, mu_atol, mu_rtol):
     model = curve._native.model
     if model.xallarap != "none":
         raise ValueError("algebraic-boundary light curves do not support xallarap")
-    if model.lens != "binary" or model.source != "single":
-        raise ValueError("algebraic-boundary light curves require a binary lens")
+    if model.lens not in ("binary", "triple") or model.source != "single":
+        raise ValueError("algebraic-boundary light curves require a binary or triple lens")
+    if model.lens == "triple":
+        q2, sep2, ang = (float(values.get(name, 0.0)) for name in ("q2", "sep2", "ang"))
+        if not all(math.isfinite(x) for x in (q2, sep2, ang)) or q2 <= 0 or sep2 <= 0:
+            raise ValueError("triple algebraic requires finite ang and positive q2, sep2")
+        if curve._native.orbital_motion != "static" or model.parallax:
+            raise ValueError("triple algebraic currently requires static geometry without parallax")
 
     limb_d = float(curve._native.ld_d)
     if curve._native.ld_c == 0.0 and limb_d == 0.0:
@@ -115,6 +121,8 @@ def lightcurve_value(
     )
     if scalar:
         for key, value in tuple(output.items()):
+            if key == "gradient_parameters":
+                continue
             if isinstance(value, (list, tuple)) or (isinstance(value, np.ndarray) and value.ndim):
                 output[key] = value[0]
     else:

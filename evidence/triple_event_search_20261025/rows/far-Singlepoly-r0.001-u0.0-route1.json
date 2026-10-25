@@ -1,0 +1,192 @@
+{
+  "name": "far",
+  "engine": "Singlepoly",
+  "case": {
+    "lenses": [
+      [
+        0.0,
+        0.0
+      ],
+      [
+        1.0,
+        0.0
+      ],
+      [
+        -0.4,
+        0.6
+      ]
+    ],
+    "masses": [
+      0.72,
+      0.2,
+      0.08
+    ],
+    "source": [
+      2.0,
+      1.5
+    ],
+    "rho": 0.02
+  },
+  "limb": 0.0,
+  "rtol": 0.001,
+  "route": 1,
+  "sources": [
+    [
+      2.0,
+      1.5
+    ],
+    [
+      2.0,
+      1.5
+    ],
+    [
+      2.0,
+      1.5
+    ],
+    [
+      2.0,
+      1.5
+    ],
+    [
+      2.0,
+      1.5
+    ],
+    [
+      2.0,
+      1.5
+    ],
+    [
+      2.0,
+      1.5
+    ],
+    [
+      2.0,
+      1.5
+    ],
+    [
+      2.0,
+      1.5
+    ]
+  ],
+  "returncode": 0,
+  "stderr": "",
+  "samples": [
+    {
+      "mu": 1.031122574565651,
+      "error": 0.0,
+      "seconds": 0.000229528,
+      "samples": 27,
+      "annuli": 1,
+      "converged": -1,
+      "index": 0,
+      "source": [
+        2.0,
+        1.5
+      ]
+    },
+    {
+      "mu": 1.031122574565651,
+      "error": 0.0,
+      "seconds": 0.000171187,
+      "samples": 27,
+      "annuli": 1,
+      "converged": -1,
+      "index": 1,
+      "source": [
+        2.0,
+        1.5
+      ]
+    },
+    {
+      "mu": 1.031122574565651,
+      "error": 0.0,
+      "seconds": 0.000214526,
+      "samples": 27,
+      "annuli": 1,
+      "converged": -1,
+      "index": 2,
+      "source": [
+        2.0,
+        1.5
+      ]
+    },
+    {
+      "mu": 1.031122574565651,
+      "error": 0.0,
+      "seconds": 0.000166589,
+      "samples": 27,
+      "annuli": 1,
+      "converged": -1,
+      "index": 3,
+      "source": [
+        2.0,
+        1.5
+      ]
+    },
+    {
+      "mu": 1.031122574565651,
+      "error": 0.0,
+      "seconds": 0.000159631,
+      "samples": 27,
+      "annuli": 1,
+      "converged": -1,
+      "index": 4,
+      "source": [
+        2.0,
+        1.5
+      ]
+    },
+    {
+      "mu": 1.031122574565651,
+      "error": 0.0,
+      "seconds": 0.000156685,
+      "samples": 27,
+      "annuli": 1,
+      "converged": -1,
+      "index": 5,
+      "source": [
+        2.0,
+        1.5
+      ]
+    },
+    {
+      "mu": 1.031122574565651,
+      "error": 0.0,
+      "seconds": 0.000159275,
+      "samples": 27,
+      "annuli": 1,
+      "converged": -1,
+      "index": 6,
+      "source": [
+        2.0,
+        1.5
+      ]
+    },
+    {
+      "mu": 1.031122574565651,
+      "error": 0.0,
+      "seconds": 0.000166862,
+      "samples": 27,
+      "annuli": 1,
+      "converged": -1,
+      "index": 7,
+      "source": [
+        2.0,
+        1.5
+      ]
+    },
+    {
+      "mu": 1.031122574565651,
+      "error": 0.0,
+      "seconds": 0.0001618,
+      "samples": 27,
+      "annuli": 1,
+      "converged": -1,
+      "index": 8,
+      "source": [
+        2.0,
+        1.5
+      ]
+    }
+  ]
+}

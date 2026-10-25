@@ -1,0 +1,8 @@
+{'case': 'planet', 'limb': 0.0, 'rtol': 0.0001, 'pairs': 128, 'before_ms': 0.1047125, 'after_ms': 0.106326, 'median_pair_speedup': 0.9878639042415611}
+{'case': 'planet', 'limb': 0.5, 'rtol': 0.0001, 'pairs': 128, 'before_ms': 0.114772, 'after_ms': 0.1173845, 'median_pair_speedup': 0.988126948965039}
+{'case': 'planet', 'limb': 0.0, 'rtol': 0.001, 'pairs': 128, 'before_ms': 0.0756405, 'after_ms': 0.075379, 'median_pair_speedup': 0.9802493452237341}
+{'case': 'planet', 'limb': 0.5, 'rtol': 0.001, 'pairs': 128, 'before_ms': 0.07234099999999999, 'after_ms': 0.07375550000000002, 'median_pair_speedup': 0.982868250823454}
+{'case': 'regular', 'limb': 0.0, 'rtol': 0.0001, 'pairs': 128, 'before_ms': 0.10223499999999999, 'after_ms': 0.10269249999999999, 'median_pair_speedup': 0.9832259675211448}
+{'case': 'regular', 'limb': 0.5, 'rtol': 0.0001, 'pairs': 128, 'before_ms': 0.105147, 'after_ms': 0.10634800000000001, 'median_pair_speedup': 0.9805373037515062}
+{'case': 'regular', 'limb': 0.0, 'rtol': 0.001, 'pairs': 128, 'before_ms': 0.08574050000000001, 'after_ms': 0.08781549999999999, 'median_pair_speedup': 0.993775257331015}
+{'case': 'regular', 'limb': 0.5, 'rtol': 0.001, 'pairs': 128, 'before_ms': 0.0879545, 'after_ms': 0.090078, 'median_pair_speedup': 0.9829480882757653}

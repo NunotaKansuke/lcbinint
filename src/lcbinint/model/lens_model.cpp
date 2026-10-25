@@ -439,7 +439,10 @@ MagnificationResult LensModel::magnification_impl(
             return result;
         }
 
-        const auto finite = finite_magnifier_->triple_mag(
+        const auto finite = use_algebraic_boundary
+            ? finite_magnifier_->algebraic_boundary_triple_mag(geometry,source,std::abs(params_.rho),
+                {plan->algebraic_boundary_atol,plan->algebraic_boundary_rtol})
+            : finite_magnifier_->triple_mag(
             geometry,
             source,
             std::abs(params_.rho),
@@ -451,6 +454,12 @@ MagnificationResult LensModel::magnification_impl(
         result.finite_source_method = static_cast<int>(finite.decision.method);
         result.finite_source_refinement_level = finite.refinement_level;
         result.finite_source_converged = finite.converged;
+        result.finite_source_value_converged=finite.value_converged;
+        result.integral_support_certified=finite.integral_support_certified;
+        result.seed_support_proven=finite.seed_support_proven;
+        result.frontier_discovery_completed=finite.frontier_discovery_completed;
+        result.finite_source_stop=finite.diagnostic_stop;
+        result.finite_source_evaluations=finite.decision.estimated_evaluations;
         result.image_count = finite.image_count;
         result.status = std::isfinite(result.magnification)
                 && (finite.converged || !requires_finite_source_convergence(options_))

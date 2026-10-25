@@ -1,0 +1,46 @@
+Internal ctest changing into directory: /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/build-triple-native
+Test project /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/build-triple-native
+      Start  2: triple_public_api
+ 1/20 Test  #2: triple_public_api ................   Passed    0.78 sec
+      Start  3: triple_interval
+ 2/20 Test  #3: triple_interval ..................   Passed    0.04 sec
+      Start  4: triple_weighted
+ 3/20 Test  #4: triple_weighted ..................   Passed    0.03 sec
+      Start  5: triple_physical
+ 4/20 Test  #5: triple_physical ..................   Passed    0.02 sec
+      Start  6: triple_promotion
+ 5/20 Test  #6: triple_promotion .................   Passed    0.00 sec
+      Start  7: triple_geometry
+ 6/20 Test  #7: triple_geometry ..................   Passed    0.00 sec
+      Start  8: triple_angular
+ 7/20 Test  #8: triple_angular ...................   Passed    0.06 sec
+      Start  9: triple_radius
+ 8/20 Test  #9: triple_radius ....................   Passed    0.04 sec
+      Start 10: triple_panel
+ 9/20 Test #10: triple_panel .....................   Passed    0.07 sec
+      Start 11: triple_events
+10/20 Test #11: triple_events ....................   Passed    0.01 sec
+      Start 12: triple_integrator
+11/20 Test #12: triple_integrator ................   Passed    0.28 sec
+      Start 13: triple_frame
+12/20 Test #13: triple_frame .....................   Passed    0.00 sec
+      Start 14: triple_reference
+13/20 Test #14: triple_reference .................   Passed    0.90 sec
+      Start 15: triple_surface
+14/20 Test #15: triple_surface ...................   Passed    2.22 sec
+      Start 16: triple_special
+15/20 Test #16: triple_special ...................   Passed    0.65 sec
+      Start 17: triple_resultant
+16/20 Test #17: triple_resultant .................   Passed    0.05 sec
+      Start 18: triple_point_sign
+17/20 Test #18: triple_point_sign ................   Passed    0.31 sec
+      Start 19: triple_lens_coefficients
+18/20 Test #19: triple_lens_coefficients .........   Passed    0.10 sec
+      Start 20: triple_magnitude
+19/20 Test #20: triple_magnitude .................   Passed    0.01 sec
+      Start 21: triple_regular
+20/20 Test #21: triple_regular ...................   Passed    1.09 sec
+
+100% tests passed, 0 tests failed out of 20
+
+Total Test time (real) =   6.66 sec

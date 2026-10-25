@@ -1,0 +1,30 @@
+{
+  "status": "PASS",
+  "native_cpp_tests": 20,
+  "assertions_tests": 2,
+  "exact_generated_matrix_coefficients": 4950,
+  "matrix_basis_overlap_diagnostics": 86400,
+  "exact_direct_coefficient_parity": 1856,
+  "warm_coefficient_overlap_diagnostics": 1856,
+  "unique_exact_rational_resultant_coefficients": 87,
+  "cold_warm_and_lens_invalidation_reference_checks": 2262,
+  "magnitude_independent_quad_comparisons": 24022,
+  "cached_motion_enclosure_endpoints_equal": 46416,
+  "direct_point_conditions": 324,
+  "repeats_per_condition": 5,
+  "direct_point_evaluations": 1620,
+  "heldout_conditions": 120,
+  "ld_extreme_conditions": 64,
+  "gradient_finite_difference_comparisons": 40,
+  "max_requested_error_fraction": 0.43371192110767537,
+  "vbm_methods": [
+    "Singlepoly",
+    "Multipoly",
+    "Nopoly"
+  ],
+  "vbm_nonfinite": 0,
+  "vbm_above_requested": 0,
+  "startup_fresh_process_trials": 8,
+  "startup_ready_barrier": true,
+  "target_30_percent_universal_reduction_achieved": false
+}

@@ -1,0 +1,197 @@
+{
+  "package": "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/build-triple-native/lcbinint/__init__.py",
+  "extension": "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/build-triple-native/lcbinint/_lcbinint.cpython-310-x86_64-linux-gnu.so",
+  "param_type": "lcbinint",
+  "input": {
+    "t0": -0.1,
+    "u0": 0.15,
+    "tE": 1.0,
+    "alpha": 0.2,
+    "s": 1.0,
+    "q": 0.2777777777777778,
+    "q2": 0.11111111111111112,
+    "sep2": 0.7211102550927978,
+    "ang": 2.1587989303424644,
+    "rho": 0.15
+  },
+  "mu": [
+    4.277451455647565
+  ],
+  "gradient": [
+    [
+      -9.701707195427131,
+      -8.236484729487728,
+      -0.9701707195427131,
+      -2.2789045522628424,
+      4.692507858044181,
+      -5.63170472236513,
+      -4.275100465870474,
+      -9.75715365610586,
+      -2.7742975298795667,
+      0.8284567041563247
+    ]
+  ],
+  "rows": [
+    {
+      "parameter": "t0",
+      "analytic": -9.701707195427131,
+      "steps": [
+        {
+          "h": 0.0003,
+          "finite_difference": -9.701696510870939,
+          "absolute_difference": 1.0684556192686046e-05
+        },
+        {
+          "h": 0.0001,
+          "finite_difference": -9.701706008229394,
+          "absolute_difference": 1.1871977374511289e-06
+        }
+      ]
+    },
+    {
+      "parameter": "u0",
+      "analytic": -8.236484729487728,
+      "steps": [
+        {
+          "h": 0.0003,
+          "finite_difference": -8.23648994046226,
+          "absolute_difference": 5.210974531877355e-06
+        },
+        {
+          "h": 0.0001,
+          "finite_difference": -8.236485308485975,
+          "absolute_difference": 5.789982466808397e-07
+        }
+      ]
+    },
+    {
+      "parameter": "tE",
+      "analytic": -0.9701707195427131,
+      "steps": [
+        {
+          "h": 0.0003,
+          "finite_difference": -0.9701708856339291,
+          "absolute_difference": 1.6609121600286159e-07
+        },
+        {
+          "h": 0.0001,
+          "finite_difference": -0.9701707379949909,
+          "absolute_difference": 1.8452277816827234e-08
+        }
+      ]
+    },
+    {
+      "parameter": "alpha",
+      "analytic": -2.2789045522628424,
+      "steps": [
+        {
+          "h": 0.0003,
+          "finite_difference": -2.278904345014432,
+          "absolute_difference": 2.0724841043318065e-07
+        },
+        {
+          "h": 0.0001,
+          "finite_difference": -2.278904529235959,
+          "absolute_difference": 2.3026883511079177e-08
+        }
+      ]
+    },
+    {
+      "parameter": "rho",
+      "analytic": 4.692507858044181,
+      "steps": [
+        {
+          "h": 0.0003,
+          "finite_difference": 4.692497108250334,
+          "absolute_difference": 1.0749793846187572e-05
+        },
+        {
+          "h": 0.0001,
+          "finite_difference": 4.692506663586116,
+          "absolute_difference": 1.1944580649014824e-06
+        }
+      ]
+    },
+    {
+      "parameter": "q",
+      "analytic": -5.63170472236513,
+      "steps": [
+        {
+          "h": 0.0003,
+          "finite_difference": -5.63170916732266,
+          "absolute_difference": 4.44495752915941e-06
+        },
+        {
+          "h": 0.0001,
+          "finite_difference": -5.631705216257998,
+          "absolute_difference": 4.938928679365517e-07
+        }
+      ]
+    },
+    {
+      "parameter": "s",
+      "analytic": -4.275100465870474,
+      "steps": [
+        {
+          "h": 0.0003,
+          "finite_difference": -4.2751008401224295,
+          "absolute_difference": 3.7425195564821934e-07
+        },
+        {
+          "h": 0.0001,
+          "finite_difference": -4.275100507462604,
+          "absolute_difference": 4.159212974030879e-08
+        }
+      ]
+    },
+    {
+      "parameter": "q2",
+      "analytic": -9.75715365610586,
+      "steps": [
+        {
+          "h": 0.0003,
+          "finite_difference": -9.757240418234819,
+          "absolute_difference": 8.676212895863955e-05
+        },
+        {
+          "h": 0.0001,
+          "finite_difference": -9.757163296266746,
+          "absolute_difference": 9.640160886448257e-06
+        }
+      ]
+    },
+    {
+      "parameter": "sep2",
+      "analytic": -2.7742975298795667,
+      "steps": [
+        {
+          "h": 0.0003,
+          "finite_difference": -2.7743007595818865,
+          "absolute_difference": 3.229702319806904e-06
+        },
+        {
+          "h": 0.0001,
+          "finite_difference": -2.7742978887390635,
+          "absolute_difference": 3.588594967851577e-07
+        }
+      ]
+    },
+    {
+      "parameter": "ang",
+      "analytic": 0.8284567041563247,
+      "steps": [
+        {
+          "h": 0.0003,
+          "finite_difference": 0.828456832933829,
+          "absolute_difference": 1.2877750432682689e-07
+        },
+        {
+          "h": 0.0001,
+          "finite_difference": 0.8284567184624336,
+          "absolute_difference": 1.4306108964134978e-08
+        }
+      ]
+    }
+  ],
+  "status": "PASS"
+}

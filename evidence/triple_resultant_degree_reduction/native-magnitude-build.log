@@ -1,0 +1,664 @@
+[  3%] Built target triple_interval
+[  6%] Built target lcbinint_fused_gradient
+[  7%] Building CXX object tests/triple_algebraic/CMakeFiles/triple_weighted.dir/test_weighted.cpp.o
+[ 10%] Built target triple_physical
+[ 12%] Building CXX object tests/triple_algebraic/CMakeFiles/triple_promotion.dir/test_promotion.cpp.o
+In file included from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/interval.hpp:2,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/angular_topology.hpp:5,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/radial_events.hpp:2,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/integrator.hpp:2,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/test_weighted.cpp:1:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp: In function ‘lcbinint::algebraic_boundary::positive_detail::Interval<T> lcbinint::algebraic_boundary::positive_detail::operator+(lcbinint::algebraic_boundary::positive_detail::Interval<T>, lcbinint::algebraic_boundary::positive_detail::Interval<T>)’:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:48:2: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+   48 |  if(a.zero())return b; if(b.zero())return a;
+      |  ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:48:24: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+   48 |  if(a.zero())return b; if(b.zero())return a;
+      |                        ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp: In function ‘lcbinint::algebraic_boundary::positive_detail::Ball lcbinint::algebraic_boundary::positive_detail::operator*(lcbinint::algebraic_boundary::positive_detail::Ball, lcbinint::algebraic_boundary::positive_detail::Ball)’:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:88:3: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+   88 |   if(x==0||y==0)continue; double p=x*y; double e=std::fma(x,y,-p);
+      |   ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:88:27: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+   88 |   if(x==0||y==0)continue; double p=x*y; double e=std::fma(x,y,-p);
+      |                           ^~~~~~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp: In function ‘lcbinint::algebraic_boundary::positive_detail::Poly<I> lcbinint::algebraic_boundary::positive_detail::mul(lcbinint::algebraic_boundary::positive_detail::Poly<I>, lcbinint::algebraic_boundary::positive_detail::Poly<I>)’:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:113:2: warning: this ‘for’ clause does not guard... [-Wmisleading-indentation]
+  113 |  for(int i=0;i<=a.degree;++i)for(int j=0;j<=b.degree;++j)r.c[i+j]=r.c[i+j]+a.c[i]*b.c[j];return r;
+      |  ^~~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:113:90: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘for’
+  113 |  for(int i=0;i<=a.degree;++i)for(int j=0;j<=b.degree;++j)r.c[i+j]=r.c[i+j]+a.c[i]*b.c[j];return r;
+      |                                                                                          ^~~~~~
+In file included from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/interval.hpp:2,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/angular_topology.hpp:5,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/radial_events.hpp:2,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/integrator.hpp:2,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/test_weighted.cpp:1:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp: In function ‘bool lcbinint::algebraic_boundary::positive_detail::normalize(lcbinint::algebraic_boundary::positive_detail::Poly<I>&)’:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:143:2: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+  143 |  if(m==0)return true;int e;frexpq(m,&e);for(int i=0;i<=p.degree;++i)p.c[i]=scale(p.c[i],-e);return trim(p);
+      |  ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:143:22: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+  143 |  if(m==0)return true;int e;frexpq(m,&e);for(int i=0;i<=p.degree;++i)p.c[i]=scale(p.c[i],-e);return trim(p);
+      |                      ^~~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp: In member function ‘bool lcbinint::algebraic_boundary::positive_detail::Chain<I>::build(lcbinint::algebraic_boundary::positive_detail::Poly<I>, int)’:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:168:4: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+  168 |    if(size>=15)return false;s[size++]=r;
+      |    ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:168:29: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+  168 |    if(size>=15)return false;s[size++]=r;
+      |                             ^
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp: In member function ‘int lcbinint::algebraic_boundary::positive_detail::Chain<I>::variation(__float128, int) const’:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:174:3: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+  174 |   if(!ok)return -1;int prev=0,v=0;
+      |   ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:174:20: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+  174 |   if(!ok)return -1;int prev=0,v=0;
+      |                    ^~~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:177:5: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+  177 |     if(sg||p.degree==0)break;p=derivative(p);++k;}
+      |     ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:177:30: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+  177 |     if(sg||p.degree==0)break;p=derivative(p);++k;}
+      |                              ^
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:178:4: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+  178 |    if(side<0&&(k&1))sg=-sg;if(sg){if(prev&&prev!=sg)++v;prev=sg;}
+      |    ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:178:28: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+  178 |    if(side<0&&(k&1))sg=-sg;if(sg){if(prev&&prev!=sg)++v;prev=sg;}
+      |                            ^~
+In file included from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/angular_topology.hpp:5,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/radial_events.hpp:2,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/integrator.hpp:2,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/test_weighted.cpp:1:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/interval.hpp: In function ‘__float128 lcbinint::algebraic_boundary::triple::interval_detail::neighbour(__float128, bool)’:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/interval.hpp:27:22: warning: ISO C++ does not support ‘__int128’ for ‘type name’ [-Wpedantic]
+   27 |     using U=unsigned __int128;
+      |                      ^~~~~~~~
+In file included from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/interval.hpp:2,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/angular_topology.hpp:5,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/radius_terms.hpp:2,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/test_promotion.cpp:1:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp: In function ‘lcbinint::algebraic_boundary::positive_detail::Interval<T> lcbinint::algebraic_boundary::positive_detail::operator+(lcbinint::algebraic_boundary::positive_detail::Interval<T>, lcbinint::algebraic_boundary::positive_detail::Interval<T>)’:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:48:2: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+   48 |  if(a.zero())return b; if(b.zero())return a;
+      |  ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:48:24: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+   48 |  if(a.zero())return b; if(b.zero())return a;
+      |                        ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp: In function ‘lcbinint::algebraic_boundary::positive_detail::Ball lcbinint::algebraic_boundary::positive_detail::operator*(lcbinint::algebraic_boundary::positive_detail::Ball, lcbinint::algebraic_boundary::positive_detail::Ball)’:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:88:3: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+   88 |   if(x==0||y==0)continue; double p=x*y; double e=std::fma(x,y,-p);
+      |   ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:88:27: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+   88 |   if(x==0||y==0)continue; double p=x*y; double e=std::fma(x,y,-p);
+      |                           ^~~~~~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp: In function ‘lcbinint::algebraic_boundary::positive_detail::Poly<I> lcbinint::algebraic_boundary::positive_detail::mul(lcbinint::algebraic_boundary::positive_detail::Poly<I>, lcbinint::algebraic_boundary::positive_detail::Poly<I>)’:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:113:2: warning: this ‘for’ clause does not guard... [-Wmisleading-indentation]
+  113 |  for(int i=0;i<=a.degree;++i)for(int j=0;j<=b.degree;++j)r.c[i+j]=r.c[i+j]+a.c[i]*b.c[j];return r;
+      |  ^~~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:113:90: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘for’
+  113 |  for(int i=0;i<=a.degree;++i)for(int j=0;j<=b.degree;++j)r.c[i+j]=r.c[i+j]+a.c[i]*b.c[j];return r;
+      |                                                                                          ^~~~~~
+In file included from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/interval.hpp:2,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/angular_topology.hpp:5,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/radius_terms.hpp:2,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/test_promotion.cpp:1:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp: In function ‘bool lcbinint::algebraic_boundary::positive_detail::normalize(lcbinint::algebraic_boundary::positive_detail::Poly<I>&)’:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:143:2: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+  143 |  if(m==0)return true;int e;frexpq(m,&e);for(int i=0;i<=p.degree;++i)p.c[i]=scale(p.c[i],-e);return trim(p);
+      |  ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:143:22: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+  143 |  if(m==0)return true;int e;frexpq(m,&e);for(int i=0;i<=p.degree;++i)p.c[i]=scale(p.c[i],-e);return trim(p);
+      |                      ^~~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp: In member function ‘bool lcbinint::algebraic_boundary::positive_detail::Chain<I>::build(lcbinint::algebraic_boundary::positive_detail::Poly<I>, int)’:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:168:4: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+  168 |    if(size>=15)return false;s[size++]=r;
+      |    ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:168:29: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+  168 |    if(size>=15)return false;s[size++]=r;
+      |                             ^
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp: In member function ‘int lcbinint::algebraic_boundary::positive_detail::Chain<I>::variation(__float128, int) const’:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:174:3: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+  174 |   if(!ok)return -1;int prev=0,v=0;
+      |   ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:174:20: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+  174 |   if(!ok)return -1;int prev=0,v=0;
+      |                    ^~~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:177:5: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+  177 |     if(sg||p.degree==0)break;p=derivative(p);++k;}
+      |     ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:177:30: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+  177 |     if(sg||p.degree==0)break;p=derivative(p);++k;}
+      |                              ^
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:178:4: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+  178 |    if(side<0&&(k&1))sg=-sg;if(sg){if(prev&&prev!=sg)++v;prev=sg;}
+      |    ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:178:28: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+  178 |    if(side<0&&(k&1))sg=-sg;if(sg){if(prev&&prev!=sg)++v;prev=sg;}
+      |                            ^~
+In file included from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/angular_topology.hpp:5,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/radius_terms.hpp:2,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/test_promotion.cpp:1:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/interval.hpp: In function ‘__float128 lcbinint::algebraic_boundary::triple::interval_detail::neighbour(__float128, bool)’:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/interval.hpp:27:22: warning: ISO C++ does not support ‘__int128’ for ‘type name’ [-Wpedantic]
+   27 |     using U=unsigned __int128;
+      |                      ^~~~~~~~
+[ 13%] Linking CXX executable triple_promotion
+[ 13%] Built target triple_promotion
+[ 16%] Built target triple_geometry
+[ 19%] Built target triple_angular
+[ 21%] Building CXX object tests/triple_algebraic/CMakeFiles/triple_radius.dir/test_radius.cpp.o
+In file included from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/interval.hpp:2,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/angular_topology.hpp:5,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/radius_terms.hpp:2,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/test_radius.cpp:1:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp: In function ‘lcbinint::algebraic_boundary::positive_detail::Interval<T> lcbinint::algebraic_boundary::positive_detail::operator+(lcbinint::algebraic_boundary::positive_detail::Interval<T>, lcbinint::algebraic_boundary::positive_detail::Interval<T>)’:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:48:2: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+   48 |  if(a.zero())return b; if(b.zero())return a;
+      |  ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:48:24: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+   48 |  if(a.zero())return b; if(b.zero())return a;
+      |                        ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp: In function ‘lcbinint::algebraic_boundary::positive_detail::Ball lcbinint::algebraic_boundary::positive_detail::operator*(lcbinint::algebraic_boundary::positive_detail::Ball, lcbinint::algebraic_boundary::positive_detail::Ball)’:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:88:3: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+   88 |   if(x==0||y==0)continue; double p=x*y; double e=std::fma(x,y,-p);
+      |   ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:88:27: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+   88 |   if(x==0||y==0)continue; double p=x*y; double e=std::fma(x,y,-p);
+      |                           ^~~~~~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp: In function ‘lcbinint::algebraic_boundary::positive_detail::Poly<I> lcbinint::algebraic_boundary::positive_detail::mul(lcbinint::algebraic_boundary::positive_detail::Poly<I>, lcbinint::algebraic_boundary::positive_detail::Poly<I>)’:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:113:2: warning: this ‘for’ clause does not guard... [-Wmisleading-indentation]
+  113 |  for(int i=0;i<=a.degree;++i)for(int j=0;j<=b.degree;++j)r.c[i+j]=r.c[i+j]+a.c[i]*b.c[j];return r;
+      |  ^~~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:113:90: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘for’
+  113 |  for(int i=0;i<=a.degree;++i)for(int j=0;j<=b.degree;++j)r.c[i+j]=r.c[i+j]+a.c[i]*b.c[j];return r;
+      |                                                                                          ^~~~~~
+In file included from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/interval.hpp:2,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/angular_topology.hpp:5,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/radius_terms.hpp:2,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/test_radius.cpp:1:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp: In function ‘bool lcbinint::algebraic_boundary::positive_detail::normalize(lcbinint::algebraic_boundary::positive_detail::Poly<I>&)’:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:143:2: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+  143 |  if(m==0)return true;int e;frexpq(m,&e);for(int i=0;i<=p.degree;++i)p.c[i]=scale(p.c[i],-e);return trim(p);
+      |  ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:143:22: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+  143 |  if(m==0)return true;int e;frexpq(m,&e);for(int i=0;i<=p.degree;++i)p.c[i]=scale(p.c[i],-e);return trim(p);
+      |                      ^~~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp: In member function ‘bool lcbinint::algebraic_boundary::positive_detail::Chain<I>::build(lcbinint::algebraic_boundary::positive_detail::Poly<I>, int)’:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:168:4: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+  168 |    if(size>=15)return false;s[size++]=r;
+      |    ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:168:29: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+  168 |    if(size>=15)return false;s[size++]=r;
+      |                             ^
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp: In member function ‘int lcbinint::algebraic_boundary::positive_detail::Chain<I>::variation(__float128, int) const’:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:174:3: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+  174 |   if(!ok)return -1;int prev=0,v=0;
+      |   ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:174:20: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+  174 |   if(!ok)return -1;int prev=0,v=0;
+      |                    ^~~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:177:5: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+  177 |     if(sg||p.degree==0)break;p=derivative(p);++k;}
+      |     ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:177:30: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+  177 |     if(sg||p.degree==0)break;p=derivative(p);++k;}
+      |                              ^
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:178:4: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+  178 |    if(side<0&&(k&1))sg=-sg;if(sg){if(prev&&prev!=sg)++v;prev=sg;}
+      |    ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:178:28: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+  178 |    if(side<0&&(k&1))sg=-sg;if(sg){if(prev&&prev!=sg)++v;prev=sg;}
+      |                            ^~
+In file included from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/angular_topology.hpp:5,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/radius_terms.hpp:2,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/test_radius.cpp:1:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/interval.hpp: In function ‘__float128 lcbinint::algebraic_boundary::triple::interval_detail::neighbour(__float128, bool)’:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/interval.hpp:27:22: warning: ISO C++ does not support ‘__int128’ for ‘type name’ [-Wpedantic]
+   27 |     using U=unsigned __int128;
+      |                      ^~~~~~~~
+[ 22%] Linking CXX executable triple_radius
+[ 22%] Built target triple_radius
+[ 24%] Building CXX object tests/triple_algebraic/CMakeFiles/triple_panel.dir/test_panel.cpp.o
+In file included from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/interval.hpp:2,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/angular_topology.hpp:5,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/radius_terms.hpp:2,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/radial_panel.hpp:2,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/test_panel.cpp:1:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp: In function ‘lcbinint::algebraic_boundary::positive_detail::Interval<T> lcbinint::algebraic_boundary::positive_detail::operator+(lcbinint::algebraic_boundary::positive_detail::Interval<T>, lcbinint::algebraic_boundary::positive_detail::Interval<T>)’:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:48:2: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+   48 |  if(a.zero())return b; if(b.zero())return a;
+      |  ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:48:24: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+   48 |  if(a.zero())return b; if(b.zero())return a;
+      |                        ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp: In function ‘lcbinint::algebraic_boundary::positive_detail::Ball lcbinint::algebraic_boundary::positive_detail::operator*(lcbinint::algebraic_boundary::positive_detail::Ball, lcbinint::algebraic_boundary::positive_detail::Ball)’:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:88:3: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+   88 |   if(x==0||y==0)continue; double p=x*y; double e=std::fma(x,y,-p);
+      |   ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:88:27: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+   88 |   if(x==0||y==0)continue; double p=x*y; double e=std::fma(x,y,-p);
+      |                           ^~~~~~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp: In function ‘lcbinint::algebraic_boundary::positive_detail::Poly<I> lcbinint::algebraic_boundary::positive_detail::mul(lcbinint::algebraic_boundary::positive_detail::Poly<I>, lcbinint::algebraic_boundary::positive_detail::Poly<I>)’:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:113:2: warning: this ‘for’ clause does not guard... [-Wmisleading-indentation]
+  113 |  for(int i=0;i<=a.degree;++i)for(int j=0;j<=b.degree;++j)r.c[i+j]=r.c[i+j]+a.c[i]*b.c[j];return r;
+      |  ^~~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:113:90: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘for’
+  113 |  for(int i=0;i<=a.degree;++i)for(int j=0;j<=b.degree;++j)r.c[i+j]=r.c[i+j]+a.c[i]*b.c[j];return r;
+      |                                                                                          ^~~~~~
+In file included from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/interval.hpp:2,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/angular_topology.hpp:5,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/radius_terms.hpp:2,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/radial_panel.hpp:2,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/test_panel.cpp:1:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp: In function ‘bool lcbinint::algebraic_boundary::positive_detail::normalize(lcbinint::algebraic_boundary::positive_detail::Poly<I>&)’:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:143:2: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+  143 |  if(m==0)return true;int e;frexpq(m,&e);for(int i=0;i<=p.degree;++i)p.c[i]=scale(p.c[i],-e);return trim(p);
+      |  ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:143:22: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+  143 |  if(m==0)return true;int e;frexpq(m,&e);for(int i=0;i<=p.degree;++i)p.c[i]=scale(p.c[i],-e);return trim(p);
+      |                      ^~~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp: In member function ‘bool lcbinint::algebraic_boundary::positive_detail::Chain<I>::build(lcbinint::algebraic_boundary::positive_detail::Poly<I>, int)’:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:168:4: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+  168 |    if(size>=15)return false;s[size++]=r;
+      |    ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:168:29: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+  168 |    if(size>=15)return false;s[size++]=r;
+      |                             ^
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp: In member function ‘int lcbinint::algebraic_boundary::positive_detail::Chain<I>::variation(__float128, int) const’:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:174:3: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+  174 |   if(!ok)return -1;int prev=0,v=0;
+      |   ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:174:20: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+  174 |   if(!ok)return -1;int prev=0,v=0;
+      |                    ^~~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:177:5: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+  177 |     if(sg||p.degree==0)break;p=derivative(p);++k;}
+      |     ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:177:30: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+  177 |     if(sg||p.degree==0)break;p=derivative(p);++k;}
+      |                              ^
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:178:4: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+  178 |    if(side<0&&(k&1))sg=-sg;if(sg){if(prev&&prev!=sg)++v;prev=sg;}
+      |    ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:178:28: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+  178 |    if(side<0&&(k&1))sg=-sg;if(sg){if(prev&&prev!=sg)++v;prev=sg;}
+      |                            ^~
+In file included from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/angular_topology.hpp:5,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/radius_terms.hpp:2,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/radial_panel.hpp:2,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/test_panel.cpp:1:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/interval.hpp: In function ‘__float128 lcbinint::algebraic_boundary::triple::interval_detail::neighbour(__float128, bool)’:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/interval.hpp:27:22: warning: ISO C++ does not support ‘__int128’ for ‘type name’ [-Wpedantic]
+   27 |     using U=unsigned __int128;
+      |                      ^~~~~~~~
+[ 25%] Linking CXX executable triple_weighted
+[ 25%] Built target triple_weighted
+[ 28%] Built target triple_events
+[ 30%] Building CXX object tests/triple_algebraic/CMakeFiles/triple_integrator.dir/test_integrator.cpp.o
+In file included from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/interval.hpp:2,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/angular_topology.hpp:5,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/radial_events.hpp:2,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/integrator.hpp:2,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/test_integrator.cpp:1:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp: In function ‘lcbinint::algebraic_boundary::positive_detail::Interval<T> lcbinint::algebraic_boundary::positive_detail::operator+(lcbinint::algebraic_boundary::positive_detail::Interval<T>, lcbinint::algebraic_boundary::positive_detail::Interval<T>)’:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:48:2: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+   48 |  if(a.zero())return b; if(b.zero())return a;
+      |  ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:48:24: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+   48 |  if(a.zero())return b; if(b.zero())return a;
+      |                        ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp: In function ‘lcbinint::algebraic_boundary::positive_detail::Ball lcbinint::algebraic_boundary::positive_detail::operator*(lcbinint::algebraic_boundary::positive_detail::Ball, lcbinint::algebraic_boundary::positive_detail::Ball)’:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:88:3: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+   88 |   if(x==0||y==0)continue; double p=x*y; double e=std::fma(x,y,-p);
+      |   ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:88:27: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+   88 |   if(x==0||y==0)continue; double p=x*y; double e=std::fma(x,y,-p);
+      |                           ^~~~~~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp: In function ‘lcbinint::algebraic_boundary::positive_detail::Poly<I> lcbinint::algebraic_boundary::positive_detail::mul(lcbinint::algebraic_boundary::positive_detail::Poly<I>, lcbinint::algebraic_boundary::positive_detail::Poly<I>)’:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:113:2: warning: this ‘for’ clause does not guard... [-Wmisleading-indentation]
+  113 |  for(int i=0;i<=a.degree;++i)for(int j=0;j<=b.degree;++j)r.c[i+j]=r.c[i+j]+a.c[i]*b.c[j];return r;
+      |  ^~~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:113:90: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘for’
+  113 |  for(int i=0;i<=a.degree;++i)for(int j=0;j<=b.degree;++j)r.c[i+j]=r.c[i+j]+a.c[i]*b.c[j];return r;
+      |                                                                                          ^~~~~~
+In file included from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/interval.hpp:2,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/angular_topology.hpp:5,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/radial_events.hpp:2,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/integrator.hpp:2,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/test_integrator.cpp:1:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp: In function ‘bool lcbinint::algebraic_boundary::positive_detail::normalize(lcbinint::algebraic_boundary::positive_detail::Poly<I>&)’:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:143:2: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+  143 |  if(m==0)return true;int e;frexpq(m,&e);for(int i=0;i<=p.degree;++i)p.c[i]=scale(p.c[i],-e);return trim(p);
+      |  ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:143:22: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+  143 |  if(m==0)return true;int e;frexpq(m,&e);for(int i=0;i<=p.degree;++i)p.c[i]=scale(p.c[i],-e);return trim(p);
+      |                      ^~~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp: In member function ‘bool lcbinint::algebraic_boundary::positive_detail::Chain<I>::build(lcbinint::algebraic_boundary::positive_detail::Poly<I>, int)’:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:168:4: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+  168 |    if(size>=15)return false;s[size++]=r;
+      |    ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:168:29: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+  168 |    if(size>=15)return false;s[size++]=r;
+      |                             ^
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp: In member function ‘int lcbinint::algebraic_boundary::positive_detail::Chain<I>::variation(__float128, int) const’:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:174:3: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+  174 |   if(!ok)return -1;int prev=0,v=0;
+      |   ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:174:20: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+  174 |   if(!ok)return -1;int prev=0,v=0;
+      |                    ^~~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:177:5: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+  177 |     if(sg||p.degree==0)break;p=derivative(p);++k;}
+      |     ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:177:30: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+  177 |     if(sg||p.degree==0)break;p=derivative(p);++k;}
+      |                              ^
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:178:4: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+  178 |    if(side<0&&(k&1))sg=-sg;if(sg){if(prev&&prev!=sg)++v;prev=sg;}
+      |    ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:178:28: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+  178 |    if(side<0&&(k&1))sg=-sg;if(sg){if(prev&&prev!=sg)++v;prev=sg;}
+      |                            ^~
+In file included from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/angular_topology.hpp:5,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/radial_events.hpp:2,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/integrator.hpp:2,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/test_integrator.cpp:1:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/interval.hpp: In function ‘__float128 lcbinint::algebraic_boundary::triple::interval_detail::neighbour(__float128, bool)’:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/interval.hpp:27:22: warning: ISO C++ does not support ‘__int128’ for ‘type name’ [-Wpedantic]
+   27 |     using U=unsigned __int128;
+      |                      ^~~~~~~~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/test_integrator.cpp: In function ‘int main()’:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/test_integrator.cpp:10:2: warning: this ‘for’ clause does not guard... [-Wmisleading-indentation]
+   10 |  for(int j=0;j<8;++j)std::cout<<g.normalized.df0[j]<<" ";std::cout<<"\n";
+      |  ^~~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/test_integrator.cpp:10:58: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘for’
+   10 |  for(int j=0;j<8;++j)std::cout<<g.normalized.df0[j]<<" ";std::cout<<"\n";
+      |                                                          ^~~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/test_integrator.cpp:11:2: warning: this ‘for’ clause does not guard... [-Wmisleading-indentation]
+   11 |  for(double e:g.normalized.gradient_error)std::cout<<e<<" ";std::cout<<"\n";
+      |  ^~~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/test_integrator.cpp:11:61: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘for’
+   11 |  for(double e:g.normalized.gradient_error)std::cout<<e<<" ";std::cout<<"\n";
+      |                                                             ^~~
+[ 31%] Linking CXX executable triple_panel
+[ 31%] Built target triple_panel
+[ 34%] Built target triple_frame
+[ 36%] Building CXX object tests/triple_algebraic/CMakeFiles/triple_reference.dir/test_reference.cpp.o
+In file included from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/interval.hpp:2,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/angular_topology.hpp:5,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/radial_events.hpp:2,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/integrator.hpp:2,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/test_reference.cpp:1:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp: In function ‘lcbinint::algebraic_boundary::positive_detail::Interval<T> lcbinint::algebraic_boundary::positive_detail::operator+(lcbinint::algebraic_boundary::positive_detail::Interval<T>, lcbinint::algebraic_boundary::positive_detail::Interval<T>)’:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:48:2: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+   48 |  if(a.zero())return b; if(b.zero())return a;
+      |  ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:48:24: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+   48 |  if(a.zero())return b; if(b.zero())return a;
+      |                        ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp: In function ‘lcbinint::algebraic_boundary::positive_detail::Ball lcbinint::algebraic_boundary::positive_detail::operator*(lcbinint::algebraic_boundary::positive_detail::Ball, lcbinint::algebraic_boundary::positive_detail::Ball)’:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:88:3: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+   88 |   if(x==0||y==0)continue; double p=x*y; double e=std::fma(x,y,-p);
+      |   ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:88:27: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+   88 |   if(x==0||y==0)continue; double p=x*y; double e=std::fma(x,y,-p);
+      |                           ^~~~~~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp: In function ‘lcbinint::algebraic_boundary::positive_detail::Poly<I> lcbinint::algebraic_boundary::positive_detail::mul(lcbinint::algebraic_boundary::positive_detail::Poly<I>, lcbinint::algebraic_boundary::positive_detail::Poly<I>)’:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:113:2: warning: this ‘for’ clause does not guard... [-Wmisleading-indentation]
+  113 |  for(int i=0;i<=a.degree;++i)for(int j=0;j<=b.degree;++j)r.c[i+j]=r.c[i+j]+a.c[i]*b.c[j];return r;
+      |  ^~~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:113:90: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘for’
+  113 |  for(int i=0;i<=a.degree;++i)for(int j=0;j<=b.degree;++j)r.c[i+j]=r.c[i+j]+a.c[i]*b.c[j];return r;
+      |                                                                                          ^~~~~~
+In file included from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/interval.hpp:2,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/angular_topology.hpp:5,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/radial_events.hpp:2,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/integrator.hpp:2,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/test_reference.cpp:1:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp: In function ‘bool lcbinint::algebraic_boundary::positive_detail::normalize(lcbinint::algebraic_boundary::positive_detail::Poly<I>&)’:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:143:2: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+  143 |  if(m==0)return true;int e;frexpq(m,&e);for(int i=0;i<=p.degree;++i)p.c[i]=scale(p.c[i],-e);return trim(p);
+      |  ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:143:22: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+  143 |  if(m==0)return true;int e;frexpq(m,&e);for(int i=0;i<=p.degree;++i)p.c[i]=scale(p.c[i],-e);return trim(p);
+      |                      ^~~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp: In member function ‘bool lcbinint::algebraic_boundary::positive_detail::Chain<I>::build(lcbinint::algebraic_boundary::positive_detail::Poly<I>, int)’:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:168:4: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+  168 |    if(size>=15)return false;s[size++]=r;
+      |    ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:168:29: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+  168 |    if(size>=15)return false;s[size++]=r;
+      |                             ^
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp: In member function ‘int lcbinint::algebraic_boundary::positive_detail::Chain<I>::variation(__float128, int) const’:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:174:3: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+  174 |   if(!ok)return -1;int prev=0,v=0;
+      |   ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:174:20: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+  174 |   if(!ok)return -1;int prev=0,v=0;
+      |                    ^~~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:177:5: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+  177 |     if(sg||p.degree==0)break;p=derivative(p);++k;}
+      |     ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:177:30: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+  177 |     if(sg||p.degree==0)break;p=derivative(p);++k;}
+      |                              ^
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:178:4: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+  178 |    if(side<0&&(k&1))sg=-sg;if(sg){if(prev&&prev!=sg)++v;prev=sg;}
+      |    ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:178:28: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+  178 |    if(side<0&&(k&1))sg=-sg;if(sg){if(prev&&prev!=sg)++v;prev=sg;}
+      |                            ^~
+In file included from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/angular_topology.hpp:5,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/radial_events.hpp:2,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/integrator.hpp:2,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/test_reference.cpp:1:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/interval.hpp: In function ‘__float128 lcbinint::algebraic_boundary::triple::interval_detail::neighbour(__float128, bool)’:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/interval.hpp:27:22: warning: ISO C++ does not support ‘__int128’ for ‘type name’ [-Wpedantic]
+   27 |     using U=unsigned __int128;
+      |                      ^~~~~~~~
+[ 37%] Linking CXX executable triple_integrator
+[ 37%] Built target triple_integrator
+[ 40%] Built target triple_surface
+[ 42%] Building CXX object tests/triple_algebraic/CMakeFiles/triple_special.dir/test_special.cpp.o
+In file included from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/interval.hpp:2,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/angular_topology.hpp:5,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/radial_events.hpp:2,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/integrator.hpp:2,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/test_special.cpp:1:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp: In function ‘lcbinint::algebraic_boundary::positive_detail::Interval<T> lcbinint::algebraic_boundary::positive_detail::operator+(lcbinint::algebraic_boundary::positive_detail::Interval<T>, lcbinint::algebraic_boundary::positive_detail::Interval<T>)’:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:48:2: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+   48 |  if(a.zero())return b; if(b.zero())return a;
+      |  ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:48:24: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+   48 |  if(a.zero())return b; if(b.zero())return a;
+      |                        ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp: In function ‘lcbinint::algebraic_boundary::positive_detail::Ball lcbinint::algebraic_boundary::positive_detail::operator*(lcbinint::algebraic_boundary::positive_detail::Ball, lcbinint::algebraic_boundary::positive_detail::Ball)’:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:88:3: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+   88 |   if(x==0||y==0)continue; double p=x*y; double e=std::fma(x,y,-p);
+      |   ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:88:27: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+   88 |   if(x==0||y==0)continue; double p=x*y; double e=std::fma(x,y,-p);
+      |                           ^~~~~~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp: In function ‘lcbinint::algebraic_boundary::positive_detail::Poly<I> lcbinint::algebraic_boundary::positive_detail::mul(lcbinint::algebraic_boundary::positive_detail::Poly<I>, lcbinint::algebraic_boundary::positive_detail::Poly<I>)’:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:113:2: warning: this ‘for’ clause does not guard... [-Wmisleading-indentation]
+  113 |  for(int i=0;i<=a.degree;++i)for(int j=0;j<=b.degree;++j)r.c[i+j]=r.c[i+j]+a.c[i]*b.c[j];return r;
+      |  ^~~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:113:90: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘for’
+  113 |  for(int i=0;i<=a.degree;++i)for(int j=0;j<=b.degree;++j)r.c[i+j]=r.c[i+j]+a.c[i]*b.c[j];return r;
+      |                                                                                          ^~~~~~
+In file included from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/interval.hpp:2,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/angular_topology.hpp:5,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/radial_events.hpp:2,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/integrator.hpp:2,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/test_special.cpp:1:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp: In function ‘bool lcbinint::algebraic_boundary::positive_detail::normalize(lcbinint::algebraic_boundary::positive_detail::Poly<I>&)’:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:143:2: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+  143 |  if(m==0)return true;int e;frexpq(m,&e);for(int i=0;i<=p.degree;++i)p.c[i]=scale(p.c[i],-e);return trim(p);
+      |  ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:143:22: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+  143 |  if(m==0)return true;int e;frexpq(m,&e);for(int i=0;i<=p.degree;++i)p.c[i]=scale(p.c[i],-e);return trim(p);
+      |                      ^~~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp: In member function ‘bool lcbinint::algebraic_boundary::positive_detail::Chain<I>::build(lcbinint::algebraic_boundary::positive_detail::Poly<I>, int)’:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:168:4: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+  168 |    if(size>=15)return false;s[size++]=r;
+      |    ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:168:29: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+  168 |    if(size>=15)return false;s[size++]=r;
+      |                             ^
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp: In member function ‘int lcbinint::algebraic_boundary::positive_detail::Chain<I>::variation(__float128, int) const’:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:174:3: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+  174 |   if(!ok)return -1;int prev=0,v=0;
+      |   ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:174:20: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+  174 |   if(!ok)return -1;int prev=0,v=0;
+      |                    ^~~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:177:5: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+  177 |     if(sg||p.degree==0)break;p=derivative(p);++k;}
+      |     ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:177:30: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+  177 |     if(sg||p.degree==0)break;p=derivative(p);++k;}
+      |                              ^
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:178:4: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+  178 |    if(side<0&&(k&1))sg=-sg;if(sg){if(prev&&prev!=sg)++v;prev=sg;}
+      |    ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:178:28: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+  178 |    if(side<0&&(k&1))sg=-sg;if(sg){if(prev&&prev!=sg)++v;prev=sg;}
+      |                            ^~
+In file included from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/angular_topology.hpp:5,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/radial_events.hpp:2,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/integrator.hpp:2,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/test_special.cpp:1:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/interval.hpp: In function ‘__float128 lcbinint::algebraic_boundary::triple::interval_detail::neighbour(__float128, bool)’:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/interval.hpp:27:22: warning: ISO C++ does not support ‘__int128’ for ‘type name’ [-Wpedantic]
+   27 |     using U=unsigned __int128;
+      |                      ^~~~~~~~
+[ 43%] Linking CXX executable triple_reference
+[ 43%] Built target triple_reference
+[ 46%] Built target triple_resultant
+[ 50%] Built target triple_point_sign
+[ 53%] Built target triple_lens_coefficients
+[ 54%] Building CXX object tests/triple_algebraic/CMakeFiles/triple_magnitude.dir/test_magnitude.cpp.o
+In file included from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/interval.hpp:2,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/regular_support.hpp:8,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/test_magnitude.cpp:1:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp: In function ‘lcbinint::algebraic_boundary::positive_detail::Interval<T> lcbinint::algebraic_boundary::positive_detail::operator+(lcbinint::algebraic_boundary::positive_detail::Interval<T>, lcbinint::algebraic_boundary::positive_detail::Interval<T>)’:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:48:2: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+   48 |  if(a.zero())return b; if(b.zero())return a;
+      |  ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:48:24: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+   48 |  if(a.zero())return b; if(b.zero())return a;
+      |                        ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp: In function ‘lcbinint::algebraic_boundary::positive_detail::Ball lcbinint::algebraic_boundary::positive_detail::operator*(lcbinint::algebraic_boundary::positive_detail::Ball, lcbinint::algebraic_boundary::positive_detail::Ball)’:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:88:3: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+   88 |   if(x==0||y==0)continue; double p=x*y; double e=std::fma(x,y,-p);
+      |   ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:88:27: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+   88 |   if(x==0||y==0)continue; double p=x*y; double e=std::fma(x,y,-p);
+      |                           ^~~~~~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp: In function ‘lcbinint::algebraic_boundary::positive_detail::Poly<I> lcbinint::algebraic_boundary::positive_detail::mul(lcbinint::algebraic_boundary::positive_detail::Poly<I>, lcbinint::algebraic_boundary::positive_detail::Poly<I>)’:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:113:2: warning: this ‘for’ clause does not guard... [-Wmisleading-indentation]
+  113 |  for(int i=0;i<=a.degree;++i)for(int j=0;j<=b.degree;++j)r.c[i+j]=r.c[i+j]+a.c[i]*b.c[j];return r;
+      |  ^~~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:113:90: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘for’
+  113 |  for(int i=0;i<=a.degree;++i)for(int j=0;j<=b.degree;++j)r.c[i+j]=r.c[i+j]+a.c[i]*b.c[j];return r;
+      |                                                                                          ^~~~~~
+In file included from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/interval.hpp:2,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/regular_support.hpp:8,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/test_magnitude.cpp:1:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp: In function ‘bool lcbinint::algebraic_boundary::positive_detail::normalize(lcbinint::algebraic_boundary::positive_detail::Poly<I>&)’:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:143:2: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+  143 |  if(m==0)return true;int e;frexpq(m,&e);for(int i=0;i<=p.degree;++i)p.c[i]=scale(p.c[i],-e);return trim(p);
+      |  ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:143:22: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+  143 |  if(m==0)return true;int e;frexpq(m,&e);for(int i=0;i<=p.degree;++i)p.c[i]=scale(p.c[i],-e);return trim(p);
+      |                      ^~~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp: In member function ‘bool lcbinint::algebraic_boundary::positive_detail::Chain<I>::build(lcbinint::algebraic_boundary::positive_detail::Poly<I>, int)’:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:168:4: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+  168 |    if(size>=15)return false;s[size++]=r;
+      |    ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:168:29: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+  168 |    if(size>=15)return false;s[size++]=r;
+      |                             ^
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp: In member function ‘int lcbinint::algebraic_boundary::positive_detail::Chain<I>::variation(__float128, int) const’:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:174:3: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+  174 |   if(!ok)return -1;int prev=0,v=0;
+      |   ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:174:20: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+  174 |   if(!ok)return -1;int prev=0,v=0;
+      |                    ^~~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:177:5: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+  177 |     if(sg||p.degree==0)break;p=derivative(p);++k;}
+      |     ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:177:30: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+  177 |     if(sg||p.degree==0)break;p=derivative(p);++k;}
+      |                              ^
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:178:4: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+  178 |    if(side<0&&(k&1))sg=-sg;if(sg){if(prev&&prev!=sg)++v;prev=sg;}
+      |    ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/../d14_real_sturm.hpp:178:28: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+  178 |    if(side<0&&(k&1))sg=-sg;if(sg){if(prev&&prev!=sg)++v;prev=sg;}
+      |                            ^~
+In file included from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/regular_support.hpp:8,
+                 from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/test_magnitude.cpp:1:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/interval.hpp: In function ‘__float128 lcbinint::algebraic_boundary::triple::interval_detail::neighbour(__float128, bool)’:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/interval.hpp:27:22: warning: ISO C++ does not support ‘__int128’ for ‘type name’ [-Wpedantic]
+   27 |     using U=unsigned __int128;
+      |                      ^~~~~~~~
+In file included from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/test_magnitude.cpp:1:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/regular_support.hpp: In member function ‘bool lcbinint::algebraic_boundary::triple::regular_support_detail::Tree::visit(int, lcbinint::algebraic_boundary::triple::Complex, double, int&, double&, double&, double&)’:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/regular_support.hpp:90:181: warning: missing initializer for member ‘lcbinint::algebraic_boundary::triple::regular_support_detail::Node::disks’ [-Wmissing-field-initializers]
+   90 |   if(n.left<0){if(nodes_.size()>8190)return false;auto phi=n.phi,half=n.half*.5;auto depth=n.depth+1;auto roots=n.roots;int left=nodes_.size();nodes_[id].left=left;nodes_.push_back({phi-half,half,depth,-1,false,roots});nodes_.push_back({phi+half,half,depth,-1,false,roots});}
+      |                                                                                                                                                                     ~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/regular_support.hpp:90:181: warning: missing initializer for member ‘lcbinint::algebraic_boundary::triple::regular_support_detail::Node::ends’ [-Wmissing-field-initializers]
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/regular_support.hpp:90:236: warning: missing initializer for member ‘lcbinint::algebraic_boundary::triple::regular_support_detail::Node::disks’ [-Wmissing-field-initializers]
+   90 |   if(n.left<0){if(nodes_.size()>8190)return false;auto phi=n.phi,half=n.half*.5;auto depth=n.depth+1;auto roots=n.roots;int left=nodes_.size();nodes_[id].left=left;nodes_.push_back({phi-half,half,depth,-1,false,roots});nodes_.push_back({phi+half,half,depth,-1,false,roots});}
+      |                                                                                                                                                                                                                            ~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/regular_support.hpp:90:236: warning: missing initializer for member ‘lcbinint::algebraic_boundary::triple::regular_support_detail::Node::ends’ [-Wmissing-field-initializers]
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/regular_support.hpp: In constructor ‘lcbinint::algebraic_boundary::triple::regular_support_detail::Tree::Tree(const lcbinint::algebraic_boundary::triple::Geometry&)’:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/regular_support.hpp:95:84: warning: missing initializer for member ‘lcbinint::algebraic_boundary::triple::regular_support_detail::Node::roots’ [-Wmissing-field-initializers]
+   95 |  explicit Tree(const Geometry&p):geometry_(p){for(int j=0;j<32;++j)nodes_.push_back({2*pi*(j+.5)/32,pi/32,0});}
+      |                                                                    ~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/regular_support.hpp:95:84: warning: missing initializer for member ‘lcbinint::algebraic_boundary::triple::regular_support_detail::Node::disks’ [-Wmissing-field-initializers]
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/regular_support.hpp:95:84: warning: missing initializer for member ‘lcbinint::algebraic_boundary::triple::regular_support_detail::Node::ends’ [-Wmissing-field-initializers]
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/regular_support.hpp: In member function ‘int lcbinint::algebraic_boundary::triple::regular_support_detail::Tree::count(lcbinint::algebraic_boundary::triple::Complex, double, int)’:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/regular_support.hpp:109:4: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+  109 |    if(budget>=0)refused_query_=std::array<double,3>{source.real(),source.imag(),rho};return -1;
+      |    ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/regular_support.hpp:109:86: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+  109 |    if(budget>=0)refused_query_=std::array<double,3>{source.real(),source.imag(),rho};return -1;
+      |                                                                                      ^~~~~~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/regular_support.hpp: In function ‘std::optional<lcbinint::algebraic_boundary::triple::regular_support_detail::Disk> lcbinint::algebraic_boundary::triple::regular_support_detail::image_ball(lcbinint::algebraic_boundary::triple::Complex, const lcbinint::algebraic_boundary::triple::Geometry&)’:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/regular_support.hpp:188:2: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+  188 |  if(!ok)return dominant_image_ball(z,p);return Disk{z,{},r,0};
+      |  ^~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/regular_support.hpp:188:41: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+  188 |  if(!ok)return dominant_image_ball(z,p);return Disk{z,{},r,0};
+      |                                         ^~~~~~
+In file included from /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/test_magnitude.cpp:1:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/regular_support.hpp: In function ‘lcbinint::algebraic_boundary::triple::RadialEventPlan lcbinint::algebraic_boundary::triple::regular_support_detail::event_plan(const lcbinint::algebraic_boundary::triple::Geometry&, const std::vector<std::complex<double> >&, int, double, bool, const lcbinint::algebraic_boundary::triple::regular_support_detail::Disk*)’:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/regular_support.hpp:314:4: warning: this ‘for’ clause does not guard... [-Wmisleading-indentation]
+  314 |    for(auto other:balls)if(fast_abs(other.z-ball->z)<=other.r+ball->r){valid=false;break;}if(!valid)break;balls.push_back(*ball);}
+      |    ^~~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/../../src/lcbinint/magnification/algebraic_boundary/triple/regular_support.hpp:314:91: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘for’
+  314 |    for(auto other:balls)if(fast_abs(other.z-ball->z)<=other.r+ball->r){valid=false;break;}if(!valid)break;balls.push_back(*ball);}
+      |                                                                                           ^~
+[ 56%] Linking CXX executable triple_magnitude
+[ 56%] Built target triple_magnitude
+[ 57%] Building CXX object CMakeFiles/lcbinint_magnification.dir/src/lcbinint/magnification/finite_source_magnifier.cpp.o
+[ 59%] Linking CXX executable triple_special
+[ 59%] Built target triple_special
+[ 60%] Linking CXX static library liblcbinint_magnification.a
+[ 69%] Built target lcbinint_magnification
+[ 84%] Built target lcbinint_lightcurve
+[ 86%] Linking CXX executable test_core
+[ 87%] Building CXX object CMakeFiles/lcbinint_python.dir/python/bind_lc.cpp.o
+[ 89%] Built target test_core
+[ 90%] Building CXX object tests/triple_algebraic/CMakeFiles/triple_regular.dir/test_regular.cpp.o
+[ 92%] Building CXX object CMakeFiles/lcbinint_python.dir/python/bind_triple_algebraic.cpp.o
+[ 93%] Linking CXX executable triple_regular
+[ 93%] Built target triple_regular
+[ 95%] Linking CXX shared module _lcbinint.cpython-310-x86_64-linux-gnu.so
+Copying lcbinint Python packages to build dir
+[100%] Built target lcbinint_python

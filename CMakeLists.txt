@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 project(lcbinint LANGUAGES CXX)
+find_package(Threads REQUIRED)
 
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
@@ -79,7 +80,7 @@ target_include_directories(lcbinint_magnification
     PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/third_party/skowron_gould")
 # Explicit high-precision arithmetic used by boundary root/contact refinement.
-target_link_libraries(lcbinint_magnification PUBLIC GSL::gsl GSL::gslcblas m quadmath)
+target_link_libraries(lcbinint_magnification PUBLIC GSL::gsl GSL::gslcblas m quadmath Threads::Threads)
 
 # Lens/trajectory model + light-curve/likelihood API; depends on lcbinint_magnification.
 add_library(lcbinint_lightcurve
@@ -108,6 +109,7 @@ if(LCBININT_BUILD_TESTS)
     add_executable(test_core tests/unit/test_core.cpp)
     target_link_libraries(test_core PRIVATE lcbinint_lightcurve)
     add_test(NAME unit_core COMMAND test_core)
+    add_subdirectory(tests/triple_algebraic)
 endif()
 
 add_executable(benchmark_point_hex EXCLUDE_FROM_ALL tests/diagnostics/benchmark_point_hex.cpp)
@@ -120,7 +122,7 @@ target_include_directories(lcbinint_fused_gradient PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/include"
     "${CMAKE_CURRENT_SOURCE_DIR}/src"
     "${CMAKE_CURRENT_SOURCE_DIR}/third_party/skowron_gould")
-target_link_libraries(lcbinint_fused_gradient PUBLIC GSL::gsl GSL::gslcblas m quadmath)
+target_link_libraries(lcbinint_fused_gradient PUBLIC GSL::gsl GSL::gslcblas m quadmath Threads::Threads)
 target_link_libraries(lcbinint_magnification PUBLIC lcbinint_fused_gradient)
 target_compile_options(lcbinint_fused_gradient PRIVATE
     $<$<CXX_COMPILER_ID:GNU>:-fext-numeric-literals>)
@@ -144,9 +146,17 @@ if(LCBININT_BUILD_PYTHON)
     pybind11_add_module(lcbinint_python
         python/lcbinint_pybind.cpp
         python/bind_lc.cpp
+        python/bind_triple_algebraic.cpp
         python/bind_obs.cpp
         python/bind_jax_ir.cpp)
     target_link_libraries(lcbinint_python PRIVATE lcbinint_lightcurve)
+    if(LCBININT_BUILD_TESTS)
+        add_test(NAME triple_public_api COMMAND ${Python3_EXECUTABLE}
+            ${CMAKE_CURRENT_SOURCE_DIR}/tests/triple_algebraic/test_public.py
+            --build ${CMAKE_CURRENT_BINARY_DIR})
+        set_tests_properties(triple_public_api PROPERTIES
+            ENVIRONMENT "OPENBLAS_NUM_THREADS=1;PYTHONDONTWRITEBYTECODE=1")
+    endif()
     if(LCBININT_ENABLE_JAX_FFI)
         execute_process(
             COMMAND ${Python3_EXECUTABLE} -c

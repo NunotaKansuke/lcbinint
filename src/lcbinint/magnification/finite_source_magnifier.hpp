@@ -216,6 +216,10 @@ public:
         int resolution,
         const std::vector<SourcePosition>* center_image_seeds = nullptr,
         const PointSourceMagnifier* point_magnifier_hint = nullptr) const;
+    FiniteSourceResult algebraic_boundary_triple_mag(
+        const model::TripleLensGeometry& geometry, SourcePosition source,
+        double source_radius, const AlgebraicBoundarySettings& settings) const;
+
     FiniteSourceResult triple_mag(
         const model::TripleLensGeometry& geometry,
         SourcePosition source,

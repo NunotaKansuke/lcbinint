@@ -1,0 +1,26 @@
+{
+  "status": "PASS_WITH_PERFORMANCE_LIMITATIONS",
+  "native_cpp_tests": 20,
+  "public_native_api_tests": "PASS",
+  "unique_exact_rational_coefficients": 87,
+  "cold_warm_and_invalidation_reference_checks": 2262,
+  "coefficient_overlap_diagnostics": 3480,
+  "paired_conditions": 36,
+  "paired_samples_per_condition": 32,
+  "vbm_methods": [
+    "Singlepoly",
+    "Multipoly",
+    "Nopoly"
+  ],
+  "vbm_conditions": 36,
+  "vbm_nonfinite": 0,
+  "vbm_above_requested": 0,
+  "heldout_conditions": 120,
+  "ld_extreme_conditions": 64,
+  "gradient_finite_difference_comparisons": 40,
+  "startup_fresh_process_trials_per_condition": 4,
+  "startup_queries_per_trial": 8,
+  "normal_regression": "about 1-2 percent in repeated regular/planet measurements",
+  "short_contact_stream_regression": "about 3-5 percent over first 8 queries",
+  "target_30_percent_total_reduction_achieved": false
+}

@@ -1,0 +1,44 @@
+{
+  "source": [
+    0.05732514609527219,
+    0.07076076196599226
+  ],
+  "limb": 0.5,
+  "command": [
+    "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/evidence/triple_relative_optimization_20261024/point_reference64",
+    "raw",
+    "0",
+    "0.5",
+    "1e-8",
+    "1"
+  ],
+  "input": "0.05732514609527219 0.07076076196599226 0.3 0.0 0.0 0.72 1.0 0.0 0.2 -0.4 0.6 0.08",
+  "returncode": 0,
+  "stderr": "",
+  "stdout": "{\"repeat\":0,\"seconds\":0.90306183200000001,\"preparation_seconds\":0,\"mu\":5.8134944623254849,\"error_estimate\":5.2122071899344737e-08,\"converged\":true,\"method\":-1,\"stop\":\"converged\",\"nodes\":488803,\"quad\":284482,\"boxes\":1411,\"event_quad_boxes\":0,\"event_quad_refinements\":2,\"event_double_refinements\":10,\"events\":12,\"continued_radii\":4235,\"global_radii\":2,\"support_route\":\"completed\",\"regular_stop\":\"not_started\",\"fast_support_seconds\":0,\"bounded_components\":0,\"bounded_component_value\":0,\"bounded_component_error\":0}\n",
+  "result": {
+    "repeat": 0,
+    "seconds": 0.903061832,
+    "preparation_seconds": 0,
+    "mu": 5.813494462325485,
+    "error_estimate": 5.212207189934474e-08,
+    "converged": true,
+    "method": -1,
+    "stop": "converged",
+    "nodes": 488803,
+    "quad": 284482,
+    "boxes": 1411,
+    "event_quad_boxes": 0,
+    "event_quad_refinements": 2,
+    "event_double_refinements": 10,
+    "events": 12,
+    "continued_radii": 4235,
+    "global_radii": 2,
+    "support_route": "completed",
+    "regular_stop": "not_started",
+    "fast_support_seconds": 0,
+    "bounded_components": 0,
+    "bounded_component_value": 0,
+    "bounded_component_error": 0
+  }
+}

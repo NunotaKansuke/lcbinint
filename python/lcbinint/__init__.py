@@ -733,9 +733,9 @@ class LightCurve:
         if self._options.finite_source_backend != "algebraic_boundary":
             return
         model = self._native.model
-        if model.lens != "binary" or model.source != "single":
+        if model.lens not in ("binary", "triple") or model.source != "single":
             raise ValueError(
-                "finite_source_backend='algebraic_boundary' requires a single-source binary lens"
+                "finite_source_backend='algebraic_boundary' requires a single-source binary or triple lens"
             )
         if model.xallarap != "none":
             raise ValueError(
@@ -769,6 +769,11 @@ class LightCurve:
 
         traced = contains_tracer(times) or contains_tracer(merged)
         if traced:
+            if (self._options.finite_source_backend == "algebraic_boundary"
+                    and self._native.model.lens == "triple"):
+                raise ValueError(
+                    "native triple algebraic gradients use with_gradient=True; JAX tracing is unsupported"
+                )
             _register_lightcurve_info_pytree()
             import jax.numpy as jnp
             from .jax_backend import magnification
@@ -1513,7 +1518,9 @@ class LightCurve:
                 gradient_parameters=names, diagnostics=output_diagnostics(),
             )
 
-        core_gradient_parameters = ("t0", "u0", "tE", "alpha", "rho", "q", "s")
+        core_gradient_parameters = tuple(result.diagnostics.get("gradient_parameters",
+            ("t0", "u0", "tE", "alpha", "rho", "q", "s"))) if isinstance(result.diagnostics, dict) else (
+            "t0", "u0", "tE", "alpha", "rho", "q", "s")
         if (
             native_algebraic_gradient
             and isinstance(result.diagnostics, dict)

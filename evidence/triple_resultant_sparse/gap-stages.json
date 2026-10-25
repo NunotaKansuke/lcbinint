@@ -1,0 +1,5689 @@
+{
+  "status": "PASS",
+  "protocol": "CPU0, one active worker, persistent geometry, 5 original-point warmups per engine, 2 cycles of 8 identical fresh coordinates, rotated and reversed engine order",
+  "rows": [
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "engine": "before",
+      "count": 64,
+      "median_ms": 0.7998535,
+      "nonfinite": 0,
+      "above_requested": 0,
+      "annuli": [
+        0
+      ]
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "engine": "algebraic",
+      "count": 64,
+      "median_ms": 0.729978,
+      "nonfinite": 0,
+      "above_requested": 0,
+      "annuli": [
+        0
+      ]
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "engine": "Singlepoly",
+      "count": 64,
+      "median_ms": 0.525987,
+      "nonfinite": 0,
+      "above_requested": 0,
+      "annuli": [
+        0
+      ]
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "engine": "Multipoly",
+      "count": 64,
+      "median_ms": 0.687245,
+      "nonfinite": 0,
+      "above_requested": 0,
+      "annuli": [
+        0
+      ]
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "engine": "Nopoly",
+      "count": 64,
+      "median_ms": 1.5650475000000001,
+      "nonfinite": 0,
+      "above_requested": 0,
+      "annuli": [
+        0
+      ]
+    }
+  ],
+  "measurements": [
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 0,
+      "index": 0,
+      "source": [
+        0.14310314056604007,
+        0.1629274619838618
+      ],
+      "order": [
+        "before",
+        "algebraic",
+        "Singlepoly",
+        "Multipoly",
+        "Nopoly"
+      ],
+      "results": {
+        "before": {
+          "mu": 8.089195290632299,
+          "error": 0.004287372129740551,
+          "seconds": 0.000769468,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000295735,
+            5.2e-08,
+            0.000473681,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 1.1700964537694448e-07
+        },
+        "algebraic": {
+          "mu": 8.089195290632299,
+          "error": 0.004287372129740551,
+          "seconds": 0.000687184,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000228386,
+            5.7e-08,
+            0.000458741,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 1.1700964537694448e-07
+        },
+        "Singlepoly": {
+          "mu": 8.089073853154824,
+          "error": 0.00789735307895365,
+          "seconds": 0.000518024,
+          "samples": 82,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.4895298417541926e-05
+        },
+        "Multipoly": {
+          "mu": 8.089073853154702,
+          "error": 0.007897353078934341,
+          "seconds": 0.00066572,
+          "samples": 82,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.4895298432694068e-05
+        },
+        "Nopoly": {
+          "mu": 8.089073853154723,
+          "error": 0.007897353078933135,
+          "seconds": 0.001534716,
+          "samples": 82,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.4895298430058913e-05
+        }
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 0,
+      "index": 1,
+      "source": [
+        0.12133742695236391,
+        0.18961961901700386
+      ],
+      "order": [
+        "algebraic",
+        "Singlepoly",
+        "Multipoly",
+        "Nopoly",
+        "before"
+      ],
+      "results": {
+        "algebraic": {
+          "mu": 7.760915458855206,
+          "error": 0.006471859527206114,
+          "seconds": 0.000711861,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000306605,
+            6.1e-08,
+            0.000405195,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 2.9152766151003883e-07
+        },
+        "Singlepoly": {
+          "mu": 7.761227865409281,
+          "error": 0.0074896225626061045,
+          "seconds": 0.000612039,
+          "samples": 89,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 3.9962288354915176e-05
+        },
+        "Multipoly": {
+          "mu": 7.761227865409714,
+          "error": 0.00748962256157056,
+          "seconds": 0.000736606,
+          "samples": 89,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 3.9962288410763094e-05
+        },
+        "Nopoly": {
+          "mu": 7.76122786540969,
+          "error": 0.0074896225617131305,
+          "seconds": 0.001645087,
+          "samples": 89,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 3.99622884075587e-05
+        },
+        "before": {
+          "mu": 7.760915458855206,
+          "error": 0.006471859527206114,
+          "seconds": 0.000786028,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000376786,
+            6.8e-08,
+            0.000409174,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 2.9152766151003883e-07
+        }
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 0,
+      "index": 2,
+      "source": [
+        0.0870725380161382,
+        0.19310314056604005
+      ],
+      "order": [
+        "Singlepoly",
+        "Multipoly",
+        "Nopoly",
+        "before",
+        "algebraic"
+      ],
+      "results": {
+        "Singlepoly": {
+          "mu": 7.74505757155895,
+          "error": 0.007532562067568911,
+          "seconds": 0.000535518,
+          "samples": 84,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.2118714219075793e-05
+        },
+        "Multipoly": {
+          "mu": 7.745057571559203,
+          "error": 0.007532562067634038,
+          "seconds": 0.000687004,
+          "samples": 84,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.2118714186393301e-05
+        },
+        "Nopoly": {
+          "mu": 7.745057571559228,
+          "error": 0.00753256206763638,
+          "seconds": 0.001574887,
+          "samples": 84,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.2118714183182389e-05
+        },
+        "before": {
+          "mu": 7.745149831363922,
+          "error": 0.005826256072668173,
+          "seconds": 0.000820852,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000291888,
+            6.4e-08,
+            0.0005289,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 2.0677088618110335e-07
+        },
+        "algebraic": {
+          "mu": 7.745149831363922,
+          "error": 0.005826256072668173,
+          "seconds": 0.000761517,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000232526,
+            6.1e-08,
+            0.00052893,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 2.0677088618110335e-07
+        }
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 0,
+      "index": 3,
+      "source": [
+        0.06038038098299614,
+        0.1713374269523639
+      ],
+      "order": [
+        "Multipoly",
+        "Nopoly",
+        "before",
+        "algebraic",
+        "Singlepoly"
+      ],
+      "results": {
+        "Multipoly": {
+          "mu": 8.232992598277525,
+          "error": 0.00804419250432924,
+          "seconds": 0.000744637,
+          "samples": 91,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 6.514319576849822e-05
+        },
+        "Nopoly": {
+          "mu": 8.23299259827754,
+          "error": 0.008044192504347819,
+          "seconds": 0.00171909,
+          "samples": 91,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 6.51431957665565e-05
+        },
+        "before": {
+          "mu": 8.23355599772667,
+          "error": 0.008104104620527821,
+          "seconds": 0.000791741,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.00030493,
+            6.2e-08,
+            0.000486749,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 3.284261292821207e-06
+        },
+        "algebraic": {
+          "mu": 8.23355599772667,
+          "error": 0.008104104620527821,
+          "seconds": 0.000711146,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000231999,
+            6.2e-08,
+            0.000479085,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 3.284261292821207e-06
+        },
+        "Singlepoly": {
+          "mu": 8.232992598277379,
+          "error": 0.008044192504317878,
+          "seconds": 0.000533813,
+          "samples": 91,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 6.514319578618945e-05
+        }
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 0,
+      "index": 4,
+      "source": [
+        0.05689685943395996,
+        0.13707253801613817
+      ],
+      "order": [
+        "Nopoly",
+        "before",
+        "algebraic",
+        "Singlepoly",
+        "Multipoly"
+      ],
+      "results": {
+        "Nopoly": {
+          "mu": 8.611101978499217,
+          "error": 0.008587005081791024,
+          "seconds": 0.001577721,
+          "samples": 83,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.0197105900949266e-05
+        },
+        "before": {
+          "mu": 8.61116871223999,
+          "error": 0.0081282336059533,
+          "seconds": 0.00075985,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000285981,
+            3.8e-08,
+            0.000473831,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 2.4474519717571177e-06
+        },
+        "algebraic": {
+          "mu": 8.61116871223999,
+          "error": 0.0081282336059533,
+          "seconds": 0.00070367,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000230482,
+            6.1e-08,
+            0.000473127,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 2.4474519717571177e-06
+        },
+        "Singlepoly": {
+          "mu": 8.61110197849926,
+          "error": 0.00858700508179904,
+          "seconds": 0.000523067,
+          "samples": 83,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.0197105895998433e-05
+        },
+        "Multipoly": {
+          "mu": 8.611101978499159,
+          "error": 0.008587005081790994,
+          "seconds": 0.000674146,
+          "samples": 83,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.0197105907756661e-05
+        }
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 0,
+      "index": 5,
+      "source": [
+        0.0786625730476361,
+        0.11038038098299613
+      ],
+      "order": [
+        "before",
+        "algebraic",
+        "Singlepoly",
+        "Multipoly",
+        "Nopoly"
+      ],
+      "results": {
+        "before": {
+          "mu": 8.876065760195747,
+          "error": 0.00600110856489779,
+          "seconds": 0.000824355,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000292692,
+            4e-08,
+            0.000531623,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 8.159966307902218e-08
+        },
+        "algebraic": {
+          "mu": 8.876065760195747,
+          "error": 0.00600110856489779,
+          "seconds": 0.000750826,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000228306,
+            6.1e-08,
+            0.000522459,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 8.159966307902218e-08
+        },
+        "Singlepoly": {
+          "mu": 8.875604908959529,
+          "error": 0.008594468903729348,
+          "seconds": 0.000455435,
+          "samples": 82,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 5.183906950206304e-05
+        },
+        "Multipoly": {
+          "mu": 8.875604908959613,
+          "error": 0.008594468903747442,
+          "seconds": 0.000647728,
+          "samples": 82,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 5.1839069492656986e-05
+        },
+        "Nopoly": {
+          "mu": 8.87560490895964,
+          "error": 0.008594468903747312,
+          "seconds": 0.001494717,
+          "samples": 82,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 5.183906948965505e-05
+        }
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 0,
+      "index": 6,
+      "source": [
+        0.1129274619838618,
+        0.10689685943395993
+      ],
+      "order": [
+        "algebraic",
+        "Singlepoly",
+        "Multipoly",
+        "Nopoly",
+        "before"
+      ],
+      "results": {
+        "algebraic": {
+          "mu": 8.657198118389296,
+          "error": 0.0070623980972301294,
+          "seconds": 0.000704893,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.00031905,
+            4.5e-08,
+            0.000385798,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 6.702111165116427e-07
+        },
+        "Singlepoly": {
+          "mu": 8.65722169313667,
+          "error": 0.008326334773907478,
+          "seconds": 0.000475816,
+          "samples": 79,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 2.052925313006569e-06
+        },
+        "Multipoly": {
+          "mu": 8.657221693136934,
+          "error": 0.008326334773825736,
+          "seconds": 0.000628834,
+          "samples": 79,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 2.0529253435796234e-06
+        },
+        "Nopoly": {
+          "mu": 8.657221693136927,
+          "error": 0.008326334773837641,
+          "seconds": 0.0013879,
+          "samples": 79,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 2.0529253427588705e-06
+        },
+        "before": {
+          "mu": 8.657198118389296,
+          "error": 0.0070623980972301294,
+          "seconds": 0.000828559,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000398413,
+            2.2e-08,
+            0.000430124,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 6.702111165116427e-07
+        }
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 0,
+      "index": 7,
+      "source": [
+        0.13961961901700387,
+        0.1286625730476361
+      ],
+      "order": [
+        "Singlepoly",
+        "Multipoly",
+        "Nopoly",
+        "before",
+        "algebraic"
+      ],
+      "results": {
+        "Singlepoly": {
+          "mu": 8.412003008320072,
+          "error": 0.008207193545039444,
+          "seconds": 0.00046874,
+          "samples": 78,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.1216293697279967e-05
+        },
+        "Multipoly": {
+          "mu": 8.412003008320074,
+          "error": 0.008207193545037175,
+          "seconds": 0.000622946,
+          "samples": 78,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.121629369749114e-05
+        },
+        "Nopoly": {
+          "mu": 8.412003008320081,
+          "error": 0.008207193545056496,
+          "seconds": 0.001336536,
+          "samples": 78,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.1216293698335826e-05
+        },
+        "before": {
+          "mu": 8.411908211522935,
+          "error": 0.002782490760382201,
+          "seconds": 0.00064028,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000256068,
+            3.5e-08,
+            0.000384177,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 5.306275829620435e-08
+        },
+        "algebraic": {
+          "mu": 8.411908211522935,
+          "error": 0.002782490760382201,
+          "seconds": 0.00064616,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000217174,
+            4.9e-08,
+            0.000428937,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 5.306275829620435e-08
+        }
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 1,
+      "index": 0,
+      "source": [
+        0.14310314056604007,
+        0.1629274619838618
+      ],
+      "order": [
+        "Singlepoly",
+        "algebraic",
+        "before",
+        "Nopoly",
+        "Multipoly"
+      ],
+      "results": {
+        "Singlepoly": {
+          "mu": 8.089073853154824,
+          "error": 0.00789735307895365,
+          "seconds": 0.00051591,
+          "samples": 82,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.4895298417541926e-05
+        },
+        "algebraic": {
+          "mu": 8.089195290632299,
+          "error": 0.004287372129746439,
+          "seconds": 0.000657155,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000208912,
+            5.2e-08,
+            0.000448191,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 1.1700964537694448e-07
+        },
+        "before": {
+          "mu": 8.089195290632299,
+          "error": 0.004287372129746439,
+          "seconds": 0.000718261,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000275592,
+            3.9e-08,
+            0.00044263,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 1.1700964537694448e-07
+        },
+        "Nopoly": {
+          "mu": 8.089073853154723,
+          "error": 0.007897353078933135,
+          "seconds": 0.001483316,
+          "samples": 82,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.4895298430058913e-05
+        },
+        "Multipoly": {
+          "mu": 8.089073853154702,
+          "error": 0.007897353078934341,
+          "seconds": 0.000652114,
+          "samples": 82,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.4895298432694068e-05
+        }
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 1,
+      "index": 1,
+      "source": [
+        0.12133742695236391,
+        0.18961961901700386
+      ],
+      "order": [
+        "Multipoly",
+        "Singlepoly",
+        "algebraic",
+        "before",
+        "Nopoly"
+      ],
+      "results": {
+        "Multipoly": {
+          "mu": 7.761227865409714,
+          "error": 0.00748962256157056,
+          "seconds": 0.000690663,
+          "samples": 89,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 3.9962288410763094e-05
+        },
+        "Singlepoly": {
+          "mu": 7.761227865409281,
+          "error": 0.0074896225626061045,
+          "seconds": 0.00055469,
+          "samples": 89,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 3.9962288354915176e-05
+        },
+        "algebraic": {
+          "mu": 7.760915458855206,
+          "error": 0.006471859527206114,
+          "seconds": 0.000698631,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000296474,
+            6.3e-08,
+            0.000402094,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 2.9152766151003883e-07
+        },
+        "before": {
+          "mu": 7.760915458855206,
+          "error": 0.006471859527206114,
+          "seconds": 0.000765523,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000365574,
+            3.9e-08,
+            0.00039991,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 2.9152766151003883e-07
+        },
+        "Nopoly": {
+          "mu": 7.76122786540969,
+          "error": 0.0074896225617131305,
+          "seconds": 0.001549015,
+          "samples": 89,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 3.99622884075587e-05
+        }
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 1,
+      "index": 2,
+      "source": [
+        0.0870725380161382,
+        0.19310314056604005
+      ],
+      "order": [
+        "Nopoly",
+        "Multipoly",
+        "Singlepoly",
+        "algebraic",
+        "before"
+      ],
+      "results": {
+        "Nopoly": {
+          "mu": 7.745057571559228,
+          "error": 0.00753256206763638,
+          "seconds": 0.001367003,
+          "samples": 84,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.2118714183182389e-05
+        },
+        "Multipoly": {
+          "mu": 7.745057571559203,
+          "error": 0.007532562067634038,
+          "seconds": 0.000636027,
+          "samples": 84,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.2118714186393301e-05
+        },
+        "Singlepoly": {
+          "mu": 7.74505757155895,
+          "error": 0.007532562067568911,
+          "seconds": 0.000514066,
+          "samples": 84,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.2118714219075793e-05
+        },
+        "algebraic": {
+          "mu": 7.745149831363922,
+          "error": 0.005826256072668173,
+          "seconds": 0.000722135,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.00021854,
+            5.7e-08,
+            0.000503538,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 2.0677088618110335e-07
+        },
+        "before": {
+          "mu": 7.745149831363922,
+          "error": 0.005826256072668173,
+          "seconds": 0.000739391,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000256375,
+            4.5e-08,
+            0.000482971,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 2.0677088618110335e-07
+        }
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 1,
+      "index": 3,
+      "source": [
+        0.06038038098299614,
+        0.1713374269523639
+      ],
+      "order": [
+        "before",
+        "Nopoly",
+        "Multipoly",
+        "Singlepoly",
+        "algebraic"
+      ],
+      "results": {
+        "before": {
+          "mu": 8.23355599772667,
+          "error": 0.008104104620527821,
+          "seconds": 0.000669705,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000261155,
+            5.3e-08,
+            0.000408497,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 3.284261292821207e-06
+        },
+        "Nopoly": {
+          "mu": 8.23299259827754,
+          "error": 0.008044192504347819,
+          "seconds": 0.001560473,
+          "samples": 91,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 6.51431957665565e-05
+        },
+        "Multipoly": {
+          "mu": 8.232992598277525,
+          "error": 0.00804419250432924,
+          "seconds": 0.000731947,
+          "samples": 91,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 6.514319576849822e-05
+        },
+        "Singlepoly": {
+          "mu": 8.232992598277379,
+          "error": 0.008044192504317878,
+          "seconds": 0.000569124,
+          "samples": 91,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 6.514319578618945e-05
+        },
+        "algebraic": {
+          "mu": 8.23355599772667,
+          "error": 0.008104104620527821,
+          "seconds": 0.000712887,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000235989,
+            6e-08,
+            0.000476838,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 3.284261292821207e-06
+        }
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 1,
+      "index": 4,
+      "source": [
+        0.05689685943395996,
+        0.13707253801613817
+      ],
+      "order": [
+        "algebraic",
+        "before",
+        "Nopoly",
+        "Multipoly",
+        "Singlepoly"
+      ],
+      "results": {
+        "algebraic": {
+          "mu": 8.61116871223999,
+          "error": 0.0081282336059533,
+          "seconds": 0.000669906,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000219578,
+            5.9e-08,
+            0.000450269,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 2.4474519717571177e-06
+        },
+        "before": {
+          "mu": 8.61116871223999,
+          "error": 0.0081282336059533,
+          "seconds": 0.000760728,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000293537,
+            6.1e-08,
+            0.00046713,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 2.4474519717571177e-06
+        },
+        "Nopoly": {
+          "mu": 8.611101978499217,
+          "error": 0.008587005081791024,
+          "seconds": 0.001513365,
+          "samples": 83,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.0197105900949266e-05
+        },
+        "Multipoly": {
+          "mu": 8.611101978499159,
+          "error": 0.008587005081790994,
+          "seconds": 0.000662866,
+          "samples": 83,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.0197105907756661e-05
+        },
+        "Singlepoly": {
+          "mu": 8.61110197849926,
+          "error": 0.00858700508179904,
+          "seconds": 0.000527177,
+          "samples": 83,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.0197105895998433e-05
+        }
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 1,
+      "index": 5,
+      "source": [
+        0.0786625730476361,
+        0.11038038098299613
+      ],
+      "order": [
+        "Singlepoly",
+        "algebraic",
+        "before",
+        "Nopoly",
+        "Multipoly"
+      ],
+      "results": {
+        "Singlepoly": {
+          "mu": 8.875604908959529,
+          "error": 0.008594468903729348,
+          "seconds": 0.000455823,
+          "samples": 82,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 5.183906950206304e-05
+        },
+        "algebraic": {
+          "mu": 8.876065760195747,
+          "error": 0.00600110856489779,
+          "seconds": 0.000676469,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000207427,
+            5.3e-08,
+            0.000468989,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 8.159966307902218e-08
+        },
+        "before": {
+          "mu": 8.876065760195747,
+          "error": 0.00600110856489779,
+          "seconds": 0.000801378,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000286662,
+            6e-08,
+            0.000514656,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 8.159966307902218e-08
+        },
+        "Nopoly": {
+          "mu": 8.87560490895964,
+          "error": 0.008594468903747312,
+          "seconds": 0.001534526,
+          "samples": 82,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 5.183906948965505e-05
+        },
+        "Multipoly": {
+          "mu": 8.875604908959613,
+          "error": 0.008594468903747442,
+          "seconds": 0.00066465,
+          "samples": 82,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 5.1839069492656986e-05
+        }
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 1,
+      "index": 6,
+      "source": [
+        0.1129274619838618,
+        0.10689685943395993
+      ],
+      "order": [
+        "Multipoly",
+        "Singlepoly",
+        "algebraic",
+        "before",
+        "Nopoly"
+      ],
+      "results": {
+        "Multipoly": {
+          "mu": 8.657221693136934,
+          "error": 0.008326334773825736,
+          "seconds": 0.000605253,
+          "samples": 79,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 2.0529253435796234e-06
+        },
+        "Singlepoly": {
+          "mu": 8.65722169313667,
+          "error": 0.008326334773907478,
+          "seconds": 0.000485148,
+          "samples": 79,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 2.052925313006569e-06
+        },
+        "algebraic": {
+          "mu": 8.657198118389296,
+          "error": 0.0070623980972301294,
+          "seconds": 0.000786059,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000350739,
+            5.1e-08,
+            0.000435269,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 6.702111165116427e-07
+        },
+        "before": {
+          "mu": 8.657198118389296,
+          "error": 0.0070623980972301294,
+          "seconds": 0.000843814,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.00041263,
+            6.6e-08,
+            0.000431118,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 6.702111165116427e-07
+        },
+        "Nopoly": {
+          "mu": 8.657221693136927,
+          "error": 0.008326334773837641,
+          "seconds": 0.001444271,
+          "samples": 79,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 2.0529253427588705e-06
+        }
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 1,
+      "index": 7,
+      "source": [
+        0.13961961901700387,
+        0.1286625730476361
+      ],
+      "order": [
+        "Nopoly",
+        "Multipoly",
+        "Singlepoly",
+        "algebraic",
+        "before"
+      ],
+      "results": {
+        "Nopoly": {
+          "mu": 8.412003008320081,
+          "error": 0.008207193545056496,
+          "seconds": 0.001229827,
+          "samples": 78,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.1216293698335826e-05
+        },
+        "Multipoly": {
+          "mu": 8.412003008320074,
+          "error": 0.008207193545037175,
+          "seconds": 0.000648621,
+          "samples": 78,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.121629369749114e-05
+        },
+        "Singlepoly": {
+          "mu": 8.412003008320072,
+          "error": 0.008207193545039444,
+          "seconds": 0.000537848,
+          "samples": 78,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.1216293697279967e-05
+        },
+        "algebraic": {
+          "mu": 8.411908211522935,
+          "error": 0.002782490760382201,
+          "seconds": 0.00072837,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000258957,
+            3.6e-08,
+            0.000469377,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 5.306275829620435e-08
+        },
+        "before": {
+          "mu": 8.411908211522935,
+          "error": 0.002782490760382201,
+          "seconds": 0.000710692,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000284822,
+            5.7e-08,
+            0.000425813,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 5.306275829620435e-08
+        }
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 2,
+      "index": 0,
+      "source": [
+        0.14310314056604007,
+        0.1629274619838618
+      ],
+      "order": [
+        "algebraic",
+        "Singlepoly",
+        "Multipoly",
+        "Nopoly",
+        "before"
+      ],
+      "results": {
+        "algebraic": {
+          "mu": 8.089195290632299,
+          "error": 0.004287372129746439,
+          "seconds": 0.000655984,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000212699,
+            5.4e-08,
+            0.000443231,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 1.1700964537694448e-07
+        },
+        "Singlepoly": {
+          "mu": 8.089073853154824,
+          "error": 0.00789735307895365,
+          "seconds": 0.000521546,
+          "samples": 82,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.4895298417541926e-05
+        },
+        "Multipoly": {
+          "mu": 8.089073853154702,
+          "error": 0.007897353078934341,
+          "seconds": 0.000663157,
+          "samples": 82,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.4895298432694068e-05
+        },
+        "Nopoly": {
+          "mu": 8.089073853154723,
+          "error": 0.007897353078933135,
+          "seconds": 0.001760458,
+          "samples": 82,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.4895298430058913e-05
+        },
+        "before": {
+          "mu": 8.089195290632299,
+          "error": 0.004287372129746439,
+          "seconds": 0.000926353,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000373074,
+            7.2e-08,
+            0.000553207,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 1.1700964537694448e-07
+        }
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 2,
+      "index": 1,
+      "source": [
+        0.12133742695236391,
+        0.18961961901700386
+      ],
+      "order": [
+        "Singlepoly",
+        "Multipoly",
+        "Nopoly",
+        "before",
+        "algebraic"
+      ],
+      "results": {
+        "Singlepoly": {
+          "mu": 7.761227865409281,
+          "error": 0.0074896225626061045,
+          "seconds": 0.000656655,
+          "samples": 89,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 3.9962288354915176e-05
+        },
+        "Multipoly": {
+          "mu": 7.761227865409714,
+          "error": 0.00748962256157056,
+          "seconds": 0.000849456,
+          "samples": 89,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 3.9962288410763094e-05
+        },
+        "Nopoly": {
+          "mu": 7.76122786540969,
+          "error": 0.0074896225617131305,
+          "seconds": 0.002079261,
+          "samples": 89,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 3.99622884075587e-05
+        },
+        "before": {
+          "mu": 7.760915458855206,
+          "error": 0.006471859527206114,
+          "seconds": 0.000936096,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000455659,
+            7.1e-08,
+            0.000480366,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 2.9152766151003883e-07
+        },
+        "algebraic": {
+          "mu": 7.760915458855206,
+          "error": 0.006471859527206114,
+          "seconds": 0.000729382,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000323163,
+            5e-08,
+            0.000406169,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 2.9152766151003883e-07
+        }
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 2,
+      "index": 2,
+      "source": [
+        0.0870725380161382,
+        0.19310314056604005
+      ],
+      "order": [
+        "Multipoly",
+        "Nopoly",
+        "before",
+        "algebraic",
+        "Singlepoly"
+      ],
+      "results": {
+        "Multipoly": {
+          "mu": 7.745057571559203,
+          "error": 0.007532562067634038,
+          "seconds": 0.000791848,
+          "samples": 84,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.2118714186393301e-05
+        },
+        "Nopoly": {
+          "mu": 7.745057571559228,
+          "error": 0.00753256206763638,
+          "seconds": 0.001980871,
+          "samples": 84,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.2118714183182389e-05
+        },
+        "before": {
+          "mu": 7.745149831363922,
+          "error": 0.005826256072668173,
+          "seconds": 0.001006435,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000354686,
+            6.5e-08,
+            0.000651684,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 2.0677088618110335e-07
+        },
+        "algebraic": {
+          "mu": 7.745149831363922,
+          "error": 0.005826256072668173,
+          "seconds": 0.000885308,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000288331,
+            4.9e-08,
+            0.000596928,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 2.0677088618110335e-07
+        },
+        "Singlepoly": {
+          "mu": 7.74505757155895,
+          "error": 0.007532562067568911,
+          "seconds": 0.000628715,
+          "samples": 84,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.2118714219075793e-05
+        }
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 2,
+      "index": 3,
+      "source": [
+        0.06038038098299614,
+        0.1713374269523639
+      ],
+      "order": [
+        "Nopoly",
+        "before",
+        "algebraic",
+        "Singlepoly",
+        "Multipoly"
+      ],
+      "results": {
+        "Nopoly": {
+          "mu": 8.23299259827754,
+          "error": 0.008044192504347819,
+          "seconds": 0.001975685,
+          "samples": 91,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 6.51431957665565e-05
+        },
+        "before": {
+          "mu": 8.23355599772667,
+          "error": 0.008104104620527821,
+          "seconds": 0.000893864,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000311994,
+            5.4e-08,
+            0.000581816,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 3.284261292821207e-06
+        },
+        "algebraic": {
+          "mu": 8.23355599772667,
+          "error": 0.008104104620527821,
+          "seconds": 0.000792322,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000288765,
+            7e-08,
+            0.000503487,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 3.284261292821207e-06
+        },
+        "Singlepoly": {
+          "mu": 8.232992598277379,
+          "error": 0.008044192504317878,
+          "seconds": 0.000679256,
+          "samples": 91,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 6.514319578618945e-05
+        },
+        "Multipoly": {
+          "mu": 8.232992598277525,
+          "error": 0.00804419250432924,
+          "seconds": 0.000858512,
+          "samples": 91,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 6.514319576849822e-05
+        }
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 2,
+      "index": 4,
+      "source": [
+        0.05689685943395996,
+        0.13707253801613817
+      ],
+      "order": [
+        "before",
+        "algebraic",
+        "Singlepoly",
+        "Multipoly",
+        "Nopoly"
+      ],
+      "results": {
+        "before": {
+          "mu": 8.61116871223999,
+          "error": 0.0081282336059533,
+          "seconds": 0.000770567,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000298818,
+            5.8e-08,
+            0.000471691,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 2.4474519717571177e-06
+        },
+        "algebraic": {
+          "mu": 8.61116871223999,
+          "error": 0.0081282336059533,
+          "seconds": 0.000709829,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000228668,
+            6.3e-08,
+            0.000481098,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 2.4474519717571177e-06
+        },
+        "Singlepoly": {
+          "mu": 8.61110197849926,
+          "error": 0.00858700508179904,
+          "seconds": 0.000519901,
+          "samples": 83,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.0197105895998433e-05
+        },
+        "Multipoly": {
+          "mu": 8.611101978499159,
+          "error": 0.008587005081790994,
+          "seconds": 0.000671251,
+          "samples": 83,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.0197105907756661e-05
+        },
+        "Nopoly": {
+          "mu": 8.611101978499217,
+          "error": 0.008587005081791024,
+          "seconds": 0.001524913,
+          "samples": 83,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.0197105900949266e-05
+        }
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 2,
+      "index": 5,
+      "source": [
+        0.0786625730476361,
+        0.11038038098299613
+      ],
+      "order": [
+        "algebraic",
+        "Singlepoly",
+        "Multipoly",
+        "Nopoly",
+        "before"
+      ],
+      "results": {
+        "algebraic": {
+          "mu": 8.876065760195747,
+          "error": 0.00600110856489779,
+          "seconds": 0.00075039,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000231451,
+            6.4e-08,
+            0.000518875,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 8.159966307902218e-08
+        },
+        "Singlepoly": {
+          "mu": 8.875604908959529,
+          "error": 0.008594468903729348,
+          "seconds": 0.000513268,
+          "samples": 82,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 5.183906950206304e-05
+        },
+        "Multipoly": {
+          "mu": 8.875604908959613,
+          "error": 0.008594468903747442,
+          "seconds": 0.000654292,
+          "samples": 82,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 5.1839069492656986e-05
+        },
+        "Nopoly": {
+          "mu": 8.87560490895964,
+          "error": 0.008594468903747312,
+          "seconds": 0.00153322,
+          "samples": 82,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 5.183906948965505e-05
+        },
+        "before": {
+          "mu": 8.876065760195747,
+          "error": 0.00600110856489779,
+          "seconds": 0.000812883,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000295604,
+            6.3e-08,
+            0.000517216,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 8.159966307902218e-08
+        }
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 2,
+      "index": 6,
+      "source": [
+        0.1129274619838618,
+        0.10689685943395993
+      ],
+      "order": [
+        "Singlepoly",
+        "Multipoly",
+        "Nopoly",
+        "before",
+        "algebraic"
+      ],
+      "results": {
+        "Singlepoly": {
+          "mu": 8.65722169313667,
+          "error": 0.008326334773907478,
+          "seconds": 0.000487688,
+          "samples": 79,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 2.052925313006569e-06
+        },
+        "Multipoly": {
+          "mu": 8.657221693136934,
+          "error": 0.008326334773825736,
+          "seconds": 0.000634335,
+          "samples": 79,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 2.0529253435796234e-06
+        },
+        "Nopoly": {
+          "mu": 8.657221693136927,
+          "error": 0.008326334773837641,
+          "seconds": 0.001468496,
+          "samples": 79,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 2.0529253427588705e-06
+        },
+        "before": {
+          "mu": 8.657198118389296,
+          "error": 0.0070623980972301294,
+          "seconds": 0.000852388,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000422915,
+            4e-08,
+            0.000429433,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 6.702111165116427e-07
+        },
+        "algebraic": {
+          "mu": 8.657198118389296,
+          "error": 0.0070623980972301294,
+          "seconds": 0.000786047,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000354469,
+            5.1e-08,
+            0.000431527,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 6.702111165116427e-07
+        }
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 2,
+      "index": 7,
+      "source": [
+        0.13961961901700387,
+        0.1286625730476361
+      ],
+      "order": [
+        "Multipoly",
+        "Nopoly",
+        "before",
+        "algebraic",
+        "Singlepoly"
+      ],
+      "results": {
+        "Multipoly": {
+          "mu": 8.412003008320074,
+          "error": 0.008207193545037175,
+          "seconds": 0.000628405,
+          "samples": 78,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.121629369749114e-05
+        },
+        "Nopoly": {
+          "mu": 8.412003008320081,
+          "error": 0.008207193545056496,
+          "seconds": 0.001398335,
+          "samples": 78,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.1216293698335826e-05
+        },
+        "before": {
+          "mu": 8.411908211522935,
+          "error": 0.002782490760382201,
+          "seconds": 0.000709238,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000281721,
+            4.2e-08,
+            0.000427475,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 5.306275829620435e-08
+        },
+        "algebraic": {
+          "mu": 8.411908211522935,
+          "error": 0.002782490760382201,
+          "seconds": 0.000641633,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000215852,
+            5.4e-08,
+            0.000425727,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 5.306275829620435e-08
+        },
+        "Singlepoly": {
+          "mu": 8.412003008320072,
+          "error": 0.008207193545039444,
+          "seconds": 0.000476127,
+          "samples": 78,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.1216293697279967e-05
+        }
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 3,
+      "index": 0,
+      "source": [
+        0.14310314056604007,
+        0.1629274619838618
+      ],
+      "order": [
+        "Multipoly",
+        "Singlepoly",
+        "algebraic",
+        "before",
+        "Nopoly"
+      ],
+      "results": {
+        "Multipoly": {
+          "mu": 8.089073853154702,
+          "error": 0.007897353078934341,
+          "seconds": 0.000659344,
+          "samples": 82,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.4895298432694068e-05
+        },
+        "Singlepoly": {
+          "mu": 8.089073853154824,
+          "error": 0.00789735307895365,
+          "seconds": 0.000489463,
+          "samples": 82,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.4895298417541926e-05
+        },
+        "algebraic": {
+          "mu": 8.089195290632299,
+          "error": 0.004287372129746439,
+          "seconds": 0.000664266,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000218745,
+            5e-08,
+            0.000445471,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 1.1700964537694448e-07
+        },
+        "before": {
+          "mu": 8.089195290632299,
+          "error": 0.004287372129746439,
+          "seconds": 0.000734596,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000279408,
+            4e-08,
+            0.000455148,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 1.1700964537694448e-07
+        },
+        "Nopoly": {
+          "mu": 8.089073853154723,
+          "error": 0.007897353078933135,
+          "seconds": 0.00149246,
+          "samples": 82,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.4895298430058913e-05
+        }
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 3,
+      "index": 1,
+      "source": [
+        0.12133742695236391,
+        0.18961961901700386
+      ],
+      "order": [
+        "Nopoly",
+        "Multipoly",
+        "Singlepoly",
+        "algebraic",
+        "before"
+      ],
+      "results": {
+        "Nopoly": {
+          "mu": 7.76122786540969,
+          "error": 0.0074896225617131305,
+          "seconds": 0.00160149,
+          "samples": 89,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 3.99622884075587e-05
+        },
+        "Multipoly": {
+          "mu": 7.761227865409714,
+          "error": 0.00748962256157056,
+          "seconds": 0.000703044,
+          "samples": 89,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 3.9962288410763094e-05
+        },
+        "Singlepoly": {
+          "mu": 7.761227865409281,
+          "error": 0.0074896225626061045,
+          "seconds": 0.000560429,
+          "samples": 89,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 3.9962288354915176e-05
+        },
+        "algebraic": {
+          "mu": 7.760915458855206,
+          "error": 0.006471859527206114,
+          "seconds": 0.00069412,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000298824,
+            4.3e-08,
+            0.000395253,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 2.9152766151003883e-07
+        },
+        "before": {
+          "mu": 7.760915458855206,
+          "error": 0.006471859527206114,
+          "seconds": 0.000765981,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000370565,
+            4.8e-08,
+            0.000395368,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 2.9152766151003883e-07
+        }
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 3,
+      "index": 2,
+      "source": [
+        0.0870725380161382,
+        0.19310314056604005
+      ],
+      "order": [
+        "before",
+        "Nopoly",
+        "Multipoly",
+        "Singlepoly",
+        "algebraic"
+      ],
+      "results": {
+        "before": {
+          "mu": 7.745149831363922,
+          "error": 0.005826256072668173,
+          "seconds": 0.000784348,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000285591,
+            5.6e-08,
+            0.000498701,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 2.0677088618110335e-07
+        },
+        "Nopoly": {
+          "mu": 7.745057571559228,
+          "error": 0.00753256206763638,
+          "seconds": 0.00156484,
+          "samples": 84,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.2118714183182389e-05
+        },
+        "Multipoly": {
+          "mu": 7.745057571559203,
+          "error": 0.007532562067634038,
+          "seconds": 0.000672594,
+          "samples": 84,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.2118714186393301e-05
+        },
+        "Singlepoly": {
+          "mu": 7.74505757155895,
+          "error": 0.007532562067568911,
+          "seconds": 0.000524797,
+          "samples": 84,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.2118714219075793e-05
+        },
+        "algebraic": {
+          "mu": 7.745149831363922,
+          "error": 0.005826256072668173,
+          "seconds": 0.000752757,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000221149,
+            6e-08,
+            0.000531548,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 2.0677088618110335e-07
+        }
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 3,
+      "index": 3,
+      "source": [
+        0.06038038098299614,
+        0.1713374269523639
+      ],
+      "order": [
+        "algebraic",
+        "before",
+        "Nopoly",
+        "Multipoly",
+        "Singlepoly"
+      ],
+      "results": {
+        "algebraic": {
+          "mu": 8.23355599772667,
+          "error": 0.008104104620527821,
+          "seconds": 0.000681348,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000226634,
+            4.7e-08,
+            0.000454667,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 3.284261292821207e-06
+        },
+        "before": {
+          "mu": 8.23355599772667,
+          "error": 0.008104104620527821,
+          "seconds": 0.000767045,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000297734,
+            5.1e-08,
+            0.00046926,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 3.284261292821207e-06
+        },
+        "Nopoly": {
+          "mu": 8.23299259827754,
+          "error": 0.008044192504347819,
+          "seconds": 0.001689612,
+          "samples": 91,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 6.51431957665565e-05
+        },
+        "Multipoly": {
+          "mu": 8.232992598277525,
+          "error": 0.00804419250432924,
+          "seconds": 0.000737314,
+          "samples": 91,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 6.514319576849822e-05
+        },
+        "Singlepoly": {
+          "mu": 8.232992598277379,
+          "error": 0.008044192504317878,
+          "seconds": 0.00055902,
+          "samples": 91,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 6.514319578618945e-05
+        }
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 3,
+      "index": 4,
+      "source": [
+        0.05689685943395996,
+        0.13707253801613817
+      ],
+      "order": [
+        "Singlepoly",
+        "algebraic",
+        "before",
+        "Nopoly",
+        "Multipoly"
+      ],
+      "results": {
+        "Singlepoly": {
+          "mu": 8.61110197849926,
+          "error": 0.00858700508179904,
+          "seconds": 0.000492884,
+          "samples": 83,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.0197105895998433e-05
+        },
+        "algebraic": {
+          "mu": 8.61116871223999,
+          "error": 0.0081282336059533,
+          "seconds": 0.000730574,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000238239,
+            3.8e-08,
+            0.000492297,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 2.4474519717571177e-06
+        },
+        "before": {
+          "mu": 8.61116871223999,
+          "error": 0.0081282336059533,
+          "seconds": 0.00077131,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.00030472,
+            3.9e-08,
+            0.000466551,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 2.4474519717571177e-06
+        },
+        "Nopoly": {
+          "mu": 8.611101978499217,
+          "error": 0.008587005081791024,
+          "seconds": 0.001530417,
+          "samples": 83,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.0197105900949266e-05
+        },
+        "Multipoly": {
+          "mu": 8.611101978499159,
+          "error": 0.008587005081790994,
+          "seconds": 0.000667922,
+          "samples": 83,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.0197105907756661e-05
+        }
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 3,
+      "index": 5,
+      "source": [
+        0.0786625730476361,
+        0.11038038098299613
+      ],
+      "order": [
+        "Multipoly",
+        "Singlepoly",
+        "algebraic",
+        "before",
+        "Nopoly"
+      ],
+      "results": {
+        "Multipoly": {
+          "mu": 8.875604908959613,
+          "error": 0.008594468903747442,
+          "seconds": 0.000635882,
+          "samples": 82,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 5.1839069492656986e-05
+        },
+        "Singlepoly": {
+          "mu": 8.875604908959529,
+          "error": 0.008594468903729348,
+          "seconds": 0.000513348,
+          "samples": 82,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 5.183906950206304e-05
+        },
+        "algebraic": {
+          "mu": 8.876065760195747,
+          "error": 0.00600110856489779,
+          "seconds": 0.000756099,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000233435,
+            5.9e-08,
+            0.000522605,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 8.159966307902218e-08
+        },
+        "before": {
+          "mu": 8.876065760195747,
+          "error": 0.00600110856489779,
+          "seconds": 0.000812834,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000294113,
+            6.3e-08,
+            0.000518658,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 8.159966307902218e-08
+        },
+        "Nopoly": {
+          "mu": 8.87560490895964,
+          "error": 0.008594468903747312,
+          "seconds": 0.00155032,
+          "samples": 82,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 5.183906948965505e-05
+        }
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 3,
+      "index": 6,
+      "source": [
+        0.1129274619838618,
+        0.10689685943395993
+      ],
+      "order": [
+        "Nopoly",
+        "Multipoly",
+        "Singlepoly",
+        "algebraic",
+        "before"
+      ],
+      "results": {
+        "Nopoly": {
+          "mu": 8.657221693136927,
+          "error": 0.008326334773837641,
+          "seconds": 0.001443771,
+          "samples": 79,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 2.0529253427588705e-06
+        },
+        "Multipoly": {
+          "mu": 8.657221693136934,
+          "error": 0.008326334773825736,
+          "seconds": 0.000626172,
+          "samples": 79,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 2.0529253435796234e-06
+        },
+        "Singlepoly": {
+          "mu": 8.65722169313667,
+          "error": 0.008326334773907478,
+          "seconds": 0.000489622,
+          "samples": 79,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 2.052925313006569e-06
+        },
+        "algebraic": {
+          "mu": 8.657198118389296,
+          "error": 0.0070623980972301294,
+          "seconds": 0.000789851,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000352567,
+            5.8e-08,
+            0.000437226,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 6.702111165116427e-07
+        },
+        "before": {
+          "mu": 8.657198118389296,
+          "error": 0.0070623980972301294,
+          "seconds": 0.000851406,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000416363,
+            6.1e-08,
+            0.000434982,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 6.702111165116427e-07
+        }
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 3,
+      "index": 7,
+      "source": [
+        0.13961961901700387,
+        0.1286625730476361
+      ],
+      "order": [
+        "before",
+        "Nopoly",
+        "Multipoly",
+        "Singlepoly",
+        "algebraic"
+      ],
+      "results": {
+        "before": {
+          "mu": 8.411908211522935,
+          "error": 0.002782490760382201,
+          "seconds": 0.000674265,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000270895,
+            5e-08,
+            0.00040332,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 5.306275829620435e-08
+        },
+        "Nopoly": {
+          "mu": 8.412003008320081,
+          "error": 0.008207193545056496,
+          "seconds": 0.001416872,
+          "samples": 78,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.1216293698335826e-05
+        },
+        "Multipoly": {
+          "mu": 8.412003008320074,
+          "error": 0.008207193545037175,
+          "seconds": 0.000645288,
+          "samples": 78,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.121629369749114e-05
+        },
+        "Singlepoly": {
+          "mu": 8.412003008320072,
+          "error": 0.008207193545039444,
+          "seconds": 0.000495995,
+          "samples": 78,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.1216293697279967e-05
+        },
+        "algebraic": {
+          "mu": 8.411908211522935,
+          "error": 0.002782490760382201,
+          "seconds": 0.00065803,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000221794,
+            5.2e-08,
+            0.000436184,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 5.306275829620435e-08
+        }
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 4,
+      "index": 0,
+      "source": [
+        0.14310314056604007,
+        0.1629274619838618
+      ],
+      "order": [
+        "Singlepoly",
+        "Multipoly",
+        "Nopoly",
+        "before",
+        "algebraic"
+      ],
+      "results": {
+        "Singlepoly": {
+          "mu": 8.089073853154824,
+          "error": 0.00789735307895365,
+          "seconds": 0.000503391,
+          "samples": 82,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.4895298417541926e-05
+        },
+        "Multipoly": {
+          "mu": 8.089073853154702,
+          "error": 0.007897353078934341,
+          "seconds": 0.000663502,
+          "samples": 82,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.4895298432694068e-05
+        },
+        "Nopoly": {
+          "mu": 8.089073853154723,
+          "error": 0.007897353078933135,
+          "seconds": 0.001675723,
+          "samples": 82,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.4895298430058913e-05
+        },
+        "before": {
+          "mu": 8.089195290632299,
+          "error": 0.004287372129746439,
+          "seconds": 0.00074968,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000286973,
+            5.9e-08,
+            0.000462648,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 1.1700964537694448e-07
+        },
+        "algebraic": {
+          "mu": 8.089195290632299,
+          "error": 0.004287372129746439,
+          "seconds": 0.000675043,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000217218,
+            3.5e-08,
+            0.00045779,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 1.1700964537694448e-07
+        }
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 4,
+      "index": 1,
+      "source": [
+        0.12133742695236391,
+        0.18961961901700386
+      ],
+      "order": [
+        "Multipoly",
+        "Nopoly",
+        "before",
+        "algebraic",
+        "Singlepoly"
+      ],
+      "results": {
+        "Multipoly": {
+          "mu": 7.761227865409714,
+          "error": 0.00748962256157056,
+          "seconds": 0.000736029,
+          "samples": 89,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 3.9962288410763094e-05
+        },
+        "Nopoly": {
+          "mu": 7.76122786540969,
+          "error": 0.0074896225617131305,
+          "seconds": 0.00184208,
+          "samples": 89,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 3.99622884075587e-05
+        },
+        "before": {
+          "mu": 7.760915458855206,
+          "error": 0.006471859527206114,
+          "seconds": 0.000926201,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000439833,
+            7.4e-08,
+            0.000486294,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 2.9152766151003883e-07
+        },
+        "algebraic": {
+          "mu": 7.760915458855206,
+          "error": 0.006471859527206114,
+          "seconds": 0.000850464,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000362566,
+            4e-08,
+            0.000487858,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 2.9152766151003883e-07
+        },
+        "Singlepoly": {
+          "mu": 7.761227865409281,
+          "error": 0.0074896225626061045,
+          "seconds": 0.000617301,
+          "samples": 89,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 3.9962288354915176e-05
+        }
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 4,
+      "index": 2,
+      "source": [
+        0.0870725380161382,
+        0.19310314056604005
+      ],
+      "order": [
+        "Nopoly",
+        "before",
+        "algebraic",
+        "Singlepoly",
+        "Multipoly"
+      ],
+      "results": {
+        "Nopoly": {
+          "mu": 7.745057571559228,
+          "error": 0.00753256206763638,
+          "seconds": 0.001636358,
+          "samples": 84,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.2118714183182389e-05
+        },
+        "before": {
+          "mu": 7.745149831363922,
+          "error": 0.005826256072668173,
+          "seconds": 0.000810327,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000283017,
+            6e-08,
+            0.00052725,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 2.0677088618110335e-07
+        },
+        "algebraic": {
+          "mu": 7.745149831363922,
+          "error": 0.005826256072668173,
+          "seconds": 0.000766995,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000225984,
+            5.2e-08,
+            0.000540959,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 2.0677088618110335e-07
+        },
+        "Singlepoly": {
+          "mu": 7.74505757155895,
+          "error": 0.007532562067568911,
+          "seconds": 0.000541686,
+          "samples": 84,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.2118714219075793e-05
+        },
+        "Multipoly": {
+          "mu": 7.745057571559203,
+          "error": 0.007532562067634038,
+          "seconds": 0.000714718,
+          "samples": 84,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.2118714186393301e-05
+        }
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 4,
+      "index": 3,
+      "source": [
+        0.06038038098299614,
+        0.1713374269523639
+      ],
+      "order": [
+        "before",
+        "algebraic",
+        "Singlepoly",
+        "Multipoly",
+        "Nopoly"
+      ],
+      "results": {
+        "before": {
+          "mu": 8.23355599772667,
+          "error": 0.008104104620527821,
+          "seconds": 0.000860846,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.00032082,
+            6.9e-08,
+            0.000539957,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 3.284261292821207e-06
+        },
+        "algebraic": {
+          "mu": 8.23355599772667,
+          "error": 0.008104104620527821,
+          "seconds": 0.000813721,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.00025784,
+            5.9e-08,
+            0.000555822,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 3.284261292821207e-06
+        },
+        "Singlepoly": {
+          "mu": 8.232992598277379,
+          "error": 0.008044192504317878,
+          "seconds": 0.000712698,
+          "samples": 91,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 6.514319578618945e-05
+        },
+        "Multipoly": {
+          "mu": 8.232992598277525,
+          "error": 0.00804419250432924,
+          "seconds": 0.000927401,
+          "samples": 91,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 6.514319576849822e-05
+        },
+        "Nopoly": {
+          "mu": 8.23299259827754,
+          "error": 0.008044192504347819,
+          "seconds": 0.002203,
+          "samples": 91,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 6.51431957665565e-05
+        }
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 4,
+      "index": 4,
+      "source": [
+        0.05689685943395996,
+        0.13707253801613817
+      ],
+      "order": [
+        "algebraic",
+        "Singlepoly",
+        "Multipoly",
+        "Nopoly",
+        "before"
+      ],
+      "results": {
+        "algebraic": {
+          "mu": 8.61116871223999,
+          "error": 0.0081282336059533,
+          "seconds": 0.000879512,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000284635,
+            3.6e-08,
+            0.000594841,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 2.4474519717571177e-06
+        },
+        "Singlepoly": {
+          "mu": 8.61110197849926,
+          "error": 0.00858700508179904,
+          "seconds": 0.000652772,
+          "samples": 83,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.0197105895998433e-05
+        },
+        "Multipoly": {
+          "mu": 8.611101978499159,
+          "error": 0.008587005081790994,
+          "seconds": 0.000778695,
+          "samples": 83,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.0197105907756661e-05
+        },
+        "Nopoly": {
+          "mu": 8.611101978499217,
+          "error": 0.008587005081791024,
+          "seconds": 0.001716565,
+          "samples": 83,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.0197105900949266e-05
+        },
+        "before": {
+          "mu": 8.61116871223999,
+          "error": 0.0081282336059533,
+          "seconds": 0.001012058,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000389004,
+            6.9e-08,
+            0.000622985,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 2.4474519717571177e-06
+        }
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 4,
+      "index": 5,
+      "source": [
+        0.0786625730476361,
+        0.11038038098299613
+      ],
+      "order": [
+        "Singlepoly",
+        "Multipoly",
+        "Nopoly",
+        "before",
+        "algebraic"
+      ],
+      "results": {
+        "Singlepoly": {
+          "mu": 8.875604908959529,
+          "error": 0.008594468903729348,
+          "seconds": 0.000655304,
+          "samples": 82,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 5.183906950206304e-05
+        },
+        "Multipoly": {
+          "mu": 8.875604908959613,
+          "error": 0.008594468903747442,
+          "seconds": 0.000874724,
+          "samples": 82,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 5.1839069492656986e-05
+        },
+        "Nopoly": {
+          "mu": 8.87560490895964,
+          "error": 0.008594468903747312,
+          "seconds": 0.001984454,
+          "samples": 82,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 5.183906948965505e-05
+        },
+        "before": {
+          "mu": 8.876065760195747,
+          "error": 0.00600110856489779,
+          "seconds": 0.001038863,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000362782,
+            7e-08,
+            0.000676011,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 8.159966307902218e-08
+        },
+        "algebraic": {
+          "mu": 8.876065760195747,
+          "error": 0.00600110856489779,
+          "seconds": 0.000990347,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000305363,
+            7.6e-08,
+            0.000684908,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 8.159966307902218e-08
+        }
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 4,
+      "index": 6,
+      "source": [
+        0.1129274619838618,
+        0.10689685943395993
+      ],
+      "order": [
+        "Multipoly",
+        "Nopoly",
+        "before",
+        "algebraic",
+        "Singlepoly"
+      ],
+      "results": {
+        "Multipoly": {
+          "mu": 8.657221693136934,
+          "error": 0.008326334773825736,
+          "seconds": 0.000794783,
+          "samples": 79,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 2.0529253435796234e-06
+        },
+        "Nopoly": {
+          "mu": 8.657221693136927,
+          "error": 0.008326334773837641,
+          "seconds": 0.001867322,
+          "samples": 79,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 2.0529253427588705e-06
+        },
+        "before": {
+          "mu": 8.657198118389296,
+          "error": 0.0070623980972301294,
+          "seconds": 0.001087795,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000546001,
+            7.2e-08,
+            0.000541722,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 6.702111165116427e-07
+        },
+        "algebraic": {
+          "mu": 8.657198118389296,
+          "error": 0.0070623980972301294,
+          "seconds": 0.00093767,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000400327,
+            5.7e-08,
+            0.000537286,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 6.702111165116427e-07
+        },
+        "Singlepoly": {
+          "mu": 8.65722169313667,
+          "error": 0.008326334773907478,
+          "seconds": 0.000618752,
+          "samples": 79,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 2.052925313006569e-06
+        }
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 4,
+      "index": 7,
+      "source": [
+        0.13961961901700387,
+        0.1286625730476361
+      ],
+      "order": [
+        "Nopoly",
+        "before",
+        "algebraic",
+        "Singlepoly",
+        "Multipoly"
+      ],
+      "results": {
+        "Nopoly": {
+          "mu": 8.412003008320081,
+          "error": 0.008207193545056496,
+          "seconds": 0.001773396,
+          "samples": 78,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.1216293698335826e-05
+        },
+        "before": {
+          "mu": 8.411908211522935,
+          "error": 0.002782490760382201,
+          "seconds": 0.000741764,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.0003026,
+            6.1e-08,
+            0.000439103,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 5.306275829620435e-08
+        },
+        "algebraic": {
+          "mu": 8.411908211522935,
+          "error": 0.002782490760382201,
+          "seconds": 0.000711706,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000263688,
+            7.3e-08,
+            0.000447945,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 5.306275829620435e-08
+        },
+        "Singlepoly": {
+          "mu": 8.412003008320072,
+          "error": 0.008207193545039444,
+          "seconds": 0.000519598,
+          "samples": 78,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.1216293697279967e-05
+        },
+        "Multipoly": {
+          "mu": 8.412003008320074,
+          "error": 0.008207193545037175,
+          "seconds": 0.00070191,
+          "samples": 78,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.121629369749114e-05
+        }
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 5,
+      "index": 0,
+      "source": [
+        0.14310314056604007,
+        0.1629274619838618
+      ],
+      "order": [
+        "Nopoly",
+        "Multipoly",
+        "Singlepoly",
+        "algebraic",
+        "before"
+      ],
+      "results": {
+        "Nopoly": {
+          "mu": 8.089073853154723,
+          "error": 0.007897353078933135,
+          "seconds": 0.001532419,
+          "samples": 82,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.4895298430058913e-05
+        },
+        "Multipoly": {
+          "mu": 8.089073853154702,
+          "error": 0.007897353078934341,
+          "seconds": 0.000744087,
+          "samples": 82,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.4895298432694068e-05
+        },
+        "Singlepoly": {
+          "mu": 8.089073853154824,
+          "error": 0.00789735307895365,
+          "seconds": 0.000633659,
+          "samples": 82,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.4895298417541926e-05
+        },
+        "algebraic": {
+          "mu": 8.089195290632299,
+          "error": 0.004287372129746439,
+          "seconds": 0.000838695,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000276983,
+            5.9e-08,
+            0.000561653,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 1.1700964537694448e-07
+        },
+        "before": {
+          "mu": 8.089195290632299,
+          "error": 0.004287372129746439,
+          "seconds": 0.000820593,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000302598,
+            6.2e-08,
+            0.000517933,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 1.1700964537694448e-07
+        }
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 5,
+      "index": 1,
+      "source": [
+        0.12133742695236391,
+        0.18961961901700386
+      ],
+      "order": [
+        "before",
+        "Nopoly",
+        "Multipoly",
+        "Singlepoly",
+        "algebraic"
+      ],
+      "results": {
+        "before": {
+          "mu": 7.760915458855206,
+          "error": 0.006471859527206114,
+          "seconds": 0.000919019,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000442042,
+            6.9e-08,
+            0.000476908,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 2.9152766151003883e-07
+        },
+        "Nopoly": {
+          "mu": 7.76122786540969,
+          "error": 0.0074896225617131305,
+          "seconds": 0.001689543,
+          "samples": 89,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 3.99622884075587e-05
+        },
+        "Multipoly": {
+          "mu": 7.761227865409714,
+          "error": 0.00748962256157056,
+          "seconds": 0.000713358,
+          "samples": 89,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 3.9962288410763094e-05
+        },
+        "Singlepoly": {
+          "mu": 7.761227865409281,
+          "error": 0.0074896225626061045,
+          "seconds": 0.000659986,
+          "samples": 89,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 3.9962288354915176e-05
+        },
+        "algebraic": {
+          "mu": 7.760915458855206,
+          "error": 0.006471859527206114,
+          "seconds": 0.000866641,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000367708,
+            6e-08,
+            0.000498873,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 2.9152766151003883e-07
+        }
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 5,
+      "index": 2,
+      "source": [
+        0.0870725380161382,
+        0.19310314056604005
+      ],
+      "order": [
+        "algebraic",
+        "before",
+        "Nopoly",
+        "Multipoly",
+        "Singlepoly"
+      ],
+      "results": {
+        "algebraic": {
+          "mu": 7.745149831363922,
+          "error": 0.005826256072668173,
+          "seconds": 0.000887948,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000259753,
+            2.9e-08,
+            0.000628166,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 2.0677088618110335e-07
+        },
+        "before": {
+          "mu": 7.745149831363922,
+          "error": 0.005826256072668173,
+          "seconds": 0.000991532,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.00035862,
+            4.6e-08,
+            0.000632866,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 2.0677088618110335e-07
+        },
+        "Nopoly": {
+          "mu": 7.745057571559228,
+          "error": 0.00753256206763638,
+          "seconds": 0.00197095,
+          "samples": 84,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.2118714183182389e-05
+        },
+        "Multipoly": {
+          "mu": 7.745057571559203,
+          "error": 0.007532562067634038,
+          "seconds": 0.000794487,
+          "samples": 84,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.2118714186393301e-05
+        },
+        "Singlepoly": {
+          "mu": 7.74505757155895,
+          "error": 0.007532562067568911,
+          "seconds": 0.00061106,
+          "samples": 84,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.2118714219075793e-05
+        }
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 5,
+      "index": 3,
+      "source": [
+        0.06038038098299614,
+        0.1713374269523639
+      ],
+      "order": [
+        "Singlepoly",
+        "algebraic",
+        "before",
+        "Nopoly",
+        "Multipoly"
+      ],
+      "results": {
+        "Singlepoly": {
+          "mu": 8.232992598277379,
+          "error": 0.008044192504317878,
+          "seconds": 0.000543948,
+          "samples": 91,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 6.514319578618945e-05
+        },
+        "algebraic": {
+          "mu": 8.23355599772667,
+          "error": 0.008104104620527821,
+          "seconds": 0.000746241,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000266502,
+            5.9e-08,
+            0.00047968,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 3.284261292821207e-06
+        },
+        "before": {
+          "mu": 8.23355599772667,
+          "error": 0.008104104620527821,
+          "seconds": 0.000934571,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000355211,
+            6.3e-08,
+            0.000579297,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 3.284261292821207e-06
+        },
+        "Nopoly": {
+          "mu": 8.23299259827754,
+          "error": 0.008044192504347819,
+          "seconds": 0.001945244,
+          "samples": 91,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 6.51431957665565e-05
+        },
+        "Multipoly": {
+          "mu": 8.232992598277525,
+          "error": 0.00804419250432924,
+          "seconds": 0.000764909,
+          "samples": 91,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 6.514319576849822e-05
+        }
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 5,
+      "index": 4,
+      "source": [
+        0.05689685943395996,
+        0.13707253801613817
+      ],
+      "order": [
+        "Multipoly",
+        "Singlepoly",
+        "algebraic",
+        "before",
+        "Nopoly"
+      ],
+      "results": {
+        "Multipoly": {
+          "mu": 8.611101978499159,
+          "error": 0.008587005081790994,
+          "seconds": 0.000798208,
+          "samples": 83,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.0197105907756661e-05
+        },
+        "Singlepoly": {
+          "mu": 8.61110197849926,
+          "error": 0.00858700508179904,
+          "seconds": 0.000680076,
+          "samples": 83,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.0197105895998433e-05
+        },
+        "algebraic": {
+          "mu": 8.61116871223999,
+          "error": 0.0081282336059533,
+          "seconds": 0.000900747,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000282181,
+            4.9e-08,
+            0.000618517,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 2.4474519717571177e-06
+        },
+        "before": {
+          "mu": 8.61116871223999,
+          "error": 0.0081282336059533,
+          "seconds": 0.001008652,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000384701,
+            8.1e-08,
+            0.00062387,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 2.4474519717571177e-06
+        },
+        "Nopoly": {
+          "mu": 8.611101978499217,
+          "error": 0.008587005081791024,
+          "seconds": 0.001833976,
+          "samples": 83,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.0197105900949266e-05
+        }
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 5,
+      "index": 5,
+      "source": [
+        0.0786625730476361,
+        0.11038038098299613
+      ],
+      "order": [
+        "Nopoly",
+        "Multipoly",
+        "Singlepoly",
+        "algebraic",
+        "before"
+      ],
+      "results": {
+        "Nopoly": {
+          "mu": 8.87560490895964,
+          "error": 0.008594468903747312,
+          "seconds": 0.001695399,
+          "samples": 82,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 5.183906948965505e-05
+        },
+        "Multipoly": {
+          "mu": 8.875604908959613,
+          "error": 0.008594468903747442,
+          "seconds": 0.000823346,
+          "samples": 82,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 5.1839069492656986e-05
+        },
+        "Singlepoly": {
+          "mu": 8.875604908959529,
+          "error": 0.008594468903729348,
+          "seconds": 0.000630408,
+          "samples": 82,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 5.183906950206304e-05
+        },
+        "algebraic": {
+          "mu": 8.876065760195747,
+          "error": 0.00600110856489779,
+          "seconds": 0.000851054,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000293241,
+            5.4e-08,
+            0.000557759,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 8.159966307902218e-08
+        },
+        "before": {
+          "mu": 8.876065760195747,
+          "error": 0.00600110856489779,
+          "seconds": 0.000913752,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000357337,
+            6.8e-08,
+            0.000556347,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 8.159966307902218e-08
+        }
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 5,
+      "index": 6,
+      "source": [
+        0.1129274619838618,
+        0.10689685943395993
+      ],
+      "order": [
+        "before",
+        "Nopoly",
+        "Multipoly",
+        "Singlepoly",
+        "algebraic"
+      ],
+      "results": {
+        "before": {
+          "mu": 8.657198118389296,
+          "error": 0.0070623980972301294,
+          "seconds": 0.000997743,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000503426,
+            2.7e-08,
+            0.00049429,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 6.702111165116427e-07
+        },
+        "Nopoly": {
+          "mu": 8.657221693136927,
+          "error": 0.008326334773837641,
+          "seconds": 0.001572371,
+          "samples": 79,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 2.0529253427588705e-06
+        },
+        "Multipoly": {
+          "mu": 8.657221693136934,
+          "error": 0.008326334773825736,
+          "seconds": 0.000738475,
+          "samples": 79,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 2.0529253435796234e-06
+        },
+        "Singlepoly": {
+          "mu": 8.65722169313667,
+          "error": 0.008326334773907478,
+          "seconds": 0.000492555,
+          "samples": 79,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 2.052925313006569e-06
+        },
+        "algebraic": {
+          "mu": 8.657198118389296,
+          "error": 0.0070623980972301294,
+          "seconds": 0.000820317,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000369784,
+            3.7e-08,
+            0.000450496,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 6.702111165116427e-07
+        }
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 5,
+      "index": 7,
+      "source": [
+        0.13961961901700387,
+        0.1286625730476361
+      ],
+      "order": [
+        "algebraic",
+        "before",
+        "Nopoly",
+        "Multipoly",
+        "Singlepoly"
+      ],
+      "results": {
+        "algebraic": {
+          "mu": 8.411908211522935,
+          "error": 0.002782490760382201,
+          "seconds": 0.000611923,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000209216,
+            5.3e-08,
+            0.000402654,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 5.306275829620435e-08
+        },
+        "before": {
+          "mu": 8.411908211522935,
+          "error": 0.002782490760382201,
+          "seconds": 0.000713262,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000285462,
+            5.1e-08,
+            0.000427749,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 5.306275829620435e-08
+        },
+        "Nopoly": {
+          "mu": 8.412003008320081,
+          "error": 0.008207193545056496,
+          "seconds": 0.0013987,
+          "samples": 78,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.1216293698335826e-05
+        },
+        "Multipoly": {
+          "mu": 8.412003008320074,
+          "error": 0.008207193545037175,
+          "seconds": 0.000631865,
+          "samples": 78,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.121629369749114e-05
+        },
+        "Singlepoly": {
+          "mu": 8.412003008320072,
+          "error": 0.008207193545039444,
+          "seconds": 0.00048544,
+          "samples": 78,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.1216293697279967e-05
+        }
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 6,
+      "index": 0,
+      "source": [
+        0.14310314056604007,
+        0.1629274619838618
+      ],
+      "order": [
+        "Multipoly",
+        "Nopoly",
+        "before",
+        "algebraic",
+        "Singlepoly"
+      ],
+      "results": {
+        "Multipoly": {
+          "mu": 8.089073853154702,
+          "error": 0.007897353078934341,
+          "seconds": 0.000650756,
+          "samples": 82,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.4895298432694068e-05
+        },
+        "Nopoly": {
+          "mu": 8.089073853154723,
+          "error": 0.007897353078933135,
+          "seconds": 0.001499019,
+          "samples": 82,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.4895298430058913e-05
+        },
+        "before": {
+          "mu": 8.089195290632299,
+          "error": 0.004287372129746439,
+          "seconds": 0.000726251,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.00027802,
+            5.8e-08,
+            0.000448173,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 1.1700964537694448e-07
+        },
+        "algebraic": {
+          "mu": 8.089195290632299,
+          "error": 0.004287372129746439,
+          "seconds": 0.000669542,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000218428,
+            5e-08,
+            0.000451064,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 1.1700964537694448e-07
+        },
+        "Singlepoly": {
+          "mu": 8.089073853154824,
+          "error": 0.00789735307895365,
+          "seconds": 0.00050087,
+          "samples": 82,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.4895298417541926e-05
+        }
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 6,
+      "index": 1,
+      "source": [
+        0.12133742695236391,
+        0.18961961901700386
+      ],
+      "order": [
+        "Nopoly",
+        "before",
+        "algebraic",
+        "Singlepoly",
+        "Multipoly"
+      ],
+      "results": {
+        "Nopoly": {
+          "mu": 7.76122786540969,
+          "error": 0.0074896225617131305,
+          "seconds": 0.001654692,
+          "samples": 89,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 3.99622884075587e-05
+        },
+        "before": {
+          "mu": 7.760915458855206,
+          "error": 0.006471859527206114,
+          "seconds": 0.000760227,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.0003585,
+            6e-08,
+            0.000401667,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 2.9152766151003883e-07
+        },
+        "algebraic": {
+          "mu": 7.760915458855206,
+          "error": 0.006471859527206114,
+          "seconds": 0.000692322,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000298138,
+            5.5e-08,
+            0.000394129,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 2.9152766151003883e-07
+        },
+        "Singlepoly": {
+          "mu": 7.761227865409281,
+          "error": 0.0074896225626061045,
+          "seconds": 0.000544707,
+          "samples": 89,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 3.9962288354915176e-05
+        },
+        "Multipoly": {
+          "mu": 7.761227865409714,
+          "error": 0.00748962256157056,
+          "seconds": 0.000707228,
+          "samples": 89,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 3.9962288410763094e-05
+        }
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 6,
+      "index": 2,
+      "source": [
+        0.0870725380161382,
+        0.19310314056604005
+      ],
+      "order": [
+        "before",
+        "algebraic",
+        "Singlepoly",
+        "Multipoly",
+        "Nopoly"
+      ],
+      "results": {
+        "before": {
+          "mu": 7.745149831363922,
+          "error": 0.005826256072668173,
+          "seconds": 0.000801344,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000283376,
+            6.1e-08,
+            0.000517907,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 2.0677088618110335e-07
+        },
+        "algebraic": {
+          "mu": 7.745149831363922,
+          "error": 0.005826256072668173,
+          "seconds": 0.000748982,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000219505,
+            6e-08,
+            0.000529417,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 2.0677088618110335e-07
+        },
+        "Singlepoly": {
+          "mu": 7.74505757155895,
+          "error": 0.007532562067568911,
+          "seconds": 0.000530543,
+          "samples": 84,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.2118714219075793e-05
+        },
+        "Multipoly": {
+          "mu": 7.745057571559203,
+          "error": 0.007532562067634038,
+          "seconds": 0.000694459,
+          "samples": 84,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.2118714186393301e-05
+        },
+        "Nopoly": {
+          "mu": 7.745057571559228,
+          "error": 0.00753256206763638,
+          "seconds": 0.001582638,
+          "samples": 84,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.2118714183182389e-05
+        }
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 6,
+      "index": 3,
+      "source": [
+        0.06038038098299614,
+        0.1713374269523639
+      ],
+      "order": [
+        "algebraic",
+        "Singlepoly",
+        "Multipoly",
+        "Nopoly",
+        "before"
+      ],
+      "results": {
+        "algebraic": {
+          "mu": 8.23355599772667,
+          "error": 0.008104104620527821,
+          "seconds": 0.000712591,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000234798,
+            6.1e-08,
+            0.000477732,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 3.284261292821207e-06
+        },
+        "Singlepoly": {
+          "mu": 8.232992598277379,
+          "error": 0.008044192504317878,
+          "seconds": 0.000567354,
+          "samples": 91,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 6.514319578618945e-05
+        },
+        "Multipoly": {
+          "mu": 8.232992598277525,
+          "error": 0.00804419250432924,
+          "seconds": 0.000752629,
+          "samples": 91,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 6.514319576849822e-05
+        },
+        "Nopoly": {
+          "mu": 8.23299259827754,
+          "error": 0.008044192504347819,
+          "seconds": 0.00173084,
+          "samples": 91,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 6.51431957665565e-05
+        },
+        "before": {
+          "mu": 8.23355599772667,
+          "error": 0.008104104620527821,
+          "seconds": 0.000778095,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000305241,
+            6.3e-08,
+            0.000472791,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 3.284261292821207e-06
+        }
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 6,
+      "index": 4,
+      "source": [
+        0.05689685943395996,
+        0.13707253801613817
+      ],
+      "order": [
+        "Singlepoly",
+        "Multipoly",
+        "Nopoly",
+        "before",
+        "algebraic"
+      ],
+      "results": {
+        "Singlepoly": {
+          "mu": 8.61110197849926,
+          "error": 0.00858700508179904,
+          "seconds": 0.000513788,
+          "samples": 83,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.0197105895998433e-05
+        },
+        "Multipoly": {
+          "mu": 8.611101978499159,
+          "error": 0.008587005081790994,
+          "seconds": 0.000692666,
+          "samples": 83,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.0197105907756661e-05
+        },
+        "Nopoly": {
+          "mu": 8.611101978499217,
+          "error": 0.008587005081791024,
+          "seconds": 0.001563449,
+          "samples": 83,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.0197105900949266e-05
+        },
+        "before": {
+          "mu": 8.61116871223999,
+          "error": 0.0081282336059533,
+          "seconds": 0.000749747,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000289279,
+            5.9e-08,
+            0.000460409,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 2.4474519717571177e-06
+        },
+        "algebraic": {
+          "mu": 8.61116871223999,
+          "error": 0.0081282336059533,
+          "seconds": 0.000708757,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000232706,
+            6.8e-08,
+            0.000475983,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 2.4474519717571177e-06
+        }
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 6,
+      "index": 5,
+      "source": [
+        0.0786625730476361,
+        0.11038038098299613
+      ],
+      "order": [
+        "Multipoly",
+        "Nopoly",
+        "before",
+        "algebraic",
+        "Singlepoly"
+      ],
+      "results": {
+        "Multipoly": {
+          "mu": 8.875604908959613,
+          "error": 0.008594468903747442,
+          "seconds": 0.000687486,
+          "samples": 82,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 5.1839069492656986e-05
+        },
+        "Nopoly": {
+          "mu": 8.87560490895964,
+          "error": 0.008594468903747312,
+          "seconds": 0.001565255,
+          "samples": 82,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 5.183906948965505e-05
+        },
+        "before": {
+          "mu": 8.876065760195747,
+          "error": 0.00600110856489779,
+          "seconds": 0.000828012,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000298414,
+            6.2e-08,
+            0.000529536,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 8.159966307902218e-08
+        },
+        "algebraic": {
+          "mu": 8.876065760195747,
+          "error": 0.00600110856489779,
+          "seconds": 0.0007482,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000230947,
+            5.1e-08,
+            0.000517202,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 8.159966307902218e-08
+        },
+        "Singlepoly": {
+          "mu": 8.875604908959529,
+          "error": 0.008594468903729348,
+          "seconds": 0.00050768,
+          "samples": 82,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 5.183906950206304e-05
+        }
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 6,
+      "index": 6,
+      "source": [
+        0.1129274619838618,
+        0.10689685943395993
+      ],
+      "order": [
+        "Nopoly",
+        "before",
+        "algebraic",
+        "Singlepoly",
+        "Multipoly"
+      ],
+      "results": {
+        "Nopoly": {
+          "mu": 8.657221693136927,
+          "error": 0.008326334773837641,
+          "seconds": 0.001465005,
+          "samples": 79,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 2.0529253427588705e-06
+        },
+        "before": {
+          "mu": 8.657198118389296,
+          "error": 0.0070623980972301294,
+          "seconds": 0.000855644,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000421221,
+            3.9e-08,
+            0.000434384,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 6.702111165116427e-07
+        },
+        "algebraic": {
+          "mu": 8.657198118389296,
+          "error": 0.0070623980972301294,
+          "seconds": 0.000783532,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000357168,
+            5.1e-08,
+            0.000426313,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 6.702111165116427e-07
+        },
+        "Singlepoly": {
+          "mu": 8.65722169313667,
+          "error": 0.008326334773907478,
+          "seconds": 0.000494538,
+          "samples": 79,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 2.052925313006569e-06
+        },
+        "Multipoly": {
+          "mu": 8.657221693136934,
+          "error": 0.008326334773825736,
+          "seconds": 0.000707503,
+          "samples": 79,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 2.0529253435796234e-06
+        }
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 6,
+      "index": 7,
+      "source": [
+        0.13961961901700387,
+        0.1286625730476361
+      ],
+      "order": [
+        "before",
+        "algebraic",
+        "Singlepoly",
+        "Multipoly",
+        "Nopoly"
+      ],
+      "results": {
+        "before": {
+          "mu": 8.411908211522935,
+          "error": 0.002782490760382201,
+          "seconds": 0.000729302,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000287323,
+            4.1e-08,
+            0.000441938,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 5.306275829620435e-08
+        },
+        "algebraic": {
+          "mu": 8.411908211522935,
+          "error": 0.002782490760382201,
+          "seconds": 0.00063989,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.00021541,
+            6e-08,
+            0.00042442,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 5.306275829620435e-08
+        },
+        "Singlepoly": {
+          "mu": 8.412003008320072,
+          "error": 0.008207193545039444,
+          "seconds": 0.000477776,
+          "samples": 78,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.1216293697279967e-05
+        },
+        "Multipoly": {
+          "mu": 8.412003008320074,
+          "error": 0.008207193545037175,
+          "seconds": 0.00063459,
+          "samples": 78,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.121629369749114e-05
+        },
+        "Nopoly": {
+          "mu": 8.412003008320081,
+          "error": 0.008207193545056496,
+          "seconds": 0.001411226,
+          "samples": 78,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.1216293698335826e-05
+        }
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 7,
+      "index": 0,
+      "source": [
+        0.14310314056604007,
+        0.1629274619838618
+      ],
+      "order": [
+        "before",
+        "Nopoly",
+        "Multipoly",
+        "Singlepoly",
+        "algebraic"
+      ],
+      "results": {
+        "before": {
+          "mu": 8.089195290632299,
+          "error": 0.004287372129746439,
+          "seconds": 0.000718714,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000272048,
+            4e-08,
+            0.000446626,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 1.1700964537694448e-07
+        },
+        "Nopoly": {
+          "mu": 8.089073853154723,
+          "error": 0.007897353078933135,
+          "seconds": 0.001694156,
+          "samples": 82,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.4895298430058913e-05
+        },
+        "Multipoly": {
+          "mu": 8.089073853154702,
+          "error": 0.007897353078934341,
+          "seconds": 0.000682035,
+          "samples": 82,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.4895298432694068e-05
+        },
+        "Singlepoly": {
+          "mu": 8.089073853154824,
+          "error": 0.00789735307895365,
+          "seconds": 0.000626589,
+          "samples": 82,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.4895298417541926e-05
+        },
+        "algebraic": {
+          "mu": 8.089195290632299,
+          "error": 0.004287372129746439,
+          "seconds": 0.000672449,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.0002164,
+            5e-08,
+            0.000455999,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 1.1700964537694448e-07
+        }
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 7,
+      "index": 1,
+      "source": [
+        0.12133742695236391,
+        0.18961961901700386
+      ],
+      "order": [
+        "algebraic",
+        "before",
+        "Nopoly",
+        "Multipoly",
+        "Singlepoly"
+      ],
+      "results": {
+        "algebraic": {
+          "mu": 7.760915458855206,
+          "error": 0.006471859527206114,
+          "seconds": 0.000716237,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000294701,
+            6.3e-08,
+            0.000421473,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 2.9152766151003883e-07
+        },
+        "before": {
+          "mu": 7.760915458855206,
+          "error": 0.006471859527206114,
+          "seconds": 0.000769374,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000363462,
+            3.9e-08,
+            0.000405873,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 2.9152766151003883e-07
+        },
+        "Nopoly": {
+          "mu": 7.76122786540969,
+          "error": 0.0074896225617131305,
+          "seconds": 0.00209089,
+          "samples": 89,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 3.99622884075587e-05
+        },
+        "Multipoly": {
+          "mu": 7.761227865409714,
+          "error": 0.00748962256157056,
+          "seconds": 0.00079891,
+          "samples": 89,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 3.9962288410763094e-05
+        },
+        "Singlepoly": {
+          "mu": 7.761227865409281,
+          "error": 0.0074896225626061045,
+          "seconds": 0.000629661,
+          "samples": 89,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 3.9962288354915176e-05
+        }
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 7,
+      "index": 2,
+      "source": [
+        0.0870725380161382,
+        0.19310314056604005
+      ],
+      "order": [
+        "Singlepoly",
+        "algebraic",
+        "before",
+        "Nopoly",
+        "Multipoly"
+      ],
+      "results": {
+        "Singlepoly": {
+          "mu": 7.74505757155895,
+          "error": 0.007532562067568911,
+          "seconds": 0.000595162,
+          "samples": 84,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.2118714219075793e-05
+        },
+        "algebraic": {
+          "mu": 7.745149831363922,
+          "error": 0.005826256072668173,
+          "seconds": 0.000886329,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000291089,
+            7.4e-08,
+            0.000595166,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 2.0677088618110335e-07
+        },
+        "before": {
+          "mu": 7.745149831363922,
+          "error": 0.005826256072668173,
+          "seconds": 0.000854513,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000294645,
+            2.3e-08,
+            0.000559845,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 2.0677088618110335e-07
+        },
+        "Nopoly": {
+          "mu": 7.745057571559228,
+          "error": 0.00753256206763638,
+          "seconds": 0.001676605,
+          "samples": 84,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.2118714183182389e-05
+        },
+        "Multipoly": {
+          "mu": 7.745057571559203,
+          "error": 0.007532562067634038,
+          "seconds": 0.000816843,
+          "samples": 84,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.2118714186393301e-05
+        }
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 7,
+      "index": 3,
+      "source": [
+        0.06038038098299614,
+        0.1713374269523639
+      ],
+      "order": [
+        "Multipoly",
+        "Singlepoly",
+        "algebraic",
+        "before",
+        "Nopoly"
+      ],
+      "results": {
+        "Multipoly": {
+          "mu": 8.232992598277525,
+          "error": 0.00804419250432924,
+          "seconds": 0.00091989,
+          "samples": 91,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 6.514319576849822e-05
+        },
+        "Singlepoly": {
+          "mu": 8.232992598277379,
+          "error": 0.008044192504317878,
+          "seconds": 0.000711423,
+          "samples": 91,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 6.514319578618945e-05
+        },
+        "algebraic": {
+          "mu": 8.23355599772667,
+          "error": 0.008104104620527821,
+          "seconds": 0.000885629,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000289468,
+            6.6e-08,
+            0.000596095,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 3.284261292821207e-06
+        },
+        "before": {
+          "mu": 8.23355599772667,
+          "error": 0.008104104620527821,
+          "seconds": 0.000921241,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000352698,
+            4.9e-08,
+            0.000568494,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 3.284261292821207e-06
+        },
+        "Nopoly": {
+          "mu": 8.23299259827754,
+          "error": 0.008044192504347819,
+          "seconds": 0.001979475,
+          "samples": 91,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 6.51431957665565e-05
+        }
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 7,
+      "index": 4,
+      "source": [
+        0.05689685943395996,
+        0.13707253801613817
+      ],
+      "order": [
+        "Nopoly",
+        "Multipoly",
+        "Singlepoly",
+        "algebraic",
+        "before"
+      ],
+      "results": {
+        "Nopoly": {
+          "mu": 8.611101978499217,
+          "error": 0.008587005081791024,
+          "seconds": 0.001536881,
+          "samples": 83,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.0197105900949266e-05
+        },
+        "Multipoly": {
+          "mu": 8.611101978499159,
+          "error": 0.008587005081790994,
+          "seconds": 0.000671066,
+          "samples": 83,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.0197105907756661e-05
+        },
+        "Singlepoly": {
+          "mu": 8.61110197849926,
+          "error": 0.00858700508179904,
+          "seconds": 0.000571806,
+          "samples": 83,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.0197105895998433e-05
+        },
+        "algebraic": {
+          "mu": 8.61116871223999,
+          "error": 0.0081282336059533,
+          "seconds": 0.000770156,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.00028345,
+            6.3e-08,
+            0.000486643,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 2.4474519717571177e-06
+        },
+        "before": {
+          "mu": 8.61116871223999,
+          "error": 0.0081282336059533,
+          "seconds": 0.000758325,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000292056,
+            5.5e-08,
+            0.000466214,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 2.4474519717571177e-06
+        }
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 7,
+      "index": 5,
+      "source": [
+        0.0786625730476361,
+        0.11038038098299613
+      ],
+      "order": [
+        "before",
+        "Nopoly",
+        "Multipoly",
+        "Singlepoly",
+        "algebraic"
+      ],
+      "results": {
+        "before": {
+          "mu": 8.876065760195747,
+          "error": 0.00600110856489779,
+          "seconds": 0.000798363,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000288162,
+            2.1e-08,
+            0.00051018,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 8.159966307902218e-08
+        },
+        "Nopoly": {
+          "mu": 8.87560490895964,
+          "error": 0.008594468903747312,
+          "seconds": 0.001521765,
+          "samples": 82,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 5.183906948965505e-05
+        },
+        "Multipoly": {
+          "mu": 8.875604908959613,
+          "error": 0.008594468903747442,
+          "seconds": 0.000657125,
+          "samples": 82,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 5.1839069492656986e-05
+        },
+        "Singlepoly": {
+          "mu": 8.875604908959529,
+          "error": 0.008594468903729348,
+          "seconds": 0.000502914,
+          "samples": 82,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 5.183906950206304e-05
+        },
+        "algebraic": {
+          "mu": 8.876065760195747,
+          "error": 0.00600110856489779,
+          "seconds": 0.00076169,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000239203,
+            5.6e-08,
+            0.000522431,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 8.159966307902218e-08
+        }
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 7,
+      "index": 6,
+      "source": [
+        0.1129274619838618,
+        0.10689685943395993
+      ],
+      "order": [
+        "algebraic",
+        "before",
+        "Nopoly",
+        "Multipoly",
+        "Singlepoly"
+      ],
+      "results": {
+        "algebraic": {
+          "mu": 8.657198118389296,
+          "error": 0.0070623980972301294,
+          "seconds": 0.000757027,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000351097,
+            1.6e-08,
+            0.000405914,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 6.702111165116427e-07
+        },
+        "before": {
+          "mu": 8.657198118389296,
+          "error": 0.0070623980972301294,
+          "seconds": 0.000845616,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000417613,
+            5.6e-08,
+            0.000427947,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 6.702111165116427e-07
+        },
+        "Nopoly": {
+          "mu": 8.657221693136927,
+          "error": 0.008326334773837641,
+          "seconds": 0.001455302,
+          "samples": 79,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 2.0529253427588705e-06
+        },
+        "Multipoly": {
+          "mu": 8.657221693136934,
+          "error": 0.008326334773825736,
+          "seconds": 0.000625143,
+          "samples": 79,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 2.0529253435796234e-06
+        },
+        "Singlepoly": {
+          "mu": 8.65722169313667,
+          "error": 0.008326334773907478,
+          "seconds": 0.000484159,
+          "samples": 79,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 2.052925313006569e-06
+        }
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "cycle": 7,
+      "index": 7,
+      "source": [
+        0.13961961901700387,
+        0.1286625730476361
+      ],
+      "order": [
+        "Singlepoly",
+        "algebraic",
+        "before",
+        "Nopoly",
+        "Multipoly"
+      ],
+      "results": {
+        "Singlepoly": {
+          "mu": 8.412003008320072,
+          "error": 0.008207193545039444,
+          "seconds": 0.000446307,
+          "samples": 78,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.1216293697279967e-05
+        },
+        "algebraic": {
+          "mu": 8.411908211522935,
+          "error": 0.002782490760382201,
+          "seconds": 0.000650943,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000224284,
+            6e-08,
+            0.000426599,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 5.306275829620435e-08
+        },
+        "before": {
+          "mu": 8.411908211522935,
+          "error": 0.002782490760382201,
+          "seconds": 0.000717519,
+          "samples": 0,
+          "annuli": 0,
+          "converged": 1,
+          "stages": [
+            0.000283468,
+            5.9e-08,
+            0.000433992,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "relative_error": 5.306275829620435e-08
+        },
+        "Nopoly": {
+          "mu": 8.412003008320081,
+          "error": 0.008207193545056496,
+          "seconds": 0.001403616,
+          "samples": 78,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.1216293698335826e-05
+        },
+        "Multipoly": {
+          "mu": 8.412003008320074,
+          "error": 0.008207193545037175,
+          "seconds": 0.000632996,
+          "samples": 78,
+          "annuli": 0,
+          "converged": -1,
+          "relative_error": 1.121629369749114e-05
+        }
+      }
+    }
+  ],
+  "warmups": [
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "engine": "before",
+      "result": {
+        "mu": 8.398386860240915,
+        "error": 0.005825549921296832,
+        "seconds": 0.001037926,
+        "samples": 0,
+        "annuli": 0,
+        "converged": 1,
+        "stages": [
+          0.000413146,
+          5.3e-08,
+          0.000624727,
+          1.0,
+          0.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "engine": "algebraic",
+      "result": {
+        "mu": 8.398386860240915,
+        "error": 0.005825549921296832,
+        "seconds": 0.001193235,
+        "samples": 0,
+        "annuli": 0,
+        "converged": 1,
+        "stages": [
+          0.000441142,
+          4.3e-08,
+          0.00075205,
+          1.0,
+          0.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "engine": "Singlepoly",
+      "result": {
+        "mu": 8.397961110662466,
+        "error": 0.00834287224492291,
+        "seconds": 0.000579079,
+        "samples": 80,
+        "annuli": 0,
+        "converged": -1
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "engine": "Multipoly",
+      "result": {
+        "mu": 8.397961110662534,
+        "error": 0.008342872244923019,
+        "seconds": 0.000818229,
+        "samples": 80,
+        "annuli": 0,
+        "converged": -1
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "engine": "Nopoly",
+      "result": {
+        "mu": 8.397961110662528,
+        "error": 0.008342872244924466,
+        "seconds": 0.001569537,
+        "samples": 80,
+        "annuli": 0,
+        "converged": -1
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "engine": "before",
+      "result": {
+        "mu": 8.398386860240915,
+        "error": 0.005825549921315529,
+        "seconds": 0.000871873,
+        "samples": 0,
+        "annuli": 0,
+        "converged": 1,
+        "stages": [
+          0.000299987,
+          5.2e-08,
+          0.000571834,
+          0.0,
+          0.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "engine": "algebraic",
+      "result": {
+        "mu": 8.398386860240915,
+        "error": 0.005825549921315529,
+        "seconds": 0.000853811,
+        "samples": 0,
+        "annuli": 0,
+        "converged": 1,
+        "stages": [
+          0.000293708,
+          2.9e-08,
+          0.000560074,
+          0.0,
+          0.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "engine": "Singlepoly",
+      "result": {
+        "mu": 8.397961110662466,
+        "error": 0.00834287224492291,
+        "seconds": 0.000601198,
+        "samples": 80,
+        "annuli": 0,
+        "converged": -1
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "engine": "Multipoly",
+      "result": {
+        "mu": 8.397961110662534,
+        "error": 0.008342872244923019,
+        "seconds": 0.00082897,
+        "samples": 80,
+        "annuli": 0,
+        "converged": -1
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "engine": "Nopoly",
+      "result": {
+        "mu": 8.397961110662528,
+        "error": 0.008342872244924466,
+        "seconds": 0.001877246,
+        "samples": 80,
+        "annuli": 0,
+        "converged": -1
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "engine": "before",
+      "result": {
+        "mu": 8.398386860240915,
+        "error": 0.005825549921337388,
+        "seconds": 0.000994591,
+        "samples": 0,
+        "annuli": 0,
+        "converged": 1,
+        "stages": [
+          0.000346053,
+          6.4e-08,
+          0.000648474,
+          0.0,
+          0.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "engine": "algebraic",
+      "result": {
+        "mu": 8.398386860240915,
+        "error": 0.005825549921337388,
+        "seconds": 0.000977387,
+        "samples": 0,
+        "annuli": 0,
+        "converged": 1,
+        "stages": [
+          0.000323881,
+          3.6e-08,
+          0.00065347,
+          0.0,
+          0.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "engine": "Singlepoly",
+      "result": {
+        "mu": 8.397961110662466,
+        "error": 0.00834287224492291,
+        "seconds": 0.000625719,
+        "samples": 80,
+        "annuli": 0,
+        "converged": -1
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "engine": "Multipoly",
+      "result": {
+        "mu": 8.397961110662534,
+        "error": 0.008342872244923019,
+        "seconds": 0.00083086,
+        "samples": 80,
+        "annuli": 0,
+        "converged": -1
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "engine": "Nopoly",
+      "result": {
+        "mu": 8.397961110662528,
+        "error": 0.008342872244924466,
+        "seconds": 0.001916248,
+        "samples": 80,
+        "annuli": 0,
+        "converged": -1
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "engine": "before",
+      "result": {
+        "mu": 8.398386860240915,
+        "error": 0.0058255499213374865,
+        "seconds": 0.001053668,
+        "samples": 0,
+        "annuli": 0,
+        "converged": 1,
+        "stages": [
+          0.000373026,
+          6.4e-08,
+          0.000680578,
+          0.0,
+          0.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "engine": "algebraic",
+      "result": {
+        "mu": 8.398386860240915,
+        "error": 0.0058255499213374865,
+        "seconds": 0.001889216,
+        "samples": 0,
+        "annuli": 0,
+        "converged": 1,
+        "stages": [
+          0.001196772,
+          5.7e-08,
+          0.000692387,
+          0.0,
+          0.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "engine": "Singlepoly",
+      "result": {
+        "mu": 8.397961110662466,
+        "error": 0.00834287224492291,
+        "seconds": 0.000627253,
+        "samples": 80,
+        "annuli": 0,
+        "converged": -1
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "engine": "Multipoly",
+      "result": {
+        "mu": 8.397961110662534,
+        "error": 0.008342872244923019,
+        "seconds": 0.000838606,
+        "samples": 80,
+        "annuli": 0,
+        "converged": -1
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "engine": "Nopoly",
+      "result": {
+        "mu": 8.397961110662528,
+        "error": 0.008342872244924466,
+        "seconds": 0.00185546,
+        "samples": 80,
+        "annuli": 0,
+        "converged": -1
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "engine": "before",
+      "result": {
+        "mu": 8.398386860240915,
+        "error": 0.005825549921337388,
+        "seconds": 0.000989607,
+        "samples": 0,
+        "annuli": 0,
+        "converged": 1,
+        "stages": [
+          0.000337643,
+          6.3e-08,
+          0.000651901,
+          0.0,
+          0.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "engine": "algebraic",
+      "result": {
+        "mu": 8.398386860240915,
+        "error": 0.005825549921337388,
+        "seconds": 0.000917352,
+        "samples": 0,
+        "annuli": 0,
+        "converged": 1,
+        "stages": [
+          0.000260474,
+          5.8e-08,
+          0.00065682,
+          0.0,
+          0.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "engine": "Singlepoly",
+      "result": {
+        "mu": 8.397961110662466,
+        "error": 0.00834287224492291,
+        "seconds": 0.000624082,
+        "samples": 80,
+        "annuli": 0,
+        "converged": -1
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "engine": "Multipoly",
+      "result": {
+        "mu": 8.397961110662534,
+        "error": 0.008342872244923019,
+        "seconds": 0.000755192,
+        "samples": 80,
+        "annuli": 0,
+        "converged": -1
+      }
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "engine": "Nopoly",
+      "result": {
+        "mu": 8.397961110662528,
+        "error": 0.008342872244924466,
+        "seconds": 0.001789595,
+        "samples": 80,
+        "annuli": 0,
+        "converged": -1
+      }
+    }
+  ]
+}

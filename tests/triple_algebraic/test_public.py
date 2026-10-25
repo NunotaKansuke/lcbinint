@@ -1,0 +1,47 @@
+import argparse
+import pathlib
+import sys
+import math
+import numpy as np
+parser=argparse.ArgumentParser()
+parser.add_argument('--build',type=pathlib.Path,required=True)
+args=parser.parse_args()
+build=args.build.resolve()
+sys.meta_path=[f for f in sys.meta_path if '_lcbinint_editable' not in str(f)]
+sys.path.insert(0,str(build))
+import lcbinint as native
+assert pathlib.Path(native.__file__).resolve().is_relative_to(build)
+assert pathlib.Path(native._native.__file__).resolve().is_relative_to(build)
+lenses=[0j,1+0j,-.4+.6j]
+result=native.triple_algebraic(lenses,[.72,.2,.08],.1+.15j,.15,limb=.5,with_gradient=True)
+assert result['value_converged'] and result['gradient_reliable'] and result['support_complete'],result
+assert abs(result['mu']-8.630749933917409)<1e-4,result
+assert result['quad_samples']<result['node_evaluations'],result
+failed=native.triple_algebraic(lenses,[.72,.2,.08],.1+.15j,.15,
+    with_gradient=True,event_box_budget=1)
+assert not failed['value_converged'] and not failed['gradient_reliable']
+assert not failed['support_complete'] and math.isnan(failed['mu'])
+assert all(math.isnan(x) for x in failed['gradient']),failed
+assert failed['stop']=='event_box_budget',failed
+value=native.triple_algebraic(lenses,[.72,.2,.08],.1+.15j,.15,limb=.5)
+assert value['value_converged'] and value['parameter_derivative_evaluations']==0,value
+assert abs(value['mu']-result['mu'])<1e-4
+# Physical gradients obey translation and rotation invariance.
+g=np.asarray(result['gradient'])
+assert abs(g[0]+g[5]+g[7]+g[9])<1e-8
+assert abs(g[1]+g[6]+g[8]+g[10])<1e-8
+rotation=-.15*g[0]+.1*g[1]
+for j,z in enumerate(lenses):rotation+=-z.imag*g[5+2*j]+z.real*g[6+2*j]
+assert abs(rotation)<1e-8
+params=dict(t0=-(.2/.92-.1),u0=-.15,tE=1.,alpha=0.,s=1.,q=.2/.72,q2=.08/.72,
+            sep2=math.hypot(.4,.6),ang=math.atan2(.6,-.4),rho=.15)
+curve=native.LightCurve(lens='triple',param_type='vbm',options=native.Options(
+    finite_source_backend='algebraic_boundary',finite_source_tol=1e-6,finite_source_reltol=1e-5),ld_c=.5)
+info=curve.info([0.],params,with_gradient=True)
+assert info.status.tolist()==[0] and info.gradient_valid.tolist()==[True],info
+assert info.gradient_parameters==('t0','u0','tE','alpha','rho','q','s','q2','sep2','ang')
+assert info.gradients.shape==(1,10) and np.isfinite(info.gradients).all()
+plain=curve.info([0.],params)
+assert plain.status.tolist()==[0] and abs(plain.magnifications[0]-info.magnifications[0])<1e-4
+assert 'jax' not in sys.modules,'Native analytic gradients imported JAX'
+print('PASS: verified native public triple API, invariances, LightCurve values and 10 analytic derivatives')

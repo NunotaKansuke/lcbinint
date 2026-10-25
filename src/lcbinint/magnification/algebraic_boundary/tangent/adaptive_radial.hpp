@@ -1,4 +1,5 @@
 #pragma once
+#include "../quadrature_error_policy.hpp"
 #include "fused_motion.hpp"
 #if defined(__AVX2__)
 #include <immintrin.h>
@@ -178,7 +179,7 @@ struct AdaptiveConfig {
     // unchanged; retain the incumbent for matched research comparisons.
     bool gradient_local_refinement=false;
     int gradient_split_min_level=4;
-    double gradient_difference_safety=2.0;
+    double gradient_difference_safety=QuadratureErrorPolicy::difference_safety;
     // Lightweight two-dimensional gradient mode.  It keeps the accepted
     // value snapshot fixed, gives ValueFirst an explicit post-value work
     // cap, and only selects the angular dimension when its ledger is clearly
@@ -193,8 +194,8 @@ struct AdaptiveConfig {
     // The floor prevents an accidentally cancelling embedded difference from
     // hiding unresolved radial structure.
     RadialErrorEstimator radial_error_estimator=RadialErrorEstimator::HybridEmbedded;
-    double nested_difference_safety=2.0;
-    double weighted_detail_floor_fraction=0.125;
+    double nested_difference_safety=QuadratureErrorPolicy::difference_safety;
+    double weighted_detail_floor_fraction=QuadratureErrorPolicy::weighted_detail_floor;
     bool preserve_radial_offset=false; // explicit atlas experiment only
     // Research-only two-dimensional controller.  The incumbent V2 angular
     // gate/fallback is unchanged while this is false.  When enabled, a

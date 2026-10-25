@@ -1,4 +1,6 @@
 #include "bind_lc.hpp"
+#include "lcbinint/magnification/algebraic_boundary/triple/integrator.hpp"
+#include "lcbinint/magnification/algebraic_boundary/triple/frame.hpp"
 #include "lcbinint/lcbinint.h"
 #include "lcbinint/lc/model.hpp"
 #include "lcbinint/lc/light_curve.hpp"
@@ -1560,6 +1562,64 @@ lcbinint::SourcePosition lens_frame_source_position(
     return source;
 }
 
+py::dict triple_algebraic_gradient(const lcbinint::lc::LightCurve& lc,const TimesArray& times,
+    const lcbi_params& input,double atol,double rtol) {
+    namespace kernel=lcbinint::algebraic_boundary::triple;
+    const auto params=lc.apply_coords(input);
+    if(lc.model().parallax || lc.model().xallarap!=LCBI_XALLARAP_NONE ||
+       params.orbital_motion_mode!=LCBI_ORBIT_STATIC || params.rho<=0)
+        throw std::invalid_argument("triple algebraic gradients require a static positive-radius single source");
+    const auto geometry=effective_triple_geometry(lc,params);
+    std::array<kernel::Complex,3> lenses;
+    for(int j=0;j<3;++j)lenses[j]={geometry.lens_positions[j].x,geometry.lens_positions[j].y};
+    const double limb=lc.ld_c()!=0?lc.ld_c():params.limb_darkening_c;
+    if(lc.ld_d()!=0 || params.limb_darkening_d!=0)
+        throw std::invalid_argument("triple algebraic supports uniform and linear limb darkening only");
+    const auto tv=times_from_array(times);const bool vbm=lc.options().vbm_compatible!=0;
+    std::vector<double> mu,errors,gradients,local,point,sx,sy;
+    std::vector<int> vc,complete,valid,nodes,methods;
+    std::vector<std::string> stops;
+    kernel::IntegrationOptions options;options.absolute_tolerance=atol;options.relative_tolerance=rtol;
+    {
+        py::gil_scoped_release release;
+        for(double time:tv) {
+            const double tau=(time-params.t0)/params.tE,c=std::cos(params.theta),s=std::sin(params.theta);
+            const kernel::Complex source=vbm?kernel::Complex(tau*c-params.umin*s,tau*s+params.umin*c):
+                kernel::Complex(tau*c+params.umin*s,params.umin*c-tau*s);
+            const auto frame=kernel::primary_frame<true>(lenses,source,params.rho,geometry.masses[1],geometry.masses[2]);
+            const auto result=kernel::integrate<true>(frame.geometry,limb,options);
+            const auto physical=frame.pullback(result.normalized.df0);
+            const auto lens=kernel::lens_parameter_pullback(physical,params.sep,params.q,params.q2,params.sep2,params.ang,vbm);
+            const double gx=physical[0],gy=physical[1],beta=params.umin;
+            const double gt0=-gx*c/params.tE+(vbm?-gy*s:gy*s)/params.tE;
+            const double gu0=vbm?-gx*s+gy*c:gx*s+gy*c;
+            const double gtE=-tau*gx*c/params.tE+(vbm?-tau*gy*s:tau*gy*s)/params.tE;
+            const double ga=vbm?gx*(-tau*s-beta*c)+gy*(tau*c-beta*s):
+                gx*(-tau*s+beta*c)+gy*(-beta*s-tau*c);
+            const std::array<double,10> row{gt0,gu0,gtE,ga,physical[2],lens[0],lens[1],lens[2],lens[3],lens[4]};
+            mu.push_back(result.magnification);errors.push_back(result.error_estimate);
+            vc.push_back(result.converged);complete.push_back(result.support_complete);
+            valid.push_back(result.gradient_reliable);nodes.push_back(int(result.value_evaluations));methods.push_back(7);
+            stops.push_back(result.reason);point.push_back(std::numeric_limits<double>::quiet_NaN());
+            sx.push_back(source.real());sy.push_back(source.imag());
+            gradients.insert(gradients.end(),row.begin(),row.end());local.insert(local.end(),physical.begin(),physical.end());
+        }
+    }
+    py::dict output;
+    output["mu"]=vec_to_numpy(std::move(mu));output["error_estimate"]=vec_to_numpy(std::move(errors));
+    output["value_converged"]=vec_to_numpy(vc);output["fully_converged"]=vec_to_numpy(vc);
+    output["support_certified"]=vec_to_numpy(complete);output["seed_support_proven"]=vec_to_numpy(complete);
+    output["frontier_discovery_completed"]=vec_to_numpy(complete);
+    output["gradient_valid"]=vec_to_numpy(std::move(valid));output["gradients"]=vec_to_numpy(std::move(gradients));
+    output["gradient_parameters"]=std::vector<std::string>{"t0","u0","tE","alpha","rho","q","s","q2","sep2","ang"};
+    output["local_gradients"]=vec_to_numpy(std::move(local));output["point_source_magnification"]=vec_to_numpy(std::move(point));
+    output["source_x"]=vec_to_numpy(std::move(sx));output["source_y"]=vec_to_numpy(std::move(sy));
+    output["node_evaluations"]=vec_to_numpy(std::move(nodes));output["finite_source_method"]=vec_to_numpy(std::move(methods));
+    output["center_image_count"]=std::vector<int>(tv.size(),0);output["augmented_seed_count"]=std::vector<int>(tv.size(),0);
+    output["stop"]=stops;output["finite_source_method_name"]=std::vector<std::string>(tv.size(),"triple_algebraic_nested_fejer");
+    return output;
+}
+
 	} // namespace
 
 void register_lc_submodule(py::module_& parent)
@@ -2412,6 +2472,9 @@ LightCurves with a ground Site apply the terrestrial correction.)")
         .def("_evaluate_algebraic_boundary",
             [&](const LC& lc, const TimesArray& times, py::dict d,
                 double mu_atol, double mu_rtol, bool with_gradient, bool with_diagnostics) {
+                if (with_gradient && params_from_dict(d).q2>0) {
+                    return triple_algebraic_gradient(lc,times,params_from_dict(d),mu_atol,mu_rtol);
+                }
                 if (with_gradient) {
                     return compute_algebraic_boundary_value_gradient(
                         lc, times, params_from_dict(d));

@@ -33,40 +33,72 @@ struct Fejer2Rule {
         }
     }
 };
+template<int Level> inline const Fejer2Rule& fejer_rule_storage() {
+    static const Fejer2Rule rule(Level);return rule;
+}
 inline const Fejer2Rule& fejer_rule(int level) {
-    if(level<1 || level>8) throw std::invalid_argument("Fejer level must be 1..8");
-    static const std::array<Fejer2Rule,8> rules={Fejer2Rule(1),Fejer2Rule(2),Fejer2Rule(3),Fejer2Rule(4),Fejer2Rule(5),Fejer2Rule(6),Fejer2Rule(7),Fejer2Rule(8)};
-    return rules[level-1];
+    // Low-order evaluations do not construct unused high-order tables.
+    switch(level) {
+        case 1:return fejer_rule_storage<1>();
+        case 2:return fejer_rule_storage<2>();
+        case 3:return fejer_rule_storage<3>();
+        case 4:return fejer_rule_storage<4>();
+        case 5:return fejer_rule_storage<5>();
+        case 6:return fejer_rule_storage<6>();
+        case 7:return fejer_rule_storage<7>();
+        case 8:return fejer_rule_storage<8>();
+        default:throw std::invalid_argument("Fejer level must be 1..8");
+    }
 }
 // Gauss-Chebyshev-II uses the same nested dyadic-angle nodes.
 // Integrate sqrt(1-x*x)*g(x); values supplied to the rule are g(x).
+template<int Level> inline const Fejer2Rule& radial_rule_storage() {
+    static const auto rule=[] {auto out=fejer_rule_storage<Level>();out.w=out.norm_w;return out;}();
+    return rule;
+}
 inline const Fejer2Rule& radial_rule(int level,bool weighted=false) {
     if(!weighted)return fejer_rule(level);
-    if(level<1 || level>8)throw std::invalid_argument("Radial level must be 1..8");
-    static const auto rules=[] {
-        std::array<Fejer2Rule,8> out={Fejer2Rule(1),Fejer2Rule(2),Fejer2Rule(3),Fejer2Rule(4),Fejer2Rule(5),Fejer2Rule(6),Fejer2Rule(7),Fejer2Rule(8)};
-        for(auto& r:out)r.w=r.norm_w;
-        return out;
-    }();
-    return rules[level-1];
+    switch(level) {
+        case 1:return radial_rule_storage<1>();
+        case 2:return radial_rule_storage<2>();
+        case 3:return radial_rule_storage<3>();
+        case 4:return radial_rule_storage<4>();
+        case 5:return radial_rule_storage<5>();
+        case 6:return radial_rule_storage<6>();
+        case 7:return radial_rule_storage<7>();
+        case 8:return radial_rule_storage<8>();
+        default:throw std::invalid_argument("Radial level must be 1..8");
+    }
 }
 // Interpolatory product rule for (1-x*x)*g(x) on the same nested nodes.
 // U_(k-1) moment = 4/[k*(4-k*k)] for odd k, zero for even k.
-inline const Fejer2Rule& linear_radial_rule(int level) {
-    static const auto rules=[] {
-        std::array<Fejer2Rule,8> out={Fejer2Rule(1),Fejer2Rule(2),Fejer2Rule(3),Fejer2Rule(4),Fejer2Rule(5),Fejer2Rule(6),Fejer2Rule(7),Fejer2Rule(8)};
-        for(int lev=1;lev<=8;++lev) {
-            auto& r=out[lev-1];const int m=1<<lev;
-            for(int i=1;i<m;++i) {
-                const long double theta=3.1415926535897932384626433832795029L*i/m;
-                long double sum=0;
-                for(int k=1;k<m;k+=2)sum+=4*sinl(k*theta)/(k*(4.L-k*k));
-                r.w[i-1]=double(2*sinl(theta)*sum/m);
-            }
+template<int Level> inline const Fejer2Rule& linear_radial_rule_storage() {
+    static const auto rule=[] {
+        Fejer2Rule out(Level);const int m=1<<Level;
+        for(int i=1;i<m;++i) {
+            const long double theta=3.1415926535897932384626433832795029L*i/m;
+            long double sum=0;
+            for(int k=1;k<m;k+=2)sum+=4*sinl(k*theta)/(k*(4.L-k*k));
+            out.w[i-1]=double(2*sinl(theta)*sum/m);
         }
         return out;
     }();
-    return rules.at(level-1);
+    return rule;
+}
+inline const Fejer2Rule& linear_radial_rule(int level) {
+    // Construct only a requested level. Low-order point evaluations should
+    // not pay the O(n^2) setup of every unused high-order product rule.
+    switch(level) {
+        case 1:return linear_radial_rule_storage<1>();
+        case 2:return linear_radial_rule_storage<2>();
+        case 3:return linear_radial_rule_storage<3>();
+        case 4:return linear_radial_rule_storage<4>();
+        case 5:return linear_radial_rule_storage<5>();
+        case 6:return linear_radial_rule_storage<6>();
+        case 7:return linear_radial_rule_storage<7>();
+        case 8:return linear_radial_rule_storage<8>();
+        default:throw std::invalid_argument("Radial level must be 1..8");
+    }
 }
 // Fold-map trigonometry depends only on canonical dyadic abscissae.
 // Keep double and extended evaluations separate to preserve the incumbent
