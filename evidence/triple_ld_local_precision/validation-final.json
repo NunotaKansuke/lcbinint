@@ -1,0 +1,3084 @@
+{
+  "rows": [
+    {
+      "case": {
+        "lenses": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.0,
+            0.0
+          ],
+          [
+            -0.4,
+            0.6
+          ]
+        ],
+        "masses": [
+          0.72,
+          0.2,
+          0.08
+        ],
+        "source": [
+          0.06,
+          0.12
+        ],
+        "rho": 0.08
+      },
+      "limb": 0.0,
+      "rtol": 0.001,
+      "native_reference": [
+        11.497544127182591,
+        1.0366524051174362e-08,
+        1.0
+      ],
+      "vbm_reference": {
+        "mu": 11.497543953370931,
+        "error": 1.1463500204502081e-05,
+        "seconds": 0.003923553,
+        "samples": 712,
+        "annuli": 0,
+        "converged": -1
+      },
+      "result": {
+        "mu": 11.49753368748989,
+        "error": 0.005595434991300858,
+        "seconds": 0.001907879,
+        "samples": 0,
+        "annuli": 0,
+        "converged": 1
+      },
+      "relative_native_difference": 9.079932710798095e-07,
+      "relative_vbm_difference": 8.928759988118537e-07,
+      "estimate_contains_native": true,
+      "passed": true
+    },
+    {
+      "case": {
+        "lenses": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.0,
+            0.0
+          ],
+          [
+            -0.4,
+            0.6
+          ]
+        ],
+        "masses": [
+          0.72,
+          0.2,
+          0.08
+        ],
+        "source": [
+          0.06,
+          0.12
+        ],
+        "rho": 0.08
+      },
+      "limb": 0.0,
+      "rtol": 0.0001,
+      "native_reference": [
+        11.497544127182591,
+        1.0366524051174362e-08,
+        1.0
+      ],
+      "vbm_reference": {
+        "mu": 11.497543953370931,
+        "error": 1.1463500204502081e-05,
+        "seconds": 0.003923553,
+        "samples": 712,
+        "annuli": 0,
+        "converged": -1
+      },
+      "result": {
+        "mu": 11.497544815321895,
+        "error": 0.0010540207836234247,
+        "seconds": 0.001840853,
+        "samples": 0,
+        "annuli": 0,
+        "converged": 1
+      },
+      "relative_native_difference": 5.985098175311667e-08,
+      "relative_vbm_difference": 7.496826865225087e-08,
+      "estimate_contains_native": true,
+      "passed": true
+    },
+    {
+      "case": {
+        "lenses": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.0,
+            0.0
+          ],
+          [
+            -0.4,
+            0.6
+          ]
+        ],
+        "masses": [
+          0.72,
+          0.2,
+          0.08
+        ],
+        "source": [
+          0.06,
+          0.12
+        ],
+        "rho": 0.08
+      },
+      "limb": 0.5,
+      "rtol": 0.001,
+      "native_reference": [
+        11.480774181983813,
+        6.964243598712155e-09,
+        1.0
+      ],
+      "vbm_reference": {
+        "mu": 11.480687854516368,
+        "error": 0.00015026076570462426,
+        "seconds": 0.341284729,
+        "samples": 59582,
+        "annuli": 100,
+        "converged": -1
+      },
+      "result": {
+        "mu": 11.48071841789798,
+        "error": 0.009244121578465506,
+        "seconds": 0.01871418,
+        "samples": 582,
+        "annuli": 0,
+        "converged": 1
+      },
+      "relative_native_difference": 4.857171210633963e-06,
+      "relative_vbm_difference": 2.6621559613435527e-06,
+      "estimate_contains_native": true,
+      "passed": true
+    },
+    {
+      "case": {
+        "lenses": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.0,
+            0.0
+          ],
+          [
+            -0.4,
+            0.6
+          ]
+        ],
+        "masses": [
+          0.72,
+          0.2,
+          0.08
+        ],
+        "source": [
+          0.06,
+          0.12
+        ],
+        "rho": 0.08
+      },
+      "limb": 0.5,
+      "rtol": 0.0001,
+      "native_reference": [
+        11.480774181983813,
+        6.964243598712155e-09,
+        1.0
+      ],
+      "vbm_reference": {
+        "mu": 11.480687854516368,
+        "error": 0.00015026076570462426,
+        "seconds": 0.341284729,
+        "samples": 59582,
+        "annuli": 100,
+        "converged": -1
+      },
+      "result": {
+        "mu": 11.480795345730792,
+        "error": 0.0010855289835629972,
+        "seconds": 0.002493509,
+        "samples": 1006,
+        "annuli": 0,
+        "converged": 1
+      },
+      "relative_native_difference": 1.8434076520836943e-06,
+      "relative_vbm_difference": 9.362785208150644e-06,
+      "estimate_contains_native": true,
+      "passed": true
+    },
+    {
+      "case": {
+        "lenses": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.0,
+            0.0
+          ],
+          [
+            -0.4,
+            0.6
+          ]
+        ],
+        "masses": [
+          0.72,
+          0.2,
+          0.08
+        ],
+        "source": [
+          0.12,
+          0.17
+        ],
+        "rho": 0.12
+      },
+      "limb": 0.0,
+      "rtol": 0.001,
+      "native_reference": [
+        8.947910459535187,
+        7.238758359490687e-09,
+        1.0
+      ],
+      "vbm_reference": {
+        "mu": 8.947910382572026,
+        "error": 8.920048996550162e-06,
+        "seconds": 0.004238791,
+        "samples": 735,
+        "annuli": 0,
+        "converged": -1
+      },
+      "result": {
+        "mu": 8.947702134314321,
+        "error": 0.0064603444449046095,
+        "seconds": 0.001016983,
+        "samples": 0,
+        "annuli": 0,
+        "converged": 1
+      },
+      "relative_native_difference": 2.3281996596647115e-05,
+      "relative_vbm_difference": 2.3273395552824496e-05,
+      "estimate_contains_native": true,
+      "passed": true
+    },
+    {
+      "case": {
+        "lenses": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.0,
+            0.0
+          ],
+          [
+            -0.4,
+            0.6
+          ]
+        ],
+        "masses": [
+          0.72,
+          0.2,
+          0.08
+        ],
+        "source": [
+          0.12,
+          0.17
+        ],
+        "rho": 0.12
+      },
+      "limb": 0.0,
+      "rtol": 0.0001,
+      "native_reference": [
+        8.947910459535187,
+        7.238758359490687e-09,
+        1.0
+      ],
+      "vbm_reference": {
+        "mu": 8.947910382572026,
+        "error": 8.920048996550162e-06,
+        "seconds": 0.004238791,
+        "samples": 735,
+        "annuli": 0,
+        "converged": -1
+      },
+      "result": {
+        "mu": 8.947913108260272,
+        "error": 0.000633943783837674,
+        "seconds": 0.001135782,
+        "samples": 0,
+        "annuli": 0,
+        "converged": 1
+      },
+      "relative_native_difference": 2.960160471627083e-07,
+      "relative_vbm_difference": 3.046172937855711e-07,
+      "estimate_contains_native": true,
+      "passed": true
+    },
+    {
+      "case": {
+        "lenses": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.0,
+            0.0
+          ],
+          [
+            -0.4,
+            0.6
+          ]
+        ],
+        "masses": [
+          0.72,
+          0.2,
+          0.08
+        ],
+        "source": [
+          0.12,
+          0.17
+        ],
+        "rho": 0.12
+      },
+      "limb": 0.5,
+      "rtol": 0.001,
+      "native_reference": [
+        9.068422154193453,
+        6.906873125487242e-09,
+        1.0
+      ],
+      "vbm_reference": {
+        "mu": 9.068357098625231,
+        "error": 8.475311822976622e-05,
+        "seconds": 0.345182284,
+        "samples": 60636,
+        "annuli": 100,
+        "converged": -1
+      },
+      "result": {
+        "mu": 9.068413419262985,
+        "error": 0.006721533440359088,
+        "seconds": 0.001062219,
+        "samples": 554,
+        "annuli": 0,
+        "converged": 1
+      },
+      "relative_native_difference": 9.632249490927045e-07,
+      "relative_vbm_difference": 6.210677098507016e-06,
+      "estimate_contains_native": true,
+      "passed": true
+    },
+    {
+      "case": {
+        "lenses": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.0,
+            0.0
+          ],
+          [
+            -0.4,
+            0.6
+          ]
+        ],
+        "masses": [
+          0.72,
+          0.2,
+          0.08
+        ],
+        "source": [
+          0.12,
+          0.17
+        ],
+        "rho": 0.12
+      },
+      "limb": 0.5,
+      "rtol": 0.0001,
+      "native_reference": [
+        9.068422154193453,
+        6.906873125487242e-09,
+        1.0
+      ],
+      "vbm_reference": {
+        "mu": 9.068357098625231,
+        "error": 8.475311822976622e-05,
+        "seconds": 0.345182284,
+        "samples": 60636,
+        "annuli": 100,
+        "converged": -1
+      },
+      "result": {
+        "mu": 9.068423265149933,
+        "error": 0.0008658620083193397,
+        "seconds": 0.001172768,
+        "samples": 1086,
+        "annuli": 0,
+        "converged": 1
+      },
+      "relative_native_difference": 1.225082447307612e-07,
+      "relative_vbm_difference": 7.296418081281567e-06,
+      "estimate_contains_native": true,
+      "passed": true
+    },
+    {
+      "case": {
+        "lenses": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.0,
+            0.0
+          ],
+          [
+            -0.4,
+            0.6
+          ]
+        ],
+        "masses": [
+          0.72,
+          0.2,
+          0.08
+        ],
+        "source": [
+          0.08,
+          0.18
+        ],
+        "rho": 0.25
+      },
+      "limb": 0.0,
+      "rtol": 0.001,
+      "native_reference": [
+        6.251017388471227,
+        6.285715917940715e-09,
+        1.0
+      ],
+      "vbm_reference": {
+        "mu": 6.251017255160346,
+        "error": 6.236086328112074e-06,
+        "seconds": 0.003124234,
+        "samples": 602,
+        "annuli": 0,
+        "converged": -1
+      },
+      "result": {
+        "mu": 6.251181244643424,
+        "error": 0.005869988324859428,
+        "seconds": 0.001728526,
+        "samples": 0,
+        "annuli": 0,
+        "converged": 1
+      },
+      "relative_native_difference": 2.621272058833665e-05,
+      "relative_vbm_difference": 2.6234047417164006e-05,
+      "estimate_contains_native": true,
+      "passed": true
+    },
+    {
+      "case": {
+        "lenses": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.0,
+            0.0
+          ],
+          [
+            -0.4,
+            0.6
+          ]
+        ],
+        "masses": [
+          0.72,
+          0.2,
+          0.08
+        ],
+        "source": [
+          0.08,
+          0.18
+        ],
+        "rho": 0.25
+      },
+      "limb": 0.0,
+      "rtol": 0.0001,
+      "native_reference": [
+        6.251017388471227,
+        6.285715917940715e-09,
+        1.0
+      ],
+      "vbm_reference": {
+        "mu": 6.251017255160346,
+        "error": 6.236086328112074e-06,
+        "seconds": 0.003124234,
+        "samples": 602,
+        "annuli": 0,
+        "converged": -1
+      },
+      "result": {
+        "mu": 6.25102500809234,
+        "error": 0.0006136760087599185,
+        "seconds": 0.015631896,
+        "samples": 0,
+        "annuli": 0,
+        "converged": 1
+      },
+      "relative_native_difference": 1.218940956342905e-06,
+      "relative_vbm_difference": 1.2402672521461733e-06,
+      "estimate_contains_native": true,
+      "passed": true
+    },
+    {
+      "case": {
+        "lenses": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.0,
+            0.0
+          ],
+          [
+            -0.4,
+            0.6
+          ]
+        ],
+        "masses": [
+          0.72,
+          0.2,
+          0.08
+        ],
+        "source": [
+          0.08,
+          0.18
+        ],
+        "rho": 0.25
+      },
+      "limb": 0.5,
+      "rtol": 0.001,
+      "native_reference": [
+        6.442761223953031,
+        6.177604420223063e-09,
+        1.0
+      ],
+      "vbm_reference": {
+        "mu": 6.442707227291774,
+        "error": 0.00012219946407428993,
+        "seconds": 0.347770983,
+        "samples": 62576,
+        "annuli": 100,
+        "converged": -1
+      },
+      "result": {
+        "mu": 6.442675597715627,
+        "error": 0.005706650718802019,
+        "seconds": 0.001398667,
+        "samples": 3094,
+        "annuli": 0,
+        "converged": 1
+      },
+      "relative_native_difference": 1.329030122770145e-05,
+      "relative_vbm_difference": 4.909361085595571e-06,
+      "estimate_contains_native": true,
+      "passed": true
+    },
+    {
+      "case": {
+        "lenses": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.0,
+            0.0
+          ],
+          [
+            -0.4,
+            0.6
+          ]
+        ],
+        "masses": [
+          0.72,
+          0.2,
+          0.08
+        ],
+        "source": [
+          0.08,
+          0.18
+        ],
+        "rho": 0.25
+      },
+      "limb": 0.5,
+      "rtol": 0.0001,
+      "native_reference": [
+        6.442761223953031,
+        6.177604420223063e-09,
+        1.0
+      ],
+      "vbm_reference": {
+        "mu": 6.442707227291774,
+        "error": 0.00012219946407428993,
+        "seconds": 0.347770983,
+        "samples": 62576,
+        "annuli": 100,
+        "converged": -1
+      },
+      "result": {
+        "mu": 6.442755752663672,
+        "error": 0.0006102957663674466,
+        "seconds": 0.021336276,
+        "samples": 17186,
+        "annuli": 0,
+        "converged": 1
+      },
+      "relative_native_difference": 8.492149823910371e-07,
+      "relative_vbm_difference": 7.5318294290997385e-06,
+      "estimate_contains_native": true,
+      "passed": true
+    },
+    {
+      "case": {
+        "lenses": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.0,
+            0.0
+          ],
+          [
+            -0.4,
+            0.6
+          ]
+        ],
+        "masses": [
+          0.72,
+          0.2,
+          0.08
+        ],
+        "source": [
+          0.15,
+          0.1
+        ],
+        "rho": 0.32
+      },
+      "limb": 0.0,
+      "rtol": 0.001,
+      "native_reference": [
+        5.698345357674953,
+        5.158800314126185e-09,
+        1.0
+      ],
+      "vbm_reference": {
+        "mu": 5.698345246007042,
+        "error": 5.68859890137335e-06,
+        "seconds": 0.003440042,
+        "samples": 661,
+        "annuli": 0,
+        "converged": -1
+      },
+      "result": {
+        "mu": 5.6983864470119405,
+        "error": 0.005538401046211283,
+        "seconds": 0.000981732,
+        "samples": 0,
+        "annuli": 0,
+        "converged": 1
+      },
+      "relative_native_difference": 7.2107488065385305e-06,
+      "relative_vbm_difference": 7.230345498516732e-06,
+      "estimate_contains_native": true,
+      "passed": true
+    },
+    {
+      "case": {
+        "lenses": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.0,
+            0.0
+          ],
+          [
+            -0.4,
+            0.6
+          ]
+        ],
+        "masses": [
+          0.72,
+          0.2,
+          0.08
+        ],
+        "source": [
+          0.15,
+          0.1
+        ],
+        "rho": 0.32
+      },
+      "limb": 0.0,
+      "rtol": 0.0001,
+      "native_reference": [
+        5.698345357674953,
+        5.158800314126185e-09,
+        1.0
+      ],
+      "vbm_reference": {
+        "mu": 5.698345246007042,
+        "error": 5.68859890137335e-06,
+        "seconds": 0.003440042,
+        "samples": 661,
+        "annuli": 0,
+        "converged": -1
+      },
+      "result": {
+        "mu": 5.698342942477557,
+        "error": 0.00045810949227972827,
+        "seconds": 0.001088868,
+        "samples": 0,
+        "annuli": 0,
+        "converged": 1
+      },
+      "relative_native_difference": 4.238418777988745e-07,
+      "relative_vbm_difference": 4.042453354323163e-07,
+      "estimate_contains_native": true,
+      "passed": true
+    },
+    {
+      "case": {
+        "lenses": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.0,
+            0.0
+          ],
+          [
+            -0.4,
+            0.6
+          ]
+        ],
+        "masses": [
+          0.72,
+          0.2,
+          0.08
+        ],
+        "source": [
+          0.15,
+          0.1
+        ],
+        "rho": 0.32
+      },
+      "limb": 0.5,
+      "rtol": 0.001,
+      "native_reference": [
+        5.889749897664807,
+        2.669947146064819e-09,
+        1.0
+      ],
+      "vbm_reference": {
+        "mu": 5.889749239233905,
+        "error": 0.00017981627163641,
+        "seconds": 0.366547638,
+        "samples": 63663,
+        "annuli": 100,
+        "converged": -1
+      },
+      "result": {
+        "mu": 5.889960344659684,
+        "error": 0.005801282801417362,
+        "seconds": 0.001294989,
+        "samples": 2726,
+        "annuli": 0,
+        "converged": 1
+      },
+      "relative_native_difference": 3.5731057945438216e-05,
+      "relative_vbm_difference": 3.5842854628367844e-05,
+      "estimate_contains_native": true,
+      "passed": true
+    },
+    {
+      "case": {
+        "lenses": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.0,
+            0.0
+          ],
+          [
+            -0.4,
+            0.6
+          ]
+        ],
+        "masses": [
+          0.72,
+          0.2,
+          0.08
+        ],
+        "source": [
+          0.15,
+          0.1
+        ],
+        "rho": 0.32
+      },
+      "limb": 0.5,
+      "rtol": 0.0001,
+      "native_reference": [
+        5.889749897664807,
+        2.669947146064819e-09,
+        1.0
+      ],
+      "vbm_reference": {
+        "mu": 5.889749239233905,
+        "error": 0.00017981627163641,
+        "seconds": 0.366547638,
+        "samples": 63663,
+        "annuli": 100,
+        "converged": -1
+      },
+      "result": {
+        "mu": 5.889749649125189,
+        "error": 0.0005319470632516673,
+        "seconds": 0.019172017,
+        "samples": 6270,
+        "annuli": 0,
+        "converged": 1
+      },
+      "relative_native_difference": 4.2198670851852525e-08,
+      "relative_vbm_difference": 6.959401288924506e-08,
+      "estimate_contains_native": true,
+      "passed": true
+    },
+    {
+      "case": {
+        "lenses": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.1,
+            0.0
+          ],
+          [
+            -0.3,
+            0.8
+          ]
+        ],
+        "masses": [
+          0.5,
+          0.3,
+          0.2
+        ],
+        "source": [
+          0.1,
+          0.15
+        ],
+        "rho": 0.12
+      },
+      "limb": 0.0,
+      "rtol": 0.001,
+      "native_reference": [
+        6.324959292636533,
+        1.3010298289809692e-09,
+        1.0
+      ],
+      "vbm_reference": {
+        "mu": 6.324959105593177,
+        "error": 6.3208675419442975e-06,
+        "seconds": 0.002524024,
+        "samples": 452,
+        "annuli": 0,
+        "converged": -1
+      },
+      "result": {
+        "mu": 6.324933020113371,
+        "error": 0.004291777135461243,
+        "seconds": 0.001823877,
+        "samples": 0,
+        "annuli": 0,
+        "converged": 1
+      },
+      "relative_native_difference": 4.153785336142593e-06,
+      "relative_vbm_difference": 4.124213195698009e-06,
+      "estimate_contains_native": true,
+      "passed": true
+    },
+    {
+      "case": {
+        "lenses": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.1,
+            0.0
+          ],
+          [
+            -0.3,
+            0.8
+          ]
+        ],
+        "masses": [
+          0.5,
+          0.3,
+          0.2
+        ],
+        "source": [
+          0.1,
+          0.15
+        ],
+        "rho": 0.12
+      },
+      "limb": 0.0,
+      "rtol": 0.0001,
+      "native_reference": [
+        6.324959292636533,
+        1.3010298289809692e-09,
+        1.0
+      ],
+      "vbm_reference": {
+        "mu": 6.324959105593177,
+        "error": 6.3208675419442975e-06,
+        "seconds": 0.002524024,
+        "samples": 452,
+        "annuli": 0,
+        "converged": -1
+      },
+      "result": {
+        "mu": 6.324957649458225,
+        "error": 0.0005368033633518411,
+        "seconds": 0.001823782,
+        "samples": 0,
+        "annuli": 0,
+        "converged": 1
+      },
+      "relative_native_difference": 2.5979270872319e-07,
+      "relative_vbm_difference": 2.3022045312443166e-07,
+      "estimate_contains_native": true,
+      "passed": true
+    },
+    {
+      "case": {
+        "lenses": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.1,
+            0.0
+          ],
+          [
+            -0.3,
+            0.8
+          ]
+        ],
+        "masses": [
+          0.5,
+          0.3,
+          0.2
+        ],
+        "source": [
+          0.1,
+          0.15
+        ],
+        "rho": 0.12
+      },
+      "limb": 0.5,
+      "rtol": 0.001,
+      "native_reference": [
+        6.439936053662129,
+        2.6132123316637457e-09,
+        1.0
+      ],
+      "vbm_reference": {
+        "mu": 6.439915432978632,
+        "error": 4.530684616031533e-05,
+        "seconds": 0.263190303,
+        "samples": 46571,
+        "annuli": 100,
+        "converged": -1
+      },
+      "result": {
+        "mu": 6.439913278593985,
+        "error": 0.006194001102563202,
+        "seconds": 0.001905532,
+        "samples": 467,
+        "annuli": 0,
+        "converged": 1
+      },
+      "relative_native_difference": 3.5365363808771303e-06,
+      "relative_vbm_difference": 3.345361704048604e-07,
+      "estimate_contains_native": true,
+      "passed": true
+    },
+    {
+      "case": {
+        "lenses": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.1,
+            0.0
+          ],
+          [
+            -0.3,
+            0.8
+          ]
+        ],
+        "masses": [
+          0.5,
+          0.3,
+          0.2
+        ],
+        "source": [
+          0.1,
+          0.15
+        ],
+        "rho": 0.12
+      },
+      "limb": 0.5,
+      "rtol": 0.0001,
+      "native_reference": [
+        6.439936053662129,
+        2.6132123316637457e-09,
+        1.0
+      ],
+      "vbm_reference": {
+        "mu": 6.439915432978632,
+        "error": 4.530684616031533e-05,
+        "seconds": 0.263190303,
+        "samples": 46571,
+        "annuli": 100,
+        "converged": -1
+      },
+      "result": {
+        "mu": 6.439931104345716,
+        "error": 0.0005240234740293043,
+        "seconds": 0.002506791,
+        "samples": 855,
+        "annuli": 0,
+        "converged": 1
+      },
+      "relative_native_difference": 7.685350246264305e-07,
+      "relative_vbm_difference": 2.4334740490181094e-06,
+      "estimate_contains_native": true,
+      "passed": true
+    },
+    {
+      "case": {
+        "lenses": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.1,
+            0.0
+          ],
+          [
+            -0.3,
+            0.8
+          ]
+        ],
+        "masses": [
+          0.5,
+          0.3,
+          0.2
+        ],
+        "source": [
+          0.1,
+          0.15
+        ],
+        "rho": 0.28
+      },
+      "limb": 0.0,
+      "rtol": 0.001,
+      "native_reference": [
+        5.092161726765743,
+        5.086580974358849e-09,
+        1.0
+      ],
+      "vbm_reference": {
+        "mu": 5.092161506376979,
+        "error": 5.088902280373862e-06,
+        "seconds": 0.003415205,
+        "samples": 555,
+        "annuli": 0,
+        "converged": -1
+      },
+      "result": {
+        "mu": 5.092218398268289,
+        "error": 0.004605778943573403,
+        "seconds": 0.012963064,
+        "samples": 0,
+        "annuli": 0,
+        "converged": 1
+      },
+      "relative_native_difference": 1.1129163916545354e-05,
+      "relative_vbm_difference": 1.117244440081627e-05,
+      "estimate_contains_native": true,
+      "passed": true
+    },
+    {
+      "case": {
+        "lenses": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.1,
+            0.0
+          ],
+          [
+            -0.3,
+            0.8
+          ]
+        ],
+        "masses": [
+          0.5,
+          0.3,
+          0.2
+        ],
+        "source": [
+          0.1,
+          0.15
+        ],
+        "rho": 0.28
+      },
+      "limb": 0.0,
+      "rtol": 0.0001,
+      "native_reference": [
+        5.092161726765743,
+        5.086580974358849e-09,
+        1.0
+      ],
+      "vbm_reference": {
+        "mu": 5.092161506376979,
+        "error": 5.088902280373862e-06,
+        "seconds": 0.003415205,
+        "samples": 555,
+        "annuli": 0,
+        "converged": -1
+      },
+      "result": {
+        "mu": 5.092161945627263,
+        "error": 0.000445468657530339,
+        "seconds": 0.001345374,
+        "samples": 0,
+        "annuli": 0,
+        "converged": 1
+      },
+      "relative_native_difference": 4.298008031989077e-08,
+      "relative_vbm_difference": 8.62600847807419e-08,
+      "estimate_contains_native": true,
+      "passed": true
+    },
+    {
+      "case": {
+        "lenses": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.1,
+            0.0
+          ],
+          [
+            -0.3,
+            0.8
+          ]
+        ],
+        "masses": [
+          0.5,
+          0.3,
+          0.2
+        ],
+        "source": [
+          0.1,
+          0.15
+        ],
+        "rho": 0.28
+      },
+      "limb": 0.5,
+      "rtol": 0.001,
+      "native_reference": [
+        5.131104157640398,
+        3.4174756210903146e-09,
+        1.0
+      ],
+      "vbm_reference": {
+        "mu": 5.131104929092048,
+        "error": 5.172850362993884e-05,
+        "seconds": 0.272920773,
+        "samples": 46713,
+        "annuli": 100,
+        "converged": -1
+      },
+      "result": {
+        "mu": 5.131112295268311,
+        "error": 0.0039815837994291526,
+        "seconds": 0.001562551,
+        "samples": 1723,
+        "annuli": 0,
+        "converged": 1
+      },
+      "relative_native_difference": 1.585940893586184e-06,
+      "relative_vbm_difference": 1.435592599358269e-06,
+      "estimate_contains_native": true,
+      "passed": true
+    },
+    {
+      "case": {
+        "lenses": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.1,
+            0.0
+          ],
+          [
+            -0.3,
+            0.8
+          ]
+        ],
+        "masses": [
+          0.5,
+          0.3,
+          0.2
+        ],
+        "source": [
+          0.1,
+          0.15
+        ],
+        "rho": 0.28
+      },
+      "limb": 0.5,
+      "rtol": 0.0001,
+      "native_reference": [
+        5.131104157640398,
+        3.4174756210903146e-09,
+        1.0
+      ],
+      "vbm_reference": {
+        "mu": 5.131104929092048,
+        "error": 5.172850362993884e-05,
+        "seconds": 0.272920773,
+        "samples": 46713,
+        "annuli": 100,
+        "converged": -1
+      },
+      "result": {
+        "mu": 5.1311048030367505,
+        "error": 0.000477273701548961,
+        "seconds": 0.024871454,
+        "samples": 2715,
+        "annuli": 0,
+        "converged": 1
+      },
+      "relative_native_difference": 1.257811832566568e-07,
+      "relative_vbm_difference": 2.45668914390846e-08,
+      "estimate_contains_native": true,
+      "passed": true
+    },
+    {
+      "case": {
+        "lenses": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.25,
+            0.0
+          ],
+          [
+            -0.6,
+            0.4
+          ]
+        ],
+        "masses": [
+          0.9,
+          0.08,
+          0.02
+        ],
+        "source": [
+          0.12,
+          0.08
+        ],
+        "rho": 0.1
+      },
+      "limb": 0.0,
+      "rtol": 0.001,
+      "native_reference": [
+        11.372641508718944,
+        8.195874359427496e-09,
+        1.0
+      ],
+      "vbm_reference": {
+        "mu": 11.372641616732716,
+        "error": 1.1353487598157435e-05,
+        "seconds": 0.00472733,
+        "samples": 719,
+        "annuli": 0,
+        "converged": -1
+      },
+      "result": {
+        "mu": 11.37262821382817,
+        "error": 0.0037094099857253116,
+        "seconds": 0.002069175,
+        "samples": 0,
+        "annuli": 0,
+        "converged": 1
+      },
+      "relative_native_difference": 1.1690239918201937e-06,
+      "relative_vbm_difference": 1.178521666108913e-06,
+      "estimate_contains_native": true,
+      "passed": true
+    },
+    {
+      "case": {
+        "lenses": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.25,
+            0.0
+          ],
+          [
+            -0.6,
+            0.4
+          ]
+        ],
+        "masses": [
+          0.9,
+          0.08,
+          0.02
+        ],
+        "source": [
+          0.12,
+          0.08
+        ],
+        "rho": 0.1
+      },
+      "limb": 0.0,
+      "rtol": 0.0001,
+      "native_reference": [
+        11.372641508718944,
+        8.195874359427496e-09,
+        1.0
+      ],
+      "vbm_reference": {
+        "mu": 11.372641616732716,
+        "error": 1.1353487598157435e-05,
+        "seconds": 0.00472733,
+        "samples": 719,
+        "annuli": 0,
+        "converged": -1
+      },
+      "result": {
+        "mu": 11.372640508257623,
+        "error": 0.0003116900231525355,
+        "seconds": 0.019139386,
+        "samples": 0,
+        "annuli": 0,
+        "converged": 1
+      },
+      "relative_native_difference": 8.797088346908108e-08,
+      "relative_vbm_difference": 9.746856802530263e-08,
+      "estimate_contains_native": true,
+      "passed": true
+    },
+    {
+      "case": {
+        "lenses": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.25,
+            0.0
+          ],
+          [
+            -0.6,
+            0.4
+          ]
+        ],
+        "masses": [
+          0.9,
+          0.08,
+          0.02
+        ],
+        "source": [
+          0.12,
+          0.08
+        ],
+        "rho": 0.1
+      },
+      "limb": 0.5,
+      "rtol": 0.001,
+      "native_reference": [
+        11.33336425981688,
+        7.675319547496913e-09,
+        1.0
+      ],
+      "vbm_reference": {
+        "mu": 11.333348408800594,
+        "error": 3.719632309980333e-05,
+        "seconds": 0.295559161,
+        "samples": 55906,
+        "annuli": 100,
+        "converged": -1
+      },
+      "result": {
+        "mu": 11.333385818594257,
+        "error": 0.007070167762980593,
+        "seconds": 0.002228241,
+        "samples": 1170,
+        "annuli": 0,
+        "converged": 1
+      },
+      "relative_native_difference": 1.9022398717985328e-06,
+      "relative_vbm_difference": 3.3008597559567113e-06,
+      "estimate_contains_native": true,
+      "passed": true
+    },
+    {
+      "case": {
+        "lenses": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.25,
+            0.0
+          ],
+          [
+            -0.6,
+            0.4
+          ]
+        ],
+        "masses": [
+          0.9,
+          0.08,
+          0.02
+        ],
+        "source": [
+          0.12,
+          0.08
+        ],
+        "rho": 0.1
+      },
+      "limb": 0.5,
+      "rtol": 0.0001,
+      "native_reference": [
+        11.33336425981688,
+        7.675319547496913e-09,
+        1.0
+      ],
+      "vbm_reference": {
+        "mu": 11.333348408800594,
+        "error": 3.719632309980333e-05,
+        "seconds": 0.295559161,
+        "samples": 55906,
+        "annuli": 100,
+        "converged": -1
+      },
+      "result": {
+        "mu": 11.333363311566178,
+        "error": 0.0006970645901694958,
+        "seconds": 0.00277945,
+        "samples": 1822,
+        "annuli": 0,
+        "converged": 1
+      },
+      "relative_native_difference": 8.366895134660635e-08,
+      "relative_vbm_difference": 1.3149481552852877e-06,
+      "estimate_contains_native": true,
+      "passed": true
+    },
+    {
+      "case": {
+        "lenses": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.25,
+            0.0
+          ],
+          [
+            -0.6,
+            0.4
+          ]
+        ],
+        "masses": [
+          0.9,
+          0.08,
+          0.02
+        ],
+        "source": [
+          0.12,
+          0.08
+        ],
+        "rho": 0.25
+      },
+      "limb": 0.0,
+      "rtol": 0.001,
+      "native_reference": [
+        7.341015279344515,
+        6.168872562702565e-09,
+        1.0
+      ],
+      "vbm_reference": {
+        "mu": 7.341015068799887,
+        "error": 7.318077071098697e-06,
+        "seconds": 0.003037134,
+        "samples": 652,
+        "annuli": 0,
+        "converged": -1
+      },
+      "result": {
+        "mu": 7.341220990689466,
+        "error": 0.00694313168867017,
+        "seconds": 0.002093751,
+        "samples": 0,
+        "annuli": 0,
+        "converged": 1
+      },
+      "relative_native_difference": 2.802219272448431e-05,
+      "relative_vbm_difference": 2.8050874116077055e-05,
+      "estimate_contains_native": true,
+      "passed": true
+    },
+    {
+      "case": {
+        "lenses": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.25,
+            0.0
+          ],
+          [
+            -0.6,
+            0.4
+          ]
+        ],
+        "masses": [
+          0.9,
+          0.08,
+          0.02
+        ],
+        "source": [
+          0.12,
+          0.08
+        ],
+        "rho": 0.25
+      },
+      "limb": 0.0,
+      "rtol": 0.0001,
+      "native_reference": [
+        7.341015279344515,
+        6.168872562702565e-09,
+        1.0
+      ],
+      "vbm_reference": {
+        "mu": 7.341015068799887,
+        "error": 7.318077071098697e-06,
+        "seconds": 0.003037134,
+        "samples": 652,
+        "annuli": 0,
+        "converged": -1
+      },
+      "result": {
+        "mu": 7.340965469073304,
+        "error": 0.00071084492210976,
+        "seconds": 0.002729675,
+        "samples": 0,
+        "annuli": 0,
+        "converged": 1
+      },
+      "relative_native_difference": 6.7852019530474445e-06,
+      "relative_vbm_difference": 6.756521559751245e-06,
+      "estimate_contains_native": true,
+      "passed": true
+    },
+    {
+      "case": {
+        "lenses": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.25,
+            0.0
+          ],
+          [
+            -0.6,
+            0.4
+          ]
+        ],
+        "masses": [
+          0.9,
+          0.08,
+          0.02
+        ],
+        "source": [
+          0.12,
+          0.08
+        ],
+        "rho": 0.25
+      },
+      "limb": 0.5,
+      "rtol": 0.001,
+      "native_reference": [
+        7.637145758664832,
+        7.187342228429999e-09,
+        1.0
+      ],
+      "vbm_reference": {
+        "mu": 7.637099463233824,
+        "error": 0.00016871692859987824,
+        "seconds": 0.360903326,
+        "samples": 70514,
+        "annuli": 100,
+        "converged": -1
+      },
+      "result": {
+        "mu": 7.638107589774778,
+        "error": 0.007586699439473236,
+        "seconds": 0.033109777,
+        "samples": 78961,
+        "annuli": 0,
+        "converged": 1
+      },
+      "relative_native_difference": 0.00012594117492849345,
+      "relative_vbm_difference": 0.00013200385117511645,
+      "estimate_contains_native": true,
+      "passed": true
+    },
+    {
+      "case": {
+        "lenses": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.25,
+            0.0
+          ],
+          [
+            -0.6,
+            0.4
+          ]
+        ],
+        "masses": [
+          0.9,
+          0.08,
+          0.02
+        ],
+        "source": [
+          0.12,
+          0.08
+        ],
+        "rho": 0.25
+      },
+      "limb": 0.5,
+      "rtol": 0.0001,
+      "native_reference": [
+        7.637145758664832,
+        7.187342228429999e-09,
+        1.0
+      ],
+      "vbm_reference": {
+        "mu": 7.637099463233824,
+        "error": 0.00016871692859987824,
+        "seconds": 0.360903326,
+        "samples": 70514,
+        "annuli": 100,
+        "converged": -1
+      },
+      "result": {
+        "mu": 7.637156099239085,
+        "error": 0.0007373809810030846,
+        "seconds": 0.02633648,
+        "samples": 38528,
+        "annuli": 0,
+        "converged": 1
+      },
+      "relative_native_difference": 1.3539841427188959e-06,
+      "relative_vbm_difference": 7.415905152655084e-06,
+      "estimate_contains_native": true,
+      "passed": true
+    },
+    {
+      "case": {
+        "lenses": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.0,
+            0.0
+          ],
+          [
+            -0.4,
+            0.6
+          ]
+        ],
+        "masses": [
+          0.72,
+          0.2,
+          0.08
+        ],
+        "source": [
+          -0.0872438242477181,
+          -0.526046061109085
+        ],
+        "rho": 0.03
+      },
+      "limb": 0.0,
+      "rtol": 0.001,
+      "native_reference": [
+        4.9692841299872175,
+        5.068438965246373e-09,
+        1.0
+      ],
+      "vbm_reference": {
+        "mu": 4.969283995126598,
+        "error": 4.904500716105765e-06,
+        "seconds": 0.001398761,
+        "samples": 268,
+        "annuli": 0,
+        "converged": -1
+      },
+      "result": {
+        "mu": 4.969323867175109,
+        "error": 0.002443034644543129,
+        "seconds": 0.019766605,
+        "samples": 0,
+        "annuli": 0,
+        "converged": 1
+      },
+      "relative_native_difference": 7.996561849120908e-06,
+      "relative_vbm_difference": 8.023700909418956e-06,
+      "estimate_contains_native": true,
+      "passed": true
+    },
+    {
+      "case": {
+        "lenses": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.0,
+            0.0
+          ],
+          [
+            -0.4,
+            0.6
+          ]
+        ],
+        "masses": [
+          0.72,
+          0.2,
+          0.08
+        ],
+        "source": [
+          -0.0872438242477181,
+          -0.526046061109085
+        ],
+        "rho": 0.03
+      },
+      "limb": 0.0,
+      "rtol": 0.0001,
+      "native_reference": [
+        4.9692841299872175,
+        5.068438965246373e-09,
+        1.0
+      ],
+      "vbm_reference": {
+        "mu": 4.969283995126598,
+        "error": 4.904500716105765e-06,
+        "seconds": 0.001398761,
+        "samples": 268,
+        "annuli": 0,
+        "converged": -1
+      },
+      "result": {
+        "mu": 4.96930909388557,
+        "error": 0.0003469615126202801,
+        "seconds": 0.002775348,
+        "samples": 0,
+        "annuli": 0,
+        "converged": 1
+      },
+      "relative_native_difference": 5.0236407699635335e-06,
+      "relative_vbm_difference": 5.050779749579943e-06,
+      "estimate_contains_native": true,
+      "passed": true
+    },
+    {
+      "case": {
+        "lenses": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.0,
+            0.0
+          ],
+          [
+            -0.4,
+            0.6
+          ]
+        ],
+        "masses": [
+          0.72,
+          0.2,
+          0.08
+        ],
+        "source": [
+          -0.0872438242477181,
+          -0.526046061109085
+        ],
+        "rho": 0.03
+      },
+      "limb": 0.5,
+      "rtol": 0.001,
+      "native_reference": [
+        4.916366551691309,
+        4.535675490829481e-09,
+        1.0
+      ],
+      "vbm_reference": {
+        "mu": 4.916375853478244,
+        "error": 8.023005748213843e-06,
+        "seconds": 0.120376881,
+        "samples": 22545,
+        "annuli": 100,
+        "converged": -1
+      },
+      "result": {
+        "mu": 4.916384280127489,
+        "error": 0.0036793930570696515,
+        "seconds": 0.019904472,
+        "samples": 687,
+        "annuli": 0,
+        "converged": 1
+      },
+      "relative_native_difference": 3.6060037415885687e-06,
+      "relative_vbm_difference": 1.7139961419122857e-06,
+      "estimate_contains_native": true,
+      "passed": true
+    },
+    {
+      "case": {
+        "lenses": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.0,
+            0.0
+          ],
+          [
+            -0.4,
+            0.6
+          ]
+        ],
+        "masses": [
+          0.72,
+          0.2,
+          0.08
+        ],
+        "source": [
+          -0.0872438242477181,
+          -0.526046061109085
+        ],
+        "rho": 0.03
+      },
+      "limb": 0.5,
+      "rtol": 0.0001,
+      "native_reference": [
+        4.916366551691309,
+        4.535675490829481e-09,
+        1.0
+      ],
+      "vbm_reference": {
+        "mu": 4.916375853478244,
+        "error": 8.023005748213843e-06,
+        "seconds": 0.120376881,
+        "samples": 22545,
+        "annuli": 100,
+        "converged": -1
+      },
+      "result": {
+        "mu": 4.9163815260037085,
+        "error": 0.0003272001776491106,
+        "seconds": 0.00354026,
+        "samples": 987,
+        "annuli": 0,
+        "converged": 1
+      },
+      "relative_native_difference": 3.0458087781672335e-06,
+      "relative_vbm_difference": 1.1538022383802565e-06,
+      "estimate_contains_native": true,
+      "passed": true
+    },
+    {
+      "case": {
+        "lenses": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.0,
+            0.0
+          ],
+          [
+            -0.4,
+            0.6
+          ]
+        ],
+        "masses": [
+          0.72,
+          0.2,
+          0.08
+        ],
+        "source": [
+          -0.08721169929875743,
+          -0.5259953857930596
+        ],
+        "rho": 0.03
+      },
+      "limb": 0.0,
+      "rtol": 0.001,
+      "native_reference": [
+        4.96674992006776,
+        3.778887792859745e-09,
+        1.0
+      ],
+      "vbm_reference": {
+        "mu": 4.966750022208355,
+        "error": 4.91780197330898e-06,
+        "seconds": 0.001266802,
+        "samples": 255,
+        "annuli": 0,
+        "converged": -1
+      },
+      "result": {
+        "mu": 4.966766242254501,
+        "error": 0.002597898447017098,
+        "seconds": 0.003646101,
+        "samples": 0,
+        "annuli": 0,
+        "converged": 1
+      },
+      "relative_native_difference": 3.2862912374366896e-06,
+      "relative_vbm_difference": 3.265726294416794e-06,
+      "estimate_contains_native": true,
+      "passed": true
+    },
+    {
+      "case": {
+        "lenses": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.0,
+            0.0
+          ],
+          [
+            -0.4,
+            0.6
+          ]
+        ],
+        "masses": [
+          0.72,
+          0.2,
+          0.08
+        ],
+        "source": [
+          -0.08721169929875743,
+          -0.5259953857930596
+        ],
+        "rho": 0.03
+      },
+      "limb": 0.0,
+      "rtol": 0.0001,
+      "native_reference": [
+        4.96674992006776,
+        3.778887792859745e-09,
+        1.0
+      ],
+      "vbm_reference": {
+        "mu": 4.966750022208355,
+        "error": 4.91780197330898e-06,
+        "seconds": 0.001266802,
+        "samples": 255,
+        "annuli": 0,
+        "converged": -1
+      },
+      "result": {
+        "mu": 4.966749890837562,
+        "error": 0.00045419330177949807,
+        "seconds": 0.020743787,
+        "samples": 0,
+        "annuli": 0,
+        "converged": 1
+      },
+      "relative_native_difference": 5.885176078556135e-09,
+      "relative_vbm_difference": 2.645005139525407e-08,
+      "estimate_contains_native": true,
+      "passed": true
+    },
+    {
+      "case": {
+        "lenses": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.0,
+            0.0
+          ],
+          [
+            -0.4,
+            0.6
+          ]
+        ],
+        "masses": [
+          0.72,
+          0.2,
+          0.08
+        ],
+        "source": [
+          -0.08721169929875743,
+          -0.5259953857930596
+        ],
+        "rho": 0.03
+      },
+      "limb": 0.5,
+      "rtol": 0.001,
+      "native_reference": [
+        4.914926082222553,
+        3.1283897850762333e-09,
+        1.0
+      ],
+      "vbm_reference": {
+        "mu": 4.914935131991653,
+        "error": 7.164017713929894e-06,
+        "seconds": 0.111904711,
+        "samples": 22418,
+        "annuli": 100,
+        "converged": -1
+      },
+      "result": {
+        "mu": 4.914929815687479,
+        "error": 0.003784865724945477,
+        "seconds": 0.020835236,
+        "samples": 564,
+        "annuli": 0,
+        "converged": 1
+      },
+      "relative_native_difference": 7.596177163378985e-07,
+      "relative_vbm_difference": 1.0816631412224586e-06,
+      "estimate_contains_native": true,
+      "passed": true
+    },
+    {
+      "case": {
+        "lenses": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.0,
+            0.0
+          ],
+          [
+            -0.4,
+            0.6
+          ]
+        ],
+        "masses": [
+          0.72,
+          0.2,
+          0.08
+        ],
+        "source": [
+          -0.08721169929875743,
+          -0.5259953857930596
+        ],
+        "rho": 0.03
+      },
+      "limb": 0.5,
+      "rtol": 0.0001,
+      "native_reference": [
+        4.914926082222553,
+        3.1283897850762333e-09,
+        1.0
+      ],
+      "vbm_reference": {
+        "mu": 4.914935131991653,
+        "error": 7.164017713929894e-06,
+        "seconds": 0.111904711,
+        "samples": 22418,
+        "annuli": 100,
+        "converged": -1
+      },
+      "result": {
+        "mu": 4.914926060903873,
+        "error": 0.0004807257818685427,
+        "seconds": 0.003930334,
+        "samples": 676,
+        "annuli": 0,
+        "converged": 1
+      },
+      "relative_native_difference": 4.337538125643055e-09,
+      "relative_vbm_difference": 1.8456169890308827e-06,
+      "estimate_contains_native": true,
+      "passed": true
+    },
+    {
+      "case": {
+        "lenses": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.0,
+            0.0
+          ],
+          [
+            -0.2,
+            0.9
+          ]
+        ],
+        "masses": [
+          0.4,
+          0.3,
+          0.3
+        ],
+        "source": [
+          0.1,
+          0.15
+        ],
+        "rho": 0.1
+      },
+      "limb": 0.0,
+      "rtol": 0.001,
+      "native_reference": [
+        5.543044904988163,
+        5.617437972653864e-09,
+        1.0
+      ],
+      "vbm_reference": {
+        "mu": 5.543044750681263,
+        "error": 5.529426385341898e-06,
+        "seconds": 0.003479345,
+        "samples": 413,
+        "annuli": 0,
+        "converged": -1
+      },
+      "result": {
+        "mu": 5.545885278634514,
+        "error": 0.004612396392190086,
+        "seconds": 0.019086735,
+        "samples": 0,
+        "annuli": 0,
+        "converged": 1
+      },
+      "relative_native_difference": 0.0005124211863763012,
+      "relative_vbm_difference": 0.0005124490385724806,
+      "estimate_contains_native": true,
+      "passed": true
+    },
+    {
+      "case": {
+        "lenses": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.0,
+            0.0
+          ],
+          [
+            -0.2,
+            0.9
+          ]
+        ],
+        "masses": [
+          0.4,
+          0.3,
+          0.3
+        ],
+        "source": [
+          0.1,
+          0.15
+        ],
+        "rho": 0.1
+      },
+      "limb": 0.0,
+      "rtol": 0.0001,
+      "native_reference": [
+        5.543044904988163,
+        5.617437972653864e-09,
+        1.0
+      ],
+      "vbm_reference": {
+        "mu": 5.543044750681263,
+        "error": 5.529426385341898e-06,
+        "seconds": 0.003479345,
+        "samples": 413,
+        "annuli": 0,
+        "converged": -1
+      },
+      "result": {
+        "mu": 5.543336121710099,
+        "error": 0.0005404583104002627,
+        "seconds": 0.00369521,
+        "samples": 0,
+        "annuli": 0,
+        "converged": 1
+      },
+      "relative_native_difference": 5.2537319637109805e-05,
+      "relative_vbm_difference": 5.256515903107361e-05,
+      "estimate_contains_native": true,
+      "passed": true
+    },
+    {
+      "case": {
+        "lenses": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.0,
+            0.0
+          ],
+          [
+            -0.2,
+            0.9
+          ]
+        ],
+        "masses": [
+          0.4,
+          0.3,
+          0.3
+        ],
+        "source": [
+          0.1,
+          0.15
+        ],
+        "rho": 0.1
+      },
+      "limb": 0.5,
+      "rtol": 0.001,
+      "native_reference": [
+        5.607843166201524,
+        5.160008050368179e-09,
+        1.0
+      ],
+      "vbm_reference": {
+        "mu": 5.607837768402406,
+        "error": 1.9841904117086162e-05,
+        "seconds": 1.027014348,
+        "samples": 43361,
+        "annuli": 100,
+        "converged": -1
+      },
+      "result": {
+        "mu": 5.609241518967532,
+        "error": 0.005378618947148603,
+        "seconds": 0.021698681,
+        "samples": 4958,
+        "annuli": 0,
+        "converged": 1
+      },
+      "relative_native_difference": 0.0002493566108332502,
+      "relative_vbm_difference": 0.0002503193963698106,
+      "estimate_contains_native": true,
+      "passed": true
+    },
+    {
+      "case": {
+        "lenses": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.0,
+            0.0
+          ],
+          [
+            -0.2,
+            0.9
+          ]
+        ],
+        "masses": [
+          0.4,
+          0.3,
+          0.3
+        ],
+        "source": [
+          0.1,
+          0.15
+        ],
+        "rho": 0.1
+      },
+      "limb": 0.5,
+      "rtol": 0.0001,
+      "native_reference": [
+        5.607843166201524,
+        5.160008050368179e-09,
+        1.0
+      ],
+      "vbm_reference": {
+        "mu": 5.607837768402406,
+        "error": 1.9841904117086162e-05,
+        "seconds": 1.027014348,
+        "samples": 43361,
+        "annuli": 100,
+        "converged": -1
+      },
+      "result": {
+        "mu": 5.607961440509247,
+        "error": 0.0005018241190299764,
+        "seconds": 0.023229627,
+        "samples": 7488,
+        "annuli": 0,
+        "converged": 1
+      },
+      "relative_native_difference": 2.109087294675938e-05,
+      "relative_vbm_difference": 2.205343876715654e-05,
+      "estimate_contains_native": true,
+      "passed": true
+    },
+    {
+      "case": {
+        "lenses": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.0,
+            0.0
+          ],
+          [
+            -0.2,
+            0.9
+          ]
+        ],
+        "masses": [
+          0.4,
+          0.3,
+          0.3
+        ],
+        "source": [
+          0.1,
+          0.15
+        ],
+        "rho": 0.3
+      },
+      "limb": 0.0,
+      "rtol": 0.001,
+      "native_reference": [
+        4.390503357895908,
+        4.2798506163953646e-09,
+        1.0
+      ],
+      "vbm_reference": {
+        "mu": 4.39050313947277,
+        "error": 4.385839098425131e-06,
+        "seconds": 0.021394051,
+        "samples": 524,
+        "annuli": 0,
+        "converged": -1
+      },
+      "result": {
+        "mu": 4.390430456623476,
+        "error": 0.002738634610092643,
+        "seconds": 0.001341489,
+        "samples": 0,
+        "annuli": 0,
+        "converged": 1
+      },
+      "relative_native_difference": 1.6604308547215866e-05,
+      "relative_vbm_difference": 1.655456037381996e-05,
+      "estimate_contains_native": true,
+      "passed": true
+    },
+    {
+      "case": {
+        "lenses": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.0,
+            0.0
+          ],
+          [
+            -0.2,
+            0.9
+          ]
+        ],
+        "masses": [
+          0.4,
+          0.3,
+          0.3
+        ],
+        "source": [
+          0.1,
+          0.15
+        ],
+        "rho": 0.3
+      },
+      "limb": 0.0,
+      "rtol": 0.0001,
+      "native_reference": [
+        4.390503357895908,
+        4.2798506163953646e-09,
+        1.0
+      ],
+      "vbm_reference": {
+        "mu": 4.39050313947277,
+        "error": 4.385839098425131e-06,
+        "seconds": 0.021394051,
+        "samples": 524,
+        "annuli": 0,
+        "converged": -1
+      },
+      "result": {
+        "mu": 4.390505586111393,
+        "error": 0.0004329686034539678,
+        "seconds": 0.00139471,
+        "samples": 0,
+        "annuli": 0,
+        "converged": 1
+      },
+      "relative_native_difference": 5.075079787843675e-07,
+      "relative_vbm_difference": 5.572570034760239e-07,
+      "estimate_contains_native": true,
+      "passed": true
+    },
+    {
+      "case": {
+        "lenses": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.0,
+            0.0
+          ],
+          [
+            -0.2,
+            0.9
+          ]
+        ],
+        "masses": [
+          0.4,
+          0.3,
+          0.3
+        ],
+        "source": [
+          0.1,
+          0.15
+        ],
+        "rho": 0.3
+      },
+      "limb": 0.5,
+      "rtol": 0.001,
+      "native_reference": [
+        4.43315450907175,
+        4.5203895499742227e-10,
+        1.0
+      ],
+      "vbm_reference": {
+        "mu": 4.43315678047039,
+        "error": 2.795431406868074e-05,
+        "seconds": 0.965191038,
+        "samples": 43012,
+        "annuli": 100,
+        "converged": -1
+      },
+      "result": {
+        "mu": 4.433110699839386,
+        "error": 0.004151829705355746,
+        "seconds": 0.001570124,
+        "samples": 1220,
+        "annuli": 0,
+        "converged": 1
+      },
+      "relative_native_difference": 9.882180346933113e-06,
+      "relative_vbm_difference": 1.0394541245937792e-05,
+      "estimate_contains_native": true,
+      "passed": true
+    },
+    {
+      "case": {
+        "lenses": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.0,
+            0.0
+          ],
+          [
+            -0.2,
+            0.9
+          ]
+        ],
+        "masses": [
+          0.4,
+          0.3,
+          0.3
+        ],
+        "source": [
+          0.1,
+          0.15
+        ],
+        "rho": 0.3
+      },
+      "limb": 0.5,
+      "rtol": 0.0001,
+      "native_reference": [
+        4.43315450907175,
+        4.5203895499742227e-10,
+        1.0
+      ],
+      "vbm_reference": {
+        "mu": 4.43315678047039,
+        "error": 2.795431406868074e-05,
+        "seconds": 0.965191038,
+        "samples": 43012,
+        "annuli": 100,
+        "converged": -1
+      },
+      "result": {
+        "mu": 4.433164984543855,
+        "error": 0.0003190933378560804,
+        "seconds": 0.001706744,
+        "samples": 1736,
+        "annuli": 0,
+        "converged": 1
+      },
+      "relative_native_difference": 2.3629837587272432e-06,
+      "relative_vbm_difference": 1.8506165857172745e-06,
+      "estimate_contains_native": true,
+      "passed": true
+    },
+    {
+      "case": {
+        "lenses": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            0.6,
+            0.0
+          ],
+          [
+            -0.3,
+            0.4
+          ]
+        ],
+        "masses": [
+          0.65,
+          0.25,
+          0.1
+        ],
+        "source": [
+          -0.05,
+          0.1
+        ],
+        "rho": 0.1
+      },
+      "limb": 0.0,
+      "rtol": 0.001,
+      "native_reference": [
+        6.8599560604082725,
+        2.5060213657827897e-09,
+        1.0
+      ],
+      "vbm_reference": {
+        "mu": 6.859955906283754,
+        "error": 6.829504654996301e-06,
+        "seconds": 0.003646267,
+        "samples": 532,
+        "annuli": 0,
+        "converged": -1
+      },
+      "result": {
+        "mu": 6.859915859623311,
+        "error": 0.005949845583645391,
+        "seconds": 0.000921964,
+        "samples": 0,
+        "annuli": 0,
+        "converged": 1
+      },
+      "relative_native_difference": 5.860210270642952e-06,
+      "relative_vbm_difference": 5.837743126920089e-06,
+      "estimate_contains_native": true,
+      "passed": true
+    },
+    {
+      "case": {
+        "lenses": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            0.6,
+            0.0
+          ],
+          [
+            -0.3,
+            0.4
+          ]
+        ],
+        "masses": [
+          0.65,
+          0.25,
+          0.1
+        ],
+        "source": [
+          -0.05,
+          0.1
+        ],
+        "rho": 0.1
+      },
+      "limb": 0.0,
+      "rtol": 0.0001,
+      "native_reference": [
+        6.8599560604082725,
+        2.5060213657827897e-09,
+        1.0
+      ],
+      "vbm_reference": {
+        "mu": 6.859955906283754,
+        "error": 6.829504654996301e-06,
+        "seconds": 0.003646267,
+        "samples": 532,
+        "annuli": 0,
+        "converged": -1
+      },
+      "result": {
+        "mu": 6.859955407274846,
+        "error": 0.00028125957817841455,
+        "seconds": 0.00094004,
+        "samples": 0,
+        "annuli": 0,
+        "converged": 1
+      },
+      "relative_native_difference": 9.520956412872514e-08,
+      "relative_vbm_difference": 7.274229088200324e-08,
+      "estimate_contains_native": true,
+      "passed": true
+    },
+    {
+      "case": {
+        "lenses": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            0.6,
+            0.0
+          ],
+          [
+            -0.3,
+            0.4
+          ]
+        ],
+        "masses": [
+          0.65,
+          0.25,
+          0.1
+        ],
+        "source": [
+          -0.05,
+          0.1
+        ],
+        "rho": 0.1
+      },
+      "limb": 0.5,
+      "rtol": 0.001,
+      "native_reference": [
+        6.952557906414766,
+        4.222082603363341e-09,
+        1.0
+      ],
+      "vbm_reference": {
+        "mu": 6.9525340832870315,
+        "error": 5.209105732605398e-05,
+        "seconds": 1.045534168,
+        "samples": 52999,
+        "annuli": 100,
+        "converged": -1
+      },
+      "result": {
+        "mu": 6.95256766427558,
+        "error": 0.00550124288108132,
+        "seconds": 0.001210811,
+        "samples": 657,
+        "annuli": 0,
+        "converged": 1
+      },
+      "relative_native_difference": 1.4034922031477265e-06,
+      "relative_vbm_difference": 4.830035803612095e-06,
+      "estimate_contains_native": true,
+      "passed": true
+    },
+    {
+      "case": {
+        "lenses": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            0.6,
+            0.0
+          ],
+          [
+            -0.3,
+            0.4
+          ]
+        ],
+        "masses": [
+          0.65,
+          0.25,
+          0.1
+        ],
+        "source": [
+          -0.05,
+          0.1
+        ],
+        "rho": 0.1
+      },
+      "limb": 0.5,
+      "rtol": 0.0001,
+      "native_reference": [
+        6.952557906414766,
+        4.222082603363341e-09,
+        1.0
+      ],
+      "vbm_reference": {
+        "mu": 6.9525340832870315,
+        "error": 5.209105732605398e-05,
+        "seconds": 1.045534168,
+        "samples": 52999,
+        "annuli": 100,
+        "converged": -1
+      },
+      "result": {
+        "mu": 6.952557486903589,
+        "error": 0.00035648342317752557,
+        "seconds": 0.00179207,
+        "samples": 1037,
+        "annuli": 0,
+        "converged": 1
+      },
+      "relative_native_difference": 6.033911296456797e-08,
+      "relative_vbm_difference": 3.366199471625012e-06,
+      "estimate_contains_native": true,
+      "passed": true
+    },
+    {
+      "case": {
+        "lenses": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            0.6,
+            0.0
+          ],
+          [
+            -0.3,
+            0.4
+          ]
+        ],
+        "masses": [
+          0.65,
+          0.25,
+          0.1
+        ],
+        "source": [
+          -0.05,
+          0.1
+        ],
+        "rho": 0.25
+      },
+      "limb": 0.0,
+      "rtol": 0.001,
+      "native_reference": [
+        6.293573421968644,
+        5.788707499051632e-09,
+        1.0
+      ],
+      "vbm_reference": {
+        "mu": 6.293573362820098,
+        "error": 6.272958497746112e-06,
+        "seconds": 0.020977129,
+        "samples": 543,
+        "annuli": 0,
+        "converged": -1
+      },
+      "result": {
+        "mu": 6.293497883711152,
+        "error": 0.0059152099481509296,
+        "seconds": 0.000856168,
+        "samples": 0,
+        "annuli": 0,
+        "converged": 1
+      },
+      "relative_native_difference": 1.2002443195299356e-05,
+      "relative_vbm_difference": 1.1993045062765067e-05,
+      "estimate_contains_native": true,
+      "passed": true
+    },
+    {
+      "case": {
+        "lenses": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            0.6,
+            0.0
+          ],
+          [
+            -0.3,
+            0.4
+          ]
+        ],
+        "masses": [
+          0.65,
+          0.25,
+          0.1
+        ],
+        "source": [
+          -0.05,
+          0.1
+        ],
+        "rho": 0.25
+      },
+      "limb": 0.0,
+      "rtol": 0.0001,
+      "native_reference": [
+        6.293573421968644,
+        5.788707499051632e-09,
+        1.0
+      ],
+      "vbm_reference": {
+        "mu": 6.293573362820098,
+        "error": 6.272958497746112e-06,
+        "seconds": 0.020977129,
+        "samples": 543,
+        "annuli": 0,
+        "converged": -1
+      },
+      "result": {
+        "mu": 6.293571856312809,
+        "error": 0.00044179166870294737,
+        "seconds": 0.018047204,
+        "samples": 0,
+        "annuli": 0,
+        "converged": 1
+      },
+      "relative_native_difference": 2.4877056804254924e-07,
+      "relative_vbm_difference": 2.393723250443606e-07,
+      "estimate_contains_native": true,
+      "passed": true
+    },
+    {
+      "case": {
+        "lenses": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            0.6,
+            0.0
+          ],
+          [
+            -0.3,
+            0.4
+          ]
+        ],
+        "masses": [
+          0.65,
+          0.25,
+          0.1
+        ],
+        "source": [
+          -0.05,
+          0.1
+        ],
+        "rho": 0.25
+      },
+      "limb": 0.5,
+      "rtol": 0.001,
+      "native_reference": [
+        6.353216783961325,
+        1.6297319202324985e-09,
+        1.0
+      ],
+      "vbm_reference": {
+        "mu": 6.353170674851279,
+        "error": 9.148626115505084e-05,
+        "seconds": 1.261269472,
+        "samples": 57554,
+        "annuli": 100,
+        "converged": -1
+      },
+      "result": {
+        "mu": 6.353200922946241,
+        "error": 0.005262319126642981,
+        "seconds": 0.000958618,
+        "samples": 1083,
+        "annuli": 0,
+        "converged": 1
+      },
+      "relative_native_difference": 2.496532956909719e-06,
+      "relative_vbm_difference": 4.761102213393993e-06,
+      "estimate_contains_native": true,
+      "passed": true
+    },
+    {
+      "case": {
+        "lenses": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            0.6,
+            0.0
+          ],
+          [
+            -0.3,
+            0.4
+          ]
+        ],
+        "masses": [
+          0.65,
+          0.25,
+          0.1
+        ],
+        "source": [
+          -0.05,
+          0.1
+        ],
+        "rho": 0.25
+      },
+      "limb": 0.5,
+      "rtol": 0.0001,
+      "native_reference": [
+        6.353216783961325,
+        1.6297319202324985e-09,
+        1.0
+      ],
+      "vbm_reference": {
+        "mu": 6.353170674851279,
+        "error": 9.148626115505084e-05,
+        "seconds": 1.261269472,
+        "samples": 57554,
+        "annuli": 100,
+        "converged": -1
+      },
+      "result": {
+        "mu": 6.353215938824979,
+        "error": 0.0003518245674715746,
+        "seconds": 0.001517483,
+        "samples": 3833,
+        "annuli": 0,
+        "converged": 1
+      },
+      "relative_native_difference": 1.3302495012111459e-07,
+      "relative_vbm_difference": 7.124627373704257e-06,
+      "estimate_contains_native": true,
+      "passed": true
+    }
+  ]
+}

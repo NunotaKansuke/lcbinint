@@ -6,6 +6,75 @@
 
 namespace lcbinint::algebraic_boundary::triple {
 namespace panel_detail {
+// Reuse all existing samples to embed a positive (n-2)-node rule in
+// the unweighted n-node Fejer rule. The omitted nodes remain independent
+// interpolation witnesses. Weighted Jacobi panels keep their incumbent rule.
+struct EmbeddedRadialRule {
+    std::vector<int> slots;
+    std::vector<double> weights;
+    std::array<std::vector<double>,2> interpolation;
+    std::array<int,2> missing;
+    explicit EmbeddedRadialRule(int level) {
+        const auto& rule=fejer_rule(level);const int n=int(rule.x.size());
+        missing={n/2-1,n/2+1};
+        for(int j=0;j<n;++j)if(j!=missing[0] && j!=missing[1])slots.push_back(j);
+        const int count=int(slots.size());
+        std::vector<std::vector<long double>> matrix(count,std::vector<long double>(count+1));
+        matrix[0][count]=2;
+        for(int j=0;j<count;++j) {
+            const long double x=rule.x[slots[j]];long double previous=1,current=x;
+            matrix[0][j]=1;matrix[1][j]=x;
+            for(int k=2;k<count;++k) {
+                const long double next=((2*k-1)*x*current-(k-1)*previous)/k;
+                matrix[k][j]=next;previous=current;current=next;
+            }
+        }
+        for(int k=0;k<count;++k) {
+            int pivot=k;
+            for(int i=k+1;i<count;++i)if(std::abs(matrix[i][k])>std::abs(matrix[pivot][k]))pivot=i;
+            std::swap(matrix[k],matrix[pivot]);
+            if(!(std::abs(matrix[k][k])>1e-20L))throw std::logic_error("embedded radial moment rank");
+            const auto scale=matrix[k][k];for(int j=k;j<=count;++j)matrix[k][j]/=scale;
+            for(int i=0;i<count;++i)if(i!=k) {
+                const auto factor=matrix[i][k];
+                for(int j=k;j<=count;++j)matrix[i][j]-=factor*matrix[k][j];
+            }
+        }
+        weights.resize(count);
+        for(int j=0;j<count;++j) {
+            weights[j]=double(matrix[j][count]);
+            if(!(weights[j]>0))throw std::logic_error("embedded radial positive weights");
+        }
+        for(int k=0;k<2;++k) {
+            interpolation[k].resize(count);
+            for(int j=0;j<count;++j) {
+                long double value=1;
+                for(int i=0;i<count;++i)if(i!=j)
+                    value*=((long double)rule.x[missing[k]]-rule.x[slots[i]])/
+                           ((long double)rule.x[slots[j]]-rule.x[slots[i]]);
+                interpolation[k][j]=double(value);
+            }
+        }
+    }
+};
+inline const EmbeddedRadialRule& embedded_radial_rule(int level) {
+    if(level==3){static const EmbeddedRadialRule rule(3);return rule;}
+    if(level==4){static const EmbeddedRadialRule rule(4);return rule;}
+    if(level==5){static const EmbeddedRadialRule rule(5);return rule;}
+    throw std::invalid_argument("embedded radial level");
+}
+template<class Samples,class Accessor> std::pair<double,double> embedded_estimate(
+        int level,const Samples& samples,Accessor value) {
+    const auto& embedded=embedded_radial_rule(level);
+    const auto& rule=fejer_rule(level);double coarse=0,detail=0;
+    for(std::size_t j=0;j<embedded.slots.size();++j)coarse+=embedded.weights[j]*value(samples[embedded.slots[j]]);
+    for(int k=0;k<2;++k) {
+        double predicted=0;
+        for(std::size_t j=0;j<embedded.slots.size();++j)predicted+=embedded.interpolation[k][j]*value(samples[embedded.slots[j]]);
+        detail+=rule.w[embedded.missing[k]]*std::abs(value(samples[embedded.missing[k]])-predicted);
+    }
+    return {coarse,detail};
+}
 template<class Samples,class Accessor> double interpolation_detail(
     const Fejer2Rule& rule,const Samples& samples,Accessor value) {
     const int m=int(rule.x.size())+1,nc=m/2-1;
@@ -191,12 +260,28 @@ public:
                 }
             }
             // Both uniform and limb components need radial error estimates.
-            const double detail0=panel_detail::interpolation_detail(rule,integrands,[](const auto& a){return a.f0;});
-            const double detailh=uniform_source_?0:panel_detail::interpolation_detail(limb_rule,integrands,[](const auto& a){return a.fh;});
+            const bool joint_profile=!Gradient && profile_error_ && !weighted_;
+            const double detail0=joint_profile?0:panel_detail::interpolation_detail(rule,integrands,[](const auto& a){return a.f0;});
+            const double detailh=(uniform_source_ || joint_profile)?0:panel_detail::interpolation_detail(limb_rule,integrands,[](const auto& a){return a.fh;});
             const double detail_scale=QuadratureErrorPolicy::weighted_detail_floor/QuadratureErrorPolicy::difference_safety;
             radial_error_=have_previous?std::max(
                 error_uniform_weight_*std::abs(next.f0-previous.f0)+error_limb_weight_*std::abs(next.fh-previous.fh),
                 detail_scale*(error_uniform_weight_*detail0+error_limb_weight_*detailh)):INFINITY;
+            if(joint_profile) {
+                const auto observable=[&](const auto& value){return error_uniform_weight_*value.f0+error_limb_weight_*value.fh;};
+                const double detail=panel_detail::interpolation_detail(rule,integrands,observable);
+                const double fine=observable(next),old=observable(previous);
+                radial_error_=have_previous?std::max(std::abs(fine-old),detail_scale*detail):INFINITY;
+                // Require contraction across old, embedded and fine estimates;
+                // keep the shared difference safety and interpolation floor.
+                // Derivative controllers retain their incumbent estimator.
+                if(lev>=3 && lev<=5 && have_previous) {
+                    const auto embedded=panel_detail::embedded_estimate(lev,integrands,observable);
+                    const double low=std::abs(embedded.first-old),high=std::abs(fine-embedded.first);
+                    if(low>64*std::numeric_limits<double>::epsilon()*std::abs(fine) && high<=low*.25)
+                        radial_error_=std::max(high,detail_scale*embedded.second);
+                }
+            }
             inner_error_=inner_error;
             next.angular_error=radial_error_+inner_error_;
             if constexpr(Gradient)for(int j=0;j<8;++j) {

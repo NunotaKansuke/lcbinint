@@ -1,0 +1,22 @@
+Internal ctest changing into directory: /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/build-triple-native
+Test project /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/build-triple-native
+    Start  9: triple_radius
+1/8 Test  #9: triple_radius ....................   Passed    0.04 sec
+    Start 10: triple_panel
+2/8 Test #10: triple_panel .....................   Passed    0.13 sec
+    Start 11: triple_events
+3/8 Test #11: triple_events ....................   Passed    0.01 sec
+    Start 12: triple_integrator
+4/8 Test #12: triple_integrator ................   Passed    0.04 sec
+    Start 17: triple_resultant
+5/8 Test #17: triple_resultant .................   Passed    0.06 sec
+    Start 18: triple_point_sign
+6/8 Test #18: triple_point_sign ................   Passed    0.22 sec
+    Start 21: triple_regular
+7/8 Test #21: triple_regular ...................   Passed    0.88 sec
+    Start 22: triple_smooth
+8/8 Test #22: triple_smooth ....................   Passed    0.03 sec
+
+100% tests passed, 0 tests failed out of 8
+
+Total Test time (real) =   1.41 sec

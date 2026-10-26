@@ -3,19 +3,42 @@
 using namespace lcbinint::algebraic_boundary::triple;
 void check(bool ok,const char* s){if(!ok)throw std::runtime_error(s);}
 int main() {
+    // Embedded rules reuse existing samples, retain positive weights and
+    // integrate their polynomial moments without invoking lens arithmetic.
+    for(int level:{3,4,5}) {
+        const auto& embedded=panel_detail::embedded_radial_rule(level);
+        const auto& fine=lcbinint::algebraic_boundary::fejer_rule(level);
+        for(double weight:embedded.weights)check(weight>0,"positive embedded radial weights");
+        for(std::size_t degree=0;degree<=embedded.slots.size();++degree) {
+            long double integral=0;
+            for(std::size_t j=0;j<embedded.slots.size();++j)
+                integral+=(long double)embedded.weights[j]*std::pow((long double)fine.x[embedded.slots[j]],int(degree));
+            const long double exact=degree%2?0:2.L/(degree+1);
+            check(std::abs(integral-exact)<5e-13L,"embedded radial polynomial moments");
+            if(degree==embedded.slots.size())continue;
+            for(int side=0;side<2;++side) {
+                long double interpolated=0;
+                for(std::size_t j=0;j<embedded.slots.size();++j)
+                    interpolated+=(long double)embedded.interpolation[side][j]*
+                        std::pow((long double)fine.x[embedded.slots[j]],int(degree));
+                check(std::abs(interpolated-std::pow((long double)fine.x[embedded.missing[side]],int(degree)))<5e-12L,
+                    "embedded omitted-node interpolation witness");
+            }
+        }
+    }
     Geometry p{.1,.15,.15,.2,.08,1.,-.4,.6};
     // Interior panel: no moving radial boundary is being differentiated.
     RadialPanel<> v(p,.89,.90);
     RadialPanel<true> g(p,.89,.90);
     check(v.refine(4,5) && g.refine(4,5),"coarse panel");
     // Error control must bound the requested profile combination, retaining
-    // the same component quadratures and safety factor. At u=1/2 every
-    // contribution is exactly half the unweighted sum on this fixed map.
+    // the same component quadratures and safety factor. Estimating the
+    // physical profile directly can reduce the separate triangle bound.
     RadialPanel<> half(p,.89,.90,false,false,{},nullptr,0,0,false,false,.5);
     check(half.refine(4,5),"profile-weighted panel");
     check(half.result().f0==v.result().f0 && half.result().fh==v.result().fh,"profile weights preserve component values");
-    check(std::abs(half.result().angular_error-.5*v.result().angular_error)<1e-14*v.result().angular_error,
-          "profile-weighted quadrature error");
+    check(half.result().angular_error<=.5*v.result().angular_error+1e-14*v.result().angular_error,
+          "physical-profile quadrature triangle bound");
     check(std::abs(half.result().endpoint_error-.5*v.result().endpoint_error)<1e-14*(1+v.result().endpoint_error),
           "profile-weighted endpoint error");
     auto count=v.value_evaluations();
