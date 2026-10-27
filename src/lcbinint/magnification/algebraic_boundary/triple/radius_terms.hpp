@@ -461,9 +461,20 @@ public:
                             (jet.phi<1e-7 || half<.01 || (Gradient && precise_arcs_[a].ready));
                         double phi_error=0;
                         if constexpr(!Gradient)if(sample_relative_tolerance_>0) {
+                            // Preserve the conservative coordinate-map bound,
+                            // including mixtures of ordinary/promoted samples.
                             phi_error=jet.roundoff+jet.angular_sensitivity*topology.angular_measure_error;
+                            // A tiny contribution need not satisfy the full
+                            // relative request on its own. For e/phi <= 1/4,
+                            // |sqrt(phi+delta)-sqrt(phi)| <= sqrt(phi)*e/phi.
+                            // The weighted absolute bounds below participate
+                            // in the unchanged global value-error controller.
+                            // Tight requests retain early promotion: otherwise
+                            // an arithmetic floor can stall radial refinement.
+                            const double precision_gate=sample_relative_tolerance_>=1e-6?
+                                .25:sample_relative_tolerance_;
                             needs_precision=!full_circle &&
-                                (!(jet.phi>0) || phi_error>sample_relative_tolerance_*jet.phi);
+                                (!(jet.phi>0) || phi_error>precision_gate*jet.phi);
                         }
                         if(needs_precision) {
                             if(!prepare_precise_arc(a))return false;

@@ -420,7 +420,14 @@ inline bool radius(double R,const Geometry& p,const AngularTopology& topology,
 #endif
         ){if(const auto packet=ordinary_moment_transport(R,p,lo,hi,motion,midpoint_core,value_gate,work,coefficients,scalar_coefficients,pair_table,concave)){out.fh+=packet->flux;for(int j=0;j<8;++j)out.limb[j]+=packet->gradient[j];if(angular_error)*angular_error+=packet->error;continue;}}
         if(ordinary){double error=0;if(const auto pair=ordinary_arc(*ordinary,value_gate,work,error)){if(angular_error)*angular_error+=error;out.fh+=pair->flux;for(int j=0;j<8;++j)out.limb[j]+=pair->gradient[j];continue;}}
-        struct AngularPoint {double flux;std::array<double,8> tangent;};
+        std::array<double,8> middle_motion{},half_motion{};
+        for(int j=0;j<8;++j) {
+            const double dl=lo.motion[j]+lo.radial_motion*motion[j];
+            const double dh=hi.motion[j]+hi.radial_motion*motion[j];
+            middle_motion[j]=.5*(dl+dh);half_motion[j]=.5*(dh-dl);
+        }
+        struct AngularPoint {double flux;std::array<double,8> tangent;Complex unit;};
+        const Complex central_unit(std::cos(mid),std::sin(mid));
         const int maximum=std::max(level,8);packet_cache_detail::DyadicPacketCache<AngularPoint> cache;
         double previous=0;bool accepted=false;
         local_precision::Arc<true> precise;
@@ -433,7 +440,19 @@ inline bool radius(double R,const Geometry& p,const AngularTopology& topology,
             if(!cache.contains(slot)) {
             double phi_error=0;Evaluation<true> jet;
             if(x==0&&have_midpoint){ray.add_parameters(jet,midpoint_core);phi_error=midpoint_core.roundoff;}
-            else jet=ray.sample(theta,phi_error);
+            else {
+                // Nested nodes are mirrored. One sine/cosine pair supplies
+                // both physical rays; keep the other unit with its packet.
+                // Node/reflection rounding remains inside the physical field's
+                // existing arithmetic bound. Promoted samples keep their own
+                // exact angular map and do not use this approximation.
+                if(k<m/2) {
+                    const double d=half*x,co=std::cos(d),si=std::sin(d);
+                    point.unit=central_unit*Complex(co,si);
+                    cache[packet_cache_detail::slot(current_level,m-k)].unit=central_unit*Complex(co,-si);
+                } else if(k==m/2)point.unit=central_unit;
+                jet=ray.sample_unit(point.unit,theta,phi_error);
+            }
             ++work.evaluations;
             auto& tangent=point.tangent;auto& flux=point.flux;
             if(!(jet.phi>0) || phi_error>tangent_phi_roundoff*jet.phi) {
@@ -461,14 +480,12 @@ inline bool radius(double R,const Geometry& p,const AngularTopology& topology,
                 }
             } else {
                 const double root=std::sqrt(jet.phi/shape);flux=R*half*root;
-                const double inverse_root_shape=1/(2*root*shape);
-                for(int j=0;j<8;++j) {
-                    const double dl=lo.motion[j]+lo.radial_motion*motion[j],dh=hi.motion[j]+hi.radial_motion*motion[j];
-                    const double angle_motion=(dl*(1-x)+dh*(1+x))*.5;
-                    tangent[j]=motion[j]*half*root+R*(half*(jet.dp[j]+jet.dR*motion[j]+jet.dtheta*angle_motion)
-                        *inverse_root_shape
-                        +root*(dh-dl)*.5);
-                }
+                // Contract scalar geometry factors once, then transport all
+                // eight RHS. Endpoint motion is affine in the node coordinate.
+                const double A=R*half/(2*root*shape),B=half*root+A*jet.dR;
+                const double C=A*jet.dtheta,D=R*root+C*x;
+                for(int j=0;j<8;++j)
+                    tangent[j]=A*jet.dp[j]+B*motion[j]+C*middle_motion[j]+D*half_motion[j];
             }
 
             }

@@ -1,5 +1,6 @@
 #pragma once
 #include <vector>
+#include <array>
 #include <cmath>
 #include <stdexcept>
 namespace lcbinint::algebraic_boundary::triple::shape_gradient_detail {
@@ -21,8 +22,14 @@ struct GaussRule {
         }
     }
 };
+struct ShiftedHyperbolicNodes {
+    std::array<std::array<double,2>,128> offsets;
+    static std::array<double,2> evaluate(double u){const double e=std::expm1(std::abs(u)),inverse=1/(1+e);return {std::copysign(.5*e*(1+inverse),u),1+.5*e*(e*inverse)};}
+    ShiftedHyperbolicNodes(const GaussRule& rule,double half_width){if(!(half_width>0))return;for(std::size_t k=0;k<(rule.x.size()+1)/2;++k){const auto q=evaluate(half_width*rule.x[k]);offsets[k]=q;offsets[rule.x.size()-1-k]={-q[0],q[1]};}}
+};
 inline const GaussRule& gauss_rule(int n) {
     switch(n){
+        case 6:{static const GaussRule r(6);return r;}
         case 10:{static const GaussRule r(10);return r;}
         case 8:{static const GaussRule r(8);return r;}
         case 12:{static const GaussRule r(12);return r;}

@@ -9,6 +9,7 @@
 #include "boundary_control_atlas.hpp"
 #endif
 #include <map>
+#include <boost/container/flat_map.hpp>
 #include <tuple>
 #ifdef LCBININT_TRIPLE_WINDING_ARCS
 #include "ray_winding_labels.hpp"
@@ -32,7 +33,7 @@ inline double first_order_chart_width(bool uniform){
  return uniform?3.:2.;
 #endif
 }
-struct PattersonTuning {double angular_scale=1;int minimum_radial=0,critical_order=8;double selected_lo=-INFINITY,selected_hi=INFINITY,chart_width=0;bool quad_uniform=false;};
+struct PattersonTuning {double angular_scale=1;int minimum_radial=0,critical_order=6;double selected_lo=-INFINITY,selected_hi=INFINITY,chart_width=0;bool quad_uniform=false;};
 #ifdef LCBININT_TRIPLE_DIAGNOSTIC_TUNING
 inline thread_local PattersonTuning patterson_tuning;
 struct PattersonRecord {double lo,hi,radial_error,inner_error;int level;std::size_t points;RadiusIntegral<true> value;std::vector<std::array<double,5>> cells;};
@@ -60,6 +61,12 @@ template<bool Gradient> class PattersonPanel {
   return high_degree_&&!weighted_;
 #endif
  }
+ // This is a coordinate-regularity guard, independent of flux convergence.
+ // Tightening the flux request must not force a second gradient controller.
+ double geometry_resolution_budget()const{
+  if(shared_&&shared_->requested_relative_tolerance>0)return relative_*std::max(1.,1e-3/shared_->requested_relative_tolerance);
+  return relative_;
+ }
  bool controlled_uniform()const{
 #ifdef LCBININT_TRIPLE_BOUNDARY_CONTROL
   return uniform_&&context_->control&&context_->control->valid();
@@ -77,7 +84,10 @@ template<bool Gradient> class PattersonPanel {
  mutable bool winding_ready=false;mutable std::array<int,3> winding_phase{},lo_rank{},hi_rank{};
 #endif
 };
- struct Context {std::map<double,Point> points;
+ struct Context {
+  // Sorted contiguous keys, with stable pointees during insertions.
+  boost::container::flat_map<double,std::unique_ptr<Point>> points;
+  Context(){points.reserve(32);}
 #ifdef LCBININT_TRIPLE_BOUNDARY_CONTROL
 std::shared_ptr<const BoundaryControlAtlas> control;
 #endif
@@ -97,7 +107,9 @@ std::shared_ptr<const BoundaryControlAtlas> control;
  // Hermite interpolation is only a root predictor. Every predicted endpoint
  // still passes physical Newton, orientation, membership and disjointness.
  struct Curve {int n=0,count=0;std::array<double,7> x{},w{},d{};std::array<std::array<std::array<double,4>,3>,7> data{};};
- struct Cell {int kind=0;FoldRadialMap coordinates;double center=0,scale=1;std::shared_ptr<Curve> curve;std::array<double,8> center_motion{},scale_motion{},lower_motion{},upper_motion{};bool material=false;};
+ struct Cell {int kind=0;FoldRadialMap coordinates;double center=0,scale=1;std::shared_ptr<Curve> curve;std::array<double,8> center_motion{},scale_motion{},lower_motion{},upper_motion{};bool material=false;
+ RadiusIntegral<true> accepted{};double error=INFINITY,inner=0,detail=0;int level=0;
+ };
  std::vector<Cell> cells_;
  std::vector<std::array<double,2>> previous_cells_;
 #ifdef LCBININT_TRIPLE_MULTIRATE_ARCS
@@ -244,7 +256,7 @@ out->events_=events_;out->hints_=hints_;out->origin_=origin_;out->base_=base_;ou
  bool build_curve(Cell& cell,int level,bool discovery=false){
   const auto ordinary_rule=integration_rule(level,weighted_&&cell.kind==0);const auto& seed_rule=patterson_rule(2);const RuleView rule=discovery?RuleView{seed_rule.x,seed_rule.w,seed_rule.interp}:ordinary_rule;if(rule.x.size()>7)return false;
   auto curve=std::make_shared<Curve>();curve->n=int(rule.x.size());
-  for(int k=0;k<curve->n;++k){const auto node=mapped(cell,rule.x[k]);auto it=context_->points.find(node[0]);if(it==context_->points.end()||it->second.anchor.radius!=node[0])return false;const auto& anchor=it->second.anchor;
+  for(int k=0;k<curve->n;++k){const auto node=mapped(cell,rule.x[k]);auto it=context_->points.find(node[0]);if(it==context_->points.end()||it->second->anchor.radius!=node[0])return false;const auto& anchor=it->second->anchor;
    if(!anchor.count||anchor.count>3||(k&&int(anchor.count)!=curve->count))return false;curve->count=int(anchor.count);curve->x[k]=rule.x[k];
    std::array<bool,3> used{};
    for(int a=0;a<curve->count;++a){int selected=a;double shift=0;
@@ -262,13 +274,54 @@ out->events_=events_;out->hints_=hints_;out->origin_=origin_;out->base_=base_;ou
   result=*band_;result.arcs.resize(c.count);
   for(int a=0;a<c.count;++a){double mean=0,half=0;for(int k=0;k<c.n;++k){const double dx=x-c.x[k],lk=l[k]/sum,h=(1-2*dx*c.d[k])*lk*lk,q=dx*lk*lk;mean+=h*c.data[k][a][0]+q*c.data[k][a][2];half+=h*c.data[k][a][1]+q*c.data[k][a][3];}if(!(half>0&&std::isfinite(mean)&&std::isfinite(half)))return false;result.arcs[a]={mean-half,mean+half};}return true;
  }
+ // Test the retained seven positions/slopes against three integration-by-
+ // parts identities. No additional endpoint solves or parameter jets occur.
+ bool spatially_resolved(const Cell& cell)const{
+  if(!cell.curve||cell.curve->n!=7)return false;
+  const auto& c=*cell.curve;const auto& q=patterson_rule(3);
+  struct Weights{std::array<std::array<double,7>,3>a{},b{};};
+  static const auto weights=[](){
+   Weights w;const auto& q=patterson_rule(3);
+   std::array<double,7> bary{},plus{},minus{};double sp=0,sm=0;
+   for(int j=0;j<7;++j){
+    bary[j]=1;for(int k=0;k<7;++k)if(k!=j)bary[j]/=q.x[j]-q.x[k];
+    plus[j]=bary[j]/(1-q.x[j]);minus[j]=bary[j]/(-1-q.x[j]);
+    sp+=plus[j];sm+=minus[j];
+   }
+   for(int j=0;j<7;++j){
+    const double x=q.x[j],powers[]={1,x,x*x};
+    for(int k=0;k<3;++k){
+     w.a[k][j]=q.w[j]*powers[k];
+     w.b[k][j]=(k?k*q.w[j]*powers[k-1]:0)-plus[j]/sp+(k%2?-1:1)*minus[j]/sm;
+    }
+   }
+   return w;
+  }();
+  for(int arc=0;arc<c.count;++arc){
+   double width=0,motion=0;
+   for(int j=0;j<7;++j){
+    width+=q.w[j]*2*c.data[j][arc][1];
+    motion+=q.w[j]*(std::abs(c.data[j][arc][2])+std::abs(c.data[j][arc][3]));
+   }
+   const double scale=std::max(width,motion);double mismatch=0;
+   for(int k=0;k<3;++k)for(int side=0;side<2;++side){
+    double residual=0;const double origin=c.data[3][arc][side];
+    for(int j=0;j<7;++j)
+     residual+=weights.a[k][j]*c.data[j][arc][side+2]+weights.b[k][j]*(c.data[j][arc][side]-origin);
+    mismatch=std::max(mismatch,std::abs(residual));
+   }
+   if(mismatch>4*geometry_resolution_budget()*scale+
+      128*std::numeric_limits<double>::epsilon()*(1+scale))return false;
+  }
+  return true;
+ }
  bool proposal(double R,AngularTopology& topology,double& seed_radius,Anchor& anchor){
   seed_radius=R;anchor={};
-  const auto exact=context_->points.find(R);if(exact!=context_->points.end()){topology=exact->second.topology;anchor=exact->second.anchor;return true;}
+  const auto exact=context_->points.find(R);if(exact!=context_->points.end()){topology=exact->second->topology;anchor=exact->second->anchor;return true;}
   auto it=context_->points.lower_bound(R);
   if(it!=context_->points.end() || it!=context_->points.begin()){
    auto seed=it;if(seed==context_->points.end() || (seed!=context_->points.begin()&&std::abs(std::prev(seed)->first-R)<std::abs(seed->first-R)))--seed;
-   topology=seed->second.topology;seed_radius=seed->first;anchor=seed->second.anchor;
+   topology=seed->second->topology;seed_radius=seed->first;anchor=seed->second->anchor;
   }else if(band_){topology=*band_;seed_radius=map_.a+(map_.b-map_.a)*.5;}
   else {topology=angular_topology(R,p_,options_,shared_?shared_->coefficients.get():nullptr);++context_->work.global_radii;}
   if(!topology.completed){reason="stream_topology_missing";return false;}
@@ -297,14 +350,14 @@ out->events_=events_;out->hints_=hints_;out->origin_=origin_;out->base_=base_;ou
 #ifdef LCBININT_TRIPLE_MULTIRATE_ARCS
   if(arc_sector_>=0)return lane_point(R,motion,output,predicted);
 #endif
-  auto found=context_->points.find(R);if(found!=context_->points.end()&&found->second.value_ready&&found->second.motion==motion){output=&found->second;return true;}
+  auto found=context_->points.find(R);if(found!=context_->points.end()&&found->second->value_ready&&found->second->motion==motion){output=found->second.get();return true;}
   AngularTopology topology;double seed_radius=R;Anchor anchor;if(predicted&&found==context_->points.end())topology=*predicted;else if(!proposal(R,topology,seed_radius,anchor))return false;
 
   Point value;const double gate=std::max(1e-12,relative_*(use_kronrod()?.03:.1)*active_patterson_tuning().angular_scale);
 #ifdef LCBININT_TRIPLE_CERTIFIED_STATIONARY
   if(!uniform_&&!context_->stationary_coefficients){if(shared_&&shared_->coefficients){if(!shared_->coefficients->point_signs)shared_->coefficients->point_signs=std::make_shared<point_polynomial_detail::Cache<double>>(p_);context_->stationary_coefficients=shared_->coefficients->point_signs;}else context_->stationary_coefficients=std::make_shared<point_polynomial_detail::Cache<double>>(p_);}
 #endif
-  bool completed=shape_gradient_detail::radius(R,p_,topology,!uniform_,4,motion,value.value,context_->work,seed_radius,&anchor,context_->pairs.get(),gate,&value.angular_error,true,nullptr,active_patterson_tuning().critical_order,found!=context_->points.end()?found->second.cores.get():nullptr,context_->stationary_coefficients.get());
+  bool completed=shape_gradient_detail::radius(R,p_,topology,!uniform_,4,motion,value.value,context_->work,seed_radius,&anchor,context_->pairs.get(),gate,&value.angular_error,true,nullptr,active_patterson_tuning().critical_order,found!=context_->points.end()?found->second->cores.get():nullptr,context_->stationary_coefficients.get());
   if(!completed){
    LCBININT_COUPLED_SCOPE(topology);
    auto proposals=topology;proposals.roots.clear();for(const auto& arc:topology.arcs){for(double angle:{arc.lo,arc.hi}){while(angle<-std::acos(-1.)*.5)angle+=2*std::acos(-1.);while(angle>std::acos(-1.)*1.5)angle-=2*std::acos(-1.);proposals.roots.push_back({angle,angle});}}std::sort(proposals.roots.begin(),proposals.roots.end(),[](auto a,auto b){return a.lo<b.lo;});
@@ -319,10 +372,10 @@ out->events_=events_;out->hints_=hints_;out->origin_=origin_;out->base_=base_;ou
 #ifdef LCBININT_TRIPLE_BOUNDARY_CONTROL
   if(controlled_uniform()&&!value.topology.roots.empty())for(std::size_t i=0;i<anchor.count;++i){const auto& a=anchor.arcs[i];const auto l=context_->control->total_derivative(R,a.lo,a.dlo),h=context_->control->total_derivative(R,a.hi,a.dhi);for(int j=0;j<8;++j)value.value.uniform[j]+=h[j]-l[j];}
 #endif
-  value.value_ready=true;value.motion=motion;if(found!=context_->points.end()){found->second=std::move(value);output=&found->second;}else output=&context_->points.emplace(R,std::move(value)).first->second;return true;
+  value.value_ready=true;value.motion=motion;if(found!=context_->points.end()){*found->second=std::move(value);output=found->second.get();}else output=context_->points.emplace(R,std::make_unique<Point>(std::move(value))).first->second.get();return true;
  }
  bool geometry_point(double R,Point*& output,const AngularTopology* predicted=nullptr){
-  if(R<=safe_lo_)R=std::nextafter(safe_lo_,map_.b);if(R>=safe_hi_)R=std::nextafter(safe_hi_,map_.a);auto found=context_->points.find(R);if(found!=context_->points.end()){output=&found->second;return true;}
+  if(R<=safe_lo_)R=std::nextafter(safe_lo_,map_.b);if(R>=safe_hi_)R=std::nextafter(safe_hi_,map_.a);auto found=context_->points.find(R);if(found!=context_->points.end()){output=found->second.get();return true;}
   AngularTopology topology;Anchor anchor;double seed_radius=R;if(predicted)topology=*predicted;else if(!proposal(R,topology,seed_radius,anchor))return false;
   Point value;value.cores=std::make_unique<shape_gradient_detail::GeometryCores>();const auto resolve=[&](AngularTopology& t){shape_gradient_detail::Ray ray(p_,R);value.anchor={};value.anchor.radius=R;
    if(t.arcs.size()>3)return false;
@@ -338,7 +391,7 @@ out->events_=events_;out->hints_=hints_;out->origin_=origin_;out->base_=base_;ou
    if(!repaired.completed){repaired=angular_topology(R,p_,options_,shared_?shared_->coefficients.get():nullptr);++context_->work.global_radii;}else ++context_->work.continued_radii;
    if(!repaired.completed||!resolve(repaired)){reason="patterson_geometry_repair";return false;}topology=std::move(repaired);
   }
-  value.topology=std::move(topology);output=&context_->points.emplace(R,std::move(value)).first->second;return true;
+  value.topology=std::move(topology);output=context_->points.emplace(R,std::make_unique<Point>(std::move(value))).first->second.get();return true;
  }
 
  void real_cells(){
@@ -391,16 +444,16 @@ out->events_=events_;out->hints_=hints_;out->origin_=origin_;out->base_=base_;ou
 #ifdef LCBININT_TRIPLE_MULTIRATE_ARCS
    if(arc_sector_>=0&&std::find(discovery_radii_.begin(),discovery_radii_.end(),entry.first)==discovery_radii_.end())continue;
 #endif
-   for(std::size_t i=0;i<entry.second.anchor.count;++i)
+   for(std::size_t i=0;i<entry.second->anchor.count;++i)
 #ifdef LCBININT_TRIPLE_MULTIRATE_ARCS
-   if(arc_sector_<0||gap_lanes_||selected_arc(entry.second)==int(i))
+   if(arc_sector_<0||gap_lanes_||selected_arc(*entry.second)==int(i))
 #endif
-   for(double theta:{entry.second.anchor.arcs[i].lo,entry.second.anchor.arcs[i].hi}){
+   for(double theta:{entry.second->anchor.arcs[i].lo,entry.second->anchor.arcs[i].hi}){
 #ifdef LCBININT_TRIPLE_MULTIRATE_ARCS
 #ifdef LCBININT_TRIPLE_WINDING_ARCS
-    if(arc_sector_>=0&&gap_lanes_&&winding_){if(!endpoint_selected(entry.second,int(i),theta==entry.second.anchor.arcs[i].hi))continue;}else
+    if(arc_sector_>=0&&gap_lanes_&&winding_){if(!endpoint_selected(*entry.second,int(i),theta==entry.second->anchor.arcs[i].hi))continue;}else
 #endif
-    if(arc_sector_>=0&&gap_lanes_&&sector_id(entry.first,entry.second.cores?(*entry.second.cores)[i][theta==entry.second.anchor.arcs[i].lo?0:1].w:std::polar(1.,theta))!=arc_sector_)continue;
+    if(arc_sector_>=0&&gap_lanes_&&sector_id(entry.first,entry.second->cores?(*entry.second->cores)[i][theta==entry.second->anchor.arcs[i].lo?0:1].w:std::polar(1.,theta))!=arc_sector_)continue;
 #endif
     const std::array<double,2> seed{entry.first,theta};std::optional<shape_gradient_detail::RadialComplexPair> pair;
     const auto retained=context_->radial_roots.find(seed);const double width=map_.b-map_.a;
@@ -426,9 +479,6 @@ public:
  int split_level=5;
  std::string reason="stream_not_started";
  PattersonPanel(const Geometry&p,double a,double b,bool left,bool right,AngularOptions options,std::shared_ptr<SharedRadiusCache<Gradient>> shared,double absolute,double relative,bool uniform,bool weighted,double limb,bool):p_(p),map_{a,b,left,right},options_(options),shared_(std::move(shared)),relative_(relative),absolute_(absolute),uniform_weight_(1-limb),limb_weight_(limb),safe_lo_(a),safe_hi_(b),uniform_(uniform),weighted_(weighted){zero_errors_.fill(INFINITY);
-#ifdef LCBININT_TRIPLE_GEOMETRY_PREFLIGHT
-  geometry_probe_=uniform_&&!weighted_;
-#endif
   if(shared_){if(!shared_->first_order_coefficients)shared_->first_order_coefficients=std::make_shared<std::unique_ptr<root_pair_detail::RadialCache<8>>>();context_->pairs=shared_->first_order_coefficients;}
   else context_->pairs=std::make_shared<std::unique_ptr<root_pair_detail::RadialCache<8>>>();
  }
@@ -488,18 +538,31 @@ public:
   split_level=use_kronrod()?3:5;
   if(requested<=level_)return true;auto previous=accepted_;bool have=level_>0;
   for(int lev=std::max(1,level_+1);lev<=requested;++lev){bool boundary_ok=true;RadiusIntegral<true> next;double inner=0,detail=0,cell_error=0;std::vector<std::array<double,2>> next_cells;
-   for(auto& cell:cells_){const double start0=next.f0,starth=next.fh;const bool weighted=weighted_&&cell.kind==0;const auto rule=integration_rule(lev,weighted);const auto limb_rule=integration_rule(lev,weighted,true);
+   // Refine one unresolved cell; keep every other complete tangent packet.
+   const bool local_step=level_>=3&&!mixed_&&!use_kronrod()&&cells_.size()>1;std::size_t selected_cell=0;
+   if(local_step){double worst=-1;for(std::size_t i=0;i<cells_.size();++i){const double error=std::max(cells_[i].error,(QuadratureErrorPolicy::weighted_detail_floor/QuadratureErrorPolicy::difference_safety)*cells_[i].detail)+cells_[i].inner;if(error>worst){worst=error;selected_cell=i;}}split_level=std::min(8,3+2*int(cells_.size()));}
+   for(auto& cell:cells_){const auto cell_index=next_cells.size();
+    if(local_step&&cell_index!=selected_cell){const auto& v=cell.accepted;next.f0+=v.f0;next.fh+=v.fh;next.endpoint_error+=v.endpoint_error;for(int j=0;j<8;++j){next.df0[j]+=v.df0[j];next.dfh[j]+=v.dfh[j];}inner+=cell.inner;detail+=cell.detail;cell_error+=cell.error;next_cells.push_back({v.f0,v.fh});continue;}
+    const int node_level=local_step?cell.level+1:lev;const auto start=next;const double inner_start=inner,detail_start=detail;
+    bool cell_geometry_ok=true;const double start0=next.f0,starth=next.fh;const bool weighted=weighted_&&cell.kind==0;const auto rule=integration_rule(node_level,weighted);const auto limb_rule=integration_rule(node_level,weighted,true);
     std::vector<RadiusIntegral<false>> samples(rule.x.size());
 #ifdef LCBININT_TRIPLE_COMPLEX_PRODUCT_RULE
     std::optional<complex_product_detail::Rule> product;std::vector<std::array<double,3>> arc_samples(rule.x.size());
-    if(uniform_&&!weighted&&cell.kind>=1&&cell.kind<=3&&cell.material&&!use_kronrod()&&(lev==2||lev==3)){
+    if(uniform_&&!weighted&&cell.kind>=1&&cell.kind<=3&&cell.material&&!use_kronrod()&&(node_level==2||node_level==3)){
      using J=complex_product_detail::J;const auto packet=[&](double x){const auto q=mapped_transport(cell,x);J r(q.node[0]);r.dp=q.material[0];return r;};J c(cell.center),scale(cell.scale);c.dp=cell.center_motion;scale.dp=cell.scale_motion;if(cell.kind==2)c=c-scale;if(cell.kind==3)c=c+scale;std::vector<J> nodes;for(double x:rule.x)nodes.push_back(packet(x));auto a=packet(-1),b=packet(1);if(a.value>b.value)std::swap(a,b);product=complex_product_detail::make(nodes,a,b,c,scale,cell.kind==1?1:-1);
     }
 #endif
     for(std::size_t k=0;k<rule.x.size();++k){const double x=rule.x[k];
-     const double shape=(1-x)*(1+x);const auto mapped_value=mapped_transport(cell,x);const auto& node=mapped_value.node;AngularTopology predicted;const bool predicted_ok=predict(cell,x,predicted);const auto& material=mapped_value.material;Point* cached=nullptr;if(!point(node[0],cached,predicted_ok?&predicted:nullptr,&material[0]))return false;const auto& value=cached->value;
+     const double shape=(1-x)*(1+x);const auto mapped_value=mapped_transport(cell,x);const auto& node=mapped_value.node;AngularTopology predicted;
+     const bool witness=node_level>=3&&k%2==0&&!weighted&&!uniform_;
+     const bool predicted_ok=predict(cell,x,predicted);
+     const auto& material=mapped_value.material;Point* cached=nullptr;if(!point(node[0],cached,predicted_ok?&predicted:nullptr,&material[0]))return false;const auto& value=cached->value;
+     if(witness){if(!predicted_ok||predicted.arcs.size()!=cached->anchor.count)cell_geometry_ok=false;else{std::array<bool,3> used{};const double period=2*std::acos(-1.);for(std::size_t a=0;a<predicted.arcs.size();++a){const auto& guess=predicted.arcs[a];int chosen=-1;double best=INFINITY,shift=0;for(std::size_t j=0;j<cached->anchor.count;++j)if(!used[j]){const auto& actual=cached->anchor.arcs[j];const double turns=period*std::round((guess.lo+guess.hi-actual.lo-actual.hi)/(2*period)),distance=std::abs(guess.lo+guess.hi-actual.lo-actual.hi-2*turns);if(distance<best){best=distance;chosen=int(j);shift=turns;}}if(chosen<0){cell_geometry_ok=false;continue;}used[chosen]=true;const auto& actual=cached->anchor.arcs[chosen];const double width=actual.hi-actual.lo;if(std::abs(guess.lo-actual.lo-shift)+std::abs(guess.hi-actual.hi-shift)>
+ 4*geometry_resolution_budget()*width
+ )cell_geometry_ok=false;
+     }}}
 #if defined(LCBININT_TRIPLE_MULTIRATE_ARCS) && defined(LCBININT_TRIPLE_SECTOR_BOUNDARY_WITNESS)
-     if(uniform_&&geometry_guard_&&lev>=3&&k%2==0){if(!predicted_ok)boundary_ok=false;else{const double width=std::abs(value.f0/node[0]),period=2*std::acos(-1.);for(int endpoint:cached->endpoint_labels){if(endpoint<0){boundary_ok=false;continue;}const auto& arc=cached->anchor.arcs[endpoint/2];const double theta=endpoint%2?arc.hi:arc.lo;double delta=INFINITY;for(const auto& proposal:predicted.arcs)delta=std::min(delta,std::abs(std::remainder((endpoint%2?proposal.hi:proposal.lo)-theta,period)));const double tolerance=std::max(.5*relative_*width,64*std::numeric_limits<double>::epsilon()*(1+std::abs(theta)));if(delta>tolerance)boundary_ok=false;}}}
+     if(uniform_&&geometry_guard_&&node_level>=3&&k%2==0){if(!predicted_ok)boundary_ok=false;else{const double width=std::abs(value.f0/node[0]),period=2*std::acos(-1.);for(int endpoint:cached->endpoint_labels){if(endpoint<0){boundary_ok=false;continue;}const auto& arc=cached->anchor.arcs[endpoint/2];const double theta=endpoint%2?arc.hi:arc.lo;double delta=INFINITY;for(const auto& proposal:predicted.arcs)delta=std::min(delta,std::abs(std::remainder((endpoint%2?proposal.hi:proposal.lo)-theta,period)));const double tolerance=std::max(.5*relative_*width,64*std::numeric_limits<double>::epsilon()*(1+std::abs(theta)));if(delta>tolerance)boundary_ok=false;}}}
 #endif
 #ifdef LCBININT_TRIPLE_COMPLEX_PRODUCT_RULE
      if(product)for(std::size_t j=0;j<cached->anchor.count;++j)arc_samples[k][j]=node[0]*(cached->anchor.arcs[j].hi-cached->anchor.arcs[j].lo);
@@ -527,29 +590,36 @@ public:
 #endif
       next.df0[j]+=wu*(value.uniform[j]+(controlled_uniform()?0:material[1][j])*value.f0);next.dfh[j]+=wh*(value.limb[j]+material[1][j]*value.fh);}
     }
-    if(use_kronrod()&&lev==2)build_curve(cell,2);else if(!use_kronrod()&&lev==3)build_curve(cell,3);
+    if(use_kronrod()&&node_level==2)build_curve(cell,2);else if(!use_kronrod()&&node_level==3)build_curve(cell,3);
+    if(node_level==3&&!weighted&&!mixed_&&!use_kronrod()
+    &&uniform_
+    )cell_geometry_ok=spatially_resolved(cell);
     const std::array<double,2> cell_value{next.f0-start0,next.fh-starth};const auto index=next_cells.size();
-    bool embedded_used=false;double embedded_detail=0;
+    bool embedded_used=false;double embedded_detail=0,local_error=INFINITY;
     if(have&&index<previous_cells_.size()){
-     double local_error=uniform_weight_*std::abs(cell_value[0]-previous_cells_[index][0])+limb_weight_*std::abs(cell_value[1]-previous_cells_[index][1]);
-     if(!weighted&&!mixed_&&!use_kronrod()&&lev>=3&&lev<=5){
+     local_error=uniform_weight_*std::abs(cell_value[0]-previous_cells_[index][0])+limb_weight_*std::abs(cell_value[1]-previous_cells_[index][1]);
+     if(!weighted&&!mixed_&&!use_kronrod()&&node_level>=3&&node_level<=5){
       const auto observable=[&](const auto& a){return uniform_weight_*a.f0+limb_weight_*a.fh;};
-      const auto embedded=embedded_patterson_detail::embedded_estimate(lev,samples,observable);
+      const auto embedded=embedded_patterson_detail::embedded_estimate(node_level,samples,observable);
       const double fine=uniform_weight_*cell_value[0]+limb_weight_*cell_value[1],old=uniform_weight_*previous_cells_[index][0]+limb_weight_*previous_cells_[index][1];
       const double low=std::abs(embedded.first-old),high=std::abs(fine-embedded.first);
       if(low>64*std::numeric_limits<double>::epsilon()*std::abs(fine)&&high<=low*.25){local_error=high;embedded_detail=embedded.second;embedded_used=true;}
      }
+     if(!cell_geometry_ok)local_error=INFINITY;
      cell_error+=local_error;
     }
     next_cells.push_back(cell_value);
     if(embedded_used)detail+=embedded_detail;else
-    if(lev>1&&!mixed_&&(!use_kronrod()||weighted||lev>2)){
+    if(node_level>1&&!mixed_&&(!use_kronrod()||weighted||node_level>2)){
 #ifdef LCBININT_TRIPLE_COMPLEX_PRODUCT_RULE
 if(product){if(!product->interpolation.empty())for(std::size_t k=0;k<samples.size();k+=2)for(int arc=0;arc<3;++arc){double predicted=0;for(int j=0;j<3;++j)predicted+=product->interpolation[k][j]*arc_samples[2*j+1][arc];detail+=uniform_weight_*std::abs(product->weight[k].value)*std::abs(arc_samples[k][arc]-predicted);}}else
 #endif
 if(weighted)detail+=uniform_weight_*panel_detail::interpolation_detail(rule,samples,[](const auto& a){return a.f0;})+limb_weight_*panel_detail::interpolation_detail(limb_rule,samples,[](const auto& a){return a.fh;});
      else detail+=panel_detail::interpolation_detail(rule,samples,[&](const auto& a){return uniform_weight_*a.f0+limb_weight_*a.fh;});
     }
+    cell.accepted=next;cell.accepted.f0-=start.f0;cell.accepted.fh-=start.fh;cell.accepted.endpoint_error-=start.endpoint_error;for(int j=0;j<8;++j){cell.accepted.df0[j]-=start.df0[j];cell.accepted.dfh[j]-=start.dfh[j];}cell.error=local_error;cell.inner=inner-inner_start;cell.detail=detail-detail_start;cell.level=node_level;
+    if(node_level>=5)split_level=std::min(split_level,lev);
+
    }
    radial_error_=have&&previous_cells_.size()==next_cells.size()?cell_error:INFINITY;
    radial_error_=std::max(radial_error_,(QuadratureErrorPolicy::weighted_detail_floor/QuadratureErrorPolicy::difference_safety)*detail);

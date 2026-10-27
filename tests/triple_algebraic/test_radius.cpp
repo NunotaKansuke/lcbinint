@@ -112,6 +112,19 @@ int main() {
         const auto ref=reference.result();
         check(std::abs(first.fh-ref.fh)<=4*(first.angular_error+first.endpoint_error+ref.angular_error)+1e-10,"repaired independent arc rule parity");
     }
+    // Endpoint uncertainty belongs to the angular integration domain, not
+    // independently to every physical sample. Even deliberately loose root
+    // brackets must retain an error ledger covering the tight reference.
+    for(double R:{.82,.89,.93,1.04,1.115,1.19}) {
+        AngularOptions loose;loose.endpoint_tolerance=1e-7;
+        RadiusWorkspace<> local,reference;
+        check(local.initialize(R,p,loose,false,1e-8) && local.refine(7),"loose domain integral");
+        check(reference.initialize(R,p) && reference.refine(10),"tight domain reference");
+        const auto a=local.result(),b=reference.result();
+        const double bound=a.endpoint_error+b.endpoint_error+2*(a.angular_error+b.angular_error);
+        check(std::abs(a.fh-b.fh)<=bound+1e-12,"domain and arithmetic ledger covers independent tight integral");
+        check(local.gradient_evaluations==0,"domain budget has no gradient work");
+    }
     check(occupied>=2,"occupied cases");
     // Full-circle geometry: fixed artificial endpoints have zero derivative.
     Geometry full{.01,.02,5.,.2,.08,1.,-.4,.6};

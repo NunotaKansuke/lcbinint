@@ -230,7 +230,7 @@ template<bool Gradient=false,template<bool>class PanelWorkspace=RadialPanel> inl
                 }
             }
         }
-        auto shared=std::make_shared<SharedRadiusCache<Gradient>>();
+        auto shared=std::make_shared<SharedRadiusCache<Gradient>>();shared->requested_relative_tolerance=options.relative_tolerance;
         shared->coefficients=coefficients;all_shared.push_back(shared);
         std::vector<bool> occupied(unique.size()-1);
         struct OrientedEvent {RadialEvent event;int change;double angle_lo,angle_hi;};

@@ -1,19 +1,23 @@
-# Selected triple algebraic checkpoint
+# Triple algebraic integration checkpoint — 2026-10-28
 
-The selected implementation transports flux and all eight canonical parameter derivatives together. The default gradient policy refines on flux error only; value-only integration evaluates no parameter directions. Strict derivative-error control remains an explicit diagnostic option.
+The default derivative route transports the value and eight canonical derivatives together, with refinement controlled by the value tolerance. Scalar calls execute no parameter-derivative work. The offline gradient gate remains `1e-4 + 2e-4*abs(reference)`, including independent-reference uncertainty.
 
-Accepted changes include nested Patterson transport, moving real/complex radial charts, ordinary and critical angular sensitivity moments, retained nested packets, explicit real physical arithmetic, direct promoted harmonic rotation, shared positive embedded flux error estimation, and slope-only stationary discovery. Physical endpoint validation, complete support, and local precision repair remain active.
-
-The subsequent partial-sector tracking and real-fold leading-term subtraction experiments did not outperform this selection. They are not enabled in this checkpoint. In particular, no leading-fold subtraction header is required by the selected source. Local investigation artifacts remain outside this commit.
+This checkpoint adds retained local Patterson cell refinement, cached physical-boundary regularity witnesses, inline angular storage and contiguous radius caches, fixed-angle physical LD sensitivity transport, and shared hyperbolic nodes. It also adds scalar LD absolute roundoff budgeting for loose requests, mirrored angular trigonometry and shared eight-direction contractions, and an early exclusion of absent coordinate-hint maxima. Physical support completeness and pole-distance guards remain active. Strict local requests retain early precision promotion; a small-source rtol1e-9 convergence regression is fixed in `test_regular.cpp`.
 
 ## Validation
 
-Release native build with `cmake --build build-triple-native -j2`; CTest 29 tests, including public API and first-order transport. Public independent physical FD gate: 88 components, maximum error/budget 0.253045. Saved selected C ABI gates: broad 120/120, saved 86/86, new holdout 24/24. Fresh independent five-point scalar FD: 32 gradient comparisons and 32 reference-half-budget checks, maximum combined error/budget 0.12223. Offline gradient budget is `1e-4 + 2e-4*abs(reference)`.
+- Release native rebuild; CTest **30/30**.
+- Independent scalar FD references: **160 canonical components**, plus **80 pure-LD identity components**, all within the unchanged gradient gate.
+- Physical gradients through rebuilt public Python API and C ABI: **88/88** each.
+- Broad comparator **120/120**, saved **86/86**, new holdout **24/24**, scalar **168/168**.
+- Three previously converged strict small-source requests recover baseline convergence and quad counts. An older rho=.001,rtol1e-9 baseline nonconvergence is retained as a diagnostic, not claimed solved.
 
-See the adjacent `selected-default-*.json` files. The library paths/hashes in those historical records identify the measured native binaries; binaries are not stored in Git. Numerical acceptance is bounded to the recorded cases, not universal gradient certification.
+The five raw independent FD reference files and the new `triple_gradient_contract` CTest fixture preserve the derivative regression inputs. `gradient_valid` denotes usable output, not universal precision certification; default `gradient_precision_checked` and `gradient_reliable` remain false.
 
-## Performance and remaining work
+## Performance
 
-The selected version improved 1.9–5.5% against the preceding guarded-moments version in paired CPU0 thread-time tests (4 warmups and 24 rotated/reversed samples). CPU frequency was uncontrolled. Added gradient cost at rtol 1e-3 / 1e-4 was contact uniform 53.0% / 37.8%, large uniform 88.6% / 83.1%, contact LD 99.8% / 87.2%, large LD 176.6% / 107.2%. The requested 30% overhead target is **not achieved**. These data are not a new VBM comparison.
+[Final naturally routed VBM comparison](../triple_speed_comparison_ld_20261028/REPORT.md): one triple geometry, twelve source disks, U/linear LD u=.5, rtol1e-3/1e-4, atol0. All48 conditions enter integration under the normal router; no point/hex, source-disc shortcut or light-curve API is timed. VBM5.5 SinglePoly/MultiPoly/NoPoly are reported separately. Geometry construction is excluded and support preparation is included in lcbinint warm point timings.
 
-`gradient_valid` denotes a finite complete-support result; `gradient_reliable` and `gradient_precision_checked` remain false under the default value-mesh policy. Online derivative error estimates remain unchecked, consistently with the documented contract.
+Against the immediately preceding validated working-tree build, two matched paired runs show LD gradient time reductions of **4.3–5.3%** and scalar LD rtol1e-4 reductions of **1.4–1.5%**; scalar LD rtol1e-3 is effectively unchanged. Frequency is uncontrolled; use within-run paired changes rather than subtracting historical tables. The **30% derivative-overhead goal is not achieved**.
+
+[Implementation notes and rejected trials](../triple_ld_final_cost/NOTES.md), [paired improvement data](../triple_ld_final_cost/improvement-summary.json), and [source provenance](../triple_ld_final_cost/source-manifest.json) describe the final selection. Native binaries, build products and full experimental snapshots remain local; saved hashes identify the measured artifacts. Some local-only exploratory artifacts referenced by the provenance/notes are intentionally not tracked. The older `selected-default-*.json` files describe the earlier checkpoint rather than the current implementation.

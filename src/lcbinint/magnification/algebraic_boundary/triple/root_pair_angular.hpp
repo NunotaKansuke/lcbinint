@@ -107,9 +107,12 @@ template<int N,class Ray,class Work> std::optional<PairIntegral<N>> critical_arc
             const double ulo=std::asinh((tl-m)/h),uhi=std::asinh((th-m)/h);
             const bool moving=true;
             if(!(uhi>ulo) || !std::isfinite(uhi-ulo) || uhi-ulo>64)return std::nullopt;
-            const int cells=std::max(1,int(std::ceil(uhi-ulo)));
+            const int cells=std::max(1,int(std::ceil((uhi-ulo)/
+            1.
+            )));
             LCBININT_CHART_SCOPE(moments);
             std::array<double,16> piece_moments{};
+            const ShiftedHyperbolicNodes shifted_nodes(gauss_rule(quadrature_order),cells>=3?(uhi-ulo)/(2*cells):0);
             bool global_completed=false;
 #ifdef LCBININT_TRIPLE_GLOBAL_ANGULAR_STREAM
             if(moving){double global_error=0;const auto global=global_angular_moments(active,ulo,uhi,physical_ends&&j==0&&piece==0,physical_ends&&j+1==retained->minima.size()&&piece+1==pieces,work,value_gate,global_error);if(global){result.error+=global_error;piece_moments=*global;global_completed=true;}}
@@ -138,7 +141,9 @@ template<int N,class Ray,class Work> std::optional<PairIntegral<N>> critical_arc
 #ifdef LCBININT_TRIPLE_COMPACT_CRITICAL_ENDS
                     std::max(8,quadrature_order)
 #else
-                    std::max(16,2*quadrature_order)
+                    std::max(
+                    16
+                    ,2*quadrature_order)
 #endif
  :
 #ifdef LCBININT_TRIPLE_BERNSTEIN_ANGULAR_CELLS
@@ -155,7 +160,10 @@ template<int N,class Ray,class Work> std::optional<PairIntegral<N>> critical_arc
                     const FoldRadialMap normalized{0,1,map.left,map.right};
                     const double v=active.pair.square.value,h=active.half_width;
                     const auto& q=active.pair.quotient;
+                    const bool shifted=cells>=3&&!map.left&&!map.right&&fraction_width==1./cells&&rule.x.size()<=128;
+                    const auto center=shifted?ShiftedHyperbolicNodes::evaluate(ulo+span*(fraction_lo+fraction_width*.5)):std::array<double,2>{};
                     for(std::size_t k=0;k<rule.x.size();++k){const auto node=normalized(rule.x[k]);const double alpha=fraction_lo+fraction_width*node[0],u=ulo+span*alpha;double sh,ch;
+                        if(shifted){const auto& q=shifted_nodes.offsets[k];sh=center[0]*q[1]+center[1]*q[0];ch=center[1]*q[1]+center[0]*q[0];}else
                         if(!map.left&&!map.right&&std::abs(u)<=64){const double e=std::expm1(std::abs(u)),inverse=1/(1+e);sh=std::copysign(.5*e*(1+inverse),u);ch=1+.5*e*(e*inverse);}else
                         {sh=std::sinh(u);ch=std::cosh(u);}const double t=active.pair.mean.value+h*sh,one=1+t*t;
                         double Q=q[4].value;for(int d=3;d>=0;--d)Q=Q*t+q[d].value;
@@ -205,6 +213,14 @@ template<int N,class Ray,class Work> std::optional<PairIntegral<N>> critical_arc
     if constexpr(N==8)if(lower_motion&&upper_motion){const auto reverse=critical_arc_reverse<N>(ray,R,p,lo,hi,physical_ends,motion,work,coefficients,shared_radial,retained,quadrature_order,lower_motion,upper_motion,stationary,midpoint,scalar_coefficients,value_gate);if(reverse)return reverse;}
 #endif
     LCBININT_COUPLED_SCOPE(chart);
+#if defined(LCBININT_TRIPLE_GLOBAL_ANGULAR_STREAM) || defined(LCBININT_TRIPLE_COFACTOR_CORE) || defined(LCBININT_TRIPLE_COMPACT_CRITICAL_TRANSPORT) || defined(LCBININT_TRIPLE_HYBRID_COMPACT_ANGLE) || defined(LCBININT_TRIPLE_ENDPOINT_COFACTOR) || defined(LCBININT_TRIPLE_REVERSE_ANGULAR)
+    constexpr bool physical_transport=false;
+#else
+    // The LD intensity vanishes at each physical angular end. Integrate
+    // its derivative at fixed angle; internal piece boundaries cancel.
+    // This avoids differentiating an arbitrary quadrature coordinate map.
+    constexpr bool physical_transport=true;
+#endif
     {LCBININT_CHART_SCOPE(discovery);
      std::optional<std::array<root_pair_detail::Jet<0>,7>> scalar_harmonics;
      if(lower_motion&&upper_motion&&midpoint&&midpoint->phi>0&&midpoint->roundoff<1e-7*midpoint->phi&&scalar_coefficients&&!*scalar_coefficients&&shared_radial){if(!*shared_radial)*shared_radial=std::make_unique<root_pair_detail::RadialCache<N>>(p);scalar_harmonics=(*shared_radial)->scalar_harmonics(R);}
@@ -235,7 +251,7 @@ template<int N,class Ray,class Work> std::optional<PairIntegral<N>> critical_arc
             const double ulo=std::asinh((tl-m)/h),uhi=std::asinh((th-m)/h);
             root_pair_detail::Jet<N> moving_lo(ulo),moving_hi(uhi);
             const bool moving=lower_motion&&upper_motion;
-            if(moving){std::array<double,N> zero{};moving_lo=active.critical_coordinate(a,j==0&&piece==0?*lower_motion:zero);moving_hi=active.critical_coordinate(b,j+1==retained->minima.size()&&piece+1==pieces?*upper_motion:zero);}
+            if(moving&&!physical_transport){std::array<double,N> zero{};moving_lo=active.critical_coordinate(a,j==0&&piece==0?*lower_motion:zero);moving_hi=active.critical_coordinate(b,j+1==retained->minima.size()&&piece+1==pieces?*upper_motion:zero);}
             if(!(uhi>ulo) || !std::isfinite(uhi-ulo) || uhi-ulo>64)return std::nullopt;
 #ifdef LCBININT_TRIPLE_COMPACT_CRITICAL_TRANSPORT
             if(moving)if(const auto compact=compact_critical_transport(active,moving_lo,moving_hi,physical_ends&&j==0&&piece==0,physical_ends&&j+1==retained->minima.size()&&piece+1==pieces,work,std::min(1e-6,value_gate*.1))){result.flux+=compact->flux;result.error+=compact->error;for(int k=0;k<N;++k)result.gradient[k]+=compact->gradient[k];continue;}
@@ -243,9 +259,12 @@ template<int N,class Ray,class Work> std::optional<PairIntegral<N>> critical_arc
 #ifdef LCBININT_TRIPLE_ENDPOINT_COFACTOR
             if(moving)if(const auto deflated=endpoint_cofactor_transport(active,moving_lo,moving_hi,physical_ends&&j==0&&piece==0,physical_ends&&j+1==retained->minima.size()&&piece+1==pieces,work,8)){result.flux+=deflated->flux;for(int k=0;k<N;++k)result.gradient[k]+=deflated->gradient[k];continue;}
 #endif
-            const int cells=std::max(1,int(std::ceil(uhi-ulo)));
+            const int cells=std::max(1,int(std::ceil((uhi-ulo)/
+            1.
+            )));
             LCBININT_CHART_SCOPE(moments);
             std::array<double,16> piece_moments{};
+            const ShiftedHyperbolicNodes shifted_nodes(gauss_rule(quadrature_order),cells>=3?(uhi-ulo)/(2*cells):0);
 #ifdef LCBININT_TRIPLE_COFACTOR_CORE
             std::optional<root_pair_detail::CofactorCoreAdjoint<N>> analytic_core;
             if(moving&&uhi-ulo>4){analytic_core.emplace(active);if(!analytic_core->valid)analytic_core.reset();}
@@ -297,7 +316,9 @@ template<int N,class Ray,class Work> std::optional<PairIntegral<N>> critical_arc
 #ifdef LCBININT_TRIPLE_COMPACT_CRITICAL_ENDS
                     std::max(8,quadrature_order)
 #else
-                    std::max(16,2*quadrature_order)
+                    std::max(
+                    physical_transport&&moving?12:16
+                    ,2*quadrature_order)
 #endif
  :
 #ifdef LCBININT_TRIPLE_BERNSTEIN_ANGULAR_CELLS
@@ -314,7 +335,10 @@ template<int N,class Ray,class Work> std::optional<PairIntegral<N>> critical_arc
                     const FoldRadialMap normalized{0,1,map.left,map.right};
                     const double v=active.pair.square.value,h=active.half_width;
                     const auto& q=active.pair.quotient;
+                    const bool shifted=cells>=3&&!map.left&&!map.right&&fraction_width==1./cells&&rule.x.size()<=128;
+                    const auto center=shifted?ShiftedHyperbolicNodes::evaluate(ulo+span*(fraction_lo+fraction_width*.5)):std::array<double,2>{};
                     for(std::size_t k=0;k<rule.x.size();++k){const auto node=normalized(rule.x[k]);const double alpha=fraction_lo+fraction_width*node[0],u=ulo+span*alpha;double sh,ch;
+                        if(shifted){const auto& q=shifted_nodes.offsets[k];sh=center[0]*q[1]+center[1]*q[0];ch=center[1]*q[1]+center[0]*q[0];}else
                         if(!map.left&&!map.right&&std::abs(u)<=64){const double e=std::expm1(std::abs(u)),inverse=1/(1+e);sh=std::copysign(.5*e*(1+inverse),u);ch=1+.5*e*(e*inverse);}else
                         {sh=std::sinh(u);ch=std::cosh(u);}const double t=active.pair.mean.value+h*sh,one=1+t*t;
                         double Q=q[4].value;for(int d=3;d>=0;--d)Q=Q*t+q[d].value;
@@ -327,12 +351,17 @@ template<int N,class Ray,class Work> std::optional<PairIntegral<N>> critical_arc
                         const double inverse_q=std::abs(Q)>=std::numeric_limits<double>::min()?1/Q:0;
                         const double slope=.5*((inverse_q?Qt*inverse_q:Qt/Q)-denominator_slope),coefficient_weight=inverse_q?.5*weight*inverse_q:.5*weight/Q,uslope=
                         2*sh/ch+slope*h*ch;
-                        moments[0]+=weight;moments[1]+=weight*slope;moments[2]+=weight*(1/v-slope*sh/(2*h));
+                        moments[0]+=weight;
+                        if constexpr(physical_transport){
+                            const double pair=(t-active.pair.mean.value)*(t-active.pair.mean.value)-v;
+                            moments[1]-=weight*(t-active.pair.mean.value)/pair;
+                            moments[2]-=.5*weight/pair;
+                        }else{moments[1]+=weight*slope;moments[2]+=weight*(1/v-slope*sh/(2*h));}
                         double power=1;for(int d=0;d<5;++d){moments[3+d]+=
                         coefficient_weight*power;
                         power*=t;}
                         for(int d=0;d<2;++d){double power=1;for(int e=0;e<3;++e){moments[8+3*d+e]-=.5*weight*power*inverse_pole[d];power*=t;}}
-                        moments[14]+=weight*(uslope*(1-alpha)-1/span);moments[15]+=weight*(uslope*alpha+1/span);++work.evaluations;
+                        if constexpr(!physical_transport){moments[14]+=weight*(uslope*(1-alpha)-1/span);moments[15]+=weight*(uslope*alpha+1/span);}++work.evaluations;
                     }
                     for(int k=0;k<16;++k)piece_moments[k]+=moments[k];continue;
                 }
@@ -345,7 +374,8 @@ template<int N,class Ray,class Work> std::optional<PairIntegral<N>> critical_arc
                 }
             }
             if(moving){const auto& q=active.pair.quotient;
-                    result.flux+=piece_moments[0];for(int k=0;k<N;++k){double partial=-piece_moments[0]*active.rho.dp[k]*active.inverse_rho+piece_moments[1]*active.pair.mean.dp[k]+piece_moments[2]*active.pair.square.dp[k]+piece_moments[14]*moving_lo.dp[k]+piece_moments[15]*moving_hi.dp[k];
+                    result.flux+=piece_moments[0];for(int k=0;k<N;++k){double partial=-piece_moments[0]*active.rho.dp[k]*active.inverse_rho+piece_moments[1]*active.pair.mean.dp[k]+piece_moments[2]*active.pair.square.dp[k];
+                        if constexpr(!physical_transport)partial+=piece_moments[14]*moving_lo.dp[k]+piece_moments[15]*moving_hi.dp[k];
                         for(int d=0;d<5;++d)partial+=piece_moments[3+d]*q[d].dp[k];for(int d=0;d<2;++d)for(int e=0;e<3;++e)partial+=piece_moments[8+3*d+e]*active.poles[d][e].dp[k];
                         if(!std::isfinite(partial))return std::nullopt;result.gradient[k]+=partial;
                     }

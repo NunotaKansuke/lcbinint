@@ -1,4 +1,5 @@
 #pragma once
+#include <boost/container/flat_map.hpp>
 #include "fused_radial_rule.hpp"
 #include "fused_boundary_guard.hpp"
 #include "radius_terms.hpp"
@@ -112,7 +113,8 @@ std::shared_ptr<const BoundaryControlAtlas> boundary_control;
 #endif
 std::shared_ptr<root_pair_detail::PreparedFrames> coefficient_frames;std::shared_ptr<std::unique_ptr<root_pair_detail::RadialCache<8>>> first_order_coefficients;};
 template<bool Gradient> struct SharedRadiusCache:SharedCoefficientFrames<Gradient> {
-    std::map<double,std::shared_ptr<RadiusWorkspace<Gradient>>> radii;
+    double requested_relative_tolerance=0;
+    boost::container::flat_map<double,std::shared_ptr<RadiusWorkspace<Gradient>>> radii;
     std::optional<std::array<double,8>> identity;
     AngularOptions angular;
     std::optional<bool> uniform_source;

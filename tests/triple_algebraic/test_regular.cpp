@@ -180,5 +180,19 @@ int main(){
  auto extreme=geometries.front();extreme.a=1e150;rs::Tree extreme_tree(extreme);
  require(extreme_tree.count({extreme.X,extreme.Y},extreme.rho)<0,"nonfinite critical coefficients must refuse the shortcut");
  require(accepted>=40 && counts>=60 && multiple>0 && max_count==10 && motion_checks>=60 && bounded>0,"nontrivial prepared-support coverage");
+ // A strict small-source request must promote local arithmetic early,
+ // rather than exhaust the radial budget against a double-precision floor.
+ // Regression from evidence/triple_ld_final_cost/tight.json: rho=.01,
+ // rtol=1e-9 converged before the LD cost changes but stalled when the
+ // loose-value absolute-budget policy was applied to every tolerance.
+ for(auto request:{std::array<double,2>{.01,1e-9},std::array<double,2>{.001,1e-7}}) {
+  tr::Geometry p{1.0561478501382953,-0.96718632134775,request[0],.2,.08,1.,-.4,.6};
+  tr::PreparedRegularSupport prepared;tr::IntegrationOptions opt;
+  opt.absolute_tolerance=0;opt.relative_tolerance=request[1];opt.maximum_refinements=1000;
+  const auto plan=prepared.plan(p,opt.relative_tolerance,opt.event_box_budget,true);
+  const auto result=tr::integrate(p,.5,opt,plan.completed?&plan:nullptr);
+  require(result.converged && result.support_complete,"strict LD arithmetic promotion convergence");
+  require(result.error_estimate<=opt.relative_tolerance*std::abs(result.magnification),"strict LD unchanged relative error contract");
+ }
  std::cout<<"PASS: "<<accepted<<" prepared plans, "<<counts<<" winding counts ("<<multiple<<" with >4 images, maximum "<<max_count<<"), "<<motion_checks<<" quad motion checks, "<<values*4<<" relative value comparisons, "<<bounded<<" bounded-component plans\n";
 }

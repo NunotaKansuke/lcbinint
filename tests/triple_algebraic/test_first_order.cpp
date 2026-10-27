@@ -4,7 +4,12 @@ using namespace lcbinint::algebraic_boundary::triple;
 static void require(bool ok,const char* why){if(!ok)throw std::runtime_error(why);}
 int main(){
  int physical_fields=0;
- for(int i=0;i<720;++i){Geometry p{.1+.02*std::sin(i*.41),.15,.015+.3*(1+std::sin(i*.27)),.2,.08,1.,-.4,.6};const double R=.1+1.8*(i+.5)/720,theta=i*.618;shape_gradient_detail::Ray ray(p,R);double ea,eb,curvature;const auto x=ray.sample<true,true>(theta,ea),y=ray.sample<true,true>(theta,eb,&curvature);const auto check=[&](double a,double b){require(std::isfinite(a)&&std::abs(a-b)<=2e-13*(1+std::abs(b)),"real physical kernel versus curvature reference");++physical_fields;};check(x.phi,y.phi);check(x.dR,y.dR);check(x.dtheta,y.dtheta);check(ray.angular_slope(theta),y.dtheta);check(ea,eb);for(int j=0;j<8;++j)check(x.dp[j],y.dp[j]);}
+ for(int i=0;i<720;++i){Geometry p{.1+.02*std::sin(i*.41),.15,.015+.3*(1+std::sin(i*.27)),.2,.08,1.,-.4,.6};const double R=.1+1.8*(i+.5)/720,theta=i*.618;shape_gradient_detail::Ray ray(p,R);double ea,eb,curvature;const auto x=ray.sample<true,true>(theta,ea),y=ray.sample<true,true>(theta,eb,&curvature);const auto check=[&](double a,double b){require(std::isfinite(a)&&std::abs(a-b)<=2e-13*(1+std::abs(b)),"real physical kernel versus curvature reference");++physical_fields;};check(x.phi,y.phi);check(x.dR,y.dR);check(x.dtheta,y.dtheta);check(ray.angular_slope(theta),y.dtheta);check(ea,eb);for(int j=0;j<8;++j)check(x.dp[j],y.dp[j]);
+  for(bool radial:{false,true}){shape_gradient_detail::Ray::Core core;double error=0;
+   if(radial)ray.sample<false,true>(theta,error,nullptr,&core);else ray.sample<false,false>(theta,error,nullptr,&core);
+   Evaluation<true> retained;ray.add_parameters(retained,core);check(retained.phi,x.phi);check(retained.dR,x.dR);check(retained.dtheta,x.dtheta);for(int j=0;j<8;++j)check(retained.dp[j],x.dp[j]);
+  }
+ }
  const int degrees[]={1,5,11,23,47};int moments=0;
  for(int level=1;level<=5;++level){const auto& q=patterson_rule(level);for(int power=0;power<=degrees[level-1];++power){long double sum=0;for(std::size_t k=0;k<q.x.size();++k)sum+=(long double)q.w[k]*std::pow((long double)q.x[k],power);const long double exact=power%2?0:2.L/(power+1);require(std::abs(sum-exact)<2e-14L,"Patterson analytic moment");++moments;}
   if(level>1){const auto& old=patterson_rule(level-1);for(std::size_t j=0;j<old.x.size();++j)require(q.x[2*j+1]==old.x[j],"bitwise nested radial nodes");}

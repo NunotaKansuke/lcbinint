@@ -24,7 +24,18 @@ template<class Ray,class Work> std::optional<AngularChart> quartic_arc_geometry(
  const double predicted=model.phi_from_factor(m,-v);if(std::abs(predicted-midpoint->phi)+midpoint->roundoff>1e-7*midpoint->phi)return std::nullopt;
  const auto pole_close=[&](double center,double imaginary){return center>tl&&center<th&&imaginary<.2*(th-tl);};if(pole_close(0,1))return std::nullopt;
  for(const auto& pole:model.poles){const double c= -.5*pole[1].value/pole[2].value,d=pole[0].value/pole[2].value-c*c;if(!(d>0)||pole_close(c,std::sqrt(d)))return std::nullopt;}
- const auto& q=model.pair.quotient;const auto roots=cubic_candidates({q[1].value,2*q[2].value,3*q[3].value,4*q[4].value});if(!roots)return std::nullopt;
+ const auto& q=model.pair.quotient;
+ // Exclude a quartic maximum before solving its stationary cubic. A
+ // positive curvature bound or a nonzero derivative interval suffices.
+ const double d1=((4*q[4].value*m+3*q[3].value)*m+2*q[2].value)*m+q[1].value;
+ const double d2=(12*q[4].value*m+6*q[3].value)*m+2*q[2].value;
+ const double d3=24*q[4].value*m+6*q[3].value;
+ const double curvature_tail=std::abs(d3)*h+12*std::abs(q[4].value)*h*h;
+ const double slope_tail=std::abs(d2)*h+.5*std::abs(d3)*h*h+4*std::abs(q[4].value)*h*h*h;
+ const double range=1+std::abs(m)+h;
+ const double pad=4096*(std::numeric_limits<double>::epsilon()*(std::abs(q[1].value)+std::abs(q[2].value)*range+std::abs(q[3].value)*range*range+std::abs(q[4].value)*range*range*range)+std::numeric_limits<double>::min());
+ if(d2>curvature_tail+pad || std::abs(d1)>slope_tail+pad){AngularChart empty;empty.algebraic_hint=true;return empty;}
+ const auto roots=cubic_candidates({q[1].value,2*q[2].value,3*q[3].value,4*q[4].value});if(!roots)return std::nullopt;
  AngularChart result;result.algebraic_hint=true;for(double t:*roots){if(!(t>tl&&t<th))continue;const double second=(12*q[4].value*t+6*q[3].value)*t+2*q[2].value;if(!(second<0))continue;double value=q[4].value,bound=std::abs(value);for(int j=3;j>=0;--j){value=value*t+q[j].value;bound=bound*std::abs(t)+std::abs(q[j].value);}if(std::abs(value)<2048*std::numeric_limits<double>::epsilon()*bound)return std::nullopt;if(!(value<0))continue;const double spread=std::sqrt(2*value/second),theta=model.center+2*std::atan(t),scale=2*spread/(1+t*t);if(!(scale>0&&scale<(hi-lo)*.15&&std::isfinite(scale)))continue;
   double error=0;const auto field=ray.template sample<false>(theta,error);double phi=field.phi;if(!(phi>0)||error>1e-5*phi){const auto exact=local_precision::evaluate<false>(local_precision::Q(R),local_precision::Q(theta),p);phi=double(exact.phi);error=64*std::numeric_limits<double>::epsilon()*std::abs(phi);++work.quad_samples;}if(phi>0)result.minima.push_back({theta,scale,phi,error});
  }return result;

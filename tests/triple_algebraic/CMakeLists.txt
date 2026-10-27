@@ -46,3 +46,12 @@ if(TARGET lcbinint_lightcurve)
     target_link_libraries(triple_smooth PRIVATE lcbinint_lightcurve quadmath)
     add_test(NAME triple_smooth COMMAND triple_smooth)
 endif()
+
+if(TARGET lcbinint_lightcurve)
+    add_executable(triple_gradient_contract test_gradient_contract.cpp
+        ../../src/lcbinint/model/triple_lens_geometry.cpp)
+    target_compile_features(triple_gradient_contract PRIVATE cxx_std_17)
+    target_compile_options(triple_gradient_contract PRIVATE -fno-fast-math -ffp-contract=off)
+    target_link_libraries(triple_gradient_contract PRIVATE lcbinint_lightcurve quadmath)
+    add_test(NAME triple_gradient_contract COMMAND triple_gradient_contract)
+endif()

@@ -9,6 +9,7 @@
 #include <optional>
 #include <memory>
 #include <vector>
+#include <boost/container/small_vector.hpp>
 
 #if defined(__GNUC__)
 #pragma GCC push_options
@@ -203,8 +204,8 @@ struct AngularOptions {
     const ImageExclusion* inclusion=nullptr;
 };
 struct AngularTopology {
-    std::vector<AngularBracket> roots;
-    std::vector<AngularArc> arcs;
+    boost::container::small_vector<AngularBracket,6> roots;
+    boost::container::small_vector<AngularArc,3> arcs;
     bool completed=false;
     const char* reason="not_started";
     int double_boxes=0,quad_boxes=0,quad_promotions=0;
@@ -280,7 +281,7 @@ inline AngularTopology finish_topology(AngularTopology out,double R,const Geomet
             if(uncertain){out.reason="exclusion_root_ambiguous";return out;}
             retained.push_back(root);
         }
-        out.roots=std::move(retained);
+        out.roots.assign(std::make_move_iterator(retained.begin()),std::make_move_iterator(retained.end()));
     }
     for(std::size_t i=1;i<out.roots.size();++i)if(out.roots[i-1].hi>=out.roots[i].lo) {
         // Coarse flux-budget brackets can touch even though isolation proved

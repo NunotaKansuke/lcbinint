@@ -1,0 +1,52 @@
+{
+  "head": "2afd056a9fad679380a5a7f1b832732e39558039",
+  "final_kernel_sha256": "a3e8d486e9c1c2ba3f17a460ee5e6c95f995dc8ee6cf2ef93ecfe24eb32977b9",
+  "baseline_kernel_sha256": "c1c904ecb28693c2815228301a39101152896f75ef8b16fd6b38e81fbad88354",
+  "test_results": {
+    "ctest": "30/30",
+    "scalar": "168/168",
+    "gradient_fd_canonical": 160,
+    "gradient_ld_identity": 80,
+    "physical_cabi": 88,
+    "physical_public_api": 88,
+    "broad": 120,
+    "saved": 86,
+    "holdout": 24,
+    "tight_regression": 3
+  },
+  "performance_conditions": 48,
+  "commands": {
+    "build": "TMPDIR=$PWD/evidence/triple_ld_final_cost/compiler-tmp cmake --build build-triple-native -j2",
+    "test": "ctest --test-dir build-triple-native --output-on-failure -j1",
+    "timing": "OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 PYTHONDONTWRITEBYTECODE=1 python evidence/triple_ld_final_cost/run_timings.py"
+  },
+  "hashes": {
+    "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/evidence/triple_ld_final_cost/final.so": "a3e8d486e9c1c2ba3f17a460ee5e6c95f995dc8ee6cf2ef93ecfe24eb32977b9",
+    "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/evidence/triple_ld_final_cost/verified.so": "a3e8d486e9c1c2ba3f17a460ee5e6c95f995dc8ee6cf2ef93ecfe24eb32977b9",
+    "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/evidence/triple_ld_final_cost/source-manifest.json": "7fce26c940316d550e71463a86695b29498c8abfd9ef3e9bfc2310d0650f228e",
+    "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/evidence/triple_ld_final_cost/NOTES.md": "3ddab9c051b59d953fc704d924799680451f9df1db202529bd8cbe7b8d26a0ad",
+    "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/evidence/triple_ld_final_cost/changes.patch": "94ccc7f40b73ed45eef4923e3ee856bba1f6fbd15a1d01234b48206f71d25e89",
+    "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/evidence/triple_ld_final_cost/native-snapshot/_lcbinint.cpython-310-x86_64-linux-gnu.so": "1fb9533b68a34a38796907e048965738306b4edd8a1777409bae3bfe8ac7bc2b",
+    "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/evidence/triple_coupled_optimization/final-verified.so": "c1c904ecb28693c2815228301a39101152896f75ef8b16fd6b38e81fbad88354",
+    "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/evidence/triple_ld_final_cost/ctest.log": "82ec79fbc51f910331129245597cbb0703eaadab3cbb16b26cdaf3b5760f1f89",
+    "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/evidence/triple_ld_final_cost/native-physical.json": "c87cf0d6a720c2890e977d2ce801db9075c850f02a75fc4ddb990a518fff15ea",
+    "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/evidence/triple_ld_final_cost/native-physical.log": "3d3f4cd6d8441d3dceb1d5aa8b4dbef8df6007335c3511b1d24659d2ab2bed80",
+    "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/evidence/triple_ld_final_cost/tight.json": "22523a9fb67b004fce15a75087bfea3ffdcdc650ac8832b86a1fcd9376b62979",
+    "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/evidence/triple_ld_final_cost/tight-fixed.json": "c7dcd43bfda2a30fa485c87ab08b634b06a7549f7a73d30f6dd48a38949dab8b",
+    "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/evidence/triple_ld_final_cost/improvement-summary.json": "7ec28f85652a8ceb60637547803c4e6e500fe637a678e570e84ff1fd1d75c572",
+    "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/evidence/triple_ld_final_cost/final-matrix.json": "9a57a68f1afcffd9d40bbbfab7c1087ffde22388b3a77580bb3e20702e8efb3b",
+    "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/evidence/triple_ld_final_cost/final-matrix-repeat.json": "e732e46d4f198bd3bd73428191ccb6b289ceff3fb394f78564cda4f0553a2646",
+    "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/evidence/triple_ld_final_cost/final-broad.json": "129366e5448e51dad1491c7c18f5ca32759bb3484f40d0cc23d062c32b0507d0",
+    "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/evidence/triple_ld_final_cost/final-independent.json": "27c28ffd0e200ea4c9d85260513ec5a9579d7cb102ac3fb51bf667d40268511c",
+    "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/evidence/triple_ld_final_cost/final-physical.json": "8f5ea66aa2fdcf1804b73983187bf1d099b47be50bedac303ad65e77373999f7",
+    "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/evidence/triple_ld_final_cost/final-holdout.json": "50582bda2476c26e39819920e6fe419bbca97df62777e4d2328a54fe2d7ebd51",
+    "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/evidence/triple_ld_final_cost/final-saved.json": "eb07d5cefee2075998c19c67a1a24b955834ceac46e22b4d9dac01818bc4a641",
+    "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/evidence/triple_ld_final_cost/final-scalar.json": "d36ff8c9581b18c838cbb5e09c2860db44b5a2a800b9daf4771040be99ec79c7",
+    "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/evidence/triple_speed_comparison_ld_20261028/run.py": "c81b101a3dcda46c7632a0070bdb324f6386b106331572d17462b27f78c9d4d2",
+    "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/evidence/triple_speed_comparison_ld_20261028/summarize.py": "31403ebb0772942ce805c58427620667b3cf753b542909067c602df629e66f47",
+    "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/evidence/triple_speed_comparison_ld_20261028/router.so": "121e9d996b1040718c9eb594e6a768c5104f71b5e0615ae8d4fc667a4c7cb6cb",
+    "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/evidence/triple_speed_comparison_ld_20261028/results.json": "75bddc3710dcb6a275b269f730af29f8d92fcea6188effe301c7360a041ff7c3",
+    "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/evidence/triple_speed_comparison_ld_20261028/summary.json": "324b82510375dc265b0bd9f67718ed44a2964588e4eb2a15cc2c1d104e6b050e",
+    "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/evidence/triple_speed_comparison_ld_20261028/REPORT.md": "f69669eeb4ec162cc8aec27cbd53ca4b06d2327222f742688527c277279084d1"
+  }
+}
