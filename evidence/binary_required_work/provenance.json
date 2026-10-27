@@ -1,0 +1,52 @@
+{
+  "head": "32b43c1824ab27684688e5d866ce416f9eef4f7f",
+  "branch": "experiment/algebraic_boundary",
+  "host": "rogue1",
+  "dirty": " M docs/jax-cpu-inverse-ray-mvp.md\n M docs/numerical-methods.md\n M evidence/backend_cleanup_20261018/run_tests.py\n M python/bind_jax_ir.cpp\n M python/lcbinint/jax_backend.py\n M python/lcbinint_jax/api.py\n M python/lcbinint_jax/source_plane.py\n M src/lcbinint/magnification/algebraic_boundary/tangent/fused_geometry_exact.hpp\n M src/lcbinint/magnification/algebraic_boundary/triple/patterson_stream.hpp\n M src/lcbinint/magnification/algebraic_boundary/triple/radius_terms.hpp\n M tests/jax_ir/test_multipole.py\n M tests/jax_ir/test_public_contract.py\n M tests/jax_ir/test_source_plane.py\n M tests/triple_algebraic/test_first_order.cpp\n M tests/triple_algebraic/test_promotion.cpp\n M tests/unit/test_core.cpp\n",
+  "compiler": "c++ -O3 -DNDEBUG -std=gnu++17 -fPIC; Release CMake build -j2; max2 compiler processes; TMPDIR under this evidence directory",
+  "commands": [
+    "cmake --build build-triple-native --target lcbinint_fused_gradient test_core lcbinint_python -j2",
+    "python evidence/binary_required_work/check.py adopted.so adopted-check.json",
+    "ctest --test-dir build-triple-native --output-on-failure -j2",
+    "python evidence/binary_required_work/bench.py adopted.so adopted-timing.json",
+    "python evidence/binary_required_work/ablation_notebook.py",
+    "python evidence/binary_required_work/ablation_fd.py"
+  ],
+  "python": "/home/nunota/.miniconda3/envs/myenv/bin/python",
+  "hashes": {
+    "evidence/binary_required_work/before-exact.hpp": "b8e7c78bea2f1a71edd52c96779fb5f07ad7488266c6420dda6258b04f2bb2e1",
+    "evidence/binary_required_work/before-gaussian.hpp": "85ddfd5510c51692a1038ce7a64a6edda7ca5374b353608e3261087ffba9578f",
+    "evidence/binary_required_work/candidate.so": "ae7297a6df9b43a4cae14640db7b6d0d6d38f67333349b8b979438d5f91248e2",
+    "evidence/binary_required_work/check.py": "f9ac2cec1bade20fab12788175e2d3034b625005df44e1487455180983ecdb84",
+    "evidence/binary_required_work/fpe_trace.so": "5f0a279d22a56e0911332fc3137945f5567f83faef36076178fb543abf3858c4",
+    "evidence/binary_required_work/coupled.so": "e7f8146b38d11bc29d7facb2c2619c469ca41b92251772b9c42eaf201077ea8d",
+    "evidence/binary_required_work/coupled-precise.so": "a43eb72308bdf191152884a8fa42976c56a8d74088beff2fa49080832e67e513",
+    "evidence/binary_required_work/fresh_fd.py": "9fc9867ce3183d67d54d57f077412690b99a94b5bfc7b9fc7a05e04bb79bcab8",
+    "evidence/binary_required_work/bench.py": "6c94f4593e2fdd1b9ea64e0c25a30bf9c64c86ab7111949604afc90e1c786cf9",
+    "evidence/binary_required_work/level4.so": "89f1ce4bb509ccde1fc32d6793f596d749ea5f108aba86ef011d1e6555e49b0d",
+    "evidence/binary_required_work/final.so": "e5d9de794666e170993ac557c70b69e7907a4088b24b89ce53ec867c38dbab84",
+    "evidence/binary_required_work/rejected-ld-reuse.patch": "d81be7a7306cbb7a3ec447b86d2905bb59a5d2ee68210a3a67e4241fbe9ecd85",
+    "evidence/binary_required_work/chain.cpp": "69c3d069c564cb5f92ea422de21ad5c6baace3fa9b946813c5c6b754caff271c",
+    "evidence/binary_required_work/chain-before.so": "ef61571e39341b20b5138293ed18170fee0e550ea6f1d7f2b5af53d7ee82bda0",
+    "evidence/binary_required_work/chain-after.so": "163876ab3f17cd7059e5bb83d6cfa33dadfc7786e2e2c14e88c76edcc0859bf3",
+    "evidence/binary_required_work/chain_bench.py": "6a8da3eb44beda8c89ceeb7f7b236806a627c9d498f82289377c8ca0d19e54ce",
+    "evidence/binary_required_work/chain-gcd.so": "512a6d0a1e680fe6475818e33160bde9b71fa906ddfd8f6edf1d42d9954c3c71",
+    "evidence/binary_required_work/chain_gcd_bench.py": "eecdd0d4d99983320b00771663f06b427cd613a60b3c6e4e3f26c672f72da2d3",
+    "evidence/binary_required_work/adopted.so": "035c213b8a8c01cfe0f8ee5044c007cb20390bdbc7b5e1ae1891f28c7ea7ad71",
+    "evidence/binary_required_work/no-geometry.so": "0aca7ddea2e7105d00ca1454d04d639322e00d6e78ed302a6c9eac95546d8dd7",
+    "evidence/binary_required_work/ablation_notebook.py": "2e6f7d456d100c246a121eb2f00fb164626a588fec9585f1a7a1f920b9c21435",
+    "evidence/binary_required_work/ablation_fd.py": "f81516e8a86c083ec0cab3604e770166709911bcdaf6646a0ac3ebe2a9337302",
+    "evidence/binary_required_work/REPORT.md": "7513b1a5d733b3c3b7b3710a5ee844f28414b172c00480449dad09d1c8d9356c",
+    "evidence/binary_required_work/adopted.patch": "54bf1769ecbe6cb5cc464d3f2a2f2e832fb4e7cecbdde459fe23e7b4dcd1e9ec",
+    "src/lcbinint/magnification/algebraic_boundary/tangent/fused_geometry_exact.hpp": "154e93a64075eb2b3aed4660485c5592bbc8b857db96e593c57db26a4edcb560",
+    "tests/unit/test_core.cpp": "5d60a5fca333ec73b7a45ab2a15dc9e5d2d84a9da4cffe58b39691b8ab2a31ff",
+    "evidence/triple_fejer_boundary_shape/binary-current.so": "8339968c79b0b074b8338c74043078548af710745e412364f209d5e5feb4c846",
+    "evidence/binary_triple_broad_cost/inputs.json": "99fe2cfa58267595d2e033e6c3da4ff4c39d151228d9f8a31d4b4c8ffc557a58",
+    "evidence/easy_gradient_20261018/notebook-geometry.txt": "4f536f0a9f477e6cfad171bea8a9176313060f15c4f55182e4d9a6bdeb2d3575",
+    "evidence/binary_required_work/diagnostic-ablation.patch": "1688281ddecfa90d8422ec0f309e916a9ac219e4d55188bb9b5dea6a96ee89bc"
+  },
+  "verification_exit_codes": {
+    "final_ctest": 0,
+    "no_geometry_core_with_new_regression": 228
+  }
+}

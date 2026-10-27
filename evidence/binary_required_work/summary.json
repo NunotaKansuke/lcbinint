@@ -1,0 +1,55 @@
+{
+  "status": "COMPLETE",
+  "groups": [
+    {
+      "limb": 0.0,
+      "rtol": 0.001,
+      "conditions": 32,
+      "median_after_before": 1.0062080896309245,
+      "maximum_before_ms": 130.87506100000002,
+      "maximum_after_ms": 17.5470325,
+      "nonconverged": []
+    },
+    {
+      "limb": 0.0,
+      "rtol": 0.0001,
+      "conditions": 32,
+      "median_after_before": 1.005623769623755,
+      "maximum_before_ms": 131.149566,
+      "maximum_after_ms": 17.598366,
+      "nonconverged": []
+    },
+    {
+      "limb": 0.5,
+      "rtol": 0.001,
+      "conditions": 32,
+      "median_after_before": 1.0039033326081555,
+      "maximum_before_ms": 132.428472,
+      "maximum_after_ms": 18.7147455,
+      "nonconverged": []
+    },
+    {
+      "limb": 0.5,
+      "rtol": 0.0001,
+      "conditions": 32,
+      "median_after_before": 1.0027158631755761,
+      "maximum_before_ms": 134.10641950000002,
+      "maximum_after_ms": 19.5169505,
+      "nonconverged": [
+        26,
+        30
+      ]
+    }
+  ],
+  "bitwise_equal_mode_conditions": 256,
+  "exact_chain_equal_geometries": 32,
+  "chain_median_ratio": 0.1826533934526577,
+  "saved_fd_passed": 98,
+  "new_ablation_fd_passed": 2,
+  "ablation_rows": 47,
+  "ablation_changed_rows": 7,
+  "production_changes": [
+    "src/lcbinint/magnification/algebraic_boundary/tangent/fused_geometry_exact.hpp",
+    "tests/unit/test_core.cpp"
+  ]
+}

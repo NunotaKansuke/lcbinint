@@ -9,15 +9,19 @@ using Z=boost::multiprecision::cpp_int;
 using R=boost::multiprecision::number<boost::multiprecision::cpp_rational::backend_type,boost::multiprecision::et_off>;
 using P=std::vector<Z>;
 inline Z absolute(Z x){return x<0?-x:x;}
-inline Z gcd(Z a,Z b){a=absolute(a);b=absolute(b);while(b!=0){Z r=a%b;a=std::move(b);b=std::move(r);}return a;}
+inline Z gcd(Z a,Z b){return boost::multiprecision::gcd(absolute(a),absolute(b));}
 inline void primitive(P&p){while(p.size()>1&&p.back()==0)p.pop_back();Z g=0;for(const auto&c:p)g=gcd(g,c);if(g>1)for(auto&c:p)c/=g;}
 inline P derivative(const P&p){if(p.size()<2)return {0};P d(p.size()-1);for(size_t i=1;i<p.size();++i)d[i-1]=p[i]*i;primitive(d);return d;}
 // Most signs are nonzero. Read the primitive polynomial in place; construct
 // a derivative only for the exact one-sided-zero case.
-inline int sign_at(const P& p,const Z& numerator,const Z& denominator,int side){
+inline int value_sign_at(const P& p,const Z& numerator,const Z& denominator){
  Z value=p.back(),power=denominator;
  for(int i=int(p.size())-2;i>=0;--i){value=value*numerator+p[i]*power;power*=denominator;}
- if(value!=0)return value>0?1:-1;
+ return value==0?0:value>0?1:-1;
+}
+inline int sign_at(const P& p,const Z& numerator,const Z& denominator,int side){
+ const int value=value_sign_at(p,numerator,denominator);
+ if(value)return value;
  if(p.size()==1)return 0;
  const int sign=sign_at(derivative(p),numerator,denominator,side);
  return side<0?-sign:sign;
@@ -30,7 +34,11 @@ struct Chain {
   P first(f.degree+1);for(int i=0;i<=f.degree;++i){Z numerator=boost::multiprecision::numerator(f.c[i]),d=boost::multiprecision::denominator(f.c[i]);first[i]=numerator*(denominator/d);}primitive(first);
   p.push_back(first);p.push_back(derivative(first));
   while(p.back().size()>1){P r=p[p.size()-2];const auto&b=p.back();const int sign=b.back()>0?1:-1;Z pivot=absolute(b.back());
-   while(r.size()>=b.size()&&!(r.size()==1&&r[0]==0)){size_t n=r.size()-1,k=r.size()-b.size();Z lead=r.back();for(size_t i=0;i<n;++i){r[i]*=pivot;if(i>=k)r[i]-=sign*lead*b[i-k];}r.pop_back();if(r.empty())r.push_back(0);primitive(r);}
+   while(r.size()>=b.size()&&!(r.size()==1&&r[0]==0)){size_t n=r.size()-1,k=r.size()-b.size();Z lead=r.back();for(size_t i=0;i<n;++i){r[i]*=pivot;if(i>=k)r[i]-=sign*lead*b[i-k];}r.pop_back();if(r.empty())r.push_back(0);while(r.size()>1&&r.back()==0)r.pop_back();}
+   // Every pseudo-division pivot is positive. Intermediate content removal
+   // only rescales the same remainder by a positive integer, so normalize
+   // once after the full remainder, preserving every signed Sturm variation.
+   primitive(r);
    if(r.size()==1&&r[0]==0)break;for(auto&c:r)c=-c;p.push_back(std::move(r));
   }
  }
@@ -43,6 +51,29 @@ inline bool exact_stationary_roots(const exact_detail::Chain& chain,double lo,do
  std::vector<Bracket> work{{l,h,chain.variation(l,1),chain.variation(h,-1),0}};
  std::vector<Q> found;int visits=0;
  while(!work.empty()&&++visits<=4096){auto b=std::move(work.back());work.pop_back();int n=b.a-b.b;if(n<0)return false;if(!n)continue;
+  // Sturm has already proved uniqueness on this bracket. Opposite nonzero
+  // endpoint signs also prove an odd root, so exact polynomial signs locate
+  // that same root without evaluating the remaining Sturm polynomials.
+  // Even roots and endpoint zeros retain the general variation path below.
+  if(n==1){
+   const auto sign=[&](const R&x){return value_sign_at(chain.p.front(),
+       boost::multiprecision::numerator(x),boost::multiprecision::denominator(x));};
+   int left=sign(b.lo),right=sign(b.hi);
+   if(left&&right&&left!=right){
+    bool done=false;
+    while(b.depth<=256){
+     const R mid=(b.lo+b.hi)/2;const long double x=mid.convert_to<long double>();
+     if((b.hi-b.lo).convert_to<long double>()<1e-21L*std::max(1.L,std::fabs(x))){found.push_back(Q(x));done=true;break;}
+     if(b.depth>=256)break;
+     const int middle=sign(mid);
+     if(!middle){found.push_back(Q(x));done=true;break;}
+     if(middle==left)b.lo=mid;else b.hi=mid;
+     ++b.depth;
+    }
+    if(!done)return false;
+    continue;
+   }
+  }
   const R mid=(b.lo+b.hi)/2;long double x=mid.convert_to<long double>();
   if(n==1&&(b.hi-b.lo).convert_to<long double>()<1e-21L*std::max(1.L,std::fabs(x))){found.push_back(Q(x));continue;}
   if(b.depth>=256)return false;

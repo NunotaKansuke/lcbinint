@@ -1,0 +1,13 @@
+--- src/lcbinint/magnification/algebraic_boundary/tangent/seeded_radial_frontier.hpp
++++ DIAGNOSTIC/src/lcbinint/magnification/algebraic_boundary/tangent/seeded_radial_frontier.hpp
+@@ -669,7 +669,9 @@
+         out.integral=std::move(repaired);
+     }
+     bool geometry_complete=false;
+-    auto pairs=geometry_experiment::detect(pf,topo,seeds,&geometry_complete,(1<<cfg.initial_level)-1);
++    // DIAGNOSTIC ABLATION ONLY: deliberately assume away the geometry proof.
++    // Its success flags are not certificates and this is never a production path.
++    std::vector<geometry_experiment::Pair> pairs;geometry_complete=true;
+     pairs.erase(std::remove_if(pairs.begin(),pairs.end(),[&](const auto&pair){
+         if(pair.scale>=(pair.band_hi-pair.band_lo)/((1<<cfg.initial_level)-1))return true;
+         if(!pair.real||pair.existing)return false;

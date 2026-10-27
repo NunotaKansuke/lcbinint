@@ -1564,5 +1564,39 @@ int main()
                 1e-4+2e-4*std::abs(f.gradient[j]))return 222;
         }
     }
+    {
+        namespace geometry=lcbinint::algebraic_boundary::tangent::geometry_experiment;
+        const lcbinint::algebraic_boundary::tangent::PrimaryFrame frame{1.,.8,.2,.1,.15};
+        geometry::exact_detail::Chain chain(frame);
+        std::vector<geometry::Q> roots;
+        // One simple root: exact signs can refine a Sturm-certified bracket.
+        chain.p={{-1,0,1},{0,2},{1}};
+        if(!geometry::exact_stationary_roots(chain,0,2,roots)||roots.size()!=1||roots[0]!=1)return 223;
+        // A repeated root does not change sign and must retain Sturm handling.
+        chain.p={{1,-2,1},{-2,2}};
+        if(!geometry::exact_stationary_roots(chain,0,2,roots)||roots.size()!=1||roots[0]!=1)return 224;
+        if(!geometry::exact_stationary_roots(chain,1,2,roots)||!roots.empty())return 225;
+    }
+    {
+        // Omitting the close-pair geometry search leaves the value unchanged
+        // here but biases dy by 4.6% and drho by 6.8%. Independent scalar
+        // five-point differences at three step sizes resolve both references.
+        namespace boundary=lcbinint::algebraic_boundary;
+        const boundary::LensParams p{1.472109923914061,-.0007450814495855917,.001,100.,1.5,false};
+        const auto frame=boundary::PrimaryFrame::from(p);
+        const auto seeds=boundary::exact_support_detail::seeds(frame);
+        const auto plan=boundary::exact_support_detail::radial_plan(frame);
+        if(!seeds.completed||!plan.completed)return 226;
+        const auto gradient=boundary::epoch_fused_gradient(p,.5,seeds.seeds,{0,1e-4},&plan);
+        if(!gradient.value_converged||!gradient.gradient_valid[1]||!gradient.gradient_valid[2])return 227;
+        for(const auto& reference:std::array<std::array<double,3>,2>{{
+            {{1,-1727.5488618399963,.0014038797516052167}},
+            {{2,623.8380298505318,.0013979088425108122}}
+        }}) {
+            const int j=int(reference[0]);
+            if(std::abs(gradient.grad_mu[j]-reference[1])+reference[2]>
+                1e-4+2e-4*std::abs(reference[1]))return 228;
+        }
+    }
     return 0;
 }

@@ -1,0 +1,9 @@
+{
+  "status": "COMPLETE",
+  "final_ctest": "30/30 passed",
+  "saved_independent_fd": "98/98 passed",
+  "fresh_ablation_fd": "2/2 passed for retained search;2/2 failed for deletion",
+  "output_parity": "256/256 mode conditions bitwise equal",
+  "counterfactual_regression_exit": 228,
+  "commit_created": false
+}
