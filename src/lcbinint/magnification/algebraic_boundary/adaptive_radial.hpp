@@ -35,34 +35,31 @@ inline const char* adaptive_stop_name(AdaptiveStop s) {
 #undef S
     } return "Unknown";
 }
-enum class GradientPolicy { None, Strict, ValueFirst };
+enum class GradientPolicy { None, ValueFirst };
 enum class RadialErrorEstimator { WeightedDetail, HybridEmbedded };
 inline const char* gradient_policy_name(GradientPolicy p) {
     switch (p) {
     case GradientPolicy::None: return "None";
-    case GradientPolicy::Strict: return "Strict";
     case GradientPolicy::ValueFirst: return "ValueFirst";
     }
     return "Unknown";
 }
-enum class GradientQuality { NotRequested, ToleranceMet,
-                             FiniteUncertified, Invalid };
+enum class GradientQuality { NotRequested, FiniteValid, Invalid };
 inline const char* gradient_quality_name(GradientQuality q) {
     switch (q) {
     case GradientQuality::NotRequested: return "NotRequested";
-    case GradientQuality::ToleranceMet: return "ToleranceMet";
-    case GradientQuality::FiniteUncertified: return "FiniteUncertified";
+    case GradientQuality::FiniteValid: return "FiniteValid";
     case GradientQuality::Invalid: return "Invalid";
     }
     return "Unknown";
 }
-enum class GradientReason { NotRequested, ToleranceMet, BudgetExceeded,
+enum class GradientReason { NotRequested, Computed, BudgetExceeded,
     InnerAccuracyLimited, EventLocationLimited, RoundoffLimited,
     TopologyUnresolved, Nonfinite, InvalidConfig, BoundUnavailable };
 inline const char* gradient_reason_name(GradientReason r) {
     switch (r) {
     case GradientReason::NotRequested: return "NotRequested";
-    case GradientReason::ToleranceMet: return "ToleranceMet";
+    case GradientReason::Computed: return "Computed";
     case GradientReason::BudgetExceeded: return "BudgetExceeded";
     case GradientReason::InnerAccuracyLimited: return "InnerAccuracyLimited";
     case GradientReason::EventLocationLimited: return "EventLocationLimited";
@@ -136,14 +133,8 @@ inline bool adaptive_sample_reject_retryable(AdaptiveSampleRejectReason r) {
 }
 struct AdaptiveTolerance {
     double mu_atol=1e-8,mu_rtol=1e-4;
-    std::array<double,5> grad_atol{{1e-6,1e-6,1e-6,1e-6,1e-6}};
-    // Gradient tolerances are intentionally a separate contract. The
-    // defaults are looser than the value relative tolerance; callers that
-    // need a strict derivative contract must set them explicitly.
-    std::array<double,5> grad_rtol{{1e-3,1e-3,1e-3,1e-3,1e-3}};
-    double budget(int j,double Q) const {
-        return std::max(j ? grad_atol[j-1] : mu_atol,
-                        (j ? grad_rtol[j-1] : mu_rtol)*std::fabs(Q));
+    double budget(double Q) const {
+        return std::max(mu_atol,mu_rtol*std::fabs(Q));
     }
 };
 struct AdaptiveConfig {
@@ -166,26 +157,10 @@ struct AdaptiveConfig {
     // quadrature refinement. The default D14 path never enables this.
     bool yield_on_local_topology_change=false;
     size_t max_node_evals=32768,max_panels=512,max_bytes=64*1024*1024;
-    size_t value_first_gradient_node_budget=4096;
-    int value_first_gradient_round_budget=4;
     bool collect_diagnostics=false;
     // Diagnostic-only: records a same-node radial-Hermite candidate without
     // changing returned values, stopping, status, or assurance.
     bool same_node_hermite_shadow=false;
-    // Experimental derivative-only controller. Primal mesh and tolerance are
-    // unchanged; retain the incumbent for matched research comparisons.
-    bool gradient_local_refinement=false;
-    int gradient_split_min_level=4;
-    double gradient_difference_safety=QuadratureErrorPolicy::difference_safety;
-    // Lightweight two-dimensional gradient mode.  It keeps the accepted
-    // value snapshot fixed, gives ValueFirst an explicit post-value work
-    // cap, and only selects the angular dimension when its ledger is clearly
-    // larger than the competing radial ledger.  It is opt-in so the
-    // incumbent one-dimensional path keeps its existing behavior.
-    bool gradient_adaptive=false;
-    size_t gradient_adaptive_node_budget=4096;
-    int gradient_adaptive_round_budget=8;
-    double gradient_adaptive_dominance=1.25;
     // HybridEmbedded retains a fixed fraction of the weighted interpolation
     // detail while also using the actual embedded Fejer integral difference.
     // The floor prevents an accidentally cancelling embedded difference from
@@ -213,7 +188,7 @@ struct AdaptiveConfig {
         // Keep the old bool source-compatible for isolated callers. New code
         // should select the policy explicitly.
         return gradient_policy != GradientPolicy::None ? gradient_policy
-                                                        : (with_jacobian ? GradientPolicy::Strict
+                                                        : (with_jacobian ? GradientPolicy::ValueFirst
                                                                          : GradientPolicy::None);
     }
 };
@@ -234,8 +209,7 @@ struct AdaptiveRefinementRecord {
     size_t panel=0,node_evaluations=0;
     int cell=0,cell_end=0,parent=-1,depth=0,level=0;
     double value_error=std::numeric_limits<double>::infinity();
-    std::array<double,5> gradient_error{};
-    bool gradient_phase=false,value_resolved=false;
+    bool value_resolved=false;
     std::array<bool,5> gradient_resolved{};
 };
 struct AdaptiveSampleDiagnostic {
@@ -252,8 +226,7 @@ struct AdaptiveStats {
     size_t integration_spans=0,softcut_fold_merges=0;
     size_t event_double_checks=0,event_dd_checks=0,event_dd_accepts=0,event_qf_refinements=0,qf_family_constructions=0;
     size_t event_topology_reuses=0,event_radius_reuses=0,event_direct_qf_failures=0;
-    size_t first_value_pass_nodes=0,first_gradient_error_pass_nodes=0,first_gradient_contract_nodes=0;
-    unsigned gradient_error_pass_mask=0,gradient_contract_mask=0;
+    size_t first_value_pass_nodes=0;
     std::array<size_t,9> level_histogram{};
     std::array<size_t,adaptive_sample_reject_reason_count> sample_reject_counts{};
     std::array<size_t,adaptive_sample_reject_reason_count> sample_cold_reject_counts{};
@@ -285,9 +258,8 @@ struct AdaptiveStats {
 };
 struct AdaptiveResult {
     double mu=0,estimated_abs_error_mu=std::numeric_limits<double>::infinity();
-    std::array<double,5> grad_mu{},estimated_abs_error_grad{};
+    std::array<double,5> grad_mu{};
     bool value_converged=false;
-    std::array<bool,5> grad_converged{};
     AdaptiveStop value_stop_reason=AdaptiveStop::BudgetExceeded;
     AdaptiveStop gradient_stop_reason=AdaptiveStop::BudgetExceeded;
     std::array<GradientQuality,5> grad_quality{{GradientQuality::NotRequested,
@@ -303,14 +275,15 @@ struct AdaptiveResult {
     AccuracyAssurance assurance=AccuracyAssurance::None;
     AdaptiveStop stop=AdaptiveStop::BudgetExceeded;
     Status numerical_status=Status::GRADIENT_UNRELIABLE;
-    AdaptiveVector radial_error{},inner_error{},geometry_error{},event_error{},roundoff_error{};
+    std::array<double,1> radial_error{},inner_error{},geometry_error{},event_error{},roundoff_error{};
     AdaptiveStats stats;
 };
 // Optional same-radius angular upgrades carry 416 bytes of rule/derivative
 // arrays. Ordinary radial samples keep only a null handle; no allocation.
 // Copy-on-write preserves earlier samples when an upgrade modifies a copy.
 struct AdaptiveAngularState {
-    std::array<double,6> result{},error{};
+    std::array<double,6> result{};
+    std::array<double,1> error{}; // scalar flux only
     std::array<double,5> dm{},dv{},pc{};
     std::array<std::array<double,5>,5> dpc{};
 };
@@ -328,7 +301,8 @@ struct AdaptiveSample {
     int local_crossings=-1; // node-local count; -1 unknown, -2 full circle
     double R=0,R_lo=0,jac=0;
     bool precise_R=false;
-    AdaptiveVector value{},inner{},geometry{},roundoff{};
+    AdaptiveVector value{};
+    std::array<double,1> inner{},geometry{},roundoff{};
     double ld_radial_value=0,uniform_radial_value=0;
     QuarticWarm quartic{};
     RootPairWarm roots{};
@@ -384,7 +358,8 @@ struct AdaptivePanel {
     double left_radius_lo=0,right_radius_lo=0;
     // Finest lattice IDs: inherited k doubles on refinement, so slot is fixed.
     std::array<int,256> samples;
-    AdaptiveVector q{},error{},radial{},inner{},geometry{},event{},roundoff{};
+    AdaptiveVector q{};
+    std::array<double,1> error{},radial{},inner{},geometry{},event{},roundoff{};
     AdaptivePanel() { samples.fill(-1);gradient_resolved.fill(false);gradient_invalid.fill(false); }
 };
 struct AdaptiveWorkspace {
@@ -474,28 +449,18 @@ inline bool valid_config(const AdaptiveConfig& c) {
     if(c.initial_level<3 || c.max_level<c.initial_level || c.max_level>8 || c.max_depth<0) return false;
     if(!std::isfinite(c.angular_value_budget_fraction) ||
        c.angular_value_budget_fraction<0 || c.angular_value_budget_fraction>1)return false;
-    for(int j=0;j<6;++j) {
-        double a=j?c.tol.grad_atol[j-1]:c.tol.mu_atol;
-        double r=j?c.tol.grad_rtol[j-1]:c.tol.mu_rtol;
-        if(!std::isfinite(a)||!std::isfinite(r)||a<0||r<0||!(a>0||r>0))return false;
-    }
-    if(c.effective_gradient_policy()==GradientPolicy::ValueFirst &&
-       c.value_first_gradient_round_budget<0) return false;
-    if(c.gradient_split_min_level<3 || c.gradient_split_min_level>8 ||
-       !std::isfinite(c.gradient_difference_safety) || c.gradient_difference_safety<1) return false;
-    if(!std::isfinite(c.gradient_adaptive_dominance) ||
-       c.gradient_adaptive_dominance<1.0 || c.gradient_adaptive_round_budget<0)
-        return false;
+    if(!std::isfinite(c.tol.mu_atol)||!std::isfinite(c.tol.mu_rtol)||
+       c.tol.mu_atol<0||c.tol.mu_rtol<0||!(c.tol.mu_atol>0||c.tol.mu_rtol>0))return false;
     if(!std::isfinite(c.nested_difference_safety)||c.nested_difference_safety<1.0)
         return false;
     if(!std::isfinite(c.weighted_detail_floor_fraction)||
        c.weighted_detail_floor_fraction<0.0||c.weighted_detail_floor_fraction>1.0)
         return false;
-    if((c.angular_adaptive || c.gradient_adaptive) &&
+    if(c.angular_adaptive &&
        (!valid_angular_order(c.angular_initial_order) ||
         !valid_angular_order(c.angular_max_order) ||
         c.angular_max_order<c.angular_initial_order))return false;
-    if((c.angular_adaptive || c.gradient_adaptive) && c.angular_nested &&
+    if(c.angular_adaptive && c.angular_nested &&
        (!valid_nested_angular_order(c.angular_nested_initial_order) ||
         !valid_nested_angular_order(c.angular_nested_max_order) ||
         c.angular_nested_max_order<c.angular_nested_initial_order))return false;
@@ -503,7 +468,7 @@ inline bool valid_config(const AdaptiveConfig& c) {
 }
 inline GradientReason gradient_reason(AdaptiveStop s) {
     switch (s) {
-    case AdaptiveStop::Converged: return GradientReason::ToleranceMet;
+    case AdaptiveStop::Converged: return GradientReason::Computed;
     case AdaptiveStop::BudgetExceeded: return GradientReason::BudgetExceeded;
     case AdaptiveStop::InnerAccuracyLimited: return GradientReason::InnerAccuracyLimited;
     case AdaptiveStop::EventLocationLimited: return GradientReason::EventLocationLimited;
@@ -595,7 +560,9 @@ inline void estimate(AdaptivePanel& p,AdaptiveWorkspace& w,int input_components,
                 continue;
             }
             double wt=rule.w[k-1];
-            q[j].add(wt*channel_value(s,j)); inn[j].add(wt*s.inner[j]);
+            q[j].add(wt*channel_value(s,j));
+            if(j>0)continue;
+            inn[j].add(wt*s.inner[j]);
             geo[j].add(wt*s.geometry[j]);rnd[j].add(wt*s.roundoff[j]+eps*std::fabs(wt*channel_value(s,j)));
         }
     }
@@ -611,7 +578,7 @@ inline void estimate(AdaptivePanel& p,AdaptiveWorkspace& w,int input_components,
         AdaptiveVector norm{};
 #ifdef BOUNDARY_ADAPTIVE_LEGACY_INTERPOLATION
         for(int k=1;k<mm;k+=2) {
-            for(int j=0;j<nc;++j) {
+            for(int j=0;j<1;++j) {
                 const auto& fine=w.samples[p.samples[k*st]];
                 if(!fine.component_finite[j]) {
                     if(j>0)p.gradient_invalid[j-1]=true;
@@ -639,7 +606,7 @@ inline void estimate(AdaptivePanel& p,AdaptiveWorkspace& w,int input_components,
 #else
         // Gather each component once. Coarse validity is independent of the
         // predicted fine point; keep the same product and compensated order.
-        for(int j=0;j<nc;++j) {
+        for(int j=0;j<1;++j) {
             std::array<double,128> values;
             bool valid=true;
             for(int h=1;h<=coarse;++h) {
@@ -685,19 +652,19 @@ inline void estimate(AdaptivePanel& p,AdaptiveWorkspace& w,int input_components,
             }
         }
 #endif
-        for(int j=0;j<nc;++j) (lev==p.level?detail:previous)[j]=std::sqrt(3.14159265358979323846*norm[j]);
+        for(int j=0;j<1;++j) (lev==p.level?detail:previous)[j]=std::sqrt(3.14159265358979323846*norm[j]);
     }
     } // interpolation prediction profile scope
-    if(cfg.radial_error_estimator==RadialErrorEstimator::HybridEmbedded || cfg.gradient_local_refinement) {
+    if(cfg.radial_error_estimator==RadialErrorEstimator::HybridEmbedded) {
         const int coarse_m=m/2,coarse_step=256/coarse_m;
         const auto& coarse_rule=(channel==2?linear_radial_rule(p.level-1):radial_rule(p.level-1,p.weighted));
         std::array<Sum,6> coarse_q;
         for(int k=1;k<coarse_m;++k) {
             const auto& s=w.samples[p.samples[k*coarse_step]];
-            for(int j=0;j<nc;++j) if(s.component_finite[j])
+            for(int j=0;j<1;++j) if(s.component_finite[j])
                 coarse_q[j].add(coarse_rule.w[k-1]*channel_value(s,j));
         }
-        for(int j=0;j<nc;++j)
+        for(int j=0;j<1;++j)
             nested_difference[j]=std::fabs(q[j].get()-coarse_q[j].get());
     }
     p.event.fill(0);
@@ -723,9 +690,8 @@ inline void estimate(AdaptivePanel& p,AdaptiveWorkspace& w,int input_components,
         }();
         double distance=sample.precise_R?double(side?((__float128)p.map.b+p.right_radius_lo-((__float128)sample.R+sample.R_lo)):((__float128)sample.R+sample.R_lo-((__float128)p.map.a+p.left_radius_lo))):(side?p.map.b-sample.R:sample.R-p.map.a);
         double map_jac=mapped[1]*0.5*(p.xr-p.xl);
-        // Local endpoint model, not a verified coefficient envelope. For
-        // derivatives use the integrable 1/sqrt(distance) worst case.
-        for(int j=0;j<nc;++j) {
+        // Local scalar endpoint model, not a verified coefficient envelope.
+        for(int j=0;j<1;++j) {
             if(!sample.component_finite[j]) {
                 if(j>0)p.gradient_invalid[j-1]=true;
                 continue;
@@ -737,23 +703,19 @@ inline void estimate(AdaptivePanel& p,AdaptiveWorkspace& w,int input_components,
     p.gradient_resolved.fill(false);
     p.resolved=true;
     for(int j=0;j<nc;++j) {
+        if(j>0) {p.q[j]=q[j].get();p.gradient_resolved[j-1]=!p.gradient_invalid[j-1]&&std::isfinite(p.q[j]);continue;}
         p.q[j]=q[j].get();p.inner[j]=inn[j].get();p.geometry[j]=geo[j].get();p.roundoff[j]=rnd[j].get();
         const double floor=p.roundoff[j]+p.inner[j]+p.geometry[j];
         const bool decays=detail[j]<=0.5*previous[j] || detail[j]<=floor;
         if(j==0) p.value_resolved=decays;
         else p.gradient_resolved[j-1]=!p.gradient_invalid[j-1]&&decays;
         // Unresolved panels must refine even if their integral difference cancels.
-        // Gradient contracts retain the conservative estimator in this
-        // phase. Only the independently validated primal may REDUCE its
-        // detail estimate using an embedded integral difference.
+        // The scalar estimator retains its interpolation floor while
+        // using an embedded integral difference.
         double radial=j==0&&!p.weighted&&!cfg.weighted_radial&&cfg.radial_error_estimator==RadialErrorEstimator::HybridEmbedded
             ? std::max(cfg.weighted_detail_floor_fraction*detail[j],
                        std::min(detail[j],cfg.nested_difference_safety*nested_difference[j]))
             : detail[j];
-        // Separate derivative estimate: neither cancellation in the embedded
-        // difference nor a small interpolation detail may hide the other.
-        if(j>0 && cfg.gradient_local_refinement)
-            radial=std::max(detail[j],cfg.gradient_difference_safety*nested_difference[j]);
         p.radial[j]=radial;p.error[j]=(j>0&&p.gradient_invalid[j-1])
             ? std::numeric_limits<double>::infinity()
             : radial+floor+p.event[j];
@@ -819,18 +781,7 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
     }
     const int nc=gradients?6:1;
     AdaptiveStats stats;
-    bool gradient_phase=false,invalid=false;
-    size_t gradient_start_nodes=0;
-    int gradient_rounds=0;
-    const bool selective_gradient=cfg.gradient_adaptive && gradients;
-    const size_t selective_gradient_node_budget=selective_gradient
-        ? std::min(cfg.value_first_gradient_node_budget,
-                   cfg.gradient_adaptive_node_budget)
-        : cfg.value_first_gradient_node_budget;
-    const int selective_gradient_round_budget=selective_gradient
-        ? std::min(cfg.value_first_gradient_round_budget,
-                   cfg.gradient_adaptive_round_budget)
-        : cfg.value_first_gradient_round_budget;
+    bool invalid=false;
     std::array<bool,5> last_gradient_pass{};
     std::array<bool,5> gradient_invalid_seen{};
     struct ValueSnapshot {
@@ -943,7 +894,7 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
         auto& p=w.panels[ip];const int m=1<<level,step=256/m;
         size_t needed=0;for(int k=1;k<m;++k)needed+=!cfg.reuse_samples||p.samples[k*step]<0;
         const size_t target=w.samples.size()+needed;
-        const size_t angular_growth=(cfg.angular_adaptive || cfg.gradient_adaptive)
+        const size_t angular_growth=cfg.angular_adaptive
             ? needed*angular_allocation_bytes:0;
         const size_t projected=angular_storage_bytes+angular_growth+
             target*sizeof(AdaptiveSample)+w.panels.size()*sizeof(AdaptivePanel)+
@@ -951,10 +902,7 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
                 target*sizeof(AdaptiveHermiteJet)+w.panels.size()*sizeof(AdaptiveHermitePanel) : 0);
         if(stats.node_evaluations+needed>cfg.max_node_evals || projected>cfg.max_bytes)
             return AdaptiveStop::BudgetExceeded;
-        if(gradient_phase && policy==GradientPolicy::ValueFirst &&
-           (stats.node_evaluations-gradient_start_nodes+needed>selective_gradient_node_budget ||
-            gradient_rounds>=selective_gradient_round_budget))
-            return AdaptiveStop::BudgetExceeded;
+
         const size_t growth=(target>w.samples.capacity()?(target-w.samples.capacity())*sizeof(AdaptiveSample):0)+
             (cfg.same_node_hermite_shadow && target>w.hermite_jets.capacity()
                 ? (target-w.hermite_jets.capacity())*sizeof(AdaptiveHermiteJet):0);
@@ -971,7 +919,7 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
             // samples and panels fit. Extra capacity must not steal a later
             // panel's budget or cause an earlier BudgetExceeded result.
             const size_t panel_slots=std::max(w.panels.capacity(),cfg.max_panels);
-            if(!cfg.angular_adaptive && !cfg.gradient_adaptive &&
+            if(!cfg.angular_adaptive &&
                !cfg.same_node_hermite_shadow && w.hermite_jets.capacity()==0 &&
                w.hermite_panels.capacity()==0 && panel_slots<=cfg.max_bytes/sizeof(AdaptivePanel)) {
                 const size_t remaining=cfg.max_bytes-panel_slots*sizeof(AdaptivePanel);
@@ -1290,7 +1238,7 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
             if(hp.valid) {
                 const double candidate_error=hp.model_error+p.inner[0]+
                     p.geometry[0]+p.event[0]+p.roundoff[0];
-                if(p.value_resolved && candidate_error<=cfg.tol.budget(0,hp.q7))
+                if(p.value_resolved && candidate_error<=cfg.tol.budget(hp.q7))
                     ++stats.hermite_shadow_local_budget_passes;
             }
             w.hermite_panels[ip].attempted=false;
@@ -1300,12 +1248,10 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
             record.panel=ip;record.node_evaluations=stats.node_evaluations;
             record.cell=p.cell;record.cell_end=p.cell_end;record.parent=p.parent;
             record.depth=p.depth;record.level=p.level;
-            record.value_error=p.error[0];record.gradient_phase=gradient_phase;
+            record.value_error=p.error[0];
             record.value_resolved=p.value_resolved;record.gradient_resolved=p.gradient_resolved;
-            for(int j=0;j<5;++j)record.gradient_error[j]=nc>j+1?p.error[j+1]:0;
             stats.refinement_history.push_back(record);
         }
-        if(gradient_phase)++gradient_rounds;
         return AdaptiveStop::Converged;
     };
     AdaptiveStop failure=AdaptiveStop::Converged;
@@ -1334,7 +1280,8 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
         for(const auto& p:w.panels)if(p.active){
             resolved_value=resolved_value&&p.value_resolved;
             for(int j=0;j<nc;++j){
-                total[j].add(p.q[j]);errors[j].add(p.error[j]);rad[j].add(p.radial[j]);inn[j].add(p.inner[j]);geo[j].add(p.geometry[j]);evt[j].add(p.event[j]);rnd[j].add(p.roundoff[j]);
+                total[j].add(p.q[j]);
+                if(j==0){errors[0].add(p.error[0]);rad[0].add(p.radial[0]);inn[0].add(p.inner[0]);geo[0].add(p.geometry[0]);evt[0].add(p.event[0]);rnd[0].add(p.roundoff[0]);}
                 if(j>0) {
                     resolved_gradient[j-1]=resolved_gradient[j-1]&&p.gradient_resolved[j-1];
                     invalid_gradient_local[j-1]=invalid_gradient_local[j-1]||p.gradient_invalid[j-1];
@@ -1342,31 +1289,22 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
             }
         }
         bool value_pass=resolved_value && failure==AdaptiveStop::Converged;
-        std::array<bool,5> gradient_pass{},gradient_error_pass{};
-        for(int j=0;j<nc;++j){double Q=total[j].get(),E=errors[j].get();bool pass=E<=cfg.tol.budget(j,Q);
-            if(j){out.grad_mu[j-1]=Q;out.estimated_abs_error_grad[j-1]=E;gradient_error_pass[j-1]=pass;gradient_pass[j-1]=pass&&resolved_gradient[j-1]&&!invalid_gradient_local[j-1];}
-            else{out.mu=Q;out.estimated_abs_error_mu=E;value_pass=value_pass&&pass;}
-            out.radial_error[j]=rad[j].get();out.inner_error[j]=inn[j].get();out.geometry_error[j]=geo[j].get();out.event_error[j]=evt[j].get();out.roundoff_error[j]=rnd[j].get();
+        std::array<bool,5> gradient_pass{};
+        out.mu=total[0].get();out.estimated_abs_error_mu=errors[0].get();
+        value_pass=value_pass && out.estimated_abs_error_mu<=cfg.tol.budget(out.mu);
+        for(int j=0;j<nc;++j){
+            if(j){out.grad_mu[j-1]=total[j].get();gradient_pass[j-1]=std::isfinite(out.grad_mu[j-1])&&!invalid_gradient_local[j-1];continue;}
+            out.radial_error[0]=rad[0].get();out.inner_error[0]=inn[0].get();out.geometry_error[0]=geo[0].get();out.event_error[0]=evt[0].get();out.roundoff_error[0]=rnd[0].get();
         }
         if(failure!=AdaptiveStop::Converged)
             out.estimated_abs_error_mu=std::numeric_limits<double>::infinity();
         if(value_pass && !value_snapshot.valid){
             value_snapshot.valid=true;value_snapshot.q=out.mu;value_snapshot.error=out.estimated_abs_error_mu;
             value_snapshot.ledger[0]=out.radial_error[0];value_snapshot.ledger[1]=out.inner_error[0];value_snapshot.ledger[2]=out.geometry_error[0];value_snapshot.ledger[3]=out.event_error[0];value_snapshot.ledger[4]=out.roundoff_error[0];
-            if(gradients){gradient_phase=true;gradient_start_nodes=stats.node_evaluations;gradient_rounds=0;}
         }
         bool all_gradient_pass=true;
         if(gradients)for(bool x:gradient_pass)all_gradient_pass=all_gradient_pass&&x;
-        bool all_gradient_error_pass=true;
-        if(gradients)for(bool x:gradient_error_pass)all_gradient_error_pass=all_gradient_error_pass&&x;
         if(value_pass&&stats.first_value_pass_nodes==0)stats.first_value_pass_nodes=stats.node_evaluations;
-        if(all_gradient_error_pass&&stats.first_gradient_error_pass_nodes==0)stats.first_gradient_error_pass_nodes=stats.node_evaluations;
-        if(all_gradient_pass&&stats.first_gradient_contract_nodes==0)stats.first_gradient_contract_nodes=stats.node_evaluations;
-        stats.gradient_error_pass_mask=0;stats.gradient_contract_mask=0;
-        for(int j=0;j<5;++j) {
-            if(gradient_error_pass[j])stats.gradient_error_pass_mask|=1u<<j;
-            if(gradient_pass[j])stats.gradient_contract_mask|=1u<<j;
-        }
         last_gradient_pass=gradient_pass;
         for(int j=0;j<5;++j)gradient_invalid_seen[j]=gradient_invalid_seen[j]||invalid_gradient_local[j];
         if(value_pass_out)*value_pass_out=value_pass;
@@ -1376,46 +1314,18 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
     while(failure==AdaptiveStop::Converged) {
         bool value_pass=false,gradient_pass=false;
         gather(&value_pass,&gradient_pass);
-        if(value_snapshot.valid && gradient_pass)break;
-        const bool any_gradient_invalid=std::any_of(gradient_invalid_seen.begin(),gradient_invalid_seen.end(),[](bool x){return x;});
-        if(value_snapshot.valid && any_gradient_invalid) {
-            failure=AdaptiveStop::Nonfinite;
-            break;
-        }
-        if(value_snapshot.valid && policy==GradientPolicy::ValueFirst &&
-           (gradient_pass || stats.node_evaluations-gradient_start_nodes>=selective_gradient_node_budget ||
-            gradient_rounds>=selective_gradient_round_budget)){
-            failure=gradient_pass?AdaptiveStop::Converged:AdaptiveStop::BudgetExceeded;
-            break;
-        }
+        if(value_snapshot.valid)break;
         size_t worst=0;double priority=-1;
         for(size_t i=0;i<w.panels.size();++i)if(w.panels[i].active){auto& p=w.panels[i];double score=0;
-            if(!value_snapshot.valid){
-                score=p.error[0]/cfg.tol.budget(0,out.mu);
-                if(!p.value_resolved)score=std::max(score,1.0);
-            } else {
-#if defined(BOUNDARY_ADAPTIVE_DIAG_RADIAL_ONLY_AFTER_INNER)
-                // Diagnostic counterfactual only: continue refining the
-                // radial part after the normal inner-error stop and schedule
-                // from radial error alone.  The returned ledger/status is
-                // unchanged and this macro is never enabled in production.
-                for(int j=1;j<nc;++j)
-                    score=std::max(score,p.radial[j]/cfg.tol.budget(j,out.grad_mu[j-1]));
-#else
-                for(int j=1;j<nc;++j){
-                    score=std::max(score,p.error[j]/cfg.tol.budget(j,out.grad_mu[j-1]));
-                    if(!p.gradient_resolved[j-1])score=std::max(score,1.0);
-                }
-#endif
-            }
+            score=p.error[0]/cfg.tol.budget(out.mu);
+            if(!p.value_resolved)score=std::max(score,1.0);
             if(score>priority){priority=score;worst=i;}}
         auto& p=w.panels[worst];
-        const int first_component=(!value_snapshot.valid)?0:1;
+        const int first_component=0;
         bool inner_dominant=false,angular_global_dominant=false,
              geometry_dominant=false,event_dominant=false;
-        for(int j=first_component;j<nc;++j){double T=cfg.tol.budget(j,j?out.grad_mu[j-1]:out.mu);
-            const double total_error=j?out.estimated_abs_error_grad[j-1]
-                                      :out.estimated_abs_error_mu;
+        for(int j=first_component;j<1;++j){double T=cfg.tol.budget(j?out.grad_mu[j-1]:out.mu);
+            const double total_error=out.estimated_abs_error_mu;
             const double non_inner=std::max(0.0,total_error-out.inner_error[j]);
             // In the opt-in lightweight mode, do not pay for a dimension
             // switch when the two ledgers are effectively tied.  The
@@ -1423,8 +1333,7 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
             // changed the balance.  This avoids spending angular upgrades on
             // ordinary panels while preserving the conservative incumbent
             // decision when the mode is disabled.
-            const double dimension_margin=(gradient_phase && selective_gradient)
-                ? cfg.gradient_adaptive_dominance : 1.0;
+            const double dimension_margin=1.0;
             // An inner estimate may be below the full tolerance and still
             // consume almost all of it.  In that situation radial splitting
             // cannot make the total error pass; choose the dimension whose
@@ -1439,7 +1348,7 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
             event_dominant=event_dominant||(out.event_error[j]>T && p.event[j]>p.radial[j]);}
 #if !defined(BOUNDARY_ADAPTIVE_DIAG_RADIAL_ONLY_AFTER_INNER)
         if(angular_global_dominant &&
-           (cfg.angular_adaptive || cfg.gradient_adaptive)) {
+           cfg.angular_adaptive) {
             auto upgrade_panel=[&](std::size_t panel_index) {
                 auto& panel=w.panels[panel_index];
                 const int m=1<<panel.level;
@@ -1454,11 +1363,10 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
                 const auto& radial_rule=lcbinint::algebraic_boundary::radial_rule(panel.level,panel.weighted);
                 std::array<double,6> allowed{};
                 std::array<bool,6> component_limited{};
-                for(int j=first_component;j<nc;++j) {
-                    const double target=cfg.tol.budget(j,
+                for(int j=first_component;j<1;++j) {
+                    const double target=cfg.tol.budget(
                         j?out.grad_mu[j-1]:out.mu);
-                    const double total_error=j?out.estimated_abs_error_grad[j-1]
-                                              :out.estimated_abs_error_mu;
+                    const double total_error=out.estimated_abs_error_mu;
                     const double non_inner=std::max(0.0,
                         total_error-out.inner_error[j]);
                     if(total_error>target &&
@@ -1488,10 +1396,10 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
                     AngularCandidate candidate;
                     candidate.id=id;
                     const double weight=radial_rule.w[k-1];
-                    for(int j=first_component;j<nc;++j)
+                    for(int j=first_component;j<1;++j)
                         if(component_limited[j])
                             candidate.contribution[j]=weight*sample.inner[j];
-                    for(int j=first_component;j<nc;++j)
+                    for(int j=first_component;j<1;++j)
                         candidate.priority=std::max(candidate.priority,
                                                     candidate.contribution[j]);
                     if(candidate.priority>0.0)candidates.push_back(candidate);
@@ -1502,18 +1410,18 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
                               return a.priority>b.priority;
                           });
                 std::array<double,6> remaining{};
-                for(int j=first_component;j<nc;++j)
+                for(int j=first_component;j<1;++j)
                     if(component_limited[j])remaining[j]=panel.inner[j];
                 std::vector<AngularCandidate> selected;
                 selected.reserve(candidates.size());
                 for(const auto& candidate:candidates) {
                     bool needed=false;
-                    for(int j=first_component;j<nc;++j)
+                    for(int j=first_component;j<1;++j)
                         if(component_limited[j] && remaining[j]>allowed[j])
                             needed=true;
                     if(!needed)break;
                     selected.push_back(candidate);
-                    for(int j=first_component;j<nc;++j)
+                    for(int j=first_component;j<1;++j)
                         remaining[j]=std::max(0.0,
                             remaining[j]-candidate.contribution[j]);
                 }
@@ -1530,11 +1438,7 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
                     // refinement; an angular pass must never escape the
                     // configured finite-work contract.
                     if(stats.node_evaluations>=cfg.max_node_evals)break;
-                    if(gradient_phase && policy==GradientPolicy::ValueFirst &&
-                       (stats.node_evaluations-gradient_start_nodes>=
-                            selective_gradient_node_budget ||
-                        gradient_rounds>=selective_gradient_round_budget))
-                        break;
+
                     const AdaptiveSample previous=w.samples[static_cast<std::size_t>(id)];
                     if(!previous.angular_valid ||
                        previous.angular_order>=cfg.angular_max_order)continue;
@@ -1583,11 +1487,9 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
                 std::vector<std::pair<double,std::size_t>> angular_panels;
             for(std::size_t i=0;i<w.panels.size();++i)if(w.panels[i].active) {
                 double score=0;
-                for(int j=first_component;j<nc;++j) {
-                    const double target=cfg.tol.budget(
-                        j,j?out.grad_mu[j-1]:out.mu);
-                    const double total_error=j?out.estimated_abs_error_grad[j-1]
-                                              :out.estimated_abs_error_mu;
+                for(int j=first_component;j<1;++j) {
+                    const double target=cfg.tol.budget(j?out.grad_mu[j-1]:out.mu);
+                    const double total_error=out.estimated_abs_error_mu;
                     const double non_inner=std::max(0.0,
                         total_error-out.inner_error[j]);
                     if(total_error>target &&
@@ -1617,19 +1519,13 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
 #endif
         if(event_dominant){failure=AdaptiveStop::EventLocationLimited;break;}
         if(geometry_dominant){failure=AdaptiveStop::RoundoffLimited;break;}
-        bool split_gradient=false;
-        if(gradient_phase && cfg.gradient_local_refinement &&
-           p.level>=cfg.gradient_split_min_level) {
-            for(int j=1;j<nc;++j)
-                if(!p.gradient_resolved[j-1] &&
-                   p.radial[j]>cfg.tol.budget(j,out.grad_mu[j-1])) split_gradient=true;
-        }
+
         // In the weighted research tree, a slow-decaying interpolation
         // remainder calls for local h refinement rather than exhausting the
         // p ladder first. The full error ledger and acceptance are unchanged.
         const bool split_slow_weighted=cfg.weighted_radial &&
             policy==GradientPolicy::None && p.level>=4 && !p.value_resolved;
-        if(p.level<cfg.max_level && !split_gradient && !split_slow_weighted){failure=refine(worst,p.level+1);continue;}
+        if(p.level<cfg.max_level && !split_slow_weighted){failure=refine(worst,p.level+1);continue;}
         if(p.depth>=cfg.max_depth||w.panels.size()+2>cfg.max_panels){failure=AdaptiveStop::BudgetExceeded;break;}
         const size_t split_growth=2*sizeof(AdaptivePanel)+
             (cfg.same_node_hermite_shadow?2*sizeof(AdaptiveHermitePanel):0);
@@ -1673,10 +1569,10 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
     }
     bool final_value_pass=false,final_gradient_pass=false;
     gather(&final_value_pass,&final_gradient_pass);
-    bool gradient_contract=final_gradient_pass;
+    bool gradients_valid=final_gradient_pass;
     if(gradients) {
-        gradient_contract=true;
-        for(bool x:last_gradient_pass)gradient_contract=gradient_contract&&x;
+        gradients_valid=true;
+        for(bool x:last_gradient_pass)gradients_valid=gradients_valid&&x;
     }
     const bool value_valid=value_snapshot.valid;
     out.value_converged=value_valid;
@@ -1697,34 +1593,18 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
         for(int j=0;j<5;++j) {
             out.grad_quality[j]=GradientQuality::NotRequested;
             out.grad_reason[j]=GradientReason::NotRequested;
-            out.grad_converged[j]=false;
+
         }
     } else {
-        out.gradient_stop_reason=gradient_contract?AdaptiveStop::Converged:failure;
+        out.gradient_stop_reason=gradients_valid?AdaptiveStop::Converged:failure;
         for(int j=0;j<5;++j) {
-            const bool finite=std::isfinite(out.grad_mu[j])&&std::isfinite(out.estimated_abs_error_grad[j]);
-            if(invalid||gradient_invalid_seen[j]||!finite) {
-                out.grad_quality[j]=GradientQuality::Invalid;
-                out.grad_reason[j]=(!finite||gradient_invalid_seen[j])
-                    ? GradientReason::Nonfinite : gradient_reason(failure);
-                out.grad_converged[j]=false;
-            } else if(last_gradient_pass[j]) {
-                out.grad_quality[j]=GradientQuality::ToleranceMet;
-                out.grad_reason[j]=GradientReason::ToleranceMet;
-                out.grad_converged[j]=true;
-            } else {
-                out.grad_quality[j]=GradientQuality::FiniteUncertified;
-                out.grad_reason[j]=gradient_reason(failure);
-                out.grad_converged[j]=false;
-            }
+            const bool finite=std::isfinite(out.grad_mu[j]);
+            out.grad_quality[j]=invalid||gradient_invalid_seen[j]||!finite?GradientQuality::Invalid:GradientQuality::FiniteValid;
+            out.grad_reason[j]=!finite||gradient_invalid_seen[j]?GradientReason::Nonfinite:gradient_reason(failure);
         }
     }
-    // ValueFirst deliberately reports a usable value once its independent
-    // contract is met. Strict retains the old whole-request stop semantics,
-    // while value_converged remains available in both modes.
     const bool any_gradient_invalid=std::any_of(gradient_invalid_seen.begin(),gradient_invalid_seen.end(),[](bool x){return x;});
-    out.stop=(value_valid&&!invalid&&!any_gradient_invalid&&
-              (policy!=GradientPolicy::Strict||gradient_contract))
+    out.stop=(value_valid&&!invalid&&!any_gradient_invalid)
         ?AdaptiveStop::Converged:failure;
     out.assurance=value_valid?AccuracyAssurance::Estimated:AccuracyAssurance::None;
     out.numerical_status=(!value_valid||invalid||any_gradient_invalid)?Status::GRADIENT_UNRELIABLE:Status::OK;

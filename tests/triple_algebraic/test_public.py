@@ -13,13 +13,13 @@ import lcbinint as native
 assert pathlib.Path(native.__file__).resolve().is_relative_to(build)
 assert pathlib.Path(native._native.__file__).resolve().is_relative_to(build)
 lenses=[0j,1+0j,-.4+.6j]
-result=native.triple_algebraic(lenses,[.72,.2,.08],.1+.15j,.15,limb=.5,with_gradient=True,gradient_policy='strict')
-assert result['value_converged'] and result['gradient_reliable'] and result['support_complete'],result
+result=native.triple_algebraic(lenses,[.72,.2,.08],.1+.15j,.15,limb=.5,with_gradient=True)
+assert result['value_converged'] and result['gradient_valid'] and result['support_complete'],result
 assert abs(result['mu']-8.630749933917409)<1e-4,result
 assert result['quad_samples']<result['node_evaluations'],result
 failed=native.triple_algebraic(lenses,[.72,.2,.08],.1+.15j,.15,
     with_gradient=True,event_box_budget=1)
-assert not failed['value_converged'] and not failed['gradient_reliable']
+assert not failed['value_converged'] and not failed['gradient_valid']
 assert not failed['support_complete'] and math.isnan(failed['mu'])
 assert all(math.isnan(x) for x in failed['gradient']),failed
 assert failed['stop']=='event_box_budget',failed
@@ -70,7 +70,7 @@ for rtol in (1e-3,1e-4):
         complex(.1258549239677236,.06379371886791989),.3,
         limb=.5,with_gradient=True,atol=0.,rtol=rtol)
     assert regression['value_converged'] and regression['gradient_valid'],regression
-    assert regression['gradient_policy']=='value_mesh' and not regression['gradient_precision_checked'],regression
+    assert regression['gradient_policy']=='value_mesh',regression
     assert regression['support_complete'] and regression['refinements']<=160,regression
 print('PASS: near-contact large/LD derivative refinement regression at both tolerances')
 
@@ -79,18 +79,20 @@ for source,rho in ((.5+.4j,.03),(.1+.15j,.15)):
     for limb in (0.,.5):
         for rtol in (1e-3,1e-4):
             kw=dict(limb=limb,atol=0.,rtol=rtol)
-            vm=native.triple_algebraic(lenses,[.72,.2,.08],source,rho,with_gradient=True,gradient_policy="value_mesh",**kw)
+            vm=native.triple_algebraic(lenses,[.72,.2,.08],source,rho,with_gradient=True,**kw)
             assert vm['value_converged'] and vm['gradient_valid'] and vm['support_complete'],vm
-            assert not vm['gradient_reliable'] and not vm['gradient_precision_checked'],vm
+            assert not {'gradient_reliable','gradient_precision_checked','canonical_gradient_error_estimate'}.intersection(vm),vm
             assert vm['gradient_policy']=='value_mesh' and np.isfinite(vm['gradient']).all(),vm
-            plain=native.triple_algebraic(lenses,[.72,.2,.08],source,rho,gradient_policy="value_mesh",**kw)
+            plain=native.triple_algebraic(lenses,[.72,.2,.08],source,rho,**kw)
             assert plain['parameter_derivative_evaluations']==0 and plain['gradient_policy']=='none',plain
             assert abs(vm['mu']-plain['mu'])<=vm['error_estimate']+plain['error_estimate']+1e-9,(vm,plain)
-assert result['gradient_valid'] and result['gradient_precision_checked'] and result['gradient_policy']=='strict'
-try:
-    native.triple_algebraic(lenses,[.72,.2,.08],.5+.4j,.03,gradient_policy='invalid')
-except ValueError:
-    pass
-else:
-    raise AssertionError('invalid gradient policy accepted')
-print('PASS: strict and value-mesh policies, metadata, flux parity and value-only isolation')
+assert result['gradient_valid'] and result['gradient_policy']=='value_mesh'
+# The old policy selector is removed, rather than silently aliasing strict.
+for policy in ('strict','value_mesh'):
+    try:
+        native.triple_algebraic(lenses,[.72,.2,.08],.5+.4j,.03,gradient_policy=policy)
+    except TypeError:
+        pass
+    else:
+        raise AssertionError('removed gradient policy keyword accepted')
+print('PASS: value-controlled derivatives, removed policy selector and value-only isolation')

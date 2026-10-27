@@ -1,0 +1,66 @@
+Internal ctest changing into directory: /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/build-triple-native
+Test project /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/build-triple-native
+      Start  6: triple_promotion
+      Start  9: triple_radius
+ 1/30 Test  #6: triple_promotion .................   Passed    0.00 sec
+      Start 16: triple_gradient_replay
+ 2/30 Test  #9: triple_radius ....................   Passed    0.05 sec
+      Start 30: triple_gradient_contract
+ 3/30 Test #30: triple_gradient_contract .........   Passed    0.20 sec
+      Start 22: triple_surface
+ 4/30 Test #16: triple_gradient_replay ...........   Passed    2.37 sec
+      Start  1: unit_core
+ 5/30 Test #22: triple_surface ...................   Passed    2.13 sec
+      Start 19: triple_first_order
+ 6/30 Test #19: triple_first_order ...............   Passed    0.27 sec
+      Start 28: triple_regular
+ 7/30 Test #28: triple_regular ...................   Passed    1.21 sec
+      Start 21: triple_reference
+ 8/30 Test  #1: unit_core ........................   Passed    2.11 sec
+      Start 25: triple_point_sign
+ 9/30 Test #21: triple_reference .................   Passed    0.88 sec
+      Start  2: triple_public_api
+10/30 Test #25: triple_point_sign ................   Passed    0.31 sec
+      Start 29: triple_smooth
+11/30 Test #29: triple_smooth ....................   Passed    0.10 sec
+      Start 23: triple_special
+12/30 Test #23: triple_special ...................   Passed    0.04 sec
+      Start 26: triple_lens_coefficients
+13/30 Test #26: triple_lens_coefficients .........   Passed    0.09 sec
+      Start 10: triple_panel
+14/30 Test  #2: triple_public_api ................   Passed    0.39 sec
+      Start 17: triple_gradient_hermite
+15/30 Test #17: triple_gradient_hermite ..........   Passed    0.04 sec
+      Start 24: triple_resultant
+16/30 Test #10: triple_panel .....................   Passed    0.19 sec
+      Start 13: triple_root_pair
+17/30 Test #13: triple_root_pair .................   Passed    0.02 sec
+      Start 18: triple_fused_transport
+18/30 Test #18: triple_fused_transport ...........   Passed    0.01 sec
+      Start  8: triple_angular
+19/30 Test #24: triple_resultant .................   Passed    0.08 sec
+      Start 15: triple_mapped_limb
+20/30 Test #15: triple_mapped_limb ...............   Passed    0.00 sec
+      Start  3: triple_interval
+21/30 Test  #3: triple_interval ..................   Passed    0.04 sec
+      Start 12: triple_integrator
+22/30 Test  #8: triple_angular ...................   Passed    0.06 sec
+      Start 14: triple_critical_pair
+23/30 Test #14: triple_critical_pair .............   Passed    0.01 sec
+      Start  5: triple_physical
+24/30 Test #12: triple_integrator ................   Passed    0.03 sec
+      Start  4: triple_weighted
+25/30 Test  #5: triple_physical ..................   Passed    0.02 sec
+      Start 27: triple_magnitude
+26/30 Test #27: triple_magnitude .................   Passed    0.02 sec
+      Start 11: triple_events
+27/30 Test  #4: triple_weighted ..................   Passed    0.03 sec
+      Start 20: triple_frame
+28/30 Test #20: triple_frame .....................   Passed    0.00 sec
+      Start  7: triple_geometry
+29/30 Test  #7: triple_geometry ..................   Passed    0.00 sec
+30/30 Test #11: triple_events ....................   Passed    0.02 sec
+
+100% tests passed, 0 tests failed out of 30
+
+Total Test time (real) =   5.38 sec

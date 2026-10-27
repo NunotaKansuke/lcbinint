@@ -27,7 +27,7 @@ int main(){
  for(const auto& fixture:fixtures)for(int limb=0;limb<3;++limb)for(double tolerance:{1e-3,1e-4}){
   tr::PreparedRegularSupport prepared;tr::IntegrationOptions options;
   options.absolute_tolerance=0;options.relative_tolerance=tolerance;
-  options.gradient_value_mesh=true;options.maximum_refinements=160;
+  options.maximum_refinements=160;
   const auto plan=prepared.plan(fixture.geometry,tolerance,options.event_box_budget,false);
   const auto result=tr::integrate_patterson<true>(fixture.geometry,limb*.5,options,plan.completed?&plan:nullptr);
   if(!result.converged||!result.support_complete||!result.gradient_valid)throw std::runtime_error("gradient contract integration failed");

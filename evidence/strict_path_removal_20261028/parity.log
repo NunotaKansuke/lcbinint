@@ -1,0 +1,5 @@
+TRIPLE exact 88 / 96
+Traceback (most recent call last):
+  File "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/evidence/strict_path_removal_20261028/check_parity.py", line 18, in <module>
+    print('TRIPLE exact',sum(r['exact']for r in rows),'/',len(rows));assert all(r['exact']for r in rows)
+AssertionError

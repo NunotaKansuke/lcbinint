@@ -1,0 +1,49 @@
+[  2%] Built target triple_interval
+[  3%] Building CXX object CMakeFiles/lcbinint_fused_gradient.dir/src/lcbinint/magnification/algebraic_boundary/fused_gradient.cpp.o
+[  5%] Built target triple_weighted
+[  8%] Built target triple_physical
+[ 10%] Built target triple_promotion
+[ 12%] Built target triple_geometry
+[ 15%] Built target triple_angular
+[ 17%] Built target triple_radius
+[ 19%] Built target triple_panel
+[ 22%] Built target triple_events
+[ 24%] Built target triple_integrator
+[ 26%] Built target triple_root_pair
+[ 29%] Built target triple_critical_pair
+[ 31%] Built target triple_mapped_limb
+[ 33%] Built target triple_gradient_replay
+[ 36%] Built target triple_gradient_hermite
+[ 38%] Built target triple_fused_transport
+[ 40%] Built target triple_first_order
+[ 43%] Built target triple_frame
+[ 45%] Built target triple_reference
+[ 47%] Built target triple_surface
+[ 50%] Built target triple_special
+[ 52%] Built target triple_resultant
+[ 54%] Built target triple_point_sign
+[ 56%] Built target triple_lens_coefficients
+[ 59%] Built target triple_magnitude
+[ 60%] Linking CXX static library liblcbinint_fused_gradient.a
+[ 60%] Built target lcbinint_fused_gradient
+[ 61%] Building CXX object CMakeFiles/lcbinint_magnification.dir/src/lcbinint/magnification/finite_source_magnifier.cpp.o
+[ 62%] Linking CXX static library liblcbinint_magnification.a
+[ 69%] Built target lcbinint_magnification
+[ 81%] Built target lcbinint_lightcurve
+[ 82%] Building CXX object CMakeFiles/test_core.dir/tests/unit/test_core.cpp.o
+[ 83%] Building CXX object CMakeFiles/lcbinint_python.dir/python/bind_lc.cpp.o
+[ 84%] Building CXX object CMakeFiles/lcbinint_python.dir/python/bind_triple_algebraic.cpp.o
+[ 86%] Linking CXX shared module _lcbinint.cpython-310-x86_64-linux-gnu.so
+Copying lcbinint Python packages to build dir
+[ 89%] Built target lcbinint_python
+[ 90%] Building CXX object tests/triple_algebraic/CMakeFiles/triple_regular.dir/test_regular.cpp.o
+[ 91%] Linking CXX executable test_core
+[ 91%] Built target test_core
+[ 93%] Building CXX object tests/triple_algebraic/CMakeFiles/triple_smooth.dir/test_smooth.cpp.o
+[ 94%] Linking CXX executable triple_regular
+[ 94%] Built target triple_regular
+[ 95%] Building CXX object tests/triple_algebraic/CMakeFiles/triple_gradient_contract.dir/test_gradient_contract.cpp.o
+[ 96%] Linking CXX executable triple_smooth
+[ 97%] Built target triple_smooth
+[ 98%] Linking CXX executable triple_gradient_contract
+[100%] Built target triple_gradient_contract

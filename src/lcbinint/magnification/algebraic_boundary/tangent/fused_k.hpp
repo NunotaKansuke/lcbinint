@@ -64,7 +64,7 @@ struct AngularPair { VKJacobian high{}, low{}; bool ok=false; int points=0; };
 inline AngularPair angular_pair(double m,double v,const std::array<double,5>& dm,
     const std::array<double,5>& dv,double R,const PrimaryFrame& pf,
     const std::array<double,5>& pc,const std::array<std::array<double,5>,5>& dpc,
-    bool reciprocal,double value_gate,double gradient_gate) {
+    bool reciprocal,double value_gate) {
     AngularPair out;
     if(!std::isfinite(m)||!std::isfinite(v)||!(v>kAngularVFloor))return out;
     const double s=std::sqrt(v);
@@ -97,8 +97,6 @@ inline AngularPair angular_pair(double m,double v,const std::array<double,5>& dm
         out.low=previous_order?previous:sum(std::integral_constant<int,(N-1)/2>{},true);
         if(!out.high.ok||!out.low.ok)return -1;
         bool accepted=2*std::fabs(out.high.vK-out.low.vK)<=value_gate*std::fabs(out.high.vK);
-        for(int j=0;j<5;++j)accepted=accepted&&
-            2*std::fabs(out.high.dvK[j]-out.low.dvK[j])<=gradient_gate*std::max(1e-30,std::fabs(out.high.dvK[j]));
         if constexpr(N==3)if(accepted) {
             const double bound=short_angular_value_bound(q,m,s,v,b0,b2,pf.rho);
             accepted=bound<=geometry_experiment::screen_down(value_gate*std::fabs(out.high.vK));

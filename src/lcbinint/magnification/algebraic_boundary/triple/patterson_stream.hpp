@@ -100,7 +100,7 @@ std::shared_ptr<const BoundaryControlAtlas> control;
  double relative_,absolute_,uniform_weight_=1,limb_weight_=0,origin_=0,safe_lo_=0,safe_hi_=0;
  bool uniform_,weighted_,moving_=false,charts_checked_=false,mixed_=false,mixed_declined_=false,geometry_probe_=false;
  mutable bool trace_active_=true;
- std::array<double,8> base_{},slope_{},zero_errors_{};
+ std::array<double,8> base_{},slope_{};
  std::optional<AngularTopology> band_;std::vector<RadialEvent> events_;
  struct FoldHint {double radius,theta,square_slope,curvature;};std::vector<FoldHint> hints_;
  RadiusIntegral<true> accepted_;int level_=0,angular_level_=0;double radial_error_=INFINITY,inner_error_=0;
@@ -201,7 +201,7 @@ out->events_=events_;out->hints_=hints_;out->origin_=origin_;out->base_=base_;ou
  void collect_lanes(){
   accepted_={};radial_error_=inner_error_=0;for(const auto& child:lanes_){const auto& r=child->result();accepted_.f0+=r.f0;accepted_.fh+=r.fh;accepted_.endpoint_error+=r.endpoint_error;for(int k=0;k<8;++k){accepted_.df0[k]+=r.df0[k];accepted_.dfh[k]+=r.dfh[k];}radial_error_+=child->radial_error();inner_error_+=child->inner_error();}
   if(gap_lanes_&&whole_gap_background_){const double pi=std::acos(-1.),background=pi*(map_.b-map_.a)*(map_.a+map_.b);accepted_.f0+=background;for(int j=0;j<8;++j){const double a=base_[j]+slope_[j]*(map_.a-origin_),b=base_[j]+slope_[j]*(map_.b-origin_);accepted_.df0[j]+=2*pi*(map_.b*b-map_.a*a);}radial_error_+=32*std::numeric_limits<double>::epsilon()*std::abs(background);}
-  accepted_.angular_error=radial_error_+inner_error_;accepted_.gradient_error.fill(INFINITY);accepted_.normalized_gradient_errors=true;reason="stream_arc_lanes_completed";
+  accepted_.angular_error=radial_error_+inner_error_;reason="stream_arc_lanes_completed";
  }
  bool uniform_gap(Point& value,const Point& geometry,double R,const std::array<double,8>& motion){
   const std::size_t n=geometry.anchor.count;const double period=2*std::acos(-1.);std::array<std::pair<double,std::size_t>,3> order;
@@ -478,7 +478,7 @@ public:
 #endif
  int split_level=5;
  std::string reason="stream_not_started";
- PattersonPanel(const Geometry&p,double a,double b,bool left,bool right,AngularOptions options,std::shared_ptr<SharedRadiusCache<Gradient>> shared,double absolute,double relative,bool uniform,bool weighted,double limb,bool):p_(p),map_{a,b,left,right},options_(options),shared_(std::move(shared)),relative_(relative),absolute_(absolute),uniform_weight_(1-limb),limb_weight_(limb),safe_lo_(a),safe_hi_(b),uniform_(uniform),weighted_(weighted){zero_errors_.fill(INFINITY);
+ PattersonPanel(const Geometry&p,double a,double b,bool left,bool right,AngularOptions options,std::shared_ptr<SharedRadiusCache<Gradient>> shared,double absolute,double relative,bool uniform,bool weighted,double limb):p_(p),map_{a,b,left,right},options_(options),shared_(std::move(shared)),relative_(relative),absolute_(absolute),uniform_weight_(1-limb),limb_weight_(limb),safe_lo_(a),safe_hi_(b),uniform_(uniform),weighted_(weighted){
   if(shared_){if(!shared_->first_order_coefficients)shared_->first_order_coefficients=std::make_shared<std::unique_ptr<root_pair_detail::RadialCache<8>>>();context_->pairs=shared_->first_order_coefficients;}
   else context_->pairs=std::make_shared<std::unique_ptr<root_pair_detail::RadialCache<8>>>();
  }
@@ -508,7 +508,6 @@ public:
  void set_certified_band(const AngularTopology& t,double lo,double hi){band_=t;safe_lo_=lo;safe_hi_=hi;}
  const auto& band_topology()const{return band_;}double safe_lo()const{return safe_lo_;}double safe_hi()const{return safe_hi_;}
  const auto& result()const{return accepted_;}double radial_error()const{return radial_error_;}double inner_error()const{return inner_error_;}
- const auto& gradient_radial_errors()const{return zero_errors_;}const auto& gradient_inner_errors()const{return zero_errors_;}
  std::size_t geometry_promotions()const{return 0;}
  const ShapeGradientResult& work()const{static const ShapeGradientResult empty{};return owns_context_?context_->work:empty;}
  bool refine(int requested,int angular){
@@ -520,7 +519,7 @@ public:
   if(uniform_&&band_&&band_->roots.empty()&&band_->arcs.size()==1&&band_->arcs[0].hi-band_->arcs[0].lo>=2*std::acos(-1.)-1e-12){
    const double pi=std::acos(-1.);accepted_={};accepted_.f0=pi*(map_.b-map_.a)*(map_.a+map_.b);
    if(!controlled_uniform())for(int j=0;j<8;++j){const double a=base_[j]+slope_[j]*(map_.a-origin_),b=base_[j]+slope_[j]*(map_.b-origin_);accepted_.df0[j]=2*pi*(map_.b*b-map_.a*a);}
-   radial_error_=16*std::numeric_limits<double>::epsilon()*std::abs(accepted_.f0);inner_error_=0;accepted_.angular_error=radial_error_;accepted_.gradient_error.fill(INFINITY);level_=std::max(level_,requested);angular_level_=std::max(angular_level_,angular);reason="stream_full_annulus_exact";return true;
+   radial_error_=16*std::numeric_limits<double>::epsilon()*std::abs(accepted_.f0);inner_error_=0;accepted_.angular_error=radial_error_;level_=std::max(level_,requested);angular_level_=std::max(angular_level_,angular);reason="stream_full_annulus_exact";return true;
   }
   if(cells_.empty()){
    real_cells();const auto& probes=patterson_rule(2);
@@ -630,7 +629,7 @@ if(weighted)detail+=uniform_weight_*panel_detail::interpolation_detail(rule,samp
    if(!boundary_ok){radial_error_=INFINITY;if(lev>=4)split_level=4;}
 #endif
 
-   inner_error_=inner;next.angular_error=radial_error_+inner;next.gradient_error.fill(INFINITY);next.normalized_gradient_errors=true;
+   inner_error_=inner;next.angular_error=radial_error_+inner;
    previous=next;previous_cells_=std::move(next_cells);have=true;
    if(lev==2&&complex_cells()){
     // The old nodes remain cached as continuation/discovery work. Rebuild
@@ -648,7 +647,7 @@ if(weighted)detail+=uniform_weight_*panel_detail::interpolation_detail(rule,samp
  }
 };
 template<bool Gradient=true> IntegrationResult<Gradient> integrate_patterson(const Geometry& p,double limb,IntegrationOptions options={},const RadialEventPlan* plan=nullptr){
- static_assert(Gradient,"dedicated derivative stream");options.gradient_value_mesh=true;
+ static_assert(Gradient,"dedicated derivative stream");
  // Tight requests retain the higher-order mixed transport in the same
  // value-controlled frontier, rather than restarting a completed value run.
  if(options.relative_tolerance<1e-4)return integrate_coupled<Gradient>(p,limb,options,plan);

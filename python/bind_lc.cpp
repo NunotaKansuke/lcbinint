@@ -783,7 +783,6 @@ py::dict compute_algebraic_boundary_value_gradient(
         std::move(local_gradients), static_cast<py::ssize_t>(count), 5);
     output["gradient_valid"] = vec_to_numpy(std::move(gradient_valid));
     output["gradient_stop"] = py::cast(std::move(gradient_stops));
-    output["gradient_precision_checked"] = false;
     output["point_source_safety_flags"] = vec_to_numpy(std::move(safety_flags));
     output["caustic_distances"] = vec_to_numpy(std::move(caustic_distances));
     return output;
@@ -1581,7 +1580,6 @@ py::dict triple_algebraic_gradient(const lcbinint::lc::LightCurve& lc,const Time
     std::vector<int> vc,complete,valid,nodes,methods;
     std::vector<std::string> stops;
     kernel::IntegrationOptions options;options.absolute_tolerance=atol;options.relative_tolerance=rtol;
-    options.gradient_value_mesh=true;
     {
         py::gil_scoped_release release;
         for(double time:tv) {

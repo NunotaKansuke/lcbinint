@@ -58,11 +58,11 @@ and `rho` are in total-mass Einstein-radius units. The returned physical-gradien
 order is
 `(source_x, source_y, rho, m1, m2, lens0_x, lens0_y, lens1_x, lens1_y, lens2_x, lens2_y)`.
 For mass derivatives, `m0=1-m1-m2`; lens positions are held fixed. Inspect
-`value_converged`, `gradient_reliable`, `support_complete`, `stop` and
+`value_converged`, `gradient_valid`, `support_complete`, `stop` and
 `error_estimate`. A finite candidate is not necessarily converged. Missing candidates have NaN values/derivatives and false convergence flags; the LightCurve wrapper raises the existing missing-finite-candidate error. The canonical
-8-component gradient/error estimates are also returned for numerical diagnosis.
+8-component gradient is also returned for numerical diagnosis.
 
-`gradient_policy="value_mesh"` is the default, matching the binary fused route.
+All gradients follow the binary fused route:
 Only the flux error controls refinement. The dedicated gradient frontier carries
 flux and all eight canonical derivatives together at each integration point.
 Support proofs, coefficient geometry and continued physical endpoints are shared;
@@ -80,22 +80,18 @@ endpoint prediction. Uniform full-circle bands use exact annular area and its
 moving-boundary derivative.
 
 Tighter requests retain the coupled mixed radial/parameter transport. Both
-frontiers control the requested value tolerance; their derivative estimates do
-not drive refinement. Binary64 is the ordinary route, with local quad repair for
+frontiers control the requested value tolerance. Binary64 is the ordinary route, with local quad repair for
 unresolved endpoints or samples. A failed continuation repairs only that radius.
 The radius-normalization derivative uses the flux from the same coupled integral.
 
-This policy reports `gradient_valid=True` for a finite, complete-support candidate,
-`gradient_reliable=False`, and `gradient_precision_checked=False`. Canonical
-gradient error estimates are infinity (unchecked). Flux convergence is not a
-per-derivative accuracy certificate. The LightCurve API uses the same value-only
-error policy; its `gradient_valid` flag denotes finite usable output.
-The explicit point API retains `gradient_policy="strict"` as a diagnostic route
-that also controls all eight estimated derivative errors.
-
-The strict diagnostic may use normalized source-disk quadrature for a caustic-free
-source covered by disjoint full-source IFT image disks. The default gradient frontier
-uses the algebraic boundary panels; `smooth_source_used` remains false there.
+`gradient_valid=True` denotes finite derivatives on complete image support after
+value convergence. The API returns no derivative error estimates or precision
+flags. The LightCurve API follows the same contract. Independent finite-difference
+and analytic-limit tests check the derivative implementation offline.
+There is no derivative-error-controlled integration policy or policy selector.
+All calls use image-plane algebraic boundary panels. Source-disk
+quadrature is not used. The compatibility diagnostics `smooth_source_used`,
+`smooth_source_samples`, and `smooth_source_reused_samples` remain false/zero.
 
 `event_box_budget` bounds support isolation (default 1,000,000 boxes). Exhaustion
 is explicit and does not silently switch to another integration method.

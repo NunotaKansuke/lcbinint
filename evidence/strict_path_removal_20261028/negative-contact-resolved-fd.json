@@ -1,0 +1,72 @@
+[
+  {
+    "case": "negative_contact",
+    "u": 0.5,
+    "tol": 1e-07,
+    "parameter": 0,
+    "gradient": 1245597804146.3706,
+    "reference": 1245595210718.3206,
+    "uncertainty": 2549016.7028808594,
+    "converged": true,
+    "step": 1e-09,
+    "gate": 249119042.1437641,
+    "delta": 2593428.050048828,
+    "pass_gate": true
+  },
+  {
+    "case": "negative_contact",
+    "u": 0.5,
+    "tol": 1e-07,
+    "parameter": 1,
+    "gradient": -1341005152405.1406,
+    "reference": -1341005160576.9353,
+    "uncertainty": 26228.72119140625,
+    "converged": true,
+    "step": 1e-09,
+    "gate": 268201032.11548707,
+    "delta": 8171.794677734375,
+    "pass_gate": true
+  },
+  {
+    "case": "negative_contact",
+    "u": 0.5,
+    "tol": 1e-07,
+    "parameter": 2,
+    "gradient": 642954975116.6232,
+    "reference": 642955020947.4594,
+    "uncertainty": 262510.3903808594,
+    "converged": true,
+    "step": 1e-09,
+    "gate": 128591004.18959188,
+    "delta": 45830.836181640625,
+    "pass_gate": true
+  },
+  {
+    "case": "negative_contact",
+    "u": 0.5,
+    "tol": 1e-07,
+    "parameter": 3,
+    "gradient": 0.003113774597529304,
+    "reference": 0.0031137761988056204,
+    "uncertainty": 5.812613138207745e-09,
+    "converged": true,
+    "step": 5000.0,
+    "gate": 0.00010062275523976112,
+    "delta": 1.6012763164041655e-09,
+    "pass_gate": true
+  },
+  {
+    "case": "negative_contact",
+    "u": 0.5,
+    "tol": 1e-07,
+    "parameter": 4,
+    "gradient": -131799.13884320183,
+    "reference": -131798.52268169634,
+    "uncertainty": 7.6454470690805465,
+    "converged": true,
+    "step": 0.001,
+    "gate": 26.35980453633927,
+    "delta": 0.6161615054879803,
+    "pass_gate": true
+  }
+]

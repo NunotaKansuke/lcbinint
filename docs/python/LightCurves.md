@@ -59,9 +59,11 @@ its status. `status` contains integer codes (`0=ok`, `1=unconverged`,
 `2=support_unproven`); `status_names` gives their readable labels.
 `curve.info(...)` remains a compatibility alias for the same result. Supported
 eager static-binary calls use the fused native value/Jacobian kernel; traced
-calls and other models use JAX differentiation. The fused kernel has its own
-source-disk and seeded-radial integration routes, so its value and status can
-differ from a value-only algebraic-boundary result. No separate gradient
+calls and other models use JAX differentiation. The fused kernel uses seeded
+radial image-plane integration with analytic tangents. Its value and status can differ from a value-only algebraic-boundary
+result because the two kernels have separate quadrature implementations.
+The requested tolerance controls the value only; the fused kernel has no
+derivative error estimate or derivative tolerance. No separate gradient
 function is needed.
 
 Plot only the light curve:

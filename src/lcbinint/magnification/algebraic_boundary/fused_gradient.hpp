@@ -3,7 +3,6 @@
 #include "lens_frame.hpp"
 #include "radial_support_plan_types.hpp"
 #include <array>
-#include <functional>
 #include <cstddef>
 #include <string>
 #include <vector>
@@ -33,7 +32,6 @@ struct FusedGradientResult {
     std::array<double,5> grad_mu{}; // xs, ys, rho, q, a; q is LensParams.q
     std::array<bool,5> gradient_valid{}; // usable finite result, not an accuracy bound
     bool value_converged=false;
-    bool gradient_precision_checked=false;
     bool reliability_retried=false; // geometry retry, not a gradient accuracy claim
     std::string stop;
     bool support_certified=false;
@@ -51,7 +49,6 @@ struct FusedGradientResult {
 FusedGradientResult epoch_fused_gradient(const LensParams& p,double limb_darkening,
     const std::vector<std::array<double,2>>& primary_image_seeds,
     const FusedGradientOptions& options={},
-    const std::function<bool(FusedGradientResult&)>& smooth_repair={},
     const RadialSupportPlan* support_plan=nullptr,
     const std::vector<std::array<double,2>>* inherited_edge_pairs=nullptr);
 }

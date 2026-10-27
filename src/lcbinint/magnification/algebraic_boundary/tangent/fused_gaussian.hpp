@@ -233,7 +233,7 @@ inline AdaptiveResult gaussian_replay_fixed(AdaptiveWorkspace&workspace,const Ad
  }
  for(int j=0;j<5;++j)valid=valid&&std::isfinite(sum[j].get());
  if(!valid)throw GaussianReplayFailure{failure,result.stats.node_evaluations,failed_radius,failed_rejection,forced_order};
- for(int j=0;j<5;++j){result.grad_mu[j]=sum[j].get();result.grad_quality[j]=GradientQuality::FiniteUncertified;result.grad_reason[j]=GradientReason::BudgetExceeded;}
+ for(int j=0;j<5;++j){result.grad_mu[j]=sum[j].get();result.grad_quality[j]=GradientQuality::FiniteValid;result.grad_reason[j]=GradientReason::Computed;}
  result.mu=value_sum.get();
  result.stop=AdaptiveStop::Converged;
  return result;
@@ -243,7 +243,7 @@ template<class Eval>
 inline AdaptiveResult gaussian_replay(AdaptiveWorkspace& workspace,const AdaptiveConfig& cfg,
     Eval&& eval,std::size_t primal_nodes) {
  const PreciseTangentScope precision_scope;
- if(!cfg.gradient_adaptive) {
+ {
   AdaptiveResult result;
   AdaptiveConfig replay_config=cfg;
   const auto active_panels=std::count_if(workspace.panels.begin(),workspace.panels.end(),
@@ -289,104 +289,13 @@ inline AdaptiveResult gaussian_replay(AdaptiveWorkspace& workspace,const Adaptiv
   }
   for(int axis=0;axis<5;++axis) {
    result.grad_mu[axis]=sums[axis].get();
-   result.grad_quality[axis]=GradientQuality::FiniteUncertified;
-   result.grad_reason[axis]=GradientReason::BudgetExceeded;
-   result.estimated_abs_error_grad[axis]=std::numeric_limits<double>::infinity();
+   result.grad_quality[axis]=GradientQuality::FiniteValid;
+   result.grad_reason[axis]=GradientReason::Computed;
+
   }
   result.mu=value_sum.get();
   result.stop=AdaptiveStop::Converged;
   return result;
  }
- struct Piece {
-  AdaptivePanel panel;
-  std::array<double,5> value{},error{};
-  int depth=0;
-  bool blocked=false;
- };
- std::size_t used=0;
- auto estimate=[&](const AdaptivePanel& panel,int depth,Piece& piece,bool incumbent) {
-  piece.panel=panel;piece.depth=depth;
-  std::array<double,5> low{},high{};
-  bool have_low=false,have_high=false;
-  const std::vector<AdaptivePanel> selected{panel};
-  for(int order:{14,30}) {
-   try {
-    auto candidate=gaussian_replay_fixed(workspace,cfg,eval,primal_nodes+used,0,order,&selected);
-    used+=candidate.stats.node_evaluations;
-    if(order==14){low=candidate.grad_mu;have_low=true;}
-    else {high=candidate.grad_mu;have_high=true;}
-   } catch(const GaussianReplayFailure& failure) {used+=failure.node_evaluations;}
-  }
-  if(!have_high&&!have_low) {
-   if(!incumbent||panel.depth>0||panel.level<=0)return false;
-   for(int axis=0;axis<5;++axis) {
-    high[axis]=panel.q[axis+1];
-    if(!std::isfinite(high[axis]))return false;
-   }
-  } else if(!have_high)high=low;
-  piece.value=high;
-  for(int axis=0;axis<5;++axis)
-   piece.error[axis]=have_high&&have_low?2*std::fabs(high[axis]-low[axis])
-       :std::numeric_limits<double>::infinity();
-  return true;
- };
- std::vector<Piece> pieces;
- for(const auto& panel:workspace.panels)if(panel.active) {
-  Piece piece;
-  if(!estimate(panel,0,piece,true))throw GaussianReplayFailure{AdaptiveStop::TopologyUnresolved,used};
-  pieces.push_back(std::move(piece));
- }
- if(pieces.empty())throw GaussianReplayFailure{AdaptiveStop::TopologyUnresolved,used};
- AdaptiveResult result;
- bool converged=false;
- for(;;) {
-  std::array<adaptive_detail::Sum,5> sums;
-  std::array<double,5> errors{},refinable_errors{};
-  for(const auto& piece:pieces)for(int axis=0;axis<5;++axis) {
-   sums[axis].add(piece.value[axis]);errors[axis]+=piece.error[axis];
-   if(!piece.blocked&&piece.depth<cfg.max_depth)refinable_errors[axis]+=piece.error[axis];
-  }
-  converged=true;
-  std::array<double,5> targets{};
-  for(int axis=0;axis<5;++axis) {
-   result.grad_mu[axis]=sums[axis].get();
-   targets[axis]=cfg.tol.budget(axis+1,result.grad_mu[axis]);
-   converged=converged&&errors[axis]<=targets[axis];
-   result.estimated_abs_error_grad[axis]=errors[axis];
-  }
-  bool refinement_needed=false;
-  for(int axis=0;axis<5;++axis)refinement_needed=refinement_needed||refinable_errors[axis]>targets[axis];
-  if(converged||!refinement_needed||primal_nodes+used+88>cfg.max_node_evals||pieces.size()+1>cfg.max_panels)break;
-  std::size_t selected=pieces.size();double worst=0;
-  for(std::size_t index=0;index<pieces.size();++index) {
-   const auto& piece=pieces[index];
-   if(piece.blocked||piece.depth>=cfg.max_depth)continue;
-   double score=0;
-   for(int axis=0;axis<5;++axis) {
-    const double scaled=targets[axis]>0?piece.error[axis]/targets[axis]
-        :(piece.error[axis]>0?std::numeric_limits<double>::infinity():0.0);
-    score=std::max(score,scaled);
-   }
-   if(score>worst){worst=score;selected=index;}
-  }
-  if(selected==pieces.size())break;
-  const auto parent=pieces[selected];
-  auto left=parent.panel,right=parent.panel;
-  const double midpoint=.5*(left.xl+right.xr);
-  if(!(midpoint>left.xl&&midpoint<right.xr)){pieces[selected].blocked=true;continue;}
-  left.xr=midpoint;right.xl=midpoint;
-  Piece first,second;
-  const bool have_first=estimate(left,parent.depth+1,first,false);
-  const bool have_second=estimate(right,parent.depth+1,second,false);
-  if(!have_first||!have_second){pieces[selected].blocked=true;continue;}
-  pieces[selected]=std::move(first);pieces.push_back(std::move(second));
- }
- result.stats.node_evaluations=used;
- result.stop=converged?AdaptiveStop::Converged:AdaptiveStop::BudgetExceeded;
- for(int axis=0;axis<5;++axis) {
-  result.grad_quality[axis]=converged?GradientQuality::ToleranceMet:GradientQuality::FiniteUncertified;
-  result.grad_reason[axis]=converged?GradientReason::ToleranceMet:GradientReason::BudgetExceeded;
- }
- return result;
 }
 }

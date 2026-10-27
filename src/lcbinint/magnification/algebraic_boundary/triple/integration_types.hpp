@@ -9,12 +9,11 @@ struct IntegrationOptions {
     bool automatic_endpoint_tolerance=true;
     bool separate_components=true;
     bool moving_radial_gradients=true;
-    bool gradient_value_mesh=false;
 };
 struct IntegrationDiagnostics {
     double magnification=std::numeric_limits<double>::quiet_NaN(),error_estimate=INFINITY;
-    bool converged=false,support_complete=false,gradient_reliable=false;
-    bool gradient_valid=false,gradient_precision_checked=false;
+    bool converged=false,support_complete=false;
+    bool gradient_valid=false;
     std::string reason="not_started";
     std::size_t value_evaluations=0,parameter_derivative_evaluations=0,quad_samples=0;
     std::size_t continued_radii=0,global_radii=0;

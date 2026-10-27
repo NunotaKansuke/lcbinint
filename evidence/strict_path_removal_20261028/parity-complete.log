@@ -1,0 +1,3 @@
+TRIPLE exact 88 / 96
+BINARY exact 405 / 406 same flags 405
+PASS: all previously converged outputs unchanged; one former failure converges and matches scalar

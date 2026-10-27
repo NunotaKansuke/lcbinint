@@ -1,0 +1,8 @@
+Internal ctest changing into directory: /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/build-triple-native
+Test project /rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/build-triple-native
+    Start 1: unit_core
+1/1 Test #1: unit_core ........................   Passed    1.83 sec
+
+100% tests passed, 0 tests failed out of 1
+
+Total Test time (real) =   1.83 sec

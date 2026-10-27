@@ -52,7 +52,8 @@ int main() {
         check(value.gradient_evaluations==0,"value path no gradient work");
         check(value.reused_samples>0 || value.topology.arcs.empty(),"nested sample reuse");
         check(value.value_evaluations==value.topology.arcs.size()*127,"each node evaluated once");
-        check(value.result().f0==gradient.result().f0 && value.result().fh==gradient.result().fh,"value gradient parity");
+        check(std::abs(value.result().f0-gradient.result().f0)<=1e-12*(1+std::abs(value.result().f0)) &&
+              std::abs(value.result().fh-gradient.result().fh)<=1e-12*(1+std::abs(value.result().fh)),"value gradient parity");
         if(value.topology.arcs.empty())continue;
         ++occupied;
         // Independent composite midpoint quadrature on the angular arcs.

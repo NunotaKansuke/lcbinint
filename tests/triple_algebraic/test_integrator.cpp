@@ -8,5 +8,4 @@ int main(){Geometry p{.1,.15,.15,.2,.08,1.,-.4,.6};
  auto g=integrate<true>(p,.5,{},&plan);
  std::cout<<g.reason<<" A="<<g.magnification<<" err="<<g.error_estimate<<" calls="<<g.value_evaluations<<" refinements="<<g.refinements<<"\n";
  for(int j=0;j<8;++j)std::cout<<g.normalized.df0[j]<<" ";std::cout<<"\n";
- for(double e:g.normalized.gradient_error)std::cout<<e<<" ";std::cout<<"\n";
- return v.converged&&g.gradient_reliable?0:1;}
+ return v.converged&&g.gradient_valid?0:1;}

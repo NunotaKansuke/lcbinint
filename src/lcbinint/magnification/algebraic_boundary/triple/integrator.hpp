@@ -3,17 +3,14 @@
 #include "fused_integrator.hpp"
 #include "radial_panel.hpp"
 #include "patterson_stream.hpp"
-#include "smooth_source.hpp"
 namespace lcbinint::algebraic_boundary::triple {
-template<bool Gradient=false> inline IntegrationResult<Gradient> integrate(
+template<bool Gradient=false> inline IntegrationResult<Gradient> integrate_value(
     const Geometry& p,double limb,IntegrationOptions options={},
     const RadialEventPlan* supplied_plan=nullptr,ValueIntegralTrace* trace=nullptr) {
+    static_assert(!Gradient,"value-only radial frontier");
     IntegrationResult<Gradient> out;p.validate();
     if(trace)trace->relative_tolerance=options.relative_tolerance;
-    if constexpr(Gradient)if(options.gradient_value_mesh)
-        return integrate_patterson<true>(p,limb,options,supplied_plan);
-    if constexpr(!Gradient)options.gradient_value_mesh=false;
-    const bool loose_value=(!Gradient || options.gradient_value_mesh) && options.relative_tolerance>=1e-4;
+    const bool loose_value=options.relative_tolerance>=1e-4;
     // Root inclusion/count proofs are shared with values. Gradient endpoint
     // motion and its local precision repairs remain independently controlled.
     if constexpr(Gradient)out.normalized.df0.fill(std::numeric_limits<double>::quiet_NaN());
@@ -58,19 +55,6 @@ template<bool Gradient=false> inline IntegrationResult<Gradient> integrate(
             begin=end;
         }
         std::sort(events.begin(),events.end(),[](auto a,auto b){return a.radius<b.radius;});
-    }
-    std::size_t smooth_work=0;
-    if constexpr(Gradient)if((limb>0 || options.gradient_value_mesh) && options.relative_tolerance>=1e-4) {
-        const auto disk=smooth_source::integrate(p,limb,options.absolute_tolerance,options.relative_tolerance,options.maximum_refinements,out.support,options.gradient_value_mesh);
-        smooth_work=disk.samples*out.support.component_images.size();out.smooth_source_samples=disk.samples;out.smooth_source_reused_samples=disk.reused_samples;
-        if(disk.converged) {
-            out.magnification=disk.mu;out.error_estimate=disk.error;out.normalized.f0=disk.mu;
-            out.normalized.angular_error=disk.error;out.normalized.df0=disk.gradient;out.normalized.gradient_error=disk.gradient_error;
-            out.converged=out.support_complete=out.gradient_valid=out.smooth_source_used=true;
-            out.gradient_reliable=out.gradient_precision_checked=!options.gradient_value_mesh;
-            out.value_evaluations=out.parameter_derivative_evaluations=smooth_work;out.refinements=disk.refinements;
-            out.reason=options.gradient_value_mesh?"converged_value_mesh":"converged";return out;
-        }
     }
     if(Gradient || trace)for(auto& event:out.support.events) {
         {
@@ -133,7 +117,7 @@ template<bool Gradient=false> inline IntegrationResult<Gradient> integrate(
     // Allocate at most 40% of the local limb scale to the inner estimate.
     // The existing weighted global controller still checks the requested
     // flux tolerance; ceilings above six progressively tighten this budget.
-    const double repair_relative=options.relative_tolerance*(((!Gradient || options.gradient_value_mesh) && loose_value && limb>0 && out.support.resultant_nodes>0)?.4:.05);
+    const double repair_relative=options.relative_tolerance*((loose_value && limb>0 && out.support.resultant_nodes>0)?.4:.05);
     std::vector<Panel> panels;
     auto coefficients=std::make_shared<AngularCoefficientCache>(p);
     coefficients->lens_context=out.support.lens_context;
@@ -145,7 +129,7 @@ template<bool Gradient=false> inline IntegrationResult<Gradient> integrate(
     // Diagnostics do not control refinement. Traverse retained radii only
     // when returning a frontier result, rather than on every iteration.
     auto update_counters=[&]() {
-        out.value_evaluations=out.parameter_derivative_evaluations=smooth_work;out.quad_samples=0;
+        out.value_evaluations=out.parameter_derivative_evaluations=0;out.quad_samples=0;
         out.continued_radii=out.global_radii=0;
         for(const auto& cache:all_shared)for(const auto& entry:cache->radii) {
             if(entry.second->continued_topology_used)++out.continued_radii;else ++out.global_radii;
@@ -280,7 +264,7 @@ template<bool Gradient=false> inline IntegrationResult<Gradient> integrate(
             }
             shared->radii.emplace(radius,std::move(workspace));
         }
-        if(limb==0 && (!Gradient || options.gradient_value_mesh) && options.automatic_endpoint_tolerance &&
+        if(limb==0 && options.automatic_endpoint_tolerance &&
                 options.relative_tolerance>0 && options.angular.endpoint_tolerance==1e-12) {
             double occupied_measure=0;
             for(std::size_t j=1;j<unique.size();++j)if(occupied[j-1])
@@ -299,14 +283,14 @@ template<bool Gradient=false> inline IntegrationResult<Gradient> integrate(
             if(!(hi>lo) || !occupied[j-1])continue;
             // Material endpoint motion preserves the uniform fold weight. LD
             // keeps its existing map until its angular conditioning is resolved.
-            const bool isolated=(!Gradient || (moving && (limb==0 || options.gradient_value_mesh))) && (j==1 || !occupied[j-2]) &&
+            const bool isolated=(!Gradient || (moving && (limb==0 || Gradient))) && (j==1 || !occupied[j-2]) &&
                 (j+1==unique.size() || !occupied[j]);
             Panel panel;panel.lo=lo;panel.hi=hi;panel.shared=shared;panel.angular=options.angular;
             if(isolated){panel.radial_level=2;panel.angular_level=3;}
             // Start the independent value controller with a nested 1/3-point
             // estimate; failed estimates add nodes to the same workspace.
             if(loose_value || (Gradient && moving)){panel.radial_level=2;panel.angular_level=2;}
-            panel.workspace=std::make_unique<RadialPanel<Gradient>>(p,lo,hi,true,true,options.angular,shared,repair_absolute,repair_relative,limb==0,isolated,(loose_value || Gradient)?limb:-1,options.gradient_value_mesh);
+            panel.workspace=std::make_unique<RadialPanel<Gradient>>(p,lo,hi,true,true,options.angular,shared,repair_absolute,repair_relative,limb==0,isolated,(loose_value || Gradient)?limb:-1);
             if constexpr(Gradient)if(moving) {
                 std::array<double,8> slope;
                 for(int n=0;n<8;++n)slope[n]=(cut_motion[j][n]-cut_motion[j-1][n])/(hi-lo);
@@ -332,7 +316,7 @@ template<bool Gradient=false> inline IntegrationResult<Gradient> integrate(
         event_error+=std::acos(-1.)*(event.radius_hi-event.radius_lo)*(event.radius_hi+event.radius_lo)/denominator;
     for(int iteration=0;iteration<=options.maximum_refinements;++iteration) {
         RadiusIntegral<Gradient> sum{};
-        if constexpr(Gradient)sum.normalized_gradient_errors=true;
+
         std::size_t worst=0;double worst_error=-1;
         for(std::size_t j=0;j<panels.size();++j) {
             const auto& value=panels[j].workspace->result();
@@ -341,10 +325,10 @@ template<bool Gradient=false> inline IntegrationResult<Gradient> integrate(
             sum.endpoint_error+=value.endpoint_error;
             if constexpr(Gradient)for(int k=0;k<8;++k) {
                 sum.df0[k]+=value.df0[k];sum.dfh[k]+=value.dfh[k];
-                sum.gradient_error[k]+=value.gradient_error[k];
+
             }
             double error=value.angular_error+value.endpoint_error;
-            if constexpr(Gradient)if(!options.gradient_value_mesh)for(double e:value.gradient_error)error=std::max(error,e);
+
             if(error>worst_error) {
                 worst_error=error;worst=j;
             }
@@ -356,42 +340,16 @@ template<bool Gradient=false> inline IntegrationResult<Gradient> integrate(
         out.error_estimate=out.normalized.angular_error+out.normalized.endpoint_error+event_error;
         out.converged=std::isfinite(out.magnification) && out.magnification>0 &&
             out.error_estimate<=options.absolute_tolerance+options.relative_tolerance*std::abs(out.magnification);
-        bool gradient_ok=out.converged;
-        if constexpr(Gradient)for(int j=0;j<8;++j)
-            gradient_ok=gradient_ok && std::isfinite(out.normalized.df0[j]) &&
-                out.normalized.gradient_error[j]<=options.absolute_tolerance+
-                    options.relative_tolerance*std::abs(out.normalized.df0[j]);
-        out.gradient_reliable=Gradient && gradient_ok && !options.gradient_value_mesh;
-        out.gradient_precision_checked=out.gradient_reliable;
         if constexpr(Gradient)out.gradient_valid=out.converged && std::all_of(out.normalized.df0.begin(),out.normalized.df0.end(),[](double g){return std::isfinite(g);});
-        if(out.converged && (!Gradient || (options.gradient_value_mesh?out.gradient_valid:gradient_ok))) {
-            out.reason=options.gradient_value_mesh?"converged_value_mesh":"converged";update_counters();
+        if(out.converged && (!Gradient || out.gradient_valid)) {
+            out.reason=Gradient?"converged_value_mesh":"converged";update_counters();
             if constexpr(!Gradient)if(trace)for(auto& panel:panels)trace->panels.emplace_back(std::move(panel.workspace));
             return out;
         }
         if(worst_error<0){out.reason="refinement_limit";update_counters();return out;}
         if(iteration==options.maximum_refinements){out.reason="refinement_budget";update_counters();return out;}
-        bool gradient_radial_dominates=false;
-        if constexpr(Gradient)if(!options.gradient_value_mesh) {
-            // Compare error fractions in the observable's requested units,
-            // rather than alternating radial and angular polynomial degrees.
-            worst_error=-1;
-            for(std::size_t i=0;i<panels.size();++i) {
-                const auto& w=*panels[i].workspace;
-                const double vb=(options.absolute_tolerance+options.relative_tolerance*std::abs(out.magnification))*denominator/QuadratureErrorPolicy::difference_safety;
-                double radial=w.radial_error()/std::max(vb,std::numeric_limits<double>::min());
-                double inner=w.inner_error()/std::max(vb,std::numeric_limits<double>::min());
-                for(int n=0;n<8;++n) {
-                    const double budget=(options.absolute_tolerance+options.relative_tolerance*std::abs(out.normalized.df0[n]))*denominator/QuadratureErrorPolicy::difference_safety;
-                    const double scale=std::max(budget,std::numeric_limits<double>::min());
-                    radial=std::max(radial,w.gradient_radial_errors()[n]/scale);
-                    inner=std::max(inner,w.gradient_inner_errors()[n]/scale);
-                }
-                if(radial+inner>worst_error){worst_error=radial+inner;worst=i;gradient_radial_dominates=radial>=inner;}
-            }
-        }
         auto& panel=panels[worst];
-        const bool radial_dominates=(Gradient && !options.gradient_value_mesh)?gradient_radial_dominates:!loose_value?panel.radial_level<=panel.angular_level:
+        const bool radial_dominates=!loose_value?panel.radial_level<=panel.angular_level:
             panel.workspace->radial_error()>=panel.workspace->inner_error();
         if(panel.radial_level>=6 && (limb==0 ||
                 ((Gradient || loose_value)?(radial_dominates || panel.angular_level>=7):panel.angular_level>=7))) {
@@ -404,7 +362,7 @@ template<bool Gradient=false> inline IntegrationResult<Gradient> integrate(
                 child->shared=panel.shared;child->angular=panel.angular;
                 child->radial_level=4;child->angular_level=(Gradient || loose_value)?panel.angular_level:5;
                 child->workspace=std::make_unique<RadialPanel<Gradient>>(p,child->lo,child->hi,
-                    child->left_fold,child->right_fold,panel.angular,panel.shared,repair_absolute,repair_relative,limb==0,false,(loose_value || Gradient)?limb:-1,options.gradient_value_mesh);
+                    child->left_fold,child->right_fold,panel.angular,panel.shared,repair_absolute,repair_relative,limb==0,false,(loose_value || Gradient)?limb:-1);
                 if constexpr(Gradient)if(panel.workspace->has_radial_motion())child->workspace->set_radial_motion(panel.workspace->motion_origin(),
                     panel.workspace->motion_base(),panel.workspace->motion_slope());
                 if(panel.workspace->band_topology())child->workspace->set_certified_band(
@@ -428,4 +386,11 @@ template<bool Gradient=false> inline IntegrationResult<Gradient> integrate(
     }
     update_counters();return out;
 }
+template<bool Gradient=false> inline IntegrationResult<Gradient> integrate(
+    const Geometry& p,double limb,IntegrationOptions options={},
+    const RadialEventPlan* supplied_plan=nullptr,ValueIntegralTrace* trace=nullptr) {
+    if constexpr(Gradient)return integrate_patterson<true>(p,limb,options,supplied_plan);
+    else return integrate_value(p,limb,options,supplied_plan,trace);
+}
+
 } // namespace lcbinint::algebraic_boundary::triple

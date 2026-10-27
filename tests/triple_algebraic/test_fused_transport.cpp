@@ -61,7 +61,7 @@ int main() {
   const double rho=.2,S=std::sqrt(rho*rho+4),lo=(S-rho)*.5,hi=(S+rho)*.5;
   Geometry geometry{0,0,rho,0,0,100,-100,100};
   AngularTopology circle;circle.completed=true;circle.arcs.push_back({0,2*std::acos(-1.)});
-  RadialPanel<true> panel(geometry,lo,hi,true,true,AngularOptions{},nullptr,0,1e-7,false,false,1,true);
+  RadialPanel<true> panel(geometry,lo,hi,true,true,AngularOptions{},nullptr,0,1e-7,false,false,1);
   panel.set_certified_band(circle,lo,hi);std::array<double,8> base{},slope{};base[2]=(rho/S-1)*.5;slope[2]=1/(hi-lo);
   panel.set_radial_motion(lo,base,slope);
   if(!panel.refine(5,5))throw std::runtime_error("fused point-lens annulus");

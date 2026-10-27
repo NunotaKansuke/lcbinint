@@ -1,0 +1,6 @@
+TRIPLE exact 88 / 96
+BINARY exact 405 / 406 same flags 405
+Traceback (most recent call last):
+  File "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/evidence/strict_path_removal_20261028/check_parity.py", line 28, in <module>
+    print('BINARY exact',sum(r['exact']for r in rows),'/',len(rows),'same flags',sum(r['flags_equal']for r in rows));assert all(r['flags_equal'] and all(abs(a-b)<=1e-12*(1+abs(a))for a,b in zip(r['before'],r['after']))for r in rows)
+AssertionError

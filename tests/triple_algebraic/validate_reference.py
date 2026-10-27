@@ -51,7 +51,7 @@ for limb,gradient in [(0.,False),(.5,False),(.5,True)]:
  row['reference_values']=refs;row['reference_stability']=abs(refs[1]-refs[0]);row['absolute_difference']=abs(row['mu']-refs[1]);save()
  print(args.case,limb,gradient,row['stop'],row['mu'],refs,row['absolute_difference'],flush=True)
  assert row['value_converged'] and row['support_complete'],row
- assert not gradient or row['gradient_reliable'],row
+ assert not gradient or row['gradient_valid'],row
  allowed=row['error_estimate']+max(2e-6,4*row['reference_stability'])
  row['comparison_status']='PASS' if row['absolute_difference']<=allowed else 'INCONCLUSIVE_VBM_DARK'
  save()

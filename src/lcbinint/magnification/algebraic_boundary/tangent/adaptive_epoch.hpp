@@ -911,7 +911,7 @@ inline AdaptiveSample mapped_full_circle(
     const double scale=jac/D;
     const double f0=R*kTwoPi;
     double fh=0,efh=0;
-    std::array<double,5> dfh{},edfh{};
+    std::array<double,5> dfh{};
     if(u!=0.0) {
         std::array<FullCircleNode,256> nodes{};
         FullCircleLevel l32{},l64{},l128{},l256{};
@@ -920,17 +920,6 @@ inline AdaptiveSample mapped_full_circle(
             return reject(AdaptiveSampleRejectReason::InnerPhiNonpositive);
         const double atol=adaptive_cfg?adaptive_cfg->tol.mu_atol:1e-8;
         const double rtol=adaptive_cfg?adaptive_cfg->tol.mu_rtol:1e-4;
-        const bool strict=adaptive_cfg &&
-            adaptive_cfg->effective_gradient_policy()==GradientPolicy::Strict;
-        const auto abs_map=[&](const std::array<double,5>& v) {
-            std::array<double,5> e{};
-            for(int k=0;k<5;++k) {
-                std::array<double,5> unit{};unit[k]=v[k];
-                const auto col=internal_to_user_jac(unit,p);
-                for(int j=0;j<5;++j)e[j]+=std::fabs(col[j]);
-            }
-            return e;
-        };
         const auto level_meets=[&](const FullCircleLevel& low,
                                    const FullCircleLevel& high) {
             const double high_fh=R*high.integral;
@@ -939,22 +928,6 @@ inline AdaptiveSample mapped_full_circle(
             const double value_error=std::fabs(scale*u)*R*
                                      std::fabs(high.integral-low.integral);
             if(!(value_error<=0.25*target))return false;
-            if(!strict||!with_jac)return true;
-            for(int j=0;j<5;++j) {
-                std::array<double,5> raw{},raw_error{};
-                raw[j]=jac*R*high.derivative[j];
-                raw_error[j]=std::fabs(jac*R)*
-                    std::fabs(high.derivative[j]-low.derivative[j]);
-                const auto user=internal_to_user_jac(raw,p);
-                const auto user_error=abs_map(raw_error);
-                double gradient= u*user[j]/D;
-                if(j==2)gradient-=2.0*estimate/p.rho;
-                double gradient_error=std::fabs(u/D)*user_error[j];
-                gradient_error+=2.0*value_error/p.rho*(j==2);
-                const double gt=std::max(adaptive_cfg->tol.grad_atol[j],
-                    adaptive_cfg->tol.grad_rtol[j]*std::fabs(gradient));
-                if(!(gradient_error<=0.25*gt))return false;
-            }
             return true;
         };
         const FullCircleLevel*low=&l32,*high=&l64;
@@ -972,8 +945,7 @@ inline AdaptiveSample mapped_full_circle(
         efh=R*std::fabs(high->integral-low->integral);
         if(with_jac)for(int j=0;j<5;++j) {
             dfh[j]=jac*R*high->derivative[j];
-            edfh[j]=std::fabs(jac*R)*
-                std::fabs(high->derivative[j]-low->derivative[j]);
+
         }
     }
     out.value[0]=scale*((1.0-u)*f0+u*fh);
@@ -989,32 +961,18 @@ inline AdaptiveSample mapped_full_circle(
         }
         const auto d0=internal_to_user_jac(df0,p);
         const auto dh=internal_to_user_jac(dfh,p);
-        const auto abs_map=[&](const std::array<double,5>& v) {
-            std::array<double,5> e{};
-            for(int k=0;k<5;++k) {
-                std::array<double,5> unit{};unit[k]=v[k];
-                const auto col=internal_to_user_jac(unit,p);
-                for(int j=0;j<5;++j)e[j]+=std::fabs(col[j]);
-            }
-            return e;
-        };
-        const auto eh=abs_map(edfh);
         for(int j=0;j<5;++j) {
             out.value[j+1]=((1-u)*d0[j]+u*dh[j])/D;
-            out.inner[j+1]=std::fabs(u/D)*eh[j];
-            out.geometry[j+1]=0.0;
-            out.roundoff[j+1]=eps/std::fabs(D)*std::fabs(u*dh[j]);
+
         }
         out.value[3]-=2.0*out.value[0]/p.rho;
-        out.inner[3]+=2.0*out.inner[0]/p.rho;
-        out.roundoff[3]+=2.0*(out.roundoff[0]+eps*std::fabs(out.value[0]))/p.rho;
+
     }
-    for(int j=0;j<(with_jac?6:1);++j) {
-        if(!std::isfinite(out.value[j])||!std::isfinite(out.inner[j])||
-           !std::isfinite(out.geometry[j])||!std::isfinite(out.roundoff[j])||
-           out.inner[j]<0.0||out.geometry[j]<0.0||out.roundoff[j]<0.0)
-            return reject(AdaptiveSampleRejectReason::Nonfinite);
-    }
+    if(!std::isfinite(out.inner[0]) || !std::isfinite(out.geometry[0]) ||
+       !std::isfinite(out.roundoff[0]) || out.inner[0]<0 || out.geometry[0]<0 || out.roundoff[0]<0)
+        return reject(AdaptiveSampleRejectReason::Nonfinite);
+    for(int j=0;j<(with_jac?6:1);++j)if(!std::isfinite(out.value[j]))
+        return reject(AdaptiveSampleRejectReason::Nonfinite);
     return out;
 }
 
@@ -1162,16 +1120,7 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
         adaptive_cfg->same_node_hermite_shadow && !with_jac && u==0.0;
     const bool angular_research_requested=!PlainValue && adaptive_cfg &&
         adaptive_cfg->angular_adaptive && u!=0.0;
-    // Gradient-adaptive mode starts from the incumbent 8/16 K-rule result.
-    // It only enters the higher-order research path when the scheduler asks
-    // to upgrade this exact cached sample.  This keeps the common initial
-    // sample cost unchanged while still allowing a same-R angular correction.
-    const bool angular_deferred_requested=!PlainValue && adaptive_cfg &&
-        adaptive_cfg->gradient_adaptive &&
-        adaptive_cfg->effective_gradient_policy()!=GradientPolicy::None &&
-        u!=0.0;
-    const bool angular_mode_requested=angular_research_requested ||
-        angular_deferred_requested;
+    const bool angular_mode_requested=angular_research_requested;
     const bool angular_nested_requested=angular_mode_requested &&
         adaptive_cfg->angular_nested;
     bool nested_angular_attempted=false;
@@ -1217,8 +1166,7 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
        seed->R==R && seed->jac==jac) {
         const int next=angular_nested_requested
             ? adaptive_detail::next_nested_angular_order(seed->angular_order)
-            : (angular_deferred_requested && seed->angular_order==16
-                ? 32 : adaptive_detail::next_angular_order(seed->angular_order));
+            : adaptive_detail::next_angular_order(seed->angular_order);
         const int max_order=angular_nested_requested
             ? adaptive_cfg->angular_nested_max_order
             : adaptive_cfg->angular_max_order;
@@ -1226,15 +1174,7 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
            next<=max_order) {
             const double D=kPi*p.rho*p.rho*(1.0-u/3.0);
             const double scale=jac/D;
-            auto abs_map=[&](const std::array<double,5>& v) {
-                std::array<double,5> e{};
-                for(int k=0;k<5;++k) {
-                    std::array<double,5> unit{};unit[k]=v[k];
-                    const auto col=internal_to_user_jac(unit,p);
-                    for(int j=0;j<5;++j)e[j]+=std::fabs(col[j]);
-                }
-                return e;
-            };
+
             bool ok=std::isfinite(D)&&std::isfinite(scale)&&
                     std::isfinite(seed->angular_m)&&
                     std::isfinite(seed->angular_v)&&
@@ -1296,28 +1236,22 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
                     std::fabs(high0-seed->angular_data().result[0]);
                 fast.roundoff[0]+=eps*std::fabs(delta_value);
                 if(with_jac) {
-                    std::array<double,5> delta_internal{},mapped_abs{};
+                    std::array<double,5> delta_internal{};
                     for(int j=0;j<5;++j)
                         delta_internal[j]=high_derivative[j]*jac-
                             seed->angular_data().result[j+1];
-                    mapped_abs=abs_map(delta_internal);
                     const auto mapped=internal_to_user_jac(delta_internal,p);
                     for(int j=0;j<5;++j) {
                         fast.value[j+1]+=u* mapped[j]/D;
-                        fast.inner[j+1]=std::fabs(u/D)*mapped_abs[j];
-                        fast.roundoff[j+1]+=eps*std::fabs(u/D)*mapped_abs[j];
+
                     }
                     // The rho derivative contains the normalization term
                     // -2*value/rho.  Apply the same delta to that term and
-                    // keep its cancellation error in the local ledger.
+                    // transport the same value contribution to the tangent.
                     fast.value[3]-=2.0*delta_value/p.rho;
-                    fast.inner[3]+=2.0*fast.inner[0]/p.rho;
-                    fast.roundoff[3]+=2.0*(fast.roundoff[0]+
-                        eps*std::fabs(delta_value))/p.rho;
+
                     for(int j=0;j<5;++j)
-                        ok=ok&&std::isfinite(fast.value[j+1])&&
-                           std::isfinite(fast.inner[j+1])&&
-                           std::isfinite(fast.roundoff[j+1]);
+                        ok=ok&&std::isfinite(fast.value[j+1]);
                 }
                 ok=ok&&std::isfinite(fast.value[0])&&
                     std::isfinite(fast.inner[0])&&
@@ -1330,9 +1264,6 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
                         seed->angular_data().result[0]);
                     if(with_jac)for(int j=0;j<5;++j) {
                         fast.angular_data().result[j+1]=high_derivative[j]*jac;
-                        fast.angular_data().error[j+1]=std::fabs(
-                            fast.angular_data().result[j+1]-
-                            seed->angular_data().result[j+1]);
                     }
                     fast.angular_order=next;
                     fast.angular_work=angular_nested_requested
@@ -1530,7 +1461,7 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
         radial_jet_elapsed+=adaptive_detail::ms(radial_jet_start);
 #endif
     }
-    std::array<double,5> df0{},dfh{},edf0{},edfh{};
+    std::array<double,5> df0{},dfh{};
     const auto pc=u!=0?arc_pc:QuarticCoeffs{};
     QuarticParamJac dpc{};if(with_jac) {
         dpc=boundary_quartic_dp(R,pf);
@@ -1544,15 +1475,7 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
     // one arc from forcing a second reconstruction of earlier arcs.  The
     // radial sample, root pair, endpoint data and the aggregate from the
     // previous order are still reused for the common one-arc case.
-    const bool seed_angular_upgrade=angular_deferred_requested && seed &&
-        seed->angular_valid && seed->angular_state_valid && seed->R==R &&
-        seed->jac==jac &&
-        ((!angular_nested_requested && !seed->angular_nested) ||
-         (angular_nested_requested && seed->angular_nested &&
-          seed->angular_nested_cache));
-    bool use_angular_research=!physical_topology && (angular_research_requested ||
-                               seed_angular_upgrade) &&
-                              arcs.arcs.size()==1;
+    bool use_angular_research=!physical_topology && angular_research_requested && arcs.arcs.size()==1;
     const bool use_nested_angular=use_angular_research &&
                                   adaptive_cfg->angular_nested;
     const bool angular_upgrade=use_angular_research && seed &&
@@ -1565,8 +1488,7 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
         ? (angular_upgrade
             ? (use_nested_angular
                 ? adaptive_detail::next_nested_angular_order(seed->angular_order)
-                : (angular_deferred_requested && seed->angular_order==16
-                    ? 32 : adaptive_detail::next_angular_order(seed->angular_order)))
+                : adaptive_detail::next_angular_order(seed->angular_order))
             : (use_nested_angular
                 ? adaptive_cfg->angular_nested_initial_order
                 : adaptive_cfg->angular_initial_order))
@@ -1705,7 +1627,7 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
             df0[j]+=R*(dtl[j]-dte[j]);
             if(const auto* motion=fused_gradient::active_motion)
                 df0[j]+=jac*motion->radius[j]*width;
-            edf0[j]+=R*(std::fabs(dte[j])+std::fabs(dtl[j]))*((de+dl)/width+eps);
+
         }
         if(u==0)continue;
         if(use_angular_research) {
@@ -1877,11 +1799,11 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
                     efh=std::fabs(angular_high[0]-angular_low[0]);
                     if(with_jac)for(int j=0;j<5;++j) {
                         dfh[j]=angular_high[j+1];
-                        edfh[j]=std::fabs(angular_high[j+1]-angular_low[j+1]);
+
                     }
                 } else {
                     efh=kAdaptiveUnresolvedError;
-                    edfh.fill(kAdaptiveUnresolvedError);
+
                     if(with_jac)for(int j=0;j<5;++j)
                         dfh[j]=angular_high[j+1];
                 }
@@ -1922,44 +1844,21 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
                 auto lo=v_times_K_jac(ap.m,ap.v,ap.dm,ap.dv,R,pf,cp.p,dp.dp,reciprocal,16);
                 if(hi.ok&&dhi.ok&&lo.ok){
                     fh+=hi.vK;efh+=std::fabs(hi.vK-lo.vK);
-                    for(int j=0;j<5;++j){dfh[j]+=jac*dhi.dvK[j];edfh[j]+=jac*std::fabs(dhi.dvK[j]-hi.dvK[j]);}
+                    for(int j=0;j<5;++j){dfh[j]+=jac*dhi.dvK[j];}
                     success=true;
                 }
 #else
                 const double vg=adaptive_cfg?0.05*adaptive_cfg->tol.mu_rtol:kAngularKRelTol;
-                double gg=vg;
-                if(adaptive_cfg)gg=0.05*(*std::min_element(adaptive_cfg->tol.grad_rtol.begin(),adaptive_cfg->tol.grad_rtol.end()));
-                if(adaptive_cfg && adaptive_cfg->fused_value_mesh)gg=std::numeric_limits<double>::infinity();
-                auto coupled=fused_gradient::angular_pair(ap.m,ap.v,ap.dm,ap.dv,R,pf,cp.p,dp.dp,reciprocal,vg,gg);
+                auto coupled=fused_gradient::angular_pair(ap.m,ap.v,ap.dm,ap.dv,R,pf,cp.p,dp.dp,reciprocal,vg);
                 auto hi=coupled.high,lo=coupled.low;
                 if(coupled.ok){
                     if(lo.ok){
                         fh+=hi.vK;efh+=2*std::fabs(hi.vK-lo.vK);
                         for(int j=0;j<5;++j){
                             dfh[j]+=jac*hi.dvK[j];
-                            edfh[j]+=2*jac*std::fabs(hi.dvK[j]-lo.dvK[j]);
+
                         }
-                        // Deferred gradient mode exposes the incumbent
-                        // 8/16 state so a later same-R angular upgrade can
-                        // reuse the already computed geometry and K-rule
-                        // aggregate.  No extra kernel work is introduced on
-                        // this initial path.
-                        if(angular_deferred_requested && arcs.arcs.size()==1) {
-                            angular_path_used=true;
-                            angular_order=16;
-                            angular_high[0]=hi.vK;
-                            angular_low[0]=lo.vK;
-                            for(int j=0;j<5;++j) {
-                                angular_high[j+1]=jac*hi.dvK[j];
-                                angular_low[j+1]=jac*lo.dvK[j];
-                            }
-                            angular_m=ap.m;angular_v=ap.v;
-                            angular_dm=ap.dm;angular_dv=ap.dv;
-                            angular_pc=cp.p;angular_dpc=dp.dp;
-                            angular_reciprocal=reciprocal;
-                            angular_state_valid=true;
-                            angular_work+=24;
-                        }
+
                         success=true;
                     }}
 #endif
@@ -2029,8 +1928,7 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
                 for(int j=0;j<5;++j)dfh[j]+=jac*motion->radius[j]*half*vh;
             if(with_jac)for(int j=0;j<5;++j){
                 dfh[j]+=R*(half*dh[j]+.5*(dtl[j]-dte[j])*vh);
-                edfh[j]+=R*(half*std::fabs(dh[j]-dd[j])+
-                    .5*std::fabs(dtl[j]-dte[j])*std::fabs(vh-vl));
+
             }
         }
     }
@@ -2040,8 +1938,7 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
     if(angular_path_used) {
         out.angular_data().result=angular_high;
         if(angular_error_available) {
-            for(int j=0;j<6;++j)
-                out.angular_data().error[j]=std::fabs(angular_high[j]-angular_low[j]);
+            out.angular_data().error[0]=std::fabs(angular_high[0]-angular_low[0]);
         } else {
             out.angular_data().error.fill(kAdaptiveUnresolvedError);
         }
@@ -2107,20 +2004,8 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
             out.uniform_radial_grad[2]-=2*out.uniform_radial_value/p.rho;
             out.ld_radial_grad[2]-=2*out.ld_radial_value/p.rho;
         }
-        if(adaptive_cfg && adaptive_cfg->fused_value_mesh) {
-            for(int j=0;j<5;++j)out.value[j+1]=((1-u)*d0[j]+u*dh[j])/D;
-            out.value[3]-=2*out.value[0]/p.rho;
-            return out;
-        }
-        // Propagate absolute errors through the same linear map without cancellation.
-        auto abs_map=[&](const std::array<double,5>& v){std::array<double,5> e{};
-            for(int k=0;k<5;++k){std::array<double,5> unit{};unit[k]=1;auto col=internal_to_user_jac(unit,p);for(int j=0;j<5;++j)e[j]+=std::fabs(col[j])*v[k];}return e;};
-        auto e0=abs_map(edf0),eh=abs_map(edfh);
-        for(int j=0;j<5;++j){out.value[j+1]=((1-u)*d0[j]+u*dh[j])/D;out.inner[j+1]=angular_error_available?std::fabs(u/D)*eh[j]:kAdaptiveUnresolvedError;out.geometry[j+1]=std::fabs((1-u)/D)*e0[j];
-            out.roundoff[j+1]=eps/std::fabs(D)*(std::fabs((1-u)*d0[j])+std::fabs(u*dh[j]));}
+        for(int j=0;j<5;++j)out.value[j+1]=((1-u)*d0[j]+u*dh[j])/D;
         out.value[3]-=2*out.value[0]/p.rho;
-        if(angular_error_available)out.inner[3]+=2*out.inner[0]/p.rho;
-        out.geometry[3]+=2*out.geometry[0]/p.rho;out.roundoff[3]+=2*(out.roundoff[0]+eps*std::fabs(out.value[0]))/p.rho;
     }
     return out;
 }
@@ -2175,8 +2060,8 @@ inline AdaptiveResult flux_adaptive_integrate(const LensParams& p,double u,
            event_direct_qf_failures=0;
     std::vector<AdaptiveEventDiagnostic> event_diagnostics;
     double setup_event_ms=0;
-    double event_budget=cfg.tol.budget(0,1.0);
-    if(policy==GradientPolicy::Strict)for(int j=1;j<6;++j)event_budget=std::min(event_budget,cfg.tol.budget(j,1.0));
+    double event_budget=cfg.tol.budget(1.0);
+
     auto uncertainty=[&](double R){
         auto event_call_start=adaptive_detail::Clock::now();
         for(const auto& e:event_errors)if(e.first==R){setup_event_ms+=adaptive_detail::ms(event_call_start);return e.second;}
@@ -2343,7 +2228,7 @@ inline AdaptiveResult flux_adaptive_integrate(const LensParams& p,double u,
     // identical numerical kernels while compiling away derivative/upgrade
     // machinery and, for uniform sources, all limb-darkening work.
     const bool plain_value_lane=!with_jacobian && !cfg.angular_adaptive &&
-        !cfg.gradient_adaptive && !cfg.same_node_hermite_shadow && !active_atlas_samples;
+        !cfg.same_node_hermite_shadow && !active_atlas_samples;
     // Event storage is complete and immutable during this integration call.
     // Index its two boundary states once per span instead of searching the
     // event cache again at every node that may need a fold initializer.
@@ -2388,7 +2273,7 @@ inline AdaptiveResult flux_adaptive_integrate(const LensParams& p,double u,
             (!cfg.fused_value_mesh||fused_gradient::precise_tangent_replay)&&
             !fused_gradient::defer_sample_tangents;
         const bool node_plain_value_lane=!node_with_jacobian && !cfg.angular_adaptive &&
-            !cfg.gradient_adaptive && !cfg.same_node_hermite_shadow && !active_atlas_samples;
+            !cfg.same_node_hermite_shadow && !active_atlas_samples;
         const bool thin_tangent=node_with_jacobian&&fused_gradient::com_tangent_frame(p.a,p.rho);
         const fused_gradient::ComTangentScope node_coordinates(fused_gradient::com_tangent_replay||thin_tangent);
         const fused_gradient::PreciseTangentScope node_precision(thin_tangent);
@@ -2571,7 +2456,7 @@ inline AdaptiveResult flux_adaptive_integrate(const LensParams& p,double u,
             AdaptiveConfig retry_cfg=cfg;
             retry_cfg.tangent_replay=false;
             retry_cfg.fused_value_mesh=false;
-            retry_cfg.gradient_adaptive=false;
+
             retry_cfg.max_node_evals=used<cfg.max_node_evals?cfg.max_node_evals-used:0;
             AdaptiveWorkspace retry_workspace;
             tangent=flux_adaptive_integrate(p,u,topo,retry_cfg,retry_workspace);
@@ -2604,10 +2489,7 @@ inline AdaptiveResult flux_adaptive_integrate(const LensParams& p,double u,
             result.mu=tangent.mu;
             result.estimated_abs_error_mu=std::numeric_limits<double>::infinity();
         }
-        for(int axis=0;axis<5;++axis)
-            result.grad_converged[axis]=tangent.grad_quality[axis]==GradientQuality::ToleranceMet;
         result.gradient_stop_reason=tangent.stop;
-        result.estimated_abs_error_grad=tangent.estimated_abs_error_grad;
         result.stats.node_evaluations+=tangent.stats.node_evaluations;
     }
     result.stats.setup_ms=setup_total_ms;

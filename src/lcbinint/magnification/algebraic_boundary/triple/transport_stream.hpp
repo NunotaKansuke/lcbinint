@@ -17,7 +17,7 @@ template<bool Gradient> class TransportPanel {
  Geometry p_;FoldRadialMap map_;AngularOptions options_;std::shared_ptr<SharedRadiusCache<Gradient>> shared_;
  double relative_,absolute_,uniform_weight_=1,limb_weight_=0,origin_=0,safe_lo_=0,safe_hi_=0;
  bool uniform_,weighted_,moving_=false,charts_checked_=false;
- std::array<double,8> base_{},slope_{},zero_errors_{};
+ std::array<double,8> base_{},slope_{};
  std::optional<AngularTopology> band_;std::vector<RadialEvent> events_;
  RadiusIntegral<true> accepted_;int level_=0,angular_level_=0;double radial_error_=INFINITY,inner_error_=0;
  struct Cell {int kind=0;FoldRadialMap coordinates;double center=0,scale=1;};
@@ -96,7 +96,7 @@ template<bool Gradient> class TransportPanel {
 public:
  static constexpr int split_level=6;
  std::string reason="stream_not_started";
- TransportPanel(const Geometry&p,double a,double b,bool left,bool right,AngularOptions options,std::shared_ptr<SharedRadiusCache<Gradient>> shared,double absolute,double relative,bool uniform,bool weighted,double limb,bool):p_(p),map_{a,b,left,right},options_(options),shared_(std::move(shared)),relative_(relative),absolute_(absolute),uniform_weight_(1-limb),limb_weight_(limb),safe_lo_(a),safe_hi_(b),uniform_(uniform),weighted_(weighted){zero_errors_.fill(INFINITY);}
+ TransportPanel(const Geometry&p,double a,double b,bool left,bool right,AngularOptions options,std::shared_ptr<SharedRadiusCache<Gradient>> shared,double absolute,double relative,bool uniform,bool weighted,double limb):p_(p),map_{a,b,left,right},options_(options),shared_(std::move(shared)),relative_(relative),absolute_(absolute),uniform_weight_(1-limb),limb_weight_(limb),safe_lo_(a),safe_hi_(b),uniform_(uniform),weighted_(weighted){}
  void set_events(const std::vector<RadialEvent>& e){events_=e;}
  void inherit_stream(const TransportPanel& parent){context_=parent.context_;owns_context_=false;events_=parent.events_;}
  void set_radial_motion(double origin,const std::array<double,8>& base,const std::array<double,8>& slope){origin_=origin;base_=base;slope_=slope;moving_=true;}
@@ -104,7 +104,6 @@ public:
  void set_certified_band(const AngularTopology& t,double lo,double hi){band_=t;safe_lo_=lo;safe_hi_=hi;}
  const auto& band_topology()const{return band_;}double safe_lo()const{return safe_lo_;}double safe_hi()const{return safe_hi_;}
  const auto& result()const{return accepted_;}double radial_error()const{return radial_error_;}double inner_error()const{return inner_error_;}
- const auto& gradient_radial_errors()const{return zero_errors_;}const auto& gradient_inner_errors()const{return zero_errors_;}
  std::size_t geometry_promotions()const{return 0;}
  const ShapeGradientResult& work()const{static const ShapeGradientResult empty{};return owns_context_?context_->work:empty;}
  bool refine(int requested,int angular){
@@ -136,14 +135,14 @@ public:
    radial_error_=std::max(radial_error_,(QuadratureErrorPolicy::weighted_detail_floor/QuadratureErrorPolicy::difference_safety)*detail);
    // Never accept a one/three-node coincidence as a geometry certificate.
    if(lev<3)radial_error_=INFINITY;
-   inner_error_=inner;next.angular_error=radial_error_+inner;next.gradient_error.fill(INFINITY);next.normalized_gradient_errors=true;
+   inner_error_=inner;next.angular_error=radial_error_+inner;
    previous=next;have=true;if(lev==2&&complex_cells()){}level_=lev;
   }
   accepted_=previous;angular_level_=angular;reason="stream_completed";return true;
  }
 };
 template<bool Gradient=true> IntegrationResult<Gradient> integrate_transport(const Geometry& p,double limb,IntegrationOptions options={},const RadialEventPlan* plan=nullptr){
- static_assert(Gradient,"dedicated derivative stream");options.gradient_value_mesh=true;
+ static_assert(Gradient,"dedicated derivative stream");
  return integrate_coupled<Gradient,TransportPanel>(p,limb,options,plan);
 }
 }

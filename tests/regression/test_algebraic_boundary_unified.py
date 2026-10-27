@@ -527,7 +527,7 @@ def test_scalar_helper_uses_the_shared_controller():
     direct = model([0.], p, with_gradient=True)
     value = lightcurve_value(model, 0., p, with_gradient=True)
     np.testing.assert_array_equal(value["gradients"], direct.gradients[0])
-    assert value["gradient_precision_checked"] is False
+    assert "gradient_precision_checked" not in value
     assert np.isfinite(lightcurve_magnification(model, 0., p))
 
 

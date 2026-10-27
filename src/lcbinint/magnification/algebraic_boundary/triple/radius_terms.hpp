@@ -28,10 +28,9 @@ template<> struct RadiusIntegral<false> {
 };
 template<> struct RadiusIntegral<true> {
     double f0=0,fh=0,angular_error=0,endpoint_error=0;
-    std::array<double,8> df0{},dfh{},gradient_error{};
+    std::array<double,8> df0{},dfh{};
     double radial_f0=0,radial_fh=0,radial_angular_error=0;
     std::array<double,8> radial_df0{},radial_dfh{};
-    bool normalized_gradient_errors=false;
 };
 namespace radius_value_detail {
 // These magnitudes enter roundoff bounds only. Reuse the squared
@@ -61,7 +60,7 @@ template<bool Gradient=false> class RadiusWorkspace:private fused_detail::Storag
         if constexpr(Gradient)for(int j=0;j<8;++j)jet.dp[j]+=jet.dR*local_precision::Q(radius_motion_[j]);
         return jet;
     }
-    bool initialized_=false,moving_=false,gradient_value_mesh_=false;
+    bool initialized_=false,moving_=false;
     bool uniform_source_=false;
     double sample_relative_tolerance_=0;
     double fixed_radial_=0,primary_deflection_=0,primary_shear_=0,source_norm_=0;
@@ -107,9 +106,7 @@ public:
     bool continued_topology_used=false;
     std::string reason="not_started";
     std::size_t value_evaluations=0,gradient_evaluations=0,reused_samples=0,quad_samples=0;
-    void set_gradient_value_mesh(bool enabled) {
-        if constexpr(Gradient){if(level_>0 && enabled!=gradient_value_mesh_)throw std::invalid_argument("cannot change retained gradient mesh policy");gradient_value_mesh_=enabled;}
-    }
+
     void set_radius_motion(const std::array<double,8>& motion,const std::array<double,8>& slope={}) {
         if constexpr(Gradient) {
             if(level_>0 && (radius_motion_!=motion || jacobian_motion_!=slope))
@@ -219,7 +216,7 @@ public:
         return true;
     }
     bool repair(double tolerance,int budget=1024) {
-        if constexpr(Gradient)if(gradient_value_mesh_) {
+        if constexpr(Gradient) {
             while(level_<10 && std::max(accepted_.angular_error,this->spatial_scale*accepted_.radial_angular_error)>tolerance)if(!refine(level_+1))return false;
             if(std::max(accepted_.angular_error,this->spatial_scale*accepted_.radial_angular_error)<=tolerance)return true;
             reason="fused_angular_budget";return false;
@@ -289,14 +286,13 @@ public:
             RadiusIntegral<Gradient> coarse{},fine{};
             if(!cell_integral(cell,cell.level-1,coarse) || !cell_integral(cell,cell.level,fine))return false;
             fine.angular_error=std::abs(fine.fh-coarse.fh);
-            if constexpr(Gradient)if(!gradient_value_mesh_)for(int j=0;j<8;++j)fine.gradient_error[j]=std::abs((fine.dfh[j]-coarse.dfh[j])+(jacobian_motion_[j]-(j==2?2/geometry_.rho:0))*(fine.fh-coarse.fh));
-            if constexpr(Gradient)fine.normalized_gradient_errors=true;
+
             cell.result=fine;return true;
         };
         for(auto& cell:repair_cells_)if(!update(cell))return false;
         for(int iteration=0;iteration<budget;++iteration) {
             RadiusIntegral<Gradient> total{};total.f0=accepted_.f0;
-            if constexpr(Gradient)total.normalized_gradient_errors=true;
+
             total.endpoint_error=accepted_.endpoint_error;
             if constexpr(Gradient)for(std::size_t a=0;a<topology.arcs.size();++a)for(int j=0;j<8;++j)
                 total.df0[j]+=radius_motion_[j]*(topology.arcs[a].hi-topology.arcs[a].lo)+(full?0:radius_*double(precise_arcs_[a].dhi[j]-precise_arcs_[a].dlo[j]));
@@ -305,16 +301,13 @@ public:
                 const auto& value=repair_cells_[a].result;
                 total.fh+=value.fh;total.angular_error+=value.angular_error;
                 double score=value.angular_error;
-                if constexpr(Gradient)for(int j=0;j<8;++j) {
-                    total.dfh[j]+=value.dfh[j];total.gradient_error[j]+=value.gradient_error[j];
-                    if(!gradient_value_mesh_)score=std::max(score,value.gradient_error[j]);
-                }
+                if constexpr(Gradient)for(int j=0;j<8;++j)total.dfh[j]+=value.dfh[j];
                 if(score>largest){largest=score;worst=a;}
             }
             if constexpr(Gradient)if(geometry_.Y==0 && geometry_.by==0)
-                for(int j:{1,7}){total.df0[j]=0;total.dfh[j]=0;total.gradient_error[j]=0;}
+                for(int j:{1,7}){total.df0[j]=0;total.dfh[j]=0;}
             double error=total.angular_error;
-            if constexpr(Gradient)if(!gradient_value_mesh_)for(double e:total.gradient_error)error=std::max(error,e);
+
             if(error<tolerance){accepted_=total;repaired_=true;reason="angular_repaired";return true;}
             auto& cell=repair_cells_[worst];
             if(cell.level<5) {++cell.level;if(!update(cell))return false;}
@@ -340,16 +333,16 @@ public:
     // Higher ceilings eventually tighten it to avoid a fixed error floor.
     bool refine_local(int ceiling,double relative,double absolute) {
         if(ceiling<2 || ceiling>10){reason="invalid_level";return false;}
-        if constexpr(Gradient)if(!gradient_value_mesh_)return refine(ceiling);
+
         if(repaired_)return true;
         if(uniform_source_ || !(relative>0))return refine(ceiling);
         const double factor=std::ldexp(1.,std::min(0,6-ceiling));
-        if constexpr(Gradient)if(gradient_value_mesh_)this->angular_relative=factor*relative;
+        if constexpr(Gradient)this->angular_relative=factor*relative;
         if(!refine(2))return false;
         while(level_<ceiling) {
             const double budget=factor*(absolute+relative*std::abs(accepted_.fh));
             double angular_error=accepted_.angular_error;
-            if constexpr(Gradient)if(gradient_value_mesh_)angular_error=std::max(angular_error,this->spatial_scale*accepted_.radial_angular_error);
+            if constexpr(Gradient)angular_error=std::max(angular_error,this->spatial_scale*accepted_.radial_angular_error);
             if(std::isfinite(angular_error) && angular_error<=budget)break;
             if(!refine(level_+1))return false;
         }
@@ -359,7 +352,7 @@ public:
         if(!initialized_){reason="topology_incomplete";return false;}
         if(requested_level<2 || requested_level>10) {reason="invalid_level";return false;}
         if(repaired_ || requested_level<=level_)return true;
-        if constexpr(Gradient)if(gradient_value_mesh_) {
+        if constexpr(Gradient) {
             if(!this->fused) {
                 this->fused=std::make_unique<fused_detail::Radius>(radius_,geometry_,radius_motion_,jacobian_motion_,this->coefficient_frames);
                 if(!this->fused->initialize(topology)){reason="fused_endpoint_unresolved";return false;}
@@ -375,7 +368,7 @@ public:
                 next.endpoint_error=radius_*topology.angular_measure_error+value.error;
                 next.angular_error=uniform_source_?0:value.angular_error;
                 next.radial_angular_error=uniform_source_?0:value.radial_angular_error;
-                next.gradient_error.fill(INFINITY);next.normalized_gradient_errors=true;
+
                 if(geometry_.Y==0 && geometry_.by==0)for(int j:{1,7}){next.df0[j]=next.dfh[j]=next.radial_df0[j]=next.radial_dfh[j]=0;}
                 accepted_=next;level_=lev;
             }
@@ -519,11 +512,7 @@ public:
                 precision_restart_=false;accepted_={};level_=0;lev=1;continue;
             }
             next.angular_error=uniform_source_?0:level_?std::abs(next.fh-accepted_.fh):INFINITY;
-            if constexpr(Gradient)if(!gradient_value_mesh_)for(int j=0;j<8;++j)
-                next.gradient_error[j]=uniform_source_?0:level_?std::abs((next.dfh[j]-accepted_.dfh[j])+(jacobian_motion_[j]-(j==2?2/geometry_.rho:0))*(next.fh-accepted_.fh)):INFINITY;
-            if constexpr(Gradient){next.normalized_gradient_errors=true;if(gradient_value_mesh_)next.gradient_error.fill(INFINITY);}
-            if constexpr(Gradient)if(geometry_.Y==0 && geometry_.by==0)
-                for(int j:{1,7})next.gradient_error[j]=0;
+
             // Publish only a complete level. Samples collected before a failed
             // level remain available for a retry without changing accepted_.
             accepted_=next;level_=lev;endpoints_ready_=true;

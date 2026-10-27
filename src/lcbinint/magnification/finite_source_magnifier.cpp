@@ -5,7 +5,6 @@
 #include "lcbinint/magnification/algebraic_boundary/triple/frame.hpp"
 #include "lcbinint/magnification/algebraic_boundary_autodiff.hpp"
 #include "lcbinint/magnification/algebraic_boundary/fused_gradient.hpp"
-#include "lcbinint/magnification/algebraic_boundary/source_disk_gradient.hpp"
 #include "lcbinint/magnification/cartesian_run_fill.hpp"
 #include "lcbinint/magnification/component_certificate.hpp"
 #include "lcbinint/magnification/binary_caustic_enclosure.hpp"
@@ -6894,7 +6893,6 @@ std::vector<SourcePosition> FiniteSourceMagnifier::cached_binary_image_seeds(
 
 void FiniteSourceMagnifier::clear_binary_epoch_caches() const
 {
-    algebraic_boundary::source_disk_detail::clear_epoch_cache();
     detail::clear_binary_caustic_tree_cache();
     binary_separation_seen_ = false;
     binary_separation_changes_ = false;
@@ -7695,56 +7693,31 @@ FiniteSourceResult FiniteSourceMagnifier::algebraic_boundary_deep_solve(
         const algebraic_boundary::FusedGradientOptions options{
             algebraic_settings.absolute_tolerance, algebraic_settings.relative_tolerance};
         algebraic_boundary::FusedGradientResult integral;
-        int smooth_images = 0;
-        bool smooth_chart = algebraic_boundary::source_disk_detail::evaluate(
-            params, settings_.limb_darkening_c, options, *this, point_magnifier,
-            integral, smooth_images);
-        if (!smooth_chart) {
-            bool repair_attempted = false;
-            const auto repair_smooth = [&](algebraic_boundary::FusedGradientResult& candidate) {
-                repair_attempted = true;
-                smooth_chart = algebraic_boundary::source_disk_detail::evaluate(
-                    params, settings_.limb_darkening_c, options, *this, point_magnifier,
-                    candidate, smooth_images, true);
-                return smooth_chart;
-            };
-            const auto solve = [&](const algebraic_boundary::CausticAwareBinarySeeds& seeds,
-                const std::vector<std::array<double,2>>* inherited_edge_pairs=nullptr) {
-                std::vector<std::array<double,2>> positions;
-                for(const auto& z:seeds.radial_seeds)positions.push_back({z.re,z.im});
-                return algebraic_boundary::epoch_fused_gradient(params,
-                    settings_.limb_darkening_c,positions,options,repair_smooth,
-                    &seeds.support_plan,inherited_edge_pairs);
-            };
-            integral=solve(seeds_for_frontier());
-            if(prepared_seeds->support_plan.completed && !integral.value_converged) {
-                prepared_seeds=algebraic_boundary::make_caustic_aware_binary_seeds(
-                    *this,point_magnifier,separation,mass_ratio,source,source_radius,
-                    &center_image_seeds,false);
-                auto retry=solve(*prepared_seeds,&integral.radial_edge_pairs);
-                const auto total_nodes=integral.node_evaluations+retry.node_evaluations;
-                const bool incumbent_finite=integral.mu>0.0 && std::isfinite(integral.mu) &&
-                    std::all_of(integral.grad_mu.begin(),integral.grad_mu.end(),
-                        [](double component){return std::isfinite(component);});
-                if(retry.mu>0.0 && std::isfinite(retry.mu) &&
-                   std::all_of(retry.grad_mu.begin(),retry.grad_mu.end(),
-                       [](double component){return std::isfinite(component);}) &&
-                   (!incumbent_finite || retry.value_converged ||
-                    retry.value_error_estimate<integral.value_error_estimate))
-                    integral=std::move(retry);
-                integral.node_evaluations=total_nodes;
-            }
-            if (!smooth_chart && !repair_attempted && (integral.reliability_retried || !std::all_of(
-                    integral.gradient_valid.begin(), integral.gradient_valid.end(),
-                    [](bool valid) { return valid; }))) {
-                smooth_chart = algebraic_boundary::source_disk_detail::evaluate(
-                    params, settings_.limb_darkening_c, options, *this, point_magnifier,
-                    integral, smooth_images, true);
-            }
-        }
-        if (smooth_chart) {
-            result.seed_support_proven = true; // complete smooth disk, no missing fold pair
-            result.image_count = smooth_images;
+        const auto solve = [&](const algebraic_boundary::CausticAwareBinarySeeds& seeds,
+            const std::vector<std::array<double,2>>* inherited_edge_pairs=nullptr) {
+            std::vector<std::array<double,2>> positions;
+            for(const auto& z:seeds.radial_seeds)positions.push_back({z.re,z.im});
+            return algebraic_boundary::epoch_fused_gradient(params,
+                settings_.limb_darkening_c,positions,options,
+                &seeds.support_plan,inherited_edge_pairs);
+        };
+        integral=solve(seeds_for_frontier());
+        if(prepared_seeds->support_plan.completed && !integral.value_converged) {
+            prepared_seeds=algebraic_boundary::make_caustic_aware_binary_seeds(
+                *this,point_magnifier,separation,mass_ratio,source,source_radius,
+                &center_image_seeds,false);
+            auto retry=solve(*prepared_seeds,&integral.radial_edge_pairs);
+            const auto total_nodes=integral.node_evaluations+retry.node_evaluations;
+            const bool incumbent_finite=integral.mu>0.0 && std::isfinite(integral.mu) &&
+                std::all_of(integral.grad_mu.begin(),integral.grad_mu.end(),
+                    [](double component){return std::isfinite(component);});
+            if(retry.mu>0.0 && std::isfinite(retry.mu) &&
+               std::all_of(retry.grad_mu.begin(),retry.grad_mu.end(),
+                   [](double component){return std::isfinite(component);}) &&
+               (!incumbent_finite || retry.value_converged ||
+                retry.value_error_estimate<integral.value_error_estimate))
+                integral=std::move(retry);
+            integral.node_evaluations=total_nodes;
         }
         result.magnification = integral.mu;
         result.error_estimate = integral.value_error_estimate;
@@ -7752,20 +7725,20 @@ FiniteSourceResult FiniteSourceMagnifier::algebraic_boundary_deep_solve(
         result.frontier_discovery_completed = integral.frontier_discovery_completed;
         result.decision.estimated_evaluations = static_cast<int>(integral.node_evaluations);
         result.diagnostic_stop = integral.stop +
-            (smooth_chart ? "; tangent_chart=smooth_source_disk" : "; tangent_chart=radial_frontier");
+            "; tangent_chart=radial_frontier";
         value_converged = integral.value_converged;
         auto& jacobian = *jacobian_out;
         jacobian.jacobian = integral.grad_mu;
         jacobian.success = std::all_of(integral.grad_mu.begin(), integral.grad_mu.end(),
             [](double g) { return std::isfinite(g); });
         jacobian.grad_reliable = jacobian.success &&
-            (smooth_chart || seeds_for_frontier().support_proven) &&
+            seeds_for_frontier().support_proven &&
             integral.value_converged && std::all_of(
                 integral.gradient_valid.begin(), integral.gradient_valid.end(),
                 [](bool valid) { return valid; });
         if (!jacobian.grad_reliable) {
             jacobian.unsafe_reason = !jacobian.success ? "nonfinite_tangent_candidate"
-                : !(smooth_chart || seeds_for_frontier().support_proven)
+                : !seeds_for_frontier().support_proven
                     ? "seed_support_unproven"
                     : !integral.value_converged ? integral.stop
                     : "radial_tangent_unreliable:" + integral.stop;

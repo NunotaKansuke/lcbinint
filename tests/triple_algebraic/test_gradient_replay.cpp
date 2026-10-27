@@ -78,9 +78,8 @@ int main(){
  require(plan.completed,"replay support");IntegrationOptions o;o.absolute_tolerance=0;o.relative_tolerance=1e-4;
  const auto value=integrate(p,.5,o,&plan);require(value.converged,"primal convergence");
  require(value.parameter_derivative_evaluations==0,"value-only derivative isolation");
- o.gradient_value_mesh=true;const auto tangent=integrate<true>(p,.5,o,&plan);
+ const auto tangent=integrate<true>(p,.5,o,&plan);
  require(tangent.converged && tangent.gradient_valid,"replay convergence");
- require(!tangent.gradient_precision_checked && !tangent.gradient_reliable,"finite replay is not certified");
  require(std::abs(tangent.magnification-value.magnification)<=value.error_estimate+tangent.error_estimate,"primal flux contract preserved");
  double Geometry::* member[]={&Geometry::X,&Geometry::Y,&Geometry::rho,&Geometry::m1,&Geometry::m2,&Geometry::a,&Geometry::bx,&Geometry::by};
  IntegrationOptions reference;reference.absolute_tolerance=0;reference.relative_tolerance=1e-8;

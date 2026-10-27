@@ -1224,8 +1224,7 @@ int main()
         const double expected_motion=1/(1+1/double(radius*radius));
         if(!material.valid||material.derivatives_complete||
             std::fabs(material.db[0]-expected_motion)>1e-10)return 147;
-        config.tol.grad_atol.fill(1e-12);
-        config.tol.grad_rtol.fill(1e-8);
+
         tangent::AdaptiveWorkspace workspace;
         tangent::AdaptivePanel panel;
         panel.map={0.0,1.0,false,false};
@@ -1283,8 +1282,8 @@ int main()
         }
         const auto replay=tangent::fused_gradient::gaussian_replay(workspace,config,evaluator,0);
         auto changed_tolerance=config;
-        changed_tolerance.tol.grad_atol.fill(1e3);
-        changed_tolerance.tol.grad_rtol.fill(.5);
+        changed_tolerance.tol.mu_rtol=.5;
+
         const auto unchanged=tangent::fused_gradient::gaussian_replay(
             workspace,changed_tolerance,evaluator,0);
         auto exhausted=config;
@@ -1294,9 +1293,9 @@ int main()
             const double expected=(axis+1)*(1-std::exp(-40.0))/40;
             if(std::fabs(replay.grad_mu[axis]-expected)>1e-8*expected)return 141;
             if(replay.grad_mu[axis]!=unchanged.grad_mu[axis]||
-                replay.grad_quality[axis]!=tangent::GradientQuality::FiniteUncertified)return 148;
+                replay.grad_quality[axis]!=tangent::GradientQuality::FiniteValid)return 148;
             if(completed.grad_mu[axis]!=replay.grad_mu[axis] ||
-                completed.grad_quality[axis]!=tangent::GradientQuality::FiniteUncertified)return 151;
+                completed.grad_quality[axis]!=tangent::GradientQuality::FiniteValid)return 151;
         }
         const auto failed=[](double,double,int,const tangent::AdaptiveSample*,
             bool,double,int,tangent::AdaptiveHermiteJet*) {
@@ -1305,7 +1304,7 @@ int main()
         const auto retained=tangent::fused_gradient::gaussian_replay(workspace,config,failed,0);
         for(int axis=0;axis<5;++axis) {
             if(retained.grad_mu[axis]!=axis+1)return 142;
-            if(retained.grad_quality[axis]!=tangent::GradientQuality::FiniteUncertified)return 143;
+            if(retained.grad_quality[axis]!=tangent::GradientQuality::FiniteValid)return 143;
         }
     }
     {
@@ -1315,7 +1314,7 @@ int main()
         unresolved.brackets.push_back({10.0, 11.0, 9.0, 12.0});
         const auto recovered = boundary::epoch_fused_gradient(
             {0.2, 0.3, 0.01, 0.1, 1.2, true}, 0.6, {{1.0, 0.0}},
-            {1e-4, 1e-3}, {}, &unresolved);
+            {1e-4, 1e-3}, &unresolved);
         if (!(recovered.mu > 0.0) || !std::isfinite(recovered.mu) ||
             recovered.node_evaluations == 0) return 138;
         bool nonzero = false;
@@ -1395,9 +1394,9 @@ int main()
         for(const auto& seed:seeds.radial_seeds)positions.push_back({seed.re,seed.im});
         tangent::AdaptiveConfig config;
         config.with_jacobian=true;config.fused_value_mesh=false;config.fold_maps=false;
-        config.material_coordinate_motion=false;config.gradient_adaptive=false;
+        config.material_coordinate_motion=false;
         config.gradient_policy=tangent::GradientPolicy::ValueFirst;
-        config.value_first_gradient_node_budget=0;config.value_first_gradient_round_budget=0;
+
         config.tol.mu_atol=1e-4;config.tol.mu_rtol=1e-7;
         tangent::AdaptiveWorkspace workspace;
         const auto result=tangent::epoch_seeded_radial_frontier(parameters,.6584,positions,
@@ -1541,6 +1540,29 @@ int main()
         if(left_pieces.size()!=1)return 219;
         boundary::fused_gradient::ComTangentScope com_coordinates(true);
         if(boundary::fused_gradient::gaussian_panel_pieces(panel).size()!=1)return 220;
+    }
+    {
+        // Smooth disks that previously used source-plane gradient repair.
+        // References are independent five-point scalar differences, with a
+        // two-step uncertainty sweep (source_disk_removal_20261028).
+        struct Fixture { std::array<double,5> p, gradient; };
+        const Fixture fixtures[] = {
+            {{0.08402380797794332, 0.08003423785298788, 0.06308767614799801, 1.0814956521878432, 0.9309517049775516}, {20.712871505305465, 2.6597757091906256, 6.713013545241004, 2.312088813243109, -15.59773289983764}},
+            {{-0.048110792014146295, -0.0010013921844797685, 0.022276575368024697, 10.529848697410054, 1.0762292921300691}, {68.63638510277899, 0.4111348363385521, 4.3937933968230345, 0.4338608720507941, -6.59650075374903}}
+        };
+        for (const auto& f : fixtures) for (double tolerance : {1e-3, 1e-4}) {
+            lcbinint::magnification::FiniteSourceSettings settings;
+            settings.finite_source_tol=0;settings.finite_source_reltol=tolerance;
+            lcbinint::magnification::FiniteSourceMagnifier finite(settings);
+            lcbinint::magnification::FiniteSourceResult value;
+            const auto g=finite.algebraic_boundary_binary_jacobian(
+                f.p[4],f.p[3],{f.p[0],f.p[1]},f.p[2],{0,tolerance},&value,nullptr,true);
+            if(!g.success || !g.grad_reliable || !(value.value_converged || value.converged) ||
+               (value.decision.method==lcbinint::magnification::FiniteSourceMethod::algebraic_boundary &&
+                value.diagnostic_stop.find("tangent_chart=radial_frontier")==std::string::npos))return 221;
+            for(int j=0;j<5;++j)if(std::abs(g.jacobian[j]-f.gradient[j])>
+                1e-4+2e-4*std::abs(f.gradient[j]))return 222;
+        }
     }
     return 0;
 }

@@ -1,0 +1,18 @@
+[  8%] Built target lcbinint_fused_gradient
+[ 13%] Building CXX object CMakeFiles/lcbinint_magnification.dir/src/lcbinint/magnification/finite_source_magnifier.cpp.o
+[ 17%] Linking CXX static library liblcbinint_magnification.a
+[ 43%] Built target lcbinint_magnification
+[ 86%] Built target lcbinint_lightcurve
+[ 91%] Building CXX object tests/triple_algebraic/CMakeFiles/triple_smooth.dir/test_smooth.cpp.o
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/test_smooth.cpp: In function ‘int main()’:
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/test_smooth.cpp:6:49: error: ‘PreparedRegularSupport’ is not a member of ‘tr’
+    6 |  tr::Geometry p{.5,.4,.03,.2,.08,1.,-.4,.6};tr::PreparedRegularSupport prepared;
+      |                                                 ^~~~~~~~~~~~~~~~~~~~~~
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/tests/triple_algebraic/test_smooth.cpp:7:12: error: ‘prepared’ was not declared in this scope; did you mean ‘pread’?
+    7 |  auto plan=prepared.plan(p,1e-4,1000000,false);check(plan.completed,"complete full source support");
+      |            ^~~~~~~~
+      |            pread
+gmake[3]: *** [tests/triple_algebraic/CMakeFiles/triple_smooth.dir/build.make:76: tests/triple_algebraic/CMakeFiles/triple_smooth.dir/test_smooth.cpp.o] Error 1
+gmake[2]: *** [CMakeFiles/Makefile2:1762: tests/triple_algebraic/CMakeFiles/triple_smooth.dir/all] Error 2
+gmake[1]: *** [CMakeFiles/Makefile2:1769: tests/triple_algebraic/CMakeFiles/triple_smooth.dir/rule] Error 2
+gmake: *** [Makefile:959: triple_smooth] Error 2

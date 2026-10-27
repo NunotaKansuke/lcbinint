@@ -8,7 +8,7 @@ int main(){
  IntegrationOptions strict;strict.absolute_tolerance=1e-7;strict.relative_tolerance=1e-6;
  for(double u:{0.,.5}) {
   auto r=integrate<true>(symmetric,u,strict);
-  if(!r.converged || !r.gradient_reliable)throw std::runtime_error(r.reason);
+  if(!r.converged || !r.gradient_valid)throw std::runtime_error(r.reason);
   if(std::abs(r.normalized.df0[0])+std::abs(r.normalized.df0[1])>1e-6)
    throw std::runtime_error("threefold source symmetry gradient");
  }
@@ -19,7 +19,7 @@ int main(){
   auto value=integrate<true>(p,.5,options);
   std::cout<<index++<<" "<<value.reason<<" mu="<<value.magnification<<" boxes="<<value.support.boxes
            <<" quad_samples="<<value.quad_samples<<" nodes="<<value.value_evaluations<<std::endl;
-  if(!value.converged || !value.gradient_reliable)throw std::runtime_error(value.reason);
+  if(!value.converged || !value.gradient_valid)throw std::runtime_error(value.reason);
   if(p.Y==0 && std::abs(value.normalized.df0[1])>1e-6)
       throw std::runtime_error("axial source reflection derivative");
  }

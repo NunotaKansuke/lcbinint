@@ -52,7 +52,6 @@ PreciseValueResult epoch_precise_value(const LensParams& p,double u,
 
 FusedGradientResult epoch_fused_gradient(const LensParams& p,double u,
     const std::vector<std::array<double,2>>& image_seeds,const FusedGradientOptions& options,
-    const std::function<bool(FusedGradientResult&)>& smooth_repair,
     const RadialSupportPlan* support_plan,
     const std::vector<std::array<double,2>>* inherited_edge_pairs) {
     namespace kernel=lcbinint::algebraic_boundary::tangent;
@@ -64,7 +63,7 @@ FusedGradientResult epoch_fused_gradient(const LensParams& p,double u,
     cfg.tol.mu_atol=options.mu_atol;cfg.tol.mu_rtol=options.mu_rtol;
     cfg.with_jacobian=true;cfg.fused_value_mesh=true;
     cfg.gradient_policy=kernel::GradientPolicy::ValueFirst;
-    cfg.value_first_gradient_node_budget=0;cfg.value_first_gradient_round_budget=0;
+
     kernel::AdaptiveWorkspace workspace;
     kernel::fused_gradient::reliability_retry_used=false;
     std::vector<kernel::geometry_experiment::Pair> retry_edge_pairs;
@@ -191,14 +190,6 @@ FusedGradientResult epoch_fused_gradient(const LensParams& p,double u,
         candidate_reason=reason;
         return true;
     };
-    // Use the same smooth-disk certificate and quadrature as the caller's
-    // late repair. If it succeeds, no discarded regular-chart solve is needed.
-    if(smooth_repair && (isolated_edge_contact ||
-       kernel::fused_gradient::reliability_retry_used ||
-       !gradients_usable(result.integral))) {
-        auto candidate=export_result();
-        if(smooth_repair(candidate))return candidate;
-    }
     if(isolated_edge_contact && !result.edge_pair_replay_completed && !(support_plan && support_plan->completed &&
        result.integral.value_converged && gradients_usable(result.integral))) {
         // A certified real close pair at the outer support edge makes the
@@ -212,7 +203,7 @@ FusedGradientResult epoch_fused_gradient(const LensParams& p,double u,
         if(!retry_edge_pairs.empty())contact_cfg.initial_level=cfg.initial_level;
         // The regular radial chart uses the same value-driven replay policy as
         // epoch_adaptive; no gradient-error adaptation is enabled here.
-        contact_cfg.gradient_adaptive=false;
+
         kernel::AdaptiveWorkspace contact_workspace;
         kernel::AdaptiveResult contact;
         if(retry_edge_pairs.empty())
@@ -252,7 +243,7 @@ FusedGradientResult epoch_fused_gradient(const LensParams& p,double u,
             fallback_cfg.initial_level=cfg.initial_level;
             fallback_cfg.fused_value_mesh=false;
             fallback_cfg.material_coordinate_motion=false;
-            fallback_cfg.gradient_adaptive=false;
+
             fallback_workspace.reset();
             auto frontier=kernel::epoch_seeded_radial_frontier(
                 params,u,seeds,fallback_cfg,fallback_workspace,false,nullptr,true,
