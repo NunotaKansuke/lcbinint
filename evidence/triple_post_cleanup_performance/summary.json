@@ -1,0 +1,79 @@
+{
+  "aggregate": [
+    {
+      "limb": 0.0,
+      "rtol": 0.001,
+      "median_ms": {
+        "SinglePoly": 0.66881775,
+        "MultiPoly": 0.86502225,
+        "NoPoly": 2.0627165,
+        "value": 0.726547,
+        "gradient": 1.1856025000000001
+      },
+      "median_added_percent": 50.989412732564915,
+      "value_wins_single": 4,
+      "gradient_wins_single": 0,
+      "value_speedup_single_median": 0.8415735932901252,
+      "gradient_speedup_single_median": 0.587080496328946
+    },
+    {
+      "limb": 0.0,
+      "rtol": 0.0001,
+      "median_ms": {
+        "SinglePoly": 1.2292192499999999,
+        "MultiPoly": 1.59572825,
+        "NoPoly": 3.688063,
+        "value": 0.87164575,
+        "gradient": 1.2987950000000001
+      },
+      "median_added_percent": 41.42848841778242,
+      "value_wins_single": 10,
+      "gradient_wins_single": 7,
+      "value_speedup_single_median": 1.3754598310528616,
+      "gradient_speedup_single_median": 1.0112614906496775
+    },
+    {
+      "limb": 0.5,
+      "rtol": 0.001,
+      "median_ms": {
+        "SinglePoly": 12.808968499999999,
+        "MultiPoly": 16.93528225,
+        "NoPoly": 39.456708000000006,
+        "value": 1.095473,
+        "gradient": 2.06325075
+      },
+      "median_added_percent": 70.37506717802461,
+      "value_wins_single": 12,
+      "gradient_wins_single": 12,
+      "value_speedup_single_median": 11.977399050147326,
+      "gradient_speedup_single_median": 6.366406834245005
+    },
+    {
+      "limb": 0.5,
+      "rtol": 0.0001,
+      "median_ms": {
+        "SinglePoly": 58.172044,
+        "MultiPoly": 76.9100875,
+        "NoPoly": 180.55368175,
+        "value": 1.3040375,
+        "gradient": 2.2704570000000004
+      },
+      "median_added_percent": 58.10502227473522,
+      "value_wins_single": 12,
+      "gradient_wins_single": 12,
+      "value_speedup_single_median": 33.68177254016742,
+      "gradient_speedup_single_median": 22.42127416849186
+    }
+  ],
+  "checks": {
+    "conditions": 48,
+    "excluded": 0,
+    "methods": [
+      2
+    ],
+    "native_nonconverged": [],
+    "gradient_invalid": [],
+    "above_requested": [],
+    "max_relative_difference": 0.0003163367995992844
+  }
+}
