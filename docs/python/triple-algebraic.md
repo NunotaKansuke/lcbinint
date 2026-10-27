@@ -62,6 +62,41 @@ For mass derivatives, `m0=1-m1-m2`; lens positions are held fixed. Inspect
 `error_estimate`. A finite candidate is not necessarily converged. Missing candidates have NaN values/derivatives and false convergence flags; the LightCurve wrapper raises the existing missing-finite-candidate error. The canonical
 8-component gradient/error estimates are also returned for numerical diagnosis.
 
+`gradient_policy="value_mesh"` is the default, matching the binary fused route.
+Only the flux error controls refinement. The dedicated gradient frontier carries
+flux and all eight canonical derivatives together at each integration point.
+Support proofs, coefficient geometry and continued physical endpoints are shared;
+completed value/tangent packets remain cached when more radial points are added.
+The ordinary value-only frontier evaluates no parameter jets.
+
+For relative tolerances of `1e-3` and `1e-4`, the first-order frontier uses nested
+Gauss–Patterson rules, or the existing endpoint-weighted rules for isolated smooth
+components. Nearby real and complex radial folds retain hyperbolic charts;
+the chart motion and its Jacobian are differentiated with the physical boundary.
+Critical angular charts accumulate local coefficient sensitivities together with
+the flux, then apply the eight-parameter pullback once per cell. Physical Newton,
+orientation, disjointness and certified root-count checks remain active after
+endpoint prediction. Uniform full-circle bands use exact annular area and its
+moving-boundary derivative.
+
+Tighter requests retain the coupled mixed radial/parameter transport. Both
+frontiers control the requested value tolerance; their derivative estimates do
+not drive refinement. Binary64 is the ordinary route, with local quad repair for
+unresolved endpoints or samples. A failed continuation repairs only that radius.
+The radius-normalization derivative uses the flux from the same coupled integral.
+
+This policy reports `gradient_valid=True` for a finite, complete-support candidate,
+`gradient_reliable=False`, and `gradient_precision_checked=False`. Canonical
+gradient error estimates are infinity (unchecked). Flux convergence is not a
+per-derivative accuracy certificate. The LightCurve API uses the same value-only
+error policy; its `gradient_valid` flag denotes finite usable output.
+The explicit point API retains `gradient_policy="strict"` as a diagnostic route
+that also controls all eight estimated derivative errors.
+
+The strict diagnostic may use normalized source-disk quadrature for a caustic-free
+source covered by disjoint full-source IFT image disks. The default gradient frontier
+uses the algebraic boundary panels; `smooth_source_used` remains false there.
+
 `event_box_budget` bounds support isolation (default 1,000,000 boxes). Exhaustion
 is explicit and does not silently switch to another integration method.
 Collapsed/zero-mass systems use the existing binary/single-lens APIs; this
@@ -75,6 +110,25 @@ are promoted to quad. Sensitive endpoint/sample calculations use local quad
 repair; accepted unrelated boxes, radii and samples are retained. Counts include
 `quad_samples`, `event_quad_boxes`, `event_quad_refinements`,
 `parameter_derivative_evaluations` and `node_evaluations` in standalone results.
+
+On ordinary LD arcs whose concavity is verified, the gradient route integrates
+scalar cofactor sensitivity moments and applies the eight parameter directions
+once per completed angular integral. Other arcs retain the critical-chart or
+physical kernel. The value-only route does not evaluate parameter directions.
+The ordinary first-order physical kernel uses explicit real arithmetic for its
+complex products and retains the same endpoint roundoff and local repair gates.
+If a critical cofactor needs promoted scalar coefficients, its three Fourier
+harmonics are rotated directly in that precision; the parameter directions stay
+in binary64 and the original physical minimum still checks the result.
+Common angular packets use a small inline cache and allocate additional storage
+only on refinement; all previously completed nodes retain their identity.
+
+The first-order radial controller shares the value controller's positive
+embedded-rule construction and contraction test. Its error estimate uses only
+the scalar flux samples already present; the difference safety factor and
+interpolation-witness floor are unchanged. Endpoint-weighted rules retain their
+existing estimator. Angular stationary-point scans compute only the slope;
+accepted minima retain the full physical evaluation and local precision guards.
 
 Angular and radial p-refinement reuse canonical nested nodes. Local angular
 repair and radial h-refinement retain their parent work and use epoch-local

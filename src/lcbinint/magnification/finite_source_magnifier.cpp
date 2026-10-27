@@ -1,6 +1,7 @@
 #include "lcbinint/magnification/finite_source_magnifier.hpp"
 #include "lcbinint/magnification/algebraic_boundary.hpp"
 #include "lcbinint/magnification/algebraic_boundary/triple/integrator.hpp"
+#include "lcbinint/magnification/algebraic_boundary/triple/regular_support.hpp"
 #include "lcbinint/magnification/algebraic_boundary/triple/frame.hpp"
 #include "lcbinint/magnification/algebraic_boundary_autodiff.hpp"
 #include "lcbinint/magnification/algebraic_boundary/fused_gradient.hpp"
@@ -7874,15 +7875,25 @@ FiniteSourceResult FiniteSourceMagnifier::algebraic_boundary_triple_mag(
         geometry.masses[1],geometry.masses[2]);
     const auto& p=frame.geometry;
     const std::array<double,8> identity{p.X,p.Y,p.rho,p.m1,p.m2,p.a,p.bx,p.by};
-    // Repeated identical epochs reuse the complete geometry plan. A different
-    // source or radius cannot accidentally borrow a sibling epoch's support.
-    thread_local std::optional<kernel::RadialEventPlan> cached_plan;
-    if(!cached_plan || cached_plan->identity!=identity)
-        cached_plan=kernel::radial_event_plan(p,1000000);
     kernel::IntegrationOptions options;
     options.absolute_tolerance=settings.absolute_tolerance;
     options.relative_tolerance=settings.relative_tolerance;
-    const auto value=kernel::integrate(p,settings_.limb_darkening_c,options,&*cached_plan);
+    kernel::RadialEventPlan plan;
+    if(std::isfinite(settings.relative_tolerance) && settings.relative_tolerance>=1e-4 &&
+       std::isfinite(settings.absolute_tolerance) && settings.absolute_tolerance>=0) {
+        // Reuse lens-only preparation and seed proposals across epochs. Every
+        // new source still receives its own support-completeness proof.
+        thread_local kernel::PreparedRegularSupport prepared;
+        plan=prepared.plan(p,settings.relative_tolerance,options.event_box_budget);
+    } else {
+        // Strict requests retain the full planner and exact-epoch cache.
+        thread_local std::optional<kernel::RadialEventPlan> cached_plan;
+        if(!cached_plan || cached_plan->identity!=identity)
+            cached_plan=kernel::radial_event_plan(p,options.event_box_budget);
+        plan=*cached_plan;
+    }
+    const auto value=kernel::integrate(p,settings_.limb_darkening_c,options,
+        plan.completed?&plan:nullptr);
     FiniteSourceResult out;
     out.decision={FiniteSourceMethod::algebraic_boundary,
         static_cast<int>(value.value_evaluations),"triple_algebraic_nested_fejer"};

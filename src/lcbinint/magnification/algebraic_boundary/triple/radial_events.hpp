@@ -287,11 +287,54 @@ struct RadialEvent {
     bool reciprocal=false;
     double coordinate_lo=0,coordinate_hi=0;
 };
-inline bool refine_event_center(RadialEvent& event,const Geometry& p) {
+inline bool refine_event_center(RadialEvent& event,const Geometry& p,bool double_first=false,bool* used_quad=nullptr,bool radius_precision_only=false) {
+    if(used_quad)*used_quad=false;
+    // Keep the original certified box. A successful binary64 Newton step
+    // is only a proposal; accept it after a fresh physical interval proof
+    // contracts to the arithmetic floor. Otherwise retain the proposal for
+    // the original promoted solve. No other events or samples are discarded.
+    double proposal_r=event.radius,proposal_t=event.coordinate;
+    if(double_first) {
+        double r=event.radius,t=event.coordinate;
+        bool valid=true;
+        for(int k=0;k<8;++k) {
+            const auto f=event_detail::physical(r,t,p,event.reciprocal);
+            if(!f){valid=false;break;}
+            const double det=f->r*f->tt-f->t*f->rt;
+            if(!std::isfinite(det) || det==0){valid=false;break;}
+            const double dr=(-f->v*f->tt+f->t*f->t)/det,dt=(-f->r*f->t+f->rt*f->v)/det;
+            if(!std::isfinite(dr) || !std::isfinite(dt)){valid=false;break;}
+            r+=dr;t+=dt;
+            if(r<event.radius_lo || r>event.radius_hi || t<event.coordinate_lo || t>event.coordinate_hi){valid=false;break;}
+            if(std::abs(dr)+std::abs(dt)<8*std::numeric_limits<double>::epsilon()*(1+std::abs(r)+std::abs(t)))break;
+        }
+        if(valid) {
+            proposal_r=r;proposal_t=t;
+            const double eps=std::numeric_limits<double>::epsilon();
+            const double rw=128*eps*(1+std::abs(r));
+            // For a value-controlled material map it is the radial cut that
+            // needs arithmetic-floor accuracy. The stationary coordinate is
+            // a continuation seed; retain its certified enclosure rather than
+            // promoting merely to squeeze that enclosure to binary64 ulps.
+            const double tw=(radius_precision_only?1e-10:128*eps)*(1+std::abs(t));
+            event_detail::Box box{std::max(event.radius_lo,r-rw),std::min(event.radius_hi,r+rw),
+                std::max(event.coordinate_lo,t-tw),std::min(event.coordinate_hi,t+tw),event.reciprocal};
+            const auto proof=event_detail::prove_physical(box,p);
+            if(proof.kind==2 && proof.r.hi-proof.r.lo<=rw && proof.t.hi-proof.t.lo<=tw) {
+                event={std::clamp(r,proof.r.lo,proof.r.hi),std::clamp(t,proof.t.lo,proof.t.hi),
+                    proof.r.lo,proof.r.hi,event.reciprocal,proof.t.lo,proof.t.hi};
+                return true;
+            }
+        }
+    }
     using namespace event_detail;
-    __float128 r=event.radius,t=event.coordinate;
+    if(used_quad)*used_quad=true;
+    __float128 r=proposal_r,t=proposal_t;
     for(int j=0;j<16;++j) {
-        const auto f=evaluate(r,t,p,event.reciprocal);
+        // The physical jet has the same stationary roots away from lens
+        // poles, without rebuilding the cleared degree-six polynomial.
+        const auto direct=physical(r,t,p,event.reciprocal);
+        const auto f=direct?*direct:evaluate(r,t,p,event.reciprocal);
         const auto det=f.r*f.tt-f.t*f.rt;
         if(det==0 || !finiteq(det))return false;
         const auto dr=(-f.v*f.tt+f.t*f.t)/det,dt=(-f.r*f.t+f.rt*f.v)/det;
@@ -305,7 +348,8 @@ inline bool refine_event_center(RadialEvent& event,const Geometry& p) {
     const double tw=32*std::numeric_limits<double>::epsilon()*(1+std::abs(td));
     Box box{std::max(event.radius_lo,rd-rw),std::min(event.radius_hi,rd+rw),
         std::max(event.coordinate_lo,td-tw),std::min(event.coordinate_hi,td+tw),event.reciprocal};
-    auto proof=prove_quad(box,p,nullptr,false,false);
+    auto proof=prove_quad(box,p,nullptr,false,true);
+    if(proof.kind!=2)proof=prove_quad(box,p,nullptr,false,false);
     if(proof.kind!=2)return false;
     event={rd,td,proof.r.lo,proof.r.hi,event.reciprocal,proof.t.lo,proof.t.hi};return true;
 }

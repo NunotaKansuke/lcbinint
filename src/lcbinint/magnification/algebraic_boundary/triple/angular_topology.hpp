@@ -171,7 +171,7 @@ struct AngularCoefficientCache {
     std::shared_ptr<point_polynomial_detail::LensContext> lens_context;
     std::shared_ptr<const point_polynomial_detail::Cache<double>> point_signs;
     std::shared_ptr<const point_polynomial_detail::Cache<long double>> wide_point_signs;
-    std::size_t point_sign_requests=0;
+    std::size_t point_sign_requests=0,point_sign_threshold=64;
     Geometry geometry;
     std::array<double,8> identity;
     std::optional<std::array<surface_detail::RadialPolynomialT<__float128>,7>> quad;
@@ -414,7 +414,7 @@ inline AngularTopology continued_topology(double R,const Geometry& p,const Angul
     std::optional<point_polynomial_detail::Cache<double>::Radius> point_polynomial;
     std::optional<point_polynomial_detail::Cache<long double>::Radius> wide_point_polynomial;
     if(cache && cache->identity==std::array<double,8>{p.X,p.Y,p.rho,p.m1,p.m2,p.a,p.bx,p.by} &&
-       ++cache->point_sign_requests>=64) {
+       ++cache->point_sign_requests>=cache->point_sign_threshold) {
         // Polynomial signs imply physical signs only away from lens poles.
         // Verify absence of poles on this whole radius circle once.
         const auto r2=I<double>(R)*I<double>(R);

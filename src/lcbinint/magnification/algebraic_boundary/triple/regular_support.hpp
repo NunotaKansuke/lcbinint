@@ -453,8 +453,8 @@ class PreparedRegularSupport {
 public:
     std::size_t native_seed_solves() const{return native_solves_;}
     std::size_t continued_seed_hits() const{return continued_seeds_;}
-    RadialEventPlan plan(const Geometry& p,double relative_tolerance,int event_budget=1000000) {
-        auto out=plan_impl(p,relative_tolerance,event_budget);
+    RadialEventPlan plan(const Geometry& p,double relative_tolerance,int event_budget=1000000,bool allow_omission=true) {
+        auto out=plan_impl(p,relative_tolerance,event_budget,allow_omission);
         if(out.completed) {
             if(!lens_context_ || !lens_context_->matches(p))lens_context_=std::make_shared<point_polynomial_detail::LensContext>(p);
             lens_context_->note_query();out.lens_context=lens_context_;
@@ -462,10 +462,10 @@ public:
         return out;
     }
 private:
-    RadialEventPlan plan_impl(const Geometry& p,double relative_tolerance,int event_budget) {
+    RadialEventPlan plan_impl(const Geometry& p,double relative_tolerance,int event_budget,bool allow_omission) {
         RadialEventPlan out;
         // This optimization is validated for loose relative value requests.
-        // Strict references and gradients retain the full support planner.
+        // Strict references retain the full planner. Gradients prohibit omission.
         if(relative_tolerance<1e-4){out.reason="regular_tolerance_gate";return out;}
         if(event_budget<1){out.reason="regular_event_budget";return out;}
         p.validate();
@@ -508,7 +508,7 @@ private:
             for(auto image:images)proposals.push_back({image.position.x,image.position.y});
         }
         image_seeds_=proposals;seed_source_={p.X,p.Y};
-        return regular_support_detail::event_plan(p,proposals,std::min(256,event_budget),relative_tolerance/8);
+        return regular_support_detail::event_plan(p,proposals,std::min(256,event_budget),relative_tolerance/8,allow_omission);
     }
 };
 }

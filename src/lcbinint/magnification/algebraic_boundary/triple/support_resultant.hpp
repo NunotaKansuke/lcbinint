@@ -23,7 +23,31 @@ inline Poly operator*(const Poly&a,const Poly&b){Poly r;r.degree=a.degree+b.degr
 struct RealPoly {std::array<Ball,29> c{};int degree=0;RealPoly()=default;RealPoly(Ball x){c[0]=x;}};
 inline RealPoly operator-(RealPoly a){for(int i=0;i<=a.degree;++i)a.c[i]=-a.c[i];return a;}
 inline RealPoly operator+(RealPoly a,const RealPoly&b){a.degree=std::max(a.degree,b.degree);for(int i=0;i<=b.degree;++i)a.c[i]=a.c[i]+b.c[i];return a;}
-inline RealPoly operator*(const RealPoly&a,const RealPoly&b){RealPoly r;r.degree=a.degree+b.degree;if(r.degree>28)throw std::logic_error("real determinant degree");for(int i=0;i<=a.degree;++i)if(!a.c[i].zero())for(int j=0;j<=b.degree;++j)if(!b.c[j].zero())r.c[i+j]=r.c[i+j]+a.c[i]*b.c[j];return r;}
+// Each coefficient is a short dot product. Accumulate its propagated
+// input uncertainty and centre-rounding bound once, rather than inflating
+// a Ball for every multiply and every add. With n <= 29, 2n+2 eps
+// bounds the rounded centre dot product; 64n eps also covers all positive
+// uncertainty/magnitude accumulations and the final bound construction.
+inline RealPoly operator*(const RealPoly&a,const RealPoly&b){
+ RealPoly r;r.degree=a.degree+b.degree;
+ if(r.degree>28)throw std::logic_error("real determinant degree");
+ using T=typename Ball::Scalar;constexpr T eps=std::numeric_limits<T>::epsilon();
+ for(int k=0;k<=r.degree;++k){
+  T value=0,uncertainty=0,magnitude=0;int count=0;
+  const int first=std::max(0,k-b.degree),last=std::min(a.degree,k);
+  for(int i=first;i<=last;++i){
+   const auto&x=a.c[i];const auto&y=b.c[k-i];
+   if(x.zero() || y.zero())continue;
+   const T product=x.value*y.value;
+   value+=product;magnitude+=std::abs(product);
+   uncertainty+=std::abs(x.value)*y.error+std::abs(y.value)*x.error+x.error*y.error;
+   ++count;
+  }
+  if(count)r.c[k]=Ball(value,(uncertainty+T(2*count+2)*eps*magnitude+
+      T(8*count)*std::numeric_limits<T>::min())*(T(1)+T(64*count)*eps));
+ }
+ return r;
+}
 using Coefficients=std::array<OutInterval,29>;
 // Source dependence is quadratic before the Bezout determinant. Prepare
 // the four exact polynomial bases once per lens geometry, with error balls.

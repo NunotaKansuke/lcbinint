@@ -44,5 +44,31 @@ int main(){
    require((__float128)product.lo<=xx*yy&&xx*yy<=(__float128)product.hi,"ball product enclosure");++corners;
   }
  }
+ // Exercise convolution cancellation and propagated input uncertainty
+ // independently in binary128, across degrees and exponent ranges.
+ for(int trial=0;trial<2000;++trial){
+  resultant_detail::RealPoly a,b;
+  a.degree=int(random()%15);b.degree=int(random()%15);
+  auto fill=[&](auto&poly){for(int k=0;k<=poly.degree;++k){
+   const long double value=std::ldexp((long double)(int(random()%2001)-1000)/1024,
+       int(random()%601)-300);
+   poly.c[k]=Ball(value,std::abs(value)*std::ldexp(1.L,-40));
+  }};
+  fill(a);fill(b);const auto product=a*b;
+  for(int corner=0;corner<4;++corner){
+   std::array<__float128,29> aa{},bb{};
+   for(int k=0;k<=a.degree;++k)aa[k]=(__float128)a.c[k].value+
+       ((random()%2)?1:-1)*(__float128)a.c[k].error;
+   for(int k=0;k<=b.degree;++k)bb[k]=(__float128)b.c[k].value+
+       ((random()%2)?1:-1)*(__float128)b.c[k].error;
+   for(int k=0;k<=product.degree;++k){
+    __float128 exact=0;
+    for(int i=std::max(0,k-b.degree);i<=std::min(k,a.degree);++i)exact+=aa[i]*bb[k-i];
+    const auto&bound=product.c[k];
+    require((__float128)bound.value-bound.error<=exact &&
+        exact<=(__float128)bound.value+bound.error,"convolution uncertainty enclosure");
+   }
+  }
+ }
  std::cout<<"PASS: cold/warm and lens-invalidation exact resultant coefficients and "<<corners<<" promoted arithmetic corners\n";
 }

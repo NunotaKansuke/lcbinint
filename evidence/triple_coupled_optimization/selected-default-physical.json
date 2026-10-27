@@ -1,0 +1,886 @@
+{
+  "route": "integrate_coupled C ABI, explicit analytic pullback for lens0=0 and lens1=1",
+  "kernel_sha256": "20a1faf48261b080bf73e714b33e1261e6760886a52ea7c86fee0df453a10ec9",
+  "rows": [
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "parameter": "source_x",
+      "analytic": -4.527421142044089,
+      "reference": -4.527469088717595,
+      "error": 4.7946673506160664e-05,
+      "budget": 0.001005493817743519
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.0001,
+      "parameter": "source_x",
+      "analytic": -4.527433211211441,
+      "reference": -4.527469088717595,
+      "error": 3.587750615441365e-05,
+      "budget": 0.001005493817743519
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "parameter": "source_y",
+      "analytic": -11.374682392125067,
+      "reference": -11.374713171035111,
+      "error": 3.0778910044659824e-05,
+      "budget": 0.002374942634207022
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.0001,
+      "parameter": "source_y",
+      "analytic": -11.374709398035302,
+      "reference": -11.374713171035111,
+      "error": 3.7729998094704342e-06,
+      "budget": 0.002374942634207022
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "parameter": "rho",
+      "analytic": -25.976040371746876,
+      "reference": -25.975986999107192,
+      "error": 5.3372639683857415e-05,
+      "budget": 0.005295197399821439
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.0001,
+      "parameter": "rho",
+      "analytic": -25.976007121710097,
+      "reference": -25.975986999107192,
+      "error": 2.0122602904848463e-05,
+      "budget": 0.005295197399821439
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "parameter": "m1",
+      "analytic": -9.935767273956174,
+      "reference": -9.935814832537915,
+      "error": 4.755858174121386e-05,
+      "budget": 0.0020871629665075828
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.0001,
+      "parameter": "m1",
+      "analytic": -9.935792994503094,
+      "reference": -9.935814832537915,
+      "error": 2.1838034820476082e-05,
+      "budget": 0.0020871629665075828
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "parameter": "m2",
+      "analytic": 0.11632915800534323,
+      "reference": 0.11634022756723539,
+      "error": 1.106956189216024e-05,
+      "budget": 0.00012326804551344707
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.0001,
+      "parameter": "m2",
+      "analytic": 0.1163425878721687,
+      "reference": 0.11634022756723539,
+      "error": 2.360304933307633e-06,
+      "budget": 0.00012326804551344707
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "parameter": "lens0_x",
+      "analytic": 1.3229786441045714,
+      "reference": 1.3229475491360887,
+      "error": 3.109496848274773e-05,
+      "budget": 0.00036458950982721773
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.0001,
+      "parameter": "lens0_x",
+      "analytic": 1.3229673038022849,
+      "reference": 1.3229475491360887,
+      "error": 1.975466619619226e-05,
+      "budget": 0.00036458950982721773
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "parameter": "lens0_y",
+      "analytic": 7.883057765865793,
+      "reference": 7.883115691837972,
+      "error": 5.792597217890716e-05,
+      "budget": 0.0016766231383675944
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.0001,
+      "parameter": "lens0_y",
+      "analytic": 7.88309473891883,
+      "reference": 7.883115691837972,
+      "error": 2.0952919141947746e-05,
+      "budget": 0.0016766231383675944
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "parameter": "lens1_x",
+      "analytic": -0.8609003285747545,
+      "reference": -0.8608848086755216,
+      "error": 1.5519899232874224e-05,
+      "budget": 0.0002721769617351043
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.0001,
+      "parameter": "lens1_x",
+      "analytic": -0.8608931417250204,
+      "reference": -0.8608848086755216,
+      "error": 8.333049498765455e-06,
+      "budget": 0.0002721769617351043
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "parameter": "lens1_y",
+      "analytic": 3.067293295941547,
+      "reference": 3.067298926975326,
+      "error": 5.631033778819017e-06,
+      "budget": 0.0007134597853950652
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.0001,
+      "parameter": "lens1_y",
+      "analytic": 3.067298036606363,
+      "reference": 3.067298926975326,
+      "error": 8.903689630024303e-07,
+      "budget": 0.0007134597853950652
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "parameter": "lens2_x",
+      "analytic": 4.0653428265142715,
+      "reference": 4.065373507318171,
+      "error": 3.0680803899230114e-05,
+      "budget": 0.0009130747014636342
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.0001,
+      "parameter": "lens2_x",
+      "analytic": 4.065359049134176,
+      "reference": 4.065373507318171,
+      "error": 1.4458183994925378e-05,
+      "budget": 0.0009130747014636342
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "parameter": "lens2_y",
+      "analytic": 0.42433133031772713,
+      "reference": 0.4243002826953557,
+      "error": 3.104762237143843e-05,
+      "budget": 0.00018486005653907113
+    },
+    {
+      "case": "contact",
+      "limb": 0.0,
+      "rtol": 0.0001,
+      "parameter": "lens2_y",
+      "analytic": 0.4243166225101085,
+      "reference": 0.4243002826953557,
+      "error": 1.633981475279711e-05,
+      "budget": 0.00018486005653907113
+    },
+    {
+      "case": "contact",
+      "limb": 0.5,
+      "rtol": 0.001,
+      "parameter": "source_x",
+      "analytic": -2.263574887199493,
+      "reference": -2.263635519090812,
+      "error": 6.063189131877422e-05,
+      "budget": 0.0005527271038181624
+    },
+    {
+      "case": "contact",
+      "limb": 0.5,
+      "rtol": 0.0001,
+      "parameter": "source_x",
+      "analytic": -2.263599932810901,
+      "reference": -2.263635519090812,
+      "error": 3.558627991084862e-05,
+      "budget": 0.0005527271038181624
+    },
+    {
+      "case": "contact",
+      "limb": 0.5,
+      "rtol": 0.001,
+      "parameter": "source_y",
+      "analytic": -14.983405719800214,
+      "reference": -14.983421358145677,
+      "error": 1.5638345463031555e-05,
+      "budget": 0.003096684271629135
+    },
+    {
+      "case": "contact",
+      "limb": 0.5,
+      "rtol": 0.0001,
+      "parameter": "source_y",
+      "analytic": -14.983420717401566,
+      "reference": -14.983421358145677,
+      "error": 6.407441102140865e-07,
+      "budget": 0.003096684271629135
+    },
+    {
+      "case": "contact",
+      "limb": 0.5,
+      "rtol": 0.001,
+      "parameter": "rho",
+      "analytic": -26.602460141373967,
+      "reference": -26.60240874653219,
+      "error": 5.1394841776186695e-05,
+      "budget": 0.0054204817493064385
+    },
+    {
+      "case": "contact",
+      "limb": 0.5,
+      "rtol": 0.0001,
+      "parameter": "rho",
+      "analytic": -26.602433106351015,
+      "reference": -26.60240874653219,
+      "error": 2.4359818823427304e-05,
+      "budget": 0.0054204817493064385
+    },
+    {
+      "case": "contact",
+      "limb": 0.5,
+      "rtol": 0.001,
+      "parameter": "m1",
+      "analytic": -11.109060000711189,
+      "reference": -11.10904570921889,
+      "error": 1.4291492298923458e-05,
+      "budget": 0.002321809141843778
+    },
+    {
+      "case": "contact",
+      "limb": 0.5,
+      "rtol": 0.0001,
+      "parameter": "m1",
+      "analytic": -11.109054965942311,
+      "reference": -11.10904570921889,
+      "error": 9.256723421557922e-06,
+      "budget": 0.002321809141843778
+    },
+    {
+      "case": "contact",
+      "limb": 0.5,
+      "rtol": 0.001,
+      "parameter": "m2",
+      "analytic": 4.534479590035223,
+      "reference": 4.534451120825622,
+      "error": 2.846920960042354e-05,
+      "budget": 0.0010068902241651245
+    },
+    {
+      "case": "contact",
+      "limb": 0.5,
+      "rtol": 0.0001,
+      "parameter": "m2",
+      "analytic": 4.53447601648879,
+      "reference": 4.534451120825622,
+      "error": 2.4895663167434634e-05,
+      "budget": 0.0010068902241651245
+    },
+    {
+      "case": "contact",
+      "limb": 0.5,
+      "rtol": 0.001,
+      "parameter": "lens0_x",
+      "analytic": -0.1566521142438666,
+      "reference": -0.1566188834978277,
+      "error": 3.3230746038892534e-05,
+      "budget": 0.00013132377669956553
+    },
+    {
+      "case": "contact",
+      "limb": 0.5,
+      "rtol": 0.0001,
+      "parameter": "lens0_x",
+      "analytic": -0.15663262646428056,
+      "reference": -0.1566188834978277,
+      "error": 1.3742966452845451e-05,
+      "budget": 0.00013132377669956553
+    },
+    {
+      "case": "contact",
+      "limb": 0.5,
+      "rtol": 0.001,
+      "parameter": "lens0_y",
+      "analytic": 10.504501832136244,
+      "reference": 10.50450872339681,
+      "error": 6.891260566632695e-06,
+      "budget": 0.002200901744679362
+    },
+    {
+      "case": "contact",
+      "limb": 0.5,
+      "rtol": 0.0001,
+      "parameter": "lens0_y",
+      "analytic": 10.504511641492963,
+      "reference": 10.50450872339681,
+      "error": 2.9180961522712323e-06,
+      "budget": 0.002200901744679362
+    },
+    {
+      "case": "contact",
+      "limb": 0.5,
+      "rtol": 0.001,
+      "parameter": "lens1_x",
+      "analytic": -0.8020175230957908,
+      "reference": -0.8020206820980036,
+      "error": 3.1590022128158424e-06,
+      "budget": 0.0002604041364196007
+    },
+    {
+      "case": "contact",
+      "limb": 0.5,
+      "rtol": 0.0001,
+      "parameter": "lens1_x",
+      "analytic": -0.8020175385527988,
+      "reference": -0.8020206820980036,
+      "error": 3.143545204808973e-06,
+      "budget": 0.0002604041364196007
+    },
+    {
+      "case": "contact",
+      "limb": 0.5,
+      "rtol": 0.001,
+      "parameter": "lens1_y",
+      "analytic": 3.4883661490636966,
+      "reference": 3.4883681072006567,
+      "error": 1.958136960134027e-06,
+      "budget": 0.0007976736214401314
+    },
+    {
+      "case": "contact",
+      "limb": 0.5,
+      "rtol": 0.0001,
+      "parameter": "lens1_y",
+      "analytic": 3.4883684077705364,
+      "reference": 3.4883681072006567,
+      "error": 3.005698796521017e-07,
+      "budget": 0.0007976736214401314
+    },
+    {
+      "case": "contact",
+      "limb": 0.5,
+      "rtol": 0.001,
+      "parameter": "lens2_x",
+      "analytic": 3.2222445245391507,
+      "reference": 3.222249627050644,
+      "error": 5.102511493326745e-06,
+      "budget": 0.0007444499254101288
+    },
+    {
+      "case": "contact",
+      "limb": 0.5,
+      "rtol": 0.0001,
+      "parameter": "lens2_x",
+      "analytic": 3.22225009782798,
+      "reference": 3.222249627050644,
+      "error": 4.707773362255807e-07,
+      "budget": 0.0007444499254101288
+    },
+    {
+      "case": "contact",
+      "limb": 0.5,
+      "rtol": 0.001,
+      "parameter": "lens2_y",
+      "analytic": 0.9905377386002727,
+      "reference": 0.9905463874648746,
+      "error": 8.64886460183456e-06,
+      "budget": 0.0002981092774929749
+    },
+    {
+      "case": "contact",
+      "limb": 0.5,
+      "rtol": 0.0001,
+      "parameter": "lens2_y",
+      "analytic": 0.990540668138067,
+      "reference": 0.9905463874648746,
+      "error": 5.719326807596126e-06,
+      "budget": 0.0002981092774929749
+    },
+    {
+      "case": "large_contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "parameter": "source_x",
+      "analytic": 2.8057528961461213,
+      "reference": 2.8057548500859397,
+      "error": 1.9539398183887613e-06,
+      "budget": 0.000661150970017188
+    },
+    {
+      "case": "large_contact",
+      "limb": 0.0,
+      "rtol": 0.0001,
+      "parameter": "source_x",
+      "analytic": 2.8057527115957073,
+      "reference": 2.8057548500859397,
+      "error": 2.138490232450607e-06,
+      "budget": 0.000661150970017188
+    },
+    {
+      "case": "large_contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "parameter": "source_y",
+      "analytic": 0.5093048748595083,
+      "reference": 0.5093052489923977,
+      "error": 3.741328894468765e-07,
+      "budget": 0.00020186104979847953
+    },
+    {
+      "case": "large_contact",
+      "limb": 0.0,
+      "rtol": 0.0001,
+      "parameter": "source_y",
+      "analytic": 0.5093047079863166,
+      "reference": 0.5093052489923977,
+      "error": 5.410060811561479e-07,
+      "budget": 0.00020186104979847953
+    },
+    {
+      "case": "large_contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "parameter": "rho",
+      "analytic": -11.153575599293113,
+      "reference": -11.153575490476797,
+      "error": 1.0881631595793806e-07,
+      "budget": 0.0023307150980953592
+    },
+    {
+      "case": "large_contact",
+      "limb": 0.0,
+      "rtol": 0.0001,
+      "parameter": "rho",
+      "analytic": -11.153576628185668,
+      "reference": -11.153575490476797,
+      "error": 1.1377088711128636e-06,
+      "budget": 0.0023307150980953592
+    },
+    {
+      "case": "large_contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "parameter": "m1",
+      "analytic": -7.600210235188514,
+      "reference": -7.600213084053564,
+      "error": 2.8488650505309465e-06,
+      "budget": 0.0016200426168107129
+    },
+    {
+      "case": "large_contact",
+      "limb": 0.0,
+      "rtol": 0.0001,
+      "parameter": "m1",
+      "analytic": -7.600210221314293,
+      "reference": -7.600213084053564,
+      "error": 2.8627392714142275e-06,
+      "budget": 0.0016200426168107129
+    },
+    {
+      "case": "large_contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "parameter": "m2",
+      "analytic": -0.9948890949134244,
+      "reference": -0.9948889752919854,
+      "error": 1.1962143897648048e-07,
+      "budget": 0.00029897779505839707
+    },
+    {
+      "case": "large_contact",
+      "limb": 0.0,
+      "rtol": 0.0001,
+      "parameter": "m2",
+      "analytic": -0.9948877324285919,
+      "reference": -0.9948889752919854,
+      "error": 1.2428633935357425e-06,
+      "budget": 0.00029897779505839707
+    },
+    {
+      "case": "large_contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "parameter": "lens0_x",
+      "analytic": -0.5650326551722357,
+      "reference": -0.5650332029372152,
+      "error": 5.47764979486054e-07,
+      "budget": 0.00021300664058744302
+    },
+    {
+      "case": "large_contact",
+      "limb": 0.0,
+      "rtol": 0.0001,
+      "parameter": "lens0_x",
+      "analytic": -0.565032388257629,
+      "reference": -0.5650332029372152,
+      "error": 8.146795861252443e-07,
+      "budget": 0.00021300664058744302
+    },
+    {
+      "case": "large_contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "parameter": "lens0_y",
+      "analytic": -1.0074752068627708,
+      "reference": -1.007475162064786,
+      "error": 4.479798487722064e-08,
+      "budget": 0.0003014950324129572
+    },
+    {
+      "case": "large_contact",
+      "limb": 0.0,
+      "rtol": 0.0001,
+      "parameter": "lens0_y",
+      "analytic": -1.007474894990398,
+      "reference": -1.007475162064786,
+      "error": 2.670743879384929e-07,
+      "budget": 0.0003014950324129572
+    },
+    {
+      "case": "large_contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "parameter": "lens1_x",
+      "analytic": -2.5941652895230134,
+      "reference": -2.5941677910745753,
+      "error": 2.5015515618953543e-06,
+      "budget": 0.0006188335582149151
+    },
+    {
+      "case": "large_contact",
+      "limb": 0.0,
+      "rtol": 0.0001,
+      "parameter": "lens1_x",
+      "analytic": -2.5941654592083077,
+      "reference": -2.5941677910745753,
+      "error": 2.331866267635263e-06,
+      "budget": 0.0006188335582149151
+    },
+    {
+      "case": "large_contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "parameter": "lens1_y",
+      "analytic": 0.3758757479275321,
+      "reference": 0.375875752949284,
+      "error": 5.021751903200311e-09,
+      "budget": 0.0001751751505898568
+    },
+    {
+      "case": "large_contact",
+      "limb": 0.0,
+      "rtol": 0.0001,
+      "parameter": "lens1_y",
+      "analytic": 0.3758757505144208,
+      "reference": 0.375875752949284,
+      "error": 2.4348631999515646e-09,
+      "budget": 0.0001751751505898568
+    },
+    {
+      "case": "large_contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "parameter": "lens2_x",
+      "analytic": 0.3534450485491277,
+      "reference": 0.3534452959952361,
+      "error": 2.4744610838123293e-07,
+      "budget": 0.0001706890591990472
+    },
+    {
+      "case": "large_contact",
+      "limb": 0.0,
+      "rtol": 0.0001,
+      "parameter": "lens2_x",
+      "analytic": 0.3534451358702294,
+      "reference": 0.3534452959952361,
+      "error": 1.6012500669848606e-07,
+      "budget": 0.0001706890591990472
+    },
+    {
+      "case": "large_contact",
+      "limb": 0.0,
+      "rtol": 0.001,
+      "parameter": "lens2_y",
+      "analytic": 0.12229458407573035,
+      "reference": 0.12229419826592647,
+      "error": 3.858098038822533e-07,
+      "budget": 0.00012445883965318528
+    },
+    {
+      "case": "large_contact",
+      "limb": 0.0,
+      "rtol": 0.0001,
+      "parameter": "lens2_y",
+      "analytic": 0.1222944364896606,
+      "reference": 0.12229419826592647,
+      "error": 2.3822373412807352e-07,
+      "budget": 0.00012445883965318528
+    },
+    {
+      "case": "large_contact",
+      "limb": 0.5,
+      "rtol": 0.001,
+      "parameter": "source_x",
+      "analytic": 2.1018617520986314,
+      "reference": 2.1018616259027567,
+      "error": 1.2619587463902349e-07,
+      "budget": 0.0005203723251805514
+    },
+    {
+      "case": "large_contact",
+      "limb": 0.5,
+      "rtol": 0.0001,
+      "parameter": "source_x",
+      "analytic": 2.101860777871356,
+      "reference": 2.1018616259027567,
+      "error": 8.480314006575895e-07,
+      "budget": 0.0005203723251805514
+    },
+    {
+      "case": "large_contact",
+      "limb": 0.5,
+      "rtol": 0.001,
+      "parameter": "source_y",
+      "analytic": 0.6948180522379633,
+      "reference": 0.6948182905075484,
+      "error": 2.3826958506223406e-07,
+      "budget": 0.00023896365810150967
+    },
+    {
+      "case": "large_contact",
+      "limb": 0.5,
+      "rtol": 0.0001,
+      "parameter": "source_y",
+      "analytic": 0.6948179903013727,
+      "reference": 0.6948182905075484,
+      "error": 3.002061756962604e-07,
+      "budget": 0.00023896365810150967
+    },
+    {
+      "case": "large_contact",
+      "limb": 0.5,
+      "rtol": 0.001,
+      "parameter": "rho",
+      "analytic": -11.718421257967087,
+      "reference": -11.718421839561621,
+      "error": 5.815945343101703e-07,
+      "budget": 0.002443684367912324
+    },
+    {
+      "case": "large_contact",
+      "limb": 0.5,
+      "rtol": 0.0001,
+      "parameter": "rho",
+      "analytic": -11.718422516339814,
+      "reference": -11.718421839561621,
+      "error": 6.767781925987038e-07,
+      "budget": 0.002443684367912324
+    },
+    {
+      "case": "large_contact",
+      "limb": 0.5,
+      "rtol": 0.001,
+      "parameter": "m1",
+      "analytic": -7.651343683565042,
+      "reference": -7.651344825565509,
+      "error": 1.14200046752444e-06,
+      "budget": 0.0016302689651131019
+    },
+    {
+      "case": "large_contact",
+      "limb": 0.5,
+      "rtol": 0.0001,
+      "parameter": "m1",
+      "analytic": -7.651343426429411,
+      "reference": -7.651344825565509,
+      "error": 1.3991360985343704e-06,
+      "budget": 0.0016302689651131019
+    },
+    {
+      "case": "large_contact",
+      "limb": 0.5,
+      "rtol": 0.001,
+      "parameter": "m2",
+      "analytic": -1.8284565933308796,
+      "reference": -1.8284554969127953,
+      "error": 1.0964180843231475e-06,
+      "budget": 0.00046569109938255905
+    },
+    {
+      "case": "large_contact",
+      "limb": 0.5,
+      "rtol": 0.0001,
+      "parameter": "m2",
+      "analytic": -1.828454719872278,
+      "reference": -1.8284554969127953,
+      "error": 7.770405172635719e-07,
+      "budget": 0.00046569109938255905
+    },
+    {
+      "case": "large_contact",
+      "limb": 0.5,
+      "rtol": 0.001,
+      "parameter": "lens0_x",
+      "analytic": -0.2949573321372676,
+      "reference": -0.29495577661187156,
+      "error": 1.55552539604642e-06,
+      "budget": 0.0001589911553223743
+    },
+    {
+      "case": "large_contact",
+      "limb": 0.5,
+      "rtol": 0.0001,
+      "parameter": "lens0_x",
+      "analytic": -0.2949565831541493,
+      "reference": -0.29495577661187156,
+      "error": 8.065422777425724e-07,
+      "budget": 0.0001589911553223743
+    },
+    {
+      "case": "large_contact",
+      "limb": 0.5,
+      "rtol": 0.001,
+      "parameter": "lens0_y",
+      "analytic": -1.125119844986224,
+      "reference": -1.125120528744361,
+      "error": 6.837581369989465e-07,
+      "budget": 0.0003250241057488722
+    },
+    {
+      "case": "large_contact",
+      "limb": 0.5,
+      "rtol": 0.0001,
+      "parameter": "lens0_y",
+      "analytic": -1.1251197916801732,
+      "reference": -1.125120528744361,
+      "error": 7.37064187905645e-07,
+      "budget": 0.0003250241057488722
+    },
+    {
+      "case": "large_contact",
+      "limb": 0.5,
+      "rtol": 0.001,
+      "parameter": "lens1_x",
+      "analytic": -2.430213752371982,
+      "reference": -2.430215606987751,
+      "error": 1.8546157694032672e-06,
+      "budget": 0.0005860431213975503
+    },
+    {
+      "case": "large_contact",
+      "limb": 0.5,
+      "rtol": 0.0001,
+      "parameter": "lens1_x",
+      "analytic": -2.430213582179809,
+      "reference": -2.430215606987751,
+      "error": 2.0248079422025e-06,
+      "budget": 0.0005860431213975503
+    },
+    {
+      "case": "large_contact",
+      "limb": 0.5,
+      "rtol": 0.001,
+      "parameter": "lens1_y",
+      "analytic": 0.4233897293731986,
+      "reference": 0.42338968906818764,
+      "error": 4.030501093987837e-08,
+      "budget": 0.00018467793781363752
+    },
+    {
+      "case": "large_contact",
+      "limb": 0.5,
+      "rtol": 0.0001,
+      "parameter": "lens1_y",
+      "analytic": 0.4233897166080917,
+      "reference": 0.42338968906818764,
+      "error": 2.753990407944329e-08,
+      "budget": 0.00018467793781363752
+    },
+    {
+      "case": "large_contact",
+      "limb": 0.5,
+      "rtol": 0.001,
+      "parameter": "lens2_x",
+      "analytic": 0.623309332410618,
+      "reference": 0.6233090760821014,
+      "error": 2.563285166345963e-07,
+      "budget": 0.00022466181521642027
+    },
+    {
+      "case": "large_contact",
+      "limb": 0.5,
+      "rtol": 0.0001,
+      "parameter": "lens2_x",
+      "analytic": 0.6233093874626022,
+      "reference": 0.6233090760821014,
+      "error": 3.1138050082812896e-07,
+      "budget": 0.00022466181521642027
+    },
+    {
+      "case": "large_contact",
+      "limb": 0.5,
+      "rtol": 0.001,
+      "parameter": "lens2_y",
+      "analytic": 0.006912063375062081,
+      "reference": 0.0069126068336089475,
+      "error": 5.434585468666944e-07,
+      "budget": 0.0001013825213667218
+    },
+    {
+      "case": "large_contact",
+      "limb": 0.5,
+      "rtol": 0.0001,
+      "parameter": "lens2_y",
+      "analytic": 0.00691208477070867,
+      "reference": 0.0069126068336089475,
+      "error": 5.220629002771968e-07,
+      "budget": 0.0001013825213667218
+    }
+  ]
+}

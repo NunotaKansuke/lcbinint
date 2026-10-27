@@ -18,11 +18,33 @@ int main() {
             check(fabsq(a.dtheta-b.dtheta)<local_precision::Q(1e-26)*(1+fabsq(b.dtheta)),"cached quad tangent parity");
         }
     }
+    // The optimized derivative ray must agree with the original promoted
+    // physical equations, including all mass and position derivatives.
+    for(double R:{.2,.82,.93,1.04,1.19,2.3}) {
+        const local_precision::GradientRay ray(R,p);
+        for(int k=0;k<80;++k) {
+            const local_precision::Q theta=local_precision::Q(-3)+local_precision::Q(k)*local_precision::Q(.079);
+            const auto a=ray.evaluate(theta);
+            const auto b=local_precision::evaluate<true>(local_precision::Q(R),theta,p);
+            const auto close=[](auto x,auto y){return fabsq(x-y)<local_precision::Q(1e-26)*(1+fabsq(y));};
+            check(close(a.phi,b.phi) && close(a.dtheta,b.dtheta) && close(a.dR,b.dR),"cached quad gradient geometry parity");
+            for(int j=0;j<8;++j)check(close(a.dp[j],b.dp[j]),"cached quad parameter parity");
+        }
+    }
     int occupied=0;
     for(double R:{.82,.89,.93,1.04,1.115,1.19}) {
         RadiusWorkspace<> value;
         RadiusWorkspace<true> gradient;
         check(value.initialize(R,p) && gradient.initialize(R,p),"topology");
+        for(auto bracket:value.topology.roots) {
+            const double theta=bracket.lo+(bracket.hi-bracket.lo)*.5;
+            local_precision::Q rational,angular;
+            check(local_precision::endpoint(R,theta,p,rational),"rational quad endpoint");
+            check(local_precision::refine_endpoint(theta,p,angular,[&](local_precision::Q angle){
+                return local_precision::evaluate<false,true>(local_precision::Q(R),angle,p);
+            }),"independent angular quad endpoint");
+            check(fabsq(rational-angular)<local_precision::Q(1e-24)*(1+fabsq(angular)),"quad endpoint parity");
+        }
         check(value.refine(4) && gradient.refine(4),"coarse integral");
         auto evaluations=value.value_evaluations;
         check(value.refine(7) && gradient.refine(7),"fine integral");

@@ -151,7 +151,10 @@ inline RadialEventPlan projected_radial_event_plan(const Geometry&p,int max_boxe
     std::vector<Node> pending{{0,0,coefficients}};
     std::vector<std::pair<double,double>> unresolved_s;
     std::vector<Guess> guesses;
-    const int projection_budget=std::min(max_boxes,256);
+    // A few hundred cheap projected cells can exclude broad regions before
+    // the two-dimensional complement solve. Keep the same total work budget;
+    // the projection and every accepted physical inclusion remain certified.
+    const int projection_budget=std::min(max_boxes,512);
     while(!pending.empty()) {
         auto n=std::move(pending.back());pending.pop_back();
         const I width=I(hi)-I(lo);

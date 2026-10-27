@@ -9,6 +9,29 @@
 #pragma GCC optimize ("no-fast-math","fp-contract=off")
 #endif
 namespace lcbinint::algebraic_boundary::triple::point_polynomial_detail {
+// Horner evaluation of uncertain coefficients. A degree-n polynomial
+// requires 2n rounded centre operations. The positive magnitude and input
+// uncertainty recurrences bound their effect without rebuilding a Ball at
+// each multiply/add. (2n+4)*eps dominates gamma_(2n) for n<=8;
+// 256*eps covers rounding of both positive recurrences and the final bound.
+// Normal-minimum padding also covers gradual underflow. Nonfinite bounds
+// remain unresolved in the caller, which retains physical/quad fallbacks.
+template<class T,class Coefficient> coefficient_ball_detail::Ball<T> horner_ball(
+        int degree,T coordinate,Coefficient coefficient) {
+ using B=coefficient_ball_detail::Ball<T>;
+ const auto leading=coefficient(degree);
+ if(degree==0)return leading;
+ const T absolute=std::abs(coordinate);
+ constexpr T eps=std::numeric_limits<T>::epsilon(),tiny=std::numeric_limits<T>::min();
+ T value=leading.value,magnitude=std::abs(value),uncertainty=leading.error;
+ for(int j=degree-1;j>=0;--j){
+  const auto a=coefficient(j);
+  value=value*coordinate+a.value;
+  magnitude=magnitude*absolute+std::abs(a.value);
+  uncertainty=uncertainty*absolute+a.error+tiny;
+ }
+ return B(value,(uncertainty+T(2*degree+4)*eps*magnitude+T(64)*tiny)*(T(1)+T(256)*eps));
+}
 template<class T> struct Poly {
  using B=coefficient_ball_detail::Ball<T>;std::array<B,9> c{};int degree=0;
  Poly()=default;Poly(double x){c[0]=B(x);}
@@ -25,13 +48,20 @@ template<class T> struct Cache {
  struct Radius {
   std::array<B,7> c;
   int sign(double x,bool chart)const {
-   B f=chart?c[0]:c[6];const B t(x);
-   for(int i=5;i>=0;--i){B a=chart?c[6-i]:c[i];if(chart && i%2)a=-a;f=f*t+a;}
+   const auto f=horner_ball<T>(6,T(x),[&](int i){
+    B a=chart?c[6-i]:c[i];if(chart && i%2)a=-a;return a;
+   });
    if(!std::isfinite(f.value)||!std::isfinite(f.error)||f.error<0)return 0;
    return f.value>f.error?1:f.value<-f.error?-1:0;
   }
  };
- Radius at(double r)const{Radius out;for(int k=0;k<7;++k){const auto&p=coefficients[k];B a=p.c[p.degree];for(int j=p.degree-1;j>=0;--j)a=a*B(r)+p.c[j];out.c[k]=a;}return out;}
+ Radius at(double r)const {
+  Radius out;
+  for(int k=0;k<7;++k){const auto&p=coefficients[k];
+   out.c[k]=horner_ball<T>(p.degree,T(r),[&](int j){return p.c[j];});
+  }
+  return out;
+ }
 };
 template<class T> struct LensCache {
  using P=Poly<T>;using B=coefficient_ball_detail::Ball<T>;using C=coefficient_detail::C<P>;

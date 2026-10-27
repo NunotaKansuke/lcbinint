@@ -1,4 +1,6 @@
 #pragma once
+#include "fused_radial_rule.hpp"
+#include "fused_boundary_guard.hpp"
 #include "radius_terms.hpp"
 #include "../quadrature_error_policy.hpp"
 #include <memory>
@@ -14,9 +16,10 @@ struct EmbeddedRadialRule {
     std::vector<double> weights;
     std::array<std::vector<double>,2> interpolation;
     std::array<int,2> missing;
-    explicit EmbeddedRadialRule(int level) {
-        const auto& rule=fejer_rule(level);const int n=int(rule.x.size());
-        missing={n/2-1,n/2+1};
+    explicit EmbeddedRadialRule(int level):EmbeddedRadialRule(fejer_rule(level),
+        int(fejer_rule(level).x.size())/2-1,int(fejer_rule(level).x.size())/2+1) {}
+    template<class Rule> EmbeddedRadialRule(const Rule& rule,int omit_low,int omit_high) {
+        const int n=int(rule.x.size());missing={omit_low,omit_high};
         for(int j=0;j<n;++j)if(j!=missing[0] && j!=missing[1])slots.push_back(j);
         const int count=int(slots.size());
         std::vector<std::vector<long double>> matrix(count,std::vector<long double>(count+1));
@@ -63,10 +66,9 @@ inline const EmbeddedRadialRule& embedded_radial_rule(int level) {
     if(level==5){static const EmbeddedRadialRule rule(5);return rule;}
     throw std::invalid_argument("embedded radial level");
 }
-template<class Samples,class Accessor> std::pair<double,double> embedded_estimate(
-        int level,const Samples& samples,Accessor value) {
-    const auto& embedded=embedded_radial_rule(level);
-    const auto& rule=fejer_rule(level);double coarse=0,detail=0;
+template<class Rule,class Samples,class Accessor> std::pair<double,double> embedded_estimate_from(
+        const Rule& rule,const EmbeddedRadialRule& embedded,const Samples& samples,Accessor value) {
+    double coarse=0,detail=0;
     for(std::size_t j=0;j<embedded.slots.size();++j)coarse+=embedded.weights[j]*value(samples[embedded.slots[j]]);
     for(int k=0;k<2;++k) {
         double predicted=0;
@@ -75,8 +77,12 @@ template<class Samples,class Accessor> std::pair<double,double> embedded_estimat
     }
     return {coarse,detail};
 }
-template<class Samples,class Accessor> double interpolation_detail(
-    const Fejer2Rule& rule,const Samples& samples,Accessor value) {
+template<class Samples,class Accessor> std::pair<double,double> embedded_estimate(
+        int level,const Samples& samples,Accessor value) {
+    return embedded_estimate_from(fejer_rule(level),embedded_radial_rule(level),samples,value);
+}
+template<class Rule,class Samples,class Accessor> double interpolation_detail(
+    const Rule& rule,const Samples& samples,Accessor value) {
     const int m=int(rule.x.size())+1,nc=m/2-1;
     double detail=0;
     for(int k=1;k<m;k+=2) {
@@ -92,17 +98,34 @@ template<class Samples,class Accessor> double interpolation_detail(
 // Integrate a FIXED radial panel. This is a building block for the frontier,
 // not a full-support solver. Parameter-dependent endpoints require the frontier
 // to supply event motion; do not use this fixed-panel gradient across them.
-template<bool Gradient> struct SharedRadiusCache {
+class BoundaryControlAtlas;
+#ifdef LCBININT_TRIPLE_WINDING_ARCS
+namespace winding_label_detail {class Plan;}
+#endif
+template<bool> struct SharedCoefficientFrames {};
+template<> struct SharedCoefficientFrames<true>{
+#ifdef LCBININT_TRIPLE_WINDING_ARCS
+std::shared_ptr<winding_label_detail::Plan> winding_labels;
+#endif
+#ifdef LCBININT_TRIPLE_BOUNDARY_CONTROL
+std::shared_ptr<const BoundaryControlAtlas> boundary_control;
+#endif
+std::shared_ptr<root_pair_detail::PreparedFrames> coefficient_frames;std::shared_ptr<std::unique_ptr<root_pair_detail::RadialCache<8>>> first_order_coefficients;};
+template<bool Gradient> struct SharedRadiusCache:SharedCoefficientFrames<Gradient> {
     std::map<double,std::shared_ptr<RadiusWorkspace<Gradient>>> radii;
     std::optional<std::array<double,8>> identity;
     AngularOptions angular;
     std::optional<bool> uniform_source;
+    std::optional<bool> gradient_value_mesh;
     double sample_relative_tolerance=0;
     std::shared_ptr<AngularCoefficientCache> coefficients;
 
 };
 template<bool Gradient=false> class RadialPanel {
     Geometry geometry_;
+    double motion_origin_=0;
+    bool moving_=false;
+    std::array<double,Gradient?8:0> motion_base_{},motion_slope_{};
     FoldRadialMap map_;
     AngularOptions angular_options_;
     std::array<std::shared_ptr<RadiusWorkspace<Gradient>>,256> radii_{};
@@ -110,27 +133,32 @@ template<bool Gradient=false> class RadialPanel {
     RadiusIntegral<Gradient> accepted_{};
     int level_=0,angular_level_=0;
     double radial_error_=INFINITY,inner_error_=INFINITY;
+    std::array<double,Gradient?8:0> gradient_radial_{},gradient_inner_{};
     double repair_absolute_=0,repair_relative_=0;
-    bool uniform_source_=false,weighted_=false;
+    bool uniform_source_=false,weighted_=false,gradient_value_mesh_=false;
     double error_uniform_weight_=1,error_limb_weight_=1;
     bool profile_error_=false;
     std::optional<AngularTopology> band_topology_;
     double safe_lo_=0,safe_hi_=0;
+    std::size_t geometry_promotions_=0;
 public:
+    static constexpr int split_level=6;
     std::string reason="not_started";
     std::size_t radial_evaluations=0,reused_radii=0;
     RadialPanel(const Geometry& p,double lo,double hi,bool left_fold=false,
                 bool right_fold=false,AngularOptions options={},
                 std::shared_ptr<SharedRadiusCache<Gradient>> shared=nullptr,
-                double repair_absolute=0,double repair_relative=0,bool uniform_source=false,bool weighted=false,double error_profile=-1)
+                double repair_absolute=0,double repair_relative=0,bool uniform_source=false,bool weighted=false,double error_profile=-1,bool gradient_value_mesh=false)
         :geometry_(p),map_{lo,hi,left_fold,right_fold},angular_options_(options),shared_(std::move(shared)),
-         repair_absolute_(repair_absolute),repair_relative_(repair_relative),uniform_source_(uniform_source),weighted_(weighted) {
-        if(Gradient && weighted_)throw std::invalid_argument("weighted value panel cannot carry gradients");
+         repair_absolute_(repair_absolute),repair_relative_(repair_relative),uniform_source_(uniform_source),weighted_(weighted),gradient_value_mesh_(gradient_value_mesh) {
+
         p.validate();
         // Component errors combine with the same nonnegative coefficients
         // as flux. The global difference safety and detail floor stay intact.
-        // A negative profile selects the incumbent standalone/gradient policy.
-        if constexpr(!Gradient)if(error_profile>=0) {
+        // A negative profile selects the incumbent standalone component policy.
+        // Gradient frontiers supply the actual profile too: project the
+        // derivative before estimating its interpolation error.
+        if(error_profile>=0) {
             if(!std::isfinite(error_profile) || error_profile>1)throw std::invalid_argument("invalid error profile");
             error_uniform_weight_=1-error_profile;error_limb_weight_=error_profile;profile_error_=true;
         }
@@ -144,25 +172,46 @@ public:
                shared_->angular.exclusions!=options.exclusions ||
                shared_->angular.inclusion!=options.inclusion ||
                (shared_->uniform_source && *shared_->uniform_source!=uniform_source) ||
-               shared_->sample_relative_tolerance!=repair_relative*.2))
+               shared_->sample_relative_tolerance!=repair_relative*.2 ||
+               (shared_->gradient_value_mesh && *shared_->gradient_value_mesh!=gradient_value_mesh_)))
                 throw std::invalid_argument("triple radius cache identity mismatch");
             if(!shared_->coefficients)shared_->coefficients=std::make_shared<AngularCoefficientCache>(p);
             shared_->identity=identity;shared_->angular=options;shared_->uniform_source=uniform_source;
-            shared_->sample_relative_tolerance=repair_relative*.2;
+            shared_->sample_relative_tolerance=repair_relative*.2;shared_->gradient_value_mesh=gradient_value_mesh_;
         }
         if(!(lo>0 && hi>lo) || !std::isfinite(hi))
             throw std::invalid_argument("invalid triple radial panel");
     }
+    void set_radial_motion(double origin,const std::array<double,8>& base,const std::array<double,8>& slope) {
+        if constexpr(Gradient){moving_=true;motion_origin_=origin;motion_base_=base;motion_slope_=slope;}
+    }
+    bool has_radial_motion()const{return moving_;}
+    double motion_origin()const{return motion_origin_;}
+    const auto& motion_base()const{return motion_base_;}
+    const auto& motion_slope()const{return motion_slope_;}
     void set_certified_band(const AngularTopology& topology,double lo,double hi) {
         if(!topology.completed || !(hi>lo))return;
         band_topology_=topology;safe_lo_=lo;safe_hi_=hi;
     }
     const std::optional<AngularTopology>& band_topology() const{return band_topology_;}
+    bool full_annulus() const {
+        return band_topology_ && band_topology_->roots.empty() && band_topology_->arcs.size()==1 &&
+            band_topology_->arcs.front().hi-band_topology_->arcs.front().lo==2*std::acos(-1.);
+    }
     double safe_lo() const{return safe_lo_;}
     double safe_hi() const{return safe_hi_;}
     int level() const {return level_;}
+    int angular_level() const {return angular_level_;}
+    std::size_t geometry_promotions()const{return geometry_promotions_;}
+    const FoldRadialMap& radial_map() const {return map_;}
+    bool weighted_radial() const {return weighted_;}
+    const auto& retained_radii() const {return radii_;}
+    const AngularOptions& angular_options() const {return angular_options_;}
+    AngularCoefficientCache* coefficient_cache() const {return shared_?shared_->coefficients.get():nullptr;}
     double radial_error() const{return radial_error_;}
     double inner_error() const{return inner_error_;}
+    const auto& gradient_radial_errors()const{return gradient_radial_;}
+    const auto& gradient_inner_errors()const{return gradient_inner_;}
     const RadiusIntegral<Gradient>& result() const {return accepted_;}
     std::size_t value_evaluations() const {
         std::size_t count=0;for(const auto& r:radii_)if(r)count+=r->value_evaluations;return count;
@@ -177,9 +226,23 @@ public:
         const int target=std::max(level_,radial_level);
         const int angular_target=std::max(angular_level_,angular_level);
         const bool angular_changed=angular_target>angular_level_;
+        if constexpr(!Gradient)if(uniform_source_ && full_annulus()) {
+            // A proved full angular circle has exactly 2*pi*R area density.
+            // Integrate that polynomial directly, retaining a rounding bound.
+            accepted_={};accepted_.f0=std::acos(-1.)*(map_.b-map_.a)*(map_.a+map_.b);
+            radial_error_=16*std::numeric_limits<double>::epsilon()*std::abs(accepted_.f0);
+            inner_error_=0;accepted_.angular_error=radial_error_;
+            level_=target;angular_level_=angular_target;reason="full_annulus_exact";return true;
+        }
+        if constexpr(Gradient)if(gradient_value_mesh_ && uniform_source_ && full_annulus()) {
+            const double pi=std::acos(-1.);accepted_={};accepted_.f0=pi*(map_.b-map_.a)*(map_.a+map_.b);
+            for(int j=0;j<8;++j){const double va=motion_base_[j]+motion_slope_[j]*(map_.a-motion_origin_),vb=motion_base_[j]+motion_slope_[j]*(map_.b-motion_origin_);accepted_.df0[j]=2*pi*(map_.b*vb-map_.a*va);}
+            accepted_.gradient_error.fill(INFINITY);radial_error_=16*std::numeric_limits<double>::epsilon()*std::abs(accepted_.f0);inner_error_=0;accepted_.angular_error=radial_error_;
+            level_=target;angular_level_=angular_target;reason="fused_full_annulus_exact";return true;
+        }
         // Rebuild the adjacent coarse estimate after an angular refinement;
         // geometry and sample caches remain intact.
-        const int minimum=(weighted_ || !Gradient)?1:2;
+        const int minimum=(weighted_ || !Gradient || moving_)?1:2;
         const int first=angular_changed?std::max(minimum,level_-1):std::max(minimum,level_+1);
         RadiusIntegral<Gradient> previous=accepted_;
         bool have_previous=!angular_changed && level_>0;
@@ -187,7 +250,9 @@ public:
             RadiusIntegral<Gradient> next{};
             const auto& rule=radial_rule(lev,weighted_);
             const auto& limb_rule=weighted_?linear_radial_rule(lev):rule;
-            std::vector<RadiusIntegral<Gradient>> integrands(rule.x.size());
+            std::vector<RadiusIntegral<Gradient>> integrands(rule.x.size()),spatial;
+            const fused_detail::RadialRule *h0=nullptr,*hh=nullptr;
+            if constexpr(Gradient)if(gradient_value_mesh_) {spatial.resize(rule.x.size());h0=&fused_detail::radial_rule(lev,weighted_?1:0);hh=&fused_detail::radial_rule(lev,weighted_?2:0);}
             double inner_error=0;
             RadiusIntegral<Gradient> inner_errors{};
             for(int k=1;k<(1<<lev);++k) {
@@ -231,7 +296,13 @@ public:
                     } else ++reused_radii;
                 } else ++reused_radii;
                 auto& radius=*radii_[slot];
-                const bool angular_ok=(!Gradient && profile_error_ && !uniform_source_)?
+                if constexpr(Gradient){if(gradient_value_mesh_&&shared_){if(!shared_->coefficient_frames)shared_->coefficient_frames=std::make_shared<root_pair_detail::PreparedFrames>();radius.set_coefficient_frames(shared_->coefficient_frames);}radius.set_gradient_value_mesh(gradient_value_mesh_);radius.set_value_spatial_scale(map_.b-map_.a);}
+                if constexpr(Gradient)if(moving_) {
+                    std::array<double,8> motion;
+                    for(int j=0;j<8;++j)motion[j]=motion_base_[j]+motion_slope_[j]*(R-motion_origin_);
+                    radius.set_radius_motion(motion,motion_slope_);
+                }
+                const bool angular_ok=((!Gradient || gradient_value_mesh_) && profile_error_ && !uniform_source_)?
                     radius.refine_local(angular_target,repair_relative_,repair_absolute_):radius.refine(angular_target);
                 if(!radius.topology.completed || !angular_ok) {
                     reason=radius.reason;return false;
@@ -239,7 +310,7 @@ public:
                 if(angular_target>=6 && (repair_absolute_>0 || repair_relative_>0)) {
                     const auto& current=radius.result();
                     double error=current.angular_error,scale=std::max(std::abs(current.f0),std::abs(current.fh));
-                    if constexpr(Gradient)for(int j=0;j<8;++j) {
+                    if constexpr(Gradient)if(!gradient_value_mesh_)for(int j=0;j<8;++j) {
                         error=std::max(error,current.gradient_error[j]);
                         scale=std::max(scale,std::max(std::abs(current.df0[j]),std::abs(current.dfh[j])));
                     }
@@ -249,48 +320,107 @@ public:
                 const auto& terms=radius.result();
                 auto& sample=integrands[k-1];
                 sample.f0=mapped[1]*terms.f0*scale0;sample.fh=mapped[1]*terms.fh*scaleh;
-                next.f0+=weight*terms.f0;next.fh+=weighth*terms.fh;
+                if(!Gradient || !gradient_value_mesh_){next.f0+=weight*terms.f0;next.fh+=weighth*terms.fh;}
                 const double error_weight=std::max(error_uniform_weight_*std::abs(weight),uniform_source_?0:error_limb_weight_*std::abs(weighth));
                 next.endpoint_error+=error_weight*terms.endpoint_error;
-                inner_error+=(profile_error_?error_limb_weight_*std::abs(weighth):error_weight)*terms.angular_error;
+                if(!Gradient || !gradient_value_mesh_)inner_error+=(profile_error_?error_limb_weight_*std::abs(weighth):error_weight)*terms.angular_error;
                 if constexpr(Gradient)for(int j=0;j<8;++j) {
-                    sample.df0[j]=mapped[1]*terms.df0[j];sample.dfh[j]=mapped[1]*terms.dfh[j];
-                    next.df0[j]+=weight*terms.df0[j];next.dfh[j]+=weight*terms.dfh[j];
-                    inner_errors.gradient_error[j]+=std::abs(weight)*terms.gradient_error[j];
+                    sample.df0[j]=mapped[1]*scale0*(terms.df0[j]+motion_slope_[j]*terms.f0);sample.dfh[j]=mapped[1]*scaleh*(terms.dfh[j]+motion_slope_[j]*terms.fh);
+                    if(!gradient_value_mesh_){next.df0[j]+=weight*(terms.df0[j]+motion_slope_[j]*terms.f0);next.dfh[j]+=weight*(terms.dfh[j]+motion_slope_[j]*terms.fh);}
+                    if(!gradient_value_mesh_)inner_errors.gradient_error[j]+=error_limb_weight_*std::abs(weighth)*terms.gradient_error[j];
+                }
+                if constexpr(Gradient)if(gradient_value_mesh_) {
+                    double jac_prime=0;const double x=rule.x[k-1],pi=std::acos(-1.);
+                    if(!weighted_){if(map_.left&&map_.right)jac_prime=pi*pi*(map_.b-map_.a)/8*std::cos(pi*(1+x)*.5);else if(map_.left)jac_prime=(map_.b-map_.a)*.5;else if(map_.right)jac_prime=-(map_.b-map_.a)*.5;}
+                    const double a0=jac_prime*scale0+(weighted_?mapped[1]*scale0*x/shape:0),ah=jac_prime*scaleh+(weighted_?2*x*mapped[1]*scaleh/shape:0);
+                    const double b0=mapped[1]*mapped[1]*scale0,bh=mapped[1]*mapped[1]*scaleh;
+                    auto& derivative=spatial[k-1];derivative.f0=a0*terms.f0+b0*terms.radial_f0;derivative.fh=ah*terms.fh+bh*terms.radial_fh;
+                    next.f0+=h0->value[k-1]*sample.f0+h0->derivative[k-1]*derivative.f0;next.fh+=hh->value[k-1]*sample.fh+hh->derivative[k-1]*derivative.fh;
+                    for(int j=0;j<8;++j) {
+                        derivative.df0[j]=a0*(terms.df0[j]+motion_slope_[j]*terms.f0)+b0*(terms.radial_df0[j]+motion_slope_[j]*terms.radial_f0);
+                        derivative.dfh[j]=ah*(terms.dfh[j]+motion_slope_[j]*terms.fh)+bh*(terms.radial_dfh[j]+motion_slope_[j]*terms.radial_fh);
+                        next.df0[j]+=h0->value[k-1]*sample.df0[j]+h0->derivative[k-1]*derivative.df0[j];next.dfh[j]+=hh->value[k-1]*sample.dfh[j]+hh->derivative[k-1]*derivative.dfh[j];
+                    }
+                    if(!uniform_source_) {
+                        // Replace the ordinary inner estimate by the same
+                        // confluent weights, including the spatial-slope error.
+                        const double A=hh->value[k-1]*mapped[1]*scaleh+hh->derivative[k-1]*ah,B=hh->derivative[k-1]*bh;
+                        inner_error+=error_limb_weight_*((A!=0?std::abs(A)*terms.angular_error:0)+(B!=0?std::abs(B)*terms.radial_angular_error:0));
+                    }
                 }
             }
+            const auto confluent_detail=[&](const auto& weights,auto value) {
+                if(lev<2)return double(INFINITY);
+                double detail=0;
+                for(std::size_t k=0;k<integrands.size();k+=2) {
+                    double predicted=0;for(std::size_t j=0;j<weights.interpolation[k].size();++j)predicted+=weights.interpolation[k][j]*value(integrands[2*j+1])+weights.interpolation_derivative[k][j]*value(spatial[2*j+1]);
+                    detail+=rule.w[k]*std::abs(value(integrands[k])-predicted);
+                }
+                return detail;
+            };
             // Both uniform and limb components need radial error estimates.
-            const bool joint_profile=!Gradient && profile_error_ && !weighted_;
-            const double detail0=joint_profile?0:panel_detail::interpolation_detail(rule,integrands,[](const auto& a){return a.f0;});
-            const double detailh=(uniform_source_ || joint_profile)?0:panel_detail::interpolation_detail(limb_rule,integrands,[](const auto& a){return a.fh;});
+            const bool joint_profile=(!Gradient || gradient_value_mesh_) && profile_error_ && !weighted_;
+            double detail0=joint_profile?0:panel_detail::interpolation_detail(rule,integrands,[](const auto& a){return a.f0;});
+            if constexpr(Gradient)if(gradient_value_mesh_ && !joint_profile)detail0=confluent_detail(*h0,[](const auto& a){return a.f0;});
+            double detailh=(uniform_source_ || joint_profile)?0:panel_detail::interpolation_detail(limb_rule,integrands,[](const auto& a){return a.fh;});
+            if constexpr(Gradient)if(gradient_value_mesh_ && !uniform_source_ && !joint_profile)detailh=confluent_detail(*hh,[](const auto& a){return a.fh;});
             const double detail_scale=QuadratureErrorPolicy::weighted_detail_floor/QuadratureErrorPolicy::difference_safety;
             radial_error_=have_previous?std::max(
                 error_uniform_weight_*std::abs(next.f0-previous.f0)+error_limb_weight_*std::abs(next.fh-previous.fh),
                 detail_scale*(error_uniform_weight_*detail0+error_limb_weight_*detailh)):INFINITY;
             if(joint_profile) {
                 const auto observable=[&](const auto& value){return error_uniform_weight_*value.f0+error_limb_weight_*value.fh;};
-                const double detail=panel_detail::interpolation_detail(rule,integrands,observable);
+                double detail=panel_detail::interpolation_detail(rule,integrands,observable);
+                if constexpr(Gradient)if(gradient_value_mesh_)detail=confluent_detail(*h0,observable);
                 const double fine=observable(next),old=observable(previous);
                 radial_error_=have_previous?std::max(std::abs(fine-old),detail_scale*detail):INFINITY;
                 // Require contraction across old, embedded and fine estimates;
                 // keep the shared difference safety and interpolation floor.
                 // Derivative controllers retain their incumbent estimator.
-                if(lev>=3 && lev<=5 && have_previous) {
+                if(!Gradient && lev>=3 && lev<=5 && have_previous) {
                     const auto embedded=panel_detail::embedded_estimate(lev,integrands,observable);
                     const double low=std::abs(embedded.first-old),high=std::abs(fine-embedded.first);
                     if(low>64*std::numeric_limits<double>::epsilon()*std::abs(fine) && high<=low*.25)
                         radial_error_=std::max(high,detail_scale*embedded.second);
                 }
             }
+            if constexpr(Gradient)if(gradient_value_mesh_) {
+                // Check the actual boundary equation at independent spatial
+                // witnesses before accepting a low-order confluent integral.
+                const int saved_level=level_;level_=lev;
+                const bool resolved=fused_detail::boundary_resolved(*this,geometry_,
+                    !uniform_source_,
+                    repair_relative_*(uniform_source_?.005:.05),&geometry_promotions_);
+                level_=saved_level;
+                if(!resolved) {
+                    // Phi lies in [0,1] on proved image support. The entire
+                    // annulus bounds this panel's missing scalar flux, even
+                    // when a relative intensity witness reaches roundoff.
+                    // Keep its finite bound so a tiny unresolved panel cannot
+                    // starve the rest of the adaptive frontier indefinitely.
+                    const double upper=std::acos(-1.)*(map_.b-map_.a)*(map_.a+map_.b);
+                    const double estimate=error_uniform_weight_*next.f0+error_limb_weight_*next.fh;
+                    radial_error_=std::max(radial_error_,std::max(std::abs(estimate),std::abs(upper-estimate)));
+                }
+            }
             inner_error_=inner_error;
             next.angular_error=radial_error_+inner_error_;
-            if constexpr(Gradient)for(int j=0;j<8;++j) {
-                const double detail=panel_detail::interpolation_detail(rule,integrands,[&](const auto& a){return a.df0[j];})+
-                    panel_detail::interpolation_detail(rule,integrands,[&](const auto& a){return a.dfh[j];});
-                next.gradient_error[j]=have_previous?std::max(
-                    std::abs(next.df0[j]-previous.df0[j])+std::abs(next.dfh[j]-previous.dfh[j]),detail_scale*detail)+
-                        inner_errors.gradient_error[j]:INFINITY;
+            if constexpr(Gradient)if(!gradient_value_mesh_)for(int j=0;j<8;++j) {
+                const double correction=j==2?2/geometry_.rho:0;
+                const auto uniform=[&](const auto& a){return a.df0[j]-correction*a.f0;};
+                const auto darkened=[&](const auto& a){return a.dfh[j]-correction*a.fh;};
+                const auto observable=[&](const auto& a){return error_uniform_weight_*uniform(a)+error_limb_weight_*darkened(a);};
+                const double detail=weighted_?
+                    error_uniform_weight_*panel_detail::interpolation_detail(rule,integrands,uniform)+
+                    error_limb_weight_*panel_detail::interpolation_detail(limb_rule,integrands,darkened):
+                    panel_detail::interpolation_detail(rule,integrands,observable);
+                const double delta=error_uniform_weight_*((next.df0[j]-previous.df0[j])-correction*(next.f0-previous.f0))+
+                    error_limb_weight_*((next.dfh[j]-previous.dfh[j])-correction*(next.fh-previous.fh));
+                gradient_radial_[j]=have_previous?std::max(std::abs(delta),detail_scale*detail):INFINITY;
+                gradient_inner_[j]=inner_errors.gradient_error[j];
+                next.gradient_error[j]=gradient_radial_[j]+gradient_inner_[j];
             }
+            if constexpr(Gradient){next.normalized_gradient_errors=true;if(gradient_value_mesh_){next.gradient_error.fill(INFINITY);gradient_radial_.fill(INFINITY);gradient_inner_.fill(INFINITY);}}
             previous=next;have_previous=true;
         }
         accepted_=previous;level_=target;angular_level_=angular_target;
@@ -315,7 +445,11 @@ template<bool Gradient> RadiusIntegral<Gradient> normalize(
         out.df0[j]=((1-u)*integral.df0[j]+u*integral.dfh[j])/denominator;
         if(j==2)out.df0[j]-=2*out.f0/p.rho;
         out.gradient_error[j]=QuadratureErrorPolicy::difference_safety*integral.gradient_error[j]/denominator;
-        if(j==2)out.gradient_error[j]+=2*out.angular_error/p.rho;
+        if(j==2) {
+            if(!integral.normalized_gradient_errors)out.gradient_error[j]+=2*out.angular_error/p.rho;
+            else out.gradient_error[j]+=32*std::numeric_limits<double>::epsilon()*
+                (std::abs(((1-u)*integral.df0[j]+u*integral.dfh[j])/denominator)+2*std::abs(out.f0)/p.rho);
+        }
     }
     return out;
 }

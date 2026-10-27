@@ -1,5 +1,6 @@
 #include "bind_lc.hpp"
 #include "lcbinint/magnification/algebraic_boundary/triple/integrator.hpp"
+#include "lcbinint/magnification/algebraic_boundary/triple/regular_support.hpp"
 #include "lcbinint/magnification/algebraic_boundary/triple/frame.hpp"
 #include "lcbinint/lcbinint.h"
 #include "lcbinint/lc/model.hpp"
@@ -1580,6 +1581,7 @@ py::dict triple_algebraic_gradient(const lcbinint::lc::LightCurve& lc,const Time
     std::vector<int> vc,complete,valid,nodes,methods;
     std::vector<std::string> stops;
     kernel::IntegrationOptions options;options.absolute_tolerance=atol;options.relative_tolerance=rtol;
+    options.gradient_value_mesh=true;
     {
         py::gil_scoped_release release;
         for(double time:tv) {
@@ -1587,7 +1589,12 @@ py::dict triple_algebraic_gradient(const lcbinint::lc::LightCurve& lc,const Time
             const kernel::Complex source=vbm?kernel::Complex(tau*c-params.umin*s,tau*s+params.umin*c):
                 kernel::Complex(tau*c+params.umin*s,params.umin*c-tau*s);
             const auto frame=kernel::primary_frame<true>(lenses,source,params.rho,geometry.masses[1],geometry.masses[2]);
-            const auto result=kernel::integrate<true>(frame.geometry,limb,options);
+            kernel::RadialEventPlan plan;
+            if(std::isfinite(rtol) && rtol>=1e-4 && std::isfinite(atol) && atol>=0) {
+                static thread_local kernel::PreparedRegularSupport prepared;
+                plan=prepared.plan(frame.geometry,rtol,options.event_box_budget,false);
+            }
+            const auto result=kernel::integrate<true>(frame.geometry,limb,options,plan.completed?&plan:nullptr);
             const auto physical=frame.pullback(result.normalized.df0);
             const auto lens=kernel::lens_parameter_pullback(physical,params.sep,params.q,params.q2,params.sep2,params.ang,vbm);
             const double gx=physical[0],gy=physical[1],beta=params.umin;
@@ -1599,7 +1606,7 @@ py::dict triple_algebraic_gradient(const lcbinint::lc::LightCurve& lc,const Time
             const std::array<double,10> row{gt0,gu0,gtE,ga,physical[2],lens[0],lens[1],lens[2],lens[3],lens[4]};
             mu.push_back(result.magnification);errors.push_back(result.error_estimate);
             vc.push_back(result.converged);complete.push_back(result.support_complete);
-            valid.push_back(result.gradient_reliable);nodes.push_back(int(result.value_evaluations));methods.push_back(7);
+            valid.push_back(result.gradient_valid);nodes.push_back(int(result.value_evaluations));methods.push_back(7);
             stops.push_back(result.reason);point.push_back(std::numeric_limits<double>::quiet_NaN());
             sx.push_back(source.real());sy.push_back(source.imag());
             gradients.insert(gradients.end(),row.begin(),row.end());local.insert(local.end(),physical.begin(),physical.end());

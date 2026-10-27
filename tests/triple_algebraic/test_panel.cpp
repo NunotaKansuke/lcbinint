@@ -41,6 +41,14 @@ int main() {
           "physical-profile quadrature triangle bound");
     check(std::abs(half.result().endpoint_error-.5*v.result().endpoint_error)<1e-14*(1+v.result().endpoint_error),
           "profile-weighted endpoint error");
+    RadialPanel<true> gradient_half(p,.89,.90,false,false,{},nullptr,0,0,false,false,.5);
+    check(gradient_half.refine(4,5),"gradient profile projection");
+    for(int j=0;j<8;++j) {
+        check(gradient_half.result().df0[j]==g.result().df0[j] &&
+              gradient_half.result().dfh[j]==g.result().dfh[j],"gradient profile preserves values");
+        check(gradient_half.result().gradient_error[j]<=.5*g.result().gradient_error[j]+1e-14,
+              "projected gradient error respects triangle bound");
+    }
     auto count=v.value_evaluations();
     check(v.refine(6,7) && g.refine(6,7),"panel refinement");
     check(v.radial_evaluations==63,"each radial node solved once");
@@ -59,6 +67,42 @@ int main() {
         if(std::abs(fd-gradient.df0[j])>3e-4*(1+std::abs(fd))) {
             std::cerr<<j<<" "<<fd<<" "<<gradient.df0[j]<<"\n";return 1;
         }
+    }
+    // Differentiate both physical geometry and moving panel coordinates.
+    // This checks the R derivative and map-Jacobian derivative independently
+    // against finite differences of the value-only mapped integral.
+    const std::array<double,8> left_motion{.03,-.02,.1,.04,-.03,.02,.01,-.01};
+    const std::array<double,8> right_motion{-.01,.01,.2,-.02,.01,.03,-.01,.02};
+    std::array<double,8> slope;
+    for(int j=0;j<8;++j)slope[j]=(right_motion[j]-left_motion[j])/.01;
+    RadialPanel<true> moving(p,.89,.90,true,true);
+    moving.set_radial_motion(.89,left_motion,slope);
+    check(moving.refine(6,7),"moving panel refinement");
+    const auto moving_gradient=normalize(moving.result(),p,u);
+    for(int j=0;j<8;++j)for(double h:{1e-5,3e-6}) {
+        auto plus=p,minus=p;plus.*members[j]+=h;minus.*members[j]-=h;
+        RadialPanel<> vp(plus,.89+h*left_motion[j],.90+h*right_motion[j],true,true);
+        RadialPanel<> vm(minus,.89-h*left_motion[j],.90-h*right_motion[j],true,true);
+        check(vp.refine(6,7) && vm.refine(6,7),"moving value reference");
+        const double fd=(normalize(vp.result(),plus,u).f0-normalize(vm.result(),minus,u).f0)/(2*h);
+        check(std::abs(fd-moving_gradient.df0[j])<3e-4*(1+std::abs(fd)),"moving coordinate derivative");
+    }
+    // Uniform isolated components use the same weighted radial nodes as
+    // value integration. Check both material motion and its map Jacobian.
+    RadialPanel<true> weighted_moving(p,.89,.90,true,true,{},nullptr,0,0,true,true,0);
+    weighted_moving.set_radial_motion(.89,left_motion,slope);
+    check(weighted_moving.refine(6,2),"weighted moving panel");
+    const auto weighted_gradient=normalize(weighted_moving.result(),p,0);
+    const auto weighted_radii=weighted_moving.radial_evaluations;
+    check(weighted_moving.refine(5,2) && weighted_moving.radial_evaluations==weighted_radii,
+          "weighted gradients retain samples");
+    for(int j=0;j<8;++j)for(double h:{1e-5,3e-6}) {
+        auto plus=p,minus=p;plus.*members[j]+=h;minus.*members[j]-=h;
+        RadialPanel<> vp(plus,.89+h*left_motion[j],.90+h*right_motion[j],true,true,{},nullptr,0,0,true,true,0);
+        RadialPanel<> vm(minus,.89-h*left_motion[j],.90-h*right_motion[j],true,true,{},nullptr,0,0,true,true,0);
+        check(vp.refine(6,2) && vm.refine(6,2),"weighted value reference");
+        const double fd=(normalize(vp.result(),plus,0).f0-normalize(vm.result(),minus,0).f0)/(2*h);
+        check(std::abs(fd-weighted_gradient.df0[j])<3e-4*(1+std::abs(fd)),"weighted moving derivative");
     }
     // Independent midpoint-in-radius integration using separately generated
     // angular topologies; tests the shared radial mapping and quadrature.
