@@ -1,0 +1,14 @@
+{
+  "state": "COMPLETE_WITH_FINDINGS",
+  "pid": 2391539,
+  "completed": 3056,
+  "total": 3056,
+  "counts": {
+    "ok": 3004,
+    "exception": 51,
+    "invalid_gradient": 1
+  },
+  "updated": 1793216285.065804,
+  "elapsed": 207.99977588653564,
+  "native_sha256": "85ef8301e253b0c8ff65b9de7d6cd66dbef8c76ac4aa2218b504d79e00313c37"
+}

@@ -7844,6 +7844,10 @@ inline algebraic_boundary::triple::PreparedRegularSupport& triple_support_prepar
     static thread_local algebraic_boundary::triple::PreparedRegularSupport prepared;
     return prepared;
 }
+inline algebraic_boundary::triple::PreparedRegularSupport& triple_reframed_support_preparation(std::size_t index) {
+    static thread_local std::array<algebraic_boundary::triple::PreparedRegularSupport,2> prepared;
+    return prepared[index];
+}
 inline algebraic_boundary::triple::RadialEventPlan triple_strict_support(
         const algebraic_boundary::triple::Geometry& p,int budget) {
     namespace kernel=algebraic_boundary::triple;
@@ -7936,14 +7940,45 @@ template<bool Gradient> auto triple_algebraic_epoch(
     // Share their support proof across modes; never cache a flux or tangent.
     const auto* supplied=(accuracy.relative_tolerance<1e-4||plan.completed)?&plan:nullptr;
     const auto value=kernel::integrate<Gradient>(frame.geometry,finite.limb_darkening_c,options,supplied);
-    out.value.decision={FiniteSourceMethod::algebraic_boundary,static_cast<int>(value.value_evaluations),"triple_algebraic_nested_fejer"};
-    out.value.magnification=value.magnification;
-    out.value.error_estimate=value.error_estimate;out.value.refinement_level=value.refinements;
-    out.value.value_converged=value.converged;out.value.converged=value.converged&&value.support_complete;
-    out.value.frontier_discovery_completed=value.support.completed;
-    out.value.seed_support_proven=out.value.integral_support_certified=value.support_complete;
-    out.value.diagnostic_stop=value.reason;
-    if constexpr(Gradient){out.gradient=frame.pullback(value.normalized.df0);out.gradient_valid=value.gradient_valid;}
+    const auto assign=[&](const auto& result,const auto& coordinates) {
+        out.value.decision={FiniteSourceMethod::algebraic_boundary,static_cast<int>(result.value_evaluations),"triple_algebraic_nested_fejer"};
+        out.value.magnification=result.magnification;
+        out.value.error_estimate=result.error_estimate;out.value.refinement_level=result.refinements;
+        out.value.value_converged=result.converged;out.value.converged=result.converged&&result.support_complete;
+        out.value.frontier_discovery_completed=result.support.completed;
+        out.value.seed_support_proven=out.value.integral_support_certified=result.support_complete;
+        out.value.diagnostic_stop=result.reason;
+        if constexpr(Gradient){out.gradient=coordinates.pullback(result.normalized.df0);out.gradient_valid=result.gradient_valid;}
+    };
+    assign(value,frame);
+    bool accepted=value.converged&&value.support_complete;
+    if constexpr(Gradient)accepted=accepted&&value.gradient_valid;
+    if(!accepted) {
+        // Polar conditioning depends on the origin. Retry only a refused
+        // epoch in the other physical frames, with fresh support proofs and
+        // exactly the same requested flux tolerances. This is the same image
+        // integral, not a finite-source approximation or a VBM fallback.
+        const std::array<std::array<int,3>,2> permutations{{{1,0,2},{2,0,1}}};
+        auto alternate_options=options;
+        alternate_options.event_box_budget=std::min(options.event_box_budget,8192);
+        for(std::size_t k=0;k<permutations.size();++k) {
+            const auto order=permutations[k];
+            const std::array<kernel::Complex,3> ordered{lenses[order[0]],lenses[order[1]],lenses[order[2]]};
+            const auto alternate=kernel::primary_frame<Gradient>(ordered,{source.x,source.y},rho,
+                geometry.masses[order[1]],geometry.masses[order[2]]);
+            auto alternate_plan=triple_reframed_support_preparation(k).plan(alternate.geometry,
+                accuracy.relative_tolerance,alternate_options.event_box_budget,!Gradient);
+            const auto trial=kernel::integrate<Gradient>(alternate.geometry,finite.limb_darkening_c,
+                alternate_options,alternate_plan.completed?&alternate_plan:nullptr);
+            bool valid=trial.converged&&trial.support_complete;
+            if constexpr(Gradient)valid=valid&&trial.gradient_valid;
+            if(!valid)continue;
+            assign(trial,alternate);
+            if constexpr(Gradient)out.gradient=kernel::unpermute_physical_gradient(out.gradient,order);
+            out.value.diagnostic_stop+=k==0?":reframed_primary_1":":reframed_primary_2";
+            break;
+        }
+    }
     return out;
 }
 } // namespace

@@ -1,0 +1,9 @@
+{
+  "files": 22509,
+  "uncompressed_bytes": 62724555,
+  "archive_bytes": 12763031,
+  "archive_sha256": "a8d8b82343909e9525af9691d3aaea71bf828fcd094460347927122c6391c1ff",
+  "native_binaries_excluded": true,
+  "manifest_sha256": "c35196f5685c4b2ed9dfda8f35c919eddd20b0cd495d78c0dd6e94c217d84efd",
+  "extract": "tar -xzf raw-evidence.tar.gz -C THIS_EVIDENCE_DIRECTORY"
+}

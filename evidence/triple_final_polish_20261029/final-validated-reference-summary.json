@@ -1,0 +1,17 @@
+{
+  "comparisons": 1931,
+  "conditions": 212,
+  "points": 972,
+  "exceedances": [],
+  "maximum_ratio": 0.8167345901752832,
+  "sources": {
+    "VBM RelTol=1e-7": 1346,
+    "independent LD uniform disks RelTol=1e-6, nested GL convergence and MP/NP agreement": 377,
+    "recovered VBM uniform RelTol=1e-7": 128,
+    "independent point-source disk average Multipoly/Nopoly, three quadrature meshes": 78,
+    "independent LD integral of VBM uniform disks": 2
+  },
+  "excluded_prior_comparisons": {
+    "ld_cap_or_audit_failure": 3180
+  }
+}

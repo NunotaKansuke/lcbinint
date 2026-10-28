@@ -1,0 +1,41 @@
+{
+  "cases": 240,
+  "epochs": 1200,
+  "counts": {
+    "value": {
+      "ok": 240
+    },
+    "gradient": {
+      "ok": 240
+    },
+    "SinglePoly": {
+      "ok": 229,
+      "worker_exit": 10,
+      "invalid_value": 1
+    },
+    "MultiPoly": {
+      "ok": 240
+    },
+    "NoPoly": {
+      "ok": 240
+    },
+    "MultiPoly-tight": {
+      "ok": 240
+    },
+    "NoPoly-tight": {
+      "ok": 239,
+      "reference_failure": 1
+    }
+  },
+  "native_failures": [],
+  "comparisons": 2358,
+  "points": 1179,
+  "conditions": 239,
+  "maximum_ratio": 0.15002173010081332,
+  "exceedances": [],
+  "excluded": {
+    "reference_error_estimate_above_requested": 16,
+    "reference_curve_failure": 1
+  },
+  "vbm_discrepancies": 48
+}

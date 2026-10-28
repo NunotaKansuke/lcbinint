@@ -1,4 +1,5 @@
 #pragma once
+#include "annular_area_bound.hpp"
 #include "integration_types.hpp"
 #include "fused_integrator.hpp"
 #include "radial_panel.hpp"
@@ -312,8 +313,11 @@ template<bool Gradient=false> inline IntegrationResult<Gradient> integrate_value
         }
     }
     double event_error=out.support.bounded_component_error;
-    for(auto event:out.support.events)
-        event_error+=std::acos(-1.)*(event.radius_hi-event.radius_lo)*(event.radius_hi+event.radius_lo)/denominator;
+    for(auto event:out.support.events) {
+        double bound=std::acos(-1.)*(event.radius_hi-event.radius_lo)*(event.radius_hi+event.radius_lo)/denominator;
+        if(bound>options.relative_tolerance*.01)bound*=annular_support_fraction(event.radius_lo,event.radius_hi,p);
+        event_error+=bound;
+    }
     for(int iteration=0;iteration<=options.maximum_refinements;++iteration) {
         RadiusIntegral<Gradient> sum{};
 

@@ -43,6 +43,16 @@ template<bool Gradient=false> inline Frame<Gradient> primary_frame(
     }
     return out;
 }
+// Restore the public physical basis after a lens permutation. The mass
+// coordinates use m0=1-m1-m2, so a position-only permutation is insufficient.
+inline std::array<double,11> unpermute_physical_gradient(
+    const std::array<double,11>& g,const std::array<int,3>& order) {
+    std::array<double,11> out{};out[0]=g[0];out[1]=g[1];out[2]=g[2];
+    std::array<double,3> mass{};mass[order[1]]=g[3];mass[order[2]]=g[4];
+    out[3]=mass[1]-mass[0];out[4]=mass[2]-mass[0];
+    for(int j=0;j<3;++j){out[5+2*order[j]]=g[5+2*j];out[6+2*order[j]]=g[6+2*j];}
+    return out;
+}
 // Chain the physical-coordinate gradient to the existing lens parameters.
 // Output order: q,s,q2,sep2,ang. Source coordinates are held fixed here.
 inline std::array<double,5> lens_parameter_pullback(const std::array<double,11>& g,

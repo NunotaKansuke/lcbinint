@@ -268,6 +268,35 @@ inline AngularTopology finish_topology(AngularTopology out,double R,const Geomet
         root.hi=std::min(root.hi,std::nextafter(shift+2*std::atan(hi),INFINITY));
         return root.hi>root.lo;
     };
+    auto precise_bracket=[&](AngularBracket& root,double goal) {
+        using Q=__float128;using IQ=angular_detail::I<Q>;
+        const double centre=(root.lo+root.hi)*.5;
+        const bool chart=std::abs(std::tan(centre*.5))>1;
+        const Q qpi=acosq(Q(-1));Q shift=chart?qpi:Q(0);
+        while(Q(centre)-shift>qpi)shift+=2*qpi;
+        while(Q(centre)-shift<-qpi)shift-=2*qpi;
+        const Q a=tanq((Q(root.lo)-shift)/2),b=tanq((Q(root.hi)-shift)/2);
+        if(!(b>a))return false;
+        double lo=double(a),hi=double(b);
+        if(Q(lo)>a)lo=std::nextafter(lo,-INFINITY);
+        if(Q(hi)<b)hi=std::nextafter(hi,INFINITY);
+        ++out.quad_promotions;
+        const auto sign=[&](double t){const auto q=physical_detail::angular(IQ(R),IQ(t),p,chart);return q?q->v.sign():2;};
+        int sl=sign(lo),sh=sign(hi);if((sl!=1&&sl!=-1)||(sh!=1&&sh!=-1)||sl==sh)return false;
+        for(int iteration=0;iteration<80 && 2*(hi-lo)>goal;++iteration){
+            if(angular_detail::contract_physical<Q>(R,p,chart,lo,hi,goal))break;
+            const double mid=lo+(hi-lo)*.5;if(!(mid>lo&&mid<hi))break;
+            const int sm=sign(mid);if(sm!=1&&sm!=-1)return false;
+            if(sm==sl)lo=mid;else hi=mid;
+        }
+        ++out.quad_boxes;
+        const Q lower=shift+2*atanq(Q(lo)),upper=shift+2*atanq(Q(hi));
+        double l=double(lower),h=double(upper);
+        if(Q(l)>lower)l=std::nextafter(l,-INFINITY);
+        if(Q(h)<upper)h=std::nextafter(h,INFINITY);
+        root.lo=std::max(root.lo,l);root.hi=std::min(root.hi,h);
+        return root.hi>root.lo;
+    };
     if(options.inclusion || (options.exclusions && !options.exclusions->empty())) {
         std::vector<AngularBracket> retained;
         for(auto root:out.roots) {
@@ -298,6 +327,12 @@ inline AngularTopology finish_topology(AngularTopology out,double R,const Geomet
         // their completeness certificate.
         if(options.endpoint_tolerance>1e-12) {
             repair_bracket(out.roots[i-1]);repair_bracket(out.roots[i]);
+        }
+        if(options.allow_quad)for(int attempt=0;attempt<8 && out.roots[i-1].hi>=out.roots[i].lo;++attempt){
+            const auto& a=out.roots[i-1];const auto& b=out.roots[i];
+            double goal=std::min(1e-12,.125*std::max(std::abs((b.lo+b.hi-a.lo-a.hi)*.5),std::min(a.hi-a.lo,b.hi-b.lo)));
+            goal=std::max(1e-30,std::ldexp(goal,-4*attempt));
+            if(!precise_bracket(out.roots[i-1],goal)||!precise_bracket(out.roots[i],goal))break;
         }
         if(out.roots[i-1].hi>=out.roots[i].lo) {
             out.reason="overlapping_root_brackets";return out;

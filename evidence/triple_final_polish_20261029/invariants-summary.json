@@ -1,0 +1,8 @@
+{
+  "curves": 154,
+  "checks": 462,
+  "failures": [],
+  "maximum_relative_value_change": 2.9499436227098386e-09,
+  "maximum_scaled_gradient_change": 4.120111797880118e-06,
+  "maximum_wide_scaled_gradient_change": 1.4164755031826375e-06
+}

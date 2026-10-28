@@ -183,10 +183,10 @@ inline void endpoint_derivatives(const Evaluation<true>& jet,Endpoint& out){
  out.slope=jet.dtheta;
 }
 inline bool endpoint_impl(const Ray& ray,double R,const Geometry& p,double theta,double width,
-                     Endpoint& out,ShapeGradientResult& work,PolarMixedJet* mixed=nullptr,bool polished=false,const local_precision::Q* retained_wide=nullptr,const Ray::Core* retained_core=nullptr,double endpoint_relative=0) {
+                     Endpoint& out,ShapeGradientResult& work,PolarMixedJet* mixed=nullptr,bool polished=false,const local_precision::Q* retained_wide=nullptr,const Ray::Core* retained_core=nullptr,double endpoint_relative=0,bool recover_roundoff=false) {
     LCBININT_COUPLED_SCOPE(endpoint);
     const double initial=theta,eps=std::numeric_limits<double>::epsilon();
-    bool resolved=false;Evaluation<true> jet{};double roundoff=0;
+    bool resolved=false,bailed=false;Evaluation<true> jet{};double roundoff=0;
     if(!mixed&&retained_wide){const auto q=ray.precise().evaluate(*retained_wide);++work.quad_samples;++work.evaluations;if(q.dtheta==0)return false;
         out.theta=double(*retained_wide);out.precise_theta=*retained_wide;out.wide=true;out.radial_motion=double(-q.dR/q.dtheta);out.slope=double(q.dtheta);out.error=4*eps*(1+std::abs(out.theta));for(int j=0;j<8;++j)out.motion[j]=double(-q.dp[j]/q.dtheta);return true;}
     if(!mixed&&polished){
@@ -219,7 +219,7 @@ inline bool endpoint_impl(const Ray& ray,double R,const Geometry& p,double theta
 #endif
         ++work.geometry_evaluations;
         const double step=jet.phi/jet.dtheta;
-        if(!std::isfinite(step) || std::abs(theta-initial)+std::abs(step)>.25*width)return false;
+        if(!std::isfinite(step) || std::abs(theta-initial)+std::abs(step)>.25*width){if(!recover_roundoff)return false;bailed=true;break;}
         if(std::abs(step)<std::max({32*eps*(1+std::abs(theta)),2*roundoff/std::abs(jet.dtheta),endpoint_relative*width})) {resolved=true;break;}
         double update=step;
 #ifdef LCBININT_TRIPLE_HALLEY_ENDPOINTS
@@ -244,7 +244,8 @@ inline bool endpoint_impl(const Ray& ray,double R,const Geometry& p,double theta
         // Upgrade only the unresolved endpoint; the primal proof and every
         // other radius stay retained. No broad small-arc quad threshold.
         using Q=local_precision::Q;Q refined;
-        if(!local_precision::endpoint(R,theta,p,refined))return false;
+        if(!local_precision::endpoint(R,bailed?initial:theta,p,refined))return false;
+        if(bailed && fabsq(refined-Q(initial))>Q(.25)*Q(width))return false;
         const auto q=ray.precise().evaluate(refined);
         ++work.quad_samples;++work.evaluations;
         if(q.dtheta==0 || !finiteq(q.dtheta))return false;
@@ -297,7 +298,7 @@ struct RadiusAnchor {
 struct RadiusResult {std::array<double,8> uniform{},limb{};double f0=0,fh=0,endpoint_error=0;};
 struct TransportedArc {root_pair_detail::Arc<8> model;double lr=0,hr=0,error=0;bool ready=false;};
 inline bool radius(double R,const Geometry& p,const AngularTopology& topology,
-                   bool with_limb,int level,const std::array<double,8>& motion,RadiusResult& out,ShapeGradientResult& work,double seed_radius,RadiusAnchor* anchor=nullptr,std::unique_ptr<root_pair_detail::RadialCache<8>>* pair_table=nullptr,double value_gate=1e-6,double* angular_error=nullptr,bool paired_transport=false,const std::vector<TransportedArc>* transported=nullptr,int critical_order=8,const GeometryCores* geometry_cores=nullptr,const point_polynomial_detail::Cache<double>* stationary_cache=nullptr,int selected_arc=-1) {
+                   bool with_limb,int level,const std::array<double,8>& motion,RadiusResult& out,ShapeGradientResult& work,double seed_radius,RadiusAnchor* anchor=nullptr,std::unique_ptr<root_pair_detail::RadialCache<8>>* pair_table=nullptr,double value_gate=1e-6,double* angular_error=nullptr,bool paired_transport=false,const std::vector<TransportedArc>* transported=nullptr,int critical_order=8,const GeometryCores* geometry_cores=nullptr,const point_polynomial_detail::Cache<double>* stationary_cache=nullptr,int selected_arc=-1,bool recover_roundoff=false) {
     LCBININT_COUPLED_SCOPE(angular);
     const bool full=topology.roots.empty();Ray ray(p,R);
     RadiusAnchor next_anchor;next_anchor.radius=R;
@@ -338,8 +339,8 @@ inline bool radius(double R,const Geometry& p,const AngularTopology& topology,
                 if(std::abs(dl)<width*.25)l+=dl;if(std::abs(dh)<width*.25)h+=dh;
             }
             const bool polished=anchor&&anchor->radius==R&&anchor->count==topology.arcs.size();const auto* frozen=polished?&anchor->arcs[next_anchor.count]:nullptr;
-            if(!endpoint_impl(ray,R,p,l,width,lo,work,nullptr,polished,frozen&&frozen->wide_lo?&frozen->precise_lo:nullptr,polished&&geometry_cores?&(*geometry_cores)[next_anchor.count][0]:nullptr,paired_transport?endpoint_relative_budget(value_gate):0)){work.reason="gradient_replay_left_endpoint";return false;}
-            if(!endpoint_impl(ray,R,p,h,width,hi,work,nullptr,polished,frozen&&frozen->wide_hi?&frozen->precise_hi:nullptr,polished&&geometry_cores?&(*geometry_cores)[next_anchor.count][1]:nullptr,paired_transport?endpoint_relative_budget(value_gate):0)){work.reason="gradient_replay_right_endpoint";return false;}
+            if(!endpoint_impl(ray,R,p,l,width,lo,work,nullptr,polished,frozen&&frozen->wide_lo?&frozen->precise_lo:nullptr,polished&&geometry_cores?&(*geometry_cores)[next_anchor.count][0]:nullptr,paired_transport?endpoint_relative_budget(value_gate):0,recover_roundoff)){work.reason="gradient_replay_left_endpoint";return false;}
+            if(!endpoint_impl(ray,R,p,h,width,hi,work,nullptr,polished,frozen&&frozen->wide_hi?&frozen->precise_hi:nullptr,polished&&geometry_cores?&(*geometry_cores)[next_anchor.count][1]:nullptr,paired_transport?endpoint_relative_budget(value_gate):0,recover_roundoff)){work.reason="gradient_replay_right_endpoint";return false;}
             }
             if(!(lo.slope>0 && hi.slope<0)){work.reason="gradient_replay_endpoint_orientation";return false;}
             if(!(hi.theta>lo.theta) || resolved_count==resolved_arcs.size())return false;
@@ -353,7 +354,7 @@ inline bool radius(double R,const Geometry& p,const AngularTopology& topology,
             }
             resolved_arcs[resolved_count++]={lo.theta,hi.theta};
             if(retained&&with_limb&&geometry_cores){const auto& core=(*geometry_cores)[resolved_count-1][2];if(core.theta==(lo.theta+hi.theta)*.5&&core.phi>0){midpoint_core=core;have_midpoint=true;}}
-            double unused=0;if(!packet&&!retained){const auto middle=ray.sample<false>((lo.theta+hi.theta)*.5,unused,nullptr,with_limb?&midpoint_core:nullptr);have_midpoint=with_limb;if(!(middle.phi>0)){work.reason="gradient_replay_membership";return false;}}
+            double unused=0;if(!packet&&!retained){const auto middle=ray.sample<false>((lo.theta+hi.theta)*.5,unused,nullptr,with_limb?&midpoint_core:nullptr);have_midpoint=with_limb;if(!(middle.phi>0)){bool inside=false;if(recover_roundoff && middle.phi>=-unused){const auto q=ray.precise_value().evaluate(local_precision::Q((lo.theta+hi.theta)*.5)).phi;++work.quad_samples;inside=finiteq(q)&&q>0;}if(!inside){work.reason="gradient_replay_membership";return false;}}}
             for(int j=0;j<8;++j)out.uniform[j]+=R*(hi.motion[j]-lo.motion[j]+
                 (hi.radial_motion-lo.radial_motion)*motion[j]);
         }
@@ -452,8 +453,12 @@ inline bool radius(double R,const Geometry& p,const AngularTopology& topology,
                 if(!precise.ready) {
                     if(full){precise.lo=Q(lo.theta);precise.hi=Q(hi.theta);}
                     else {
-                        if(!local_precision::endpoint(ray.precise_value(),lo.theta,p,precise.lo) ||
-                           !local_precision::endpoint(ray.precise_value(),hi.theta,p,precise.hi))return false;
+                        // Retain an endpoint already polished in the same
+                        // physical ray instead of solving its rounded copy.
+                        if(lo.wide)precise.lo=lo.precise_theta;
+                        else if(!local_precision::endpoint(ray.precise_value(),lo.theta,p,precise.lo))return false;
+                        if(hi.wide)precise.hi=hi.precise_theta;
+                        else if(!local_precision::endpoint(ray.precise_value(),hi.theta,p,precise.hi))return false;
                         const auto lq=ray.precise().evaluate(precise.lo),
                                    hq=ray.precise().evaluate(precise.hi);
                         for(int j=0;j<8;++j){precise.dlo[j]=-(lq.dp[j]+lq.dR*Q(motion[j]))/lq.dtheta;

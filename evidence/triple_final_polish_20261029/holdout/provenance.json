@@ -1,0 +1,18 @@
+{
+  "seed": 2026102907,
+  "cases_sha256": "30b9929dab7ec724bedeb48533ccae2a2f720e1cebe21a0751af725c03314afa",
+  "native_sha256": "85ef8301e253b0c8ff65b9de7d6cd66dbef8c76ac4aa2218b504d79e00313c37",
+  "workers": 6,
+  "cpu_limit": 20,
+  "wall_limit": 50,
+  "reference_point_wall_limit": 8,
+  "ram_per_worker_gib": 2,
+  "geometry_families": {
+    "moderate": 128,
+    "wide": 80,
+    "near_collinear": 16,
+    "point": 16
+  },
+  "reference_probe_sha256": "ea1a584a9c5d433247011acd0c127b750576703d8b936686e02b69c3c37ffdc7",
+  "native_package": "mass-bound-package"
+}

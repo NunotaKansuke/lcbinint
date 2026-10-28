@@ -1,0 +1,687 @@
+{
+  "counts": {
+    "value": {
+      "ok": 1503,
+      "exception": 25
+    },
+    "gradient": {
+      "ok": 1501,
+      "exception": 26,
+      "invalid_gradient": 1
+    }
+  },
+  "changes": [
+    {
+      "case": 14,
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 70,
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 72,
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 135,
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 142,
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 143,
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 152,
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 189,
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 209,
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 217,
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 259,
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 271,
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 277,
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 314,
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 337,
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 361,
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 396,
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 398,
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 406,
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 407,
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 408,
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 409,
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 412,
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 418,
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 419,
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 424,
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 427,
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 430,
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 431,
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 440,
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 455,
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 466,
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 468,
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 469,
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 490,
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 491,
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 492,
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 503,
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 504,
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 507,
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 508,
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 512,
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 513,
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 5,
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 70,
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 72,
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 135,
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 142,
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 143,
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 152,
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 189,
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 209,
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 217,
+      "engine": "gradient",
+      "before": "exception",
+      "after": "invalid_gradient"
+    },
+    {
+      "case": 271,
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 277,
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 314,
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 337,
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 361,
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 396,
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 398,
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 406,
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 407,
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 408,
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 409,
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 412,
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 418,
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 419,
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 424,
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 430,
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 431,
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 440,
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 455,
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 466,
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 468,
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 469,
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 489,
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 490,
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 491,
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 492,
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 508,
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 512,
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 613,
+      "engine": "gradient",
+      "before": "invalid_gradient",
+      "after": "ok"
+    },
+    {
+      "case": 635,
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 708,
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 732,
+      "engine": "gradient",
+      "before": "invalid_gradient",
+      "after": "ok"
+    },
+    {
+      "case": 739,
+      "engine": "gradient",
+      "before": "invalid_gradient",
+      "after": "ok"
+    },
+    {
+      "case": 782,
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 788,
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 823,
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 918,
+      "engine": "gradient",
+      "before": "invalid_gradient",
+      "after": "ok"
+    },
+    {
+      "case": 938,
+      "engine": "gradient",
+      "before": "invalid_gradient",
+      "after": "ok"
+    },
+    {
+      "case": 972,
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 988,
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 1042,
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 1144,
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 1179,
+      "engine": "gradient",
+      "before": "invalid_gradient",
+      "after": "ok"
+    },
+    {
+      "case": 1423,
+      "engine": "gradient",
+      "before": "invalid_gradient",
+      "after": "ok"
+    }
+  ],
+  "recovered_conditions": [
+    5,
+    14,
+    70,
+    72,
+    135,
+    142,
+    143,
+    152,
+    189,
+    209,
+    217,
+    259,
+    271,
+    277,
+    314,
+    337,
+    361,
+    396,
+    398,
+    406,
+    407,
+    408,
+    409,
+    412,
+    418,
+    419,
+    424,
+    427,
+    430,
+    431,
+    440,
+    455,
+    466,
+    468,
+    469,
+    489,
+    490,
+    491,
+    492,
+    503,
+    504,
+    507,
+    508,
+    512,
+    513,
+    613,
+    635,
+    708,
+    732,
+    739,
+    782,
+    788,
+    823,
+    918,
+    938,
+    972,
+    988,
+    1042,
+    1144,
+    1179,
+    1423
+  ],
+  "regressions": [],
+  "changed": [
+    {
+      "case": 613,
+      "engine": "gradient",
+      "relative_change": 0.00118883701218786,
+      "requested": 0.0001
+    },
+    {
+      "case": 732,
+      "engine": "gradient",
+      "relative_change": 0.005171342050884875,
+      "requested": 0.001
+    },
+    {
+      "case": 918,
+      "engine": "gradient",
+      "relative_change": 0.04027415759118114,
+      "requested": 0.0001
+    },
+    {
+      "case": 1423,
+      "engine": "gradient",
+      "relative_change": 0.0006410603431575845,
+      "requested": 0.001
+    }
+  ]
+}

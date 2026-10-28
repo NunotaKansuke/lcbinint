@@ -380,7 +380,10 @@ out->events_=events_;out->hints_=hints_;out->origin_=origin_;out->base_=base_;ou
    auto proposals=topology;proposals.roots.clear();for(const auto& arc:topology.arcs){for(double angle:{arc.lo,arc.hi}){while(angle<-std::acos(-1.)*.5)angle+=2*std::acos(-1.);while(angle>std::acos(-1.)*1.5)angle-=2*std::acos(-1.);proposals.roots.push_back({angle,angle});}}std::sort(proposals.roots.begin(),proposals.roots.end(),[](auto a,auto b){return a.lo<b.lo;});
    auto repaired=continued_topology(R,p_,proposals,options_,int(topology.roots.size()),shared_?shared_->coefficients.get():nullptr);
    if(!repaired.completed){repaired=angular_topology(R,p_,options_,shared_?shared_->coefficients.get():nullptr);++context_->work.global_radii;}else ++context_->work.continued_radii;
-   value={};anchor={};if(!repaired.completed || !shape_gradient_detail::radius(R,p_,repaired,!uniform_,4,motion,value.value,context_->work,R,&anchor,context_->pairs.get(),gate,&value.angular_error,true,nullptr,active_patterson_tuning().critical_order)){reason="stream_local_repair";return false;}
+   value={};anchor={};if(!repaired.completed){reason="stream_local_repair";return false;}
+   if(!shape_gradient_detail::radius(R,p_,repaired,!uniform_,4,motion,value.value,context_->work,R,&anchor,context_->pairs.get(),gate,&value.angular_error,true,nullptr,active_patterson_tuning().critical_order)){
+    value={};anchor={};if(!shape_gradient_detail::radius(R,p_,repaired,!uniform_,4,motion,value.value,context_->work,R,&anchor,context_->pairs.get(),gate,&value.angular_error,true,nullptr,active_patterson_tuning().critical_order,nullptr,nullptr,-1,true)){reason="stream_local_repair";return false;}
+   }
    topology=std::move(repaired);
   }
   // The same proved root count, with its continued endpoint coordinates.
@@ -394,12 +397,13 @@ out->events_=events_;out->hints_=hints_;out->origin_=origin_;out->base_=base_;ou
  bool geometry_point(double R,Point*& output,const AngularTopology* predicted=nullptr){
   if(R<=safe_lo_)R=std::nextafter(safe_lo_,map_.b);if(R>=safe_hi_)R=std::nextafter(safe_hi_,map_.a);auto found=context_->points.find(R);if(found!=context_->points.end()){output=found->second.get();return true;}
   AngularTopology topology;Anchor anchor;double seed_radius=R;if(predicted)topology=*predicted;else if(!proposal(R,topology,seed_radius,anchor))return false;
-  Point value;value.cores=std::make_unique<shape_gradient_detail::GeometryCores>();const auto resolve=[&](AngularTopology& t,bool promote_unresolved){shape_gradient_detail::Ray ray(p_,R);value.anchor={};value.anchor.radius=R;
+  Point value;value.cores=std::make_unique<shape_gradient_detail::GeometryCores>();const auto resolve=[&](AngularTopology& t,bool promote_unresolved,bool recover_roundoff=false){shape_gradient_detail::Ray ray(p_,R);value.anchor={};value.anchor.radius=R;
    if(t.arcs.size()>3)return false;
    for(std::size_t i=0;i<t.arcs.size();++i){const auto arc=t.arcs[i];shape_gradient_detail::Endpoint lo,hi;lo.theta=arc.lo;hi.theta=arc.hi;
     if(!t.roots.empty()){const double width=arc.hi-arc.lo;if(!shape_gradient_detail::spatial_endpoint(ray,R,p_,arc.lo,width,lo,context_->work,&(*value.cores)[i][0],shape_gradient_detail::endpoint_relative_budget(std::max(1e-12,relative_*.1)),promote_unresolved)||!shape_gradient_detail::spatial_endpoint(ray,R,p_,arc.hi,width,hi,context_->work,&(*value.cores)[i][1],shape_gradient_detail::endpoint_relative_budget(std::max(1e-12,relative_*.1)),promote_unresolved)||!(lo.slope>0&&hi.slope<0&&hi.theta>lo.theta))return false;
      for(std::size_t j=0;j<i;++j)for(int turn:{-1,0,1}){const auto& previous=value.anchor.arcs[j];const double shift=turn*2*std::acos(-1.);if(std::max(lo.theta,previous.lo+shift)<std::min(hi.theta,previous.hi+shift))return false;}
-     double error=0;if(!(ray.sample<false>((lo.theta+hi.theta)*.5,error,nullptr,&(*value.cores)[i][2]).phi>0))return false;
+     double error=0;const double midpoint=(lo.theta+hi.theta)*.5;const double phi=ray.sample<false>(midpoint,error,nullptr,&(*value.cores)[i][2]).phi;
+     if(!(phi>0)){if(!recover_roundoff || !(phi>=-error))return false;const auto q=ray.precise_value().evaluate(local_precision::Q(midpoint)).phi;++context_->work.quad_samples;if(!finiteq(q)||!(q>0))return false;}
     }
     value.anchor.arcs[value.anchor.count++]={lo.theta,hi.theta,lo.radial_motion,hi.radial_motion,lo.precise_theta,hi.precise_theta,lo.wide,hi.wide};t.arcs[i]={lo.theta,hi.theta};
    }value.anchor.geometry_verified=true;return true;
@@ -417,7 +421,7 @@ out->events_=events_;out->hints_=hints_;out->origin_=origin_;out->base_=base_;ou
     // The retained band still supplies the certified crossing count; promote
     // its endpoint candidates and keep every physical acceptance check.
     repaired=topology;
-    if(!resolve(repaired,true)){reason="patterson_geometry_repair";return false;}
+    if(!resolve(repaired,true) && !resolve(repaired,true,true)){reason="patterson_geometry_repair";return false;}
    }topology=std::move(repaired);
   }
   value.topology=std::move(topology);output=context_->points.emplace(R,std::make_unique<Point>(std::move(value))).first->second.get();return true;
@@ -492,7 +496,15 @@ out->events_=events_;out->hints_=hints_;out->origin_=origin_;out->base_=base_;ou
     for(const auto& old:pairs)if(std::abs(old.center-pair->center)<1e-6*(map_.b-map_.a))known=true;if(!known)pairs.push_back(*pair);
    }
   }
-  if(pairs.empty())return false;std::sort(pairs.begin(),pairs.end(),[](auto a,auto b){return a.center<b.center;});cells_.clear();weighted_=false;mixed_=false;
+  if(pairs.empty())return false;std::sort(pairs.begin(),pairs.end(),[](auto a,auto b){return a.center<b.center;});
+  // A proposed partition must remain representable before replacing the
+  // retained physical-radius cells. Coincident cuts otherwise create 0/0
+  // material motion and poison a value-converged gradient.
+  for(std::size_t i=0;i<pairs.size();++i){const auto p=pairs[i];const double a=i?(pairs[i-1].center+p.center)*.5:map_.a,b=i+1<pairs.size()?(p.center+pairs[i+1].center)*.5:map_.b;
+   const double lo=std::asinh((a-p.center)/p.scale),hi=std::asinh((b-p.center)/p.scale);
+   if(!(b>a) || !(hi>lo) || !std::isfinite(lo) || !std::isfinite(hi))return false;
+  }
+  cells_.clear();weighted_=false;mixed_=false;
   for(std::size_t i=0;i<pairs.size();++i){const auto p=pairs[i];const double a=i?(pairs[i-1].center+p.center)*.5:map_.a,b=i+1<pairs.size()?(p.center+pairs[i+1].center)*.5:map_.b;
    const double lo=std::asinh((a-p.center)/p.scale),hi=std::asinh((b-p.center)/p.scale);const int n=std::max(1,int(std::ceil((hi-lo)/(active_patterson_tuning().chart_width>0?active_patterson_tuning().chart_width:(geometry_probe_?INFINITY:first_order_chart_width(uniform_))))));
    std::array<double,8> lower{},upper{};const bool material=p.material&&(i==0||pairs[i-1].material)&&(i+1==pairs.size()||pairs[i+1].material);

@@ -1,0 +1,1504 @@
+{
+  "counts": {
+    "value": {
+      "wide_random": 3,
+      "near_collinear_or_clustered": 22
+    },
+    "gradient": {
+      "wide_random": 4,
+      "near_collinear_or_clustered": 23
+    }
+  },
+  "rows": [
+    {
+      "case": 5,
+      "engine": "value",
+      "classification": "exception",
+      "family": "wide_random",
+      "rho": 3.90315194701206e-05,
+      "q": 15.323735743955856,
+      "q2": 5.397231219594437e-06,
+      "ang": 0.7277460252170198,
+      "stop": [
+        "converged:reframed_primary_1",
+        "converged",
+        "converged",
+        "converged:reframed_primary_1",
+        "converged",
+        "converged",
+        "unresolved_root_cluster"
+      ],
+      "value_converged": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        0
+      ],
+      "gradient_valid": null
+    },
+    {
+      "case": 52,
+      "engine": "value",
+      "classification": "exception",
+      "family": "wide_random",
+      "rho": 0.0004226806992084662,
+      "q": 1.436858977965615e-07,
+      "q2": 91.0362826939728,
+      "ang": 1.9826520680699726,
+      "stop": [
+        "unresolved_root_cluster",
+        "converged:reframed_primary_1",
+        "converged:reframed_primary_1",
+        "converged",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event"
+      ],
+      "value_converged": [
+        0,
+        1,
+        1,
+        1,
+        0,
+        0,
+        0
+      ],
+      "gradient_valid": null
+    },
+    {
+      "case": 226,
+      "engine": "value",
+      "classification": "exception",
+      "family": "wide_random",
+      "rho": 3.09409456560104e-05,
+      "q": 1.726989690275142e-07,
+      "q2": 1.2121766268292481e-06,
+      "ang": 2.6924823708869514,
+      "stop": [
+        "degenerate_radial_event",
+        "converged:reframed_primary_1",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "converged:reframed_primary_1"
+      ],
+      "value_converged": [
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "gradient_valid": null
+    },
+    {
+      "case": 400,
+      "engine": "value",
+      "classification": "exception",
+      "family": "near_collinear_or_clustered",
+      "rho": 1e-05,
+      "q": 1e-08,
+      "q2": 1e-07,
+      "ang": 0.0,
+      "stop": [
+        "unresolved_root_cluster",
+        "converged:reframed_primary_1",
+        "unresolved_root_cluster",
+        "converged:reframed_primary_1",
+        "degenerate_radial_event"
+      ],
+      "value_converged": [
+        0,
+        1,
+        0,
+        1,
+        0
+      ],
+      "gradient_valid": null
+    },
+    {
+      "case": 403,
+      "engine": "value",
+      "classification": "exception",
+      "family": "near_collinear_or_clustered",
+      "rho": 1e-05,
+      "q": 10000.0,
+      "q2": 1e-07,
+      "ang": 3.141592643589793,
+      "stop": [
+        "converged:reframed_primary_2",
+        "converged:reframed_primary_2",
+        "degenerate_radial_event",
+        "converged:reframed_primary_2",
+        "converged:reframed_primary_2"
+      ],
+      "value_converged": [
+        1,
+        1,
+        0,
+        1,
+        1
+      ],
+      "gradient_valid": null
+    },
+    {
+      "case": 404,
+      "engine": "value",
+      "classification": "exception",
+      "family": "near_collinear_or_clustered",
+      "rho": 1e-05,
+      "q": 1e-08,
+      "q2": 0.01,
+      "ang": 1.0471975511965976,
+      "stop": [
+        "degenerate_radial_event",
+        "converged:reframed_primary_1",
+        "converged:reframed_primary_1",
+        "converged:reframed_primary_1",
+        "degenerate_radial_event"
+      ],
+      "value_converged": [
+        0,
+        1,
+        1,
+        1,
+        0
+      ],
+      "gradient_valid": null
+    },
+    {
+      "case": 428,
+      "engine": "value",
+      "classification": "exception",
+      "family": "near_collinear_or_clustered",
+      "rho": 1e-05,
+      "q": 1e-08,
+      "q2": 100.0,
+      "ang": 1.0471975511965976,
+      "stop": [
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event"
+      ],
+      "value_converged": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "gradient_valid": null
+    },
+    {
+      "case": 429,
+      "engine": "value",
+      "classification": "exception",
+      "family": "near_collinear_or_clustered",
+      "rho": 1e-05,
+      "q": 0.0001,
+      "q2": 100.0,
+      "ang": -1.0471975511965976,
+      "stop": [
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event"
+      ],
+      "value_converged": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "gradient_valid": null
+    },
+    {
+      "case": 433,
+      "engine": "value",
+      "classification": "exception",
+      "family": "near_collinear_or_clustered",
+      "rho": 1e-05,
+      "q": 0.0001,
+      "q2": 1e-07,
+      "ang": 3.141592643589793,
+      "stop": [
+        "converged:reframed_primary_2",
+        "converged:reframed_primary_2",
+        "degenerate_radial_event",
+        "converged:reframed_primary_2",
+        "converged:reframed_primary_2"
+      ],
+      "value_converged": [
+        1,
+        1,
+        0,
+        1,
+        1
+      ],
+      "gradient_valid": null
+    },
+    {
+      "case": 434,
+      "engine": "value",
+      "classification": "exception",
+      "family": "near_collinear_or_clustered",
+      "rho": 1e-05,
+      "q": 1.0,
+      "q2": 1e-07,
+      "ang": 1.0471975511965976,
+      "stop": [
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event"
+      ],
+      "value_converged": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "gradient_valid": null
+    },
+    {
+      "case": 435,
+      "engine": "value",
+      "classification": "exception",
+      "family": "near_collinear_or_clustered",
+      "rho": 0.003,
+      "q": 10000.0,
+      "q2": 1e-07,
+      "ang": -1.0471975511965976,
+      "stop": [
+        "degenerate_angular_event",
+        "degenerate_angular_event",
+        "degenerate_angular_event",
+        "degenerate_angular_event",
+        "degenerate_angular_event"
+      ],
+      "value_converged": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "gradient_valid": null
+    },
+    {
+      "case": 439,
+      "engine": "value",
+      "classification": "exception",
+      "family": "near_collinear_or_clustered",
+      "rho": 0.003,
+      "q": 10000.0,
+      "q2": 0.01,
+      "ang": 3.141592643589793,
+      "stop": [
+        "converged",
+        "converged",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event"
+      ],
+      "value_converged": [
+        1,
+        1,
+        0,
+        0,
+        0
+      ],
+      "gradient_valid": null
+    },
+    {
+      "case": 444,
+      "engine": "value",
+      "classification": "exception",
+      "family": "near_collinear_or_clustered",
+      "rho": 0.1,
+      "q": 1e-08,
+      "q2": 100.0,
+      "ang": 3.141592653589793,
+      "stop": [
+        "degenerate_radial_event",
+        "converged:reframed_primary_1",
+        "converged:reframed_primary_1",
+        "converged:reframed_primary_1",
+        "degenerate_radial_event"
+      ],
+      "value_converged": [
+        0,
+        1,
+        1,
+        1,
+        0
+      ],
+      "gradient_valid": null
+    },
+    {
+      "case": 459,
+      "engine": "value",
+      "classification": "exception",
+      "family": "near_collinear_or_clustered",
+      "rho": 1e-05,
+      "q": 10000.0,
+      "q2": 1.0,
+      "ang": -1.0471975511965976,
+      "stop": [
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event"
+      ],
+      "value_converged": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "gradient_valid": null
+    },
+    {
+      "case": 460,
+      "engine": "value",
+      "classification": "exception",
+      "family": "near_collinear_or_clustered",
+      "rho": 1e-05,
+      "q": 1e-08,
+      "q2": 100.0,
+      "ang": 0.0,
+      "stop": [
+        "degenerate_radial_event",
+        "converged:reframed_primary_1",
+        "degenerate_radial_event",
+        "converged:reframed_primary_1",
+        "degenerate_radial_event"
+      ],
+      "value_converged": [
+        0,
+        1,
+        0,
+        1,
+        0
+      ],
+      "gradient_valid": null
+    },
+    {
+      "case": 464,
+      "engine": "value",
+      "classification": "exception",
+      "family": "near_collinear_or_clustered",
+      "rho": 0.003,
+      "q": 1e-08,
+      "q2": 1e-07,
+      "ang": 1.0471975511965976,
+      "stop": [
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event"
+      ],
+      "value_converged": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "gradient_valid": null
+    },
+    {
+      "case": 467,
+      "engine": "value",
+      "classification": "exception",
+      "family": "near_collinear_or_clustered",
+      "rho": 0.003,
+      "q": 10000.0,
+      "q2": 1e-07,
+      "ang": 1e-10,
+      "stop": [
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event"
+      ],
+      "value_converged": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "gradient_valid": null
+    },
+    {
+      "case": 483,
+      "engine": "value",
+      "classification": "exception",
+      "family": "near_collinear_or_clustered",
+      "rho": 1.0,
+      "q": 10000.0,
+      "q2": 1e-07,
+      "ang": -1.0471975511965976,
+      "stop": [
+        "degenerate_radial_event",
+        "converged:reframed_primary_1",
+        "converged:reframed_primary_1",
+        "converged:reframed_primary_1",
+        "degenerate_radial_event"
+      ],
+      "value_converged": [
+        0,
+        1,
+        1,
+        1,
+        0
+      ],
+      "gradient_valid": null
+    },
+    {
+      "case": 484,
+      "engine": "value",
+      "classification": "exception",
+      "family": "near_collinear_or_clustered",
+      "rho": 1e-05,
+      "q": 1e-08,
+      "q2": 0.01,
+      "ang": 0.0,
+      "stop": [
+        "degenerate_radial_event",
+        "converged:reframed_primary_1",
+        "degenerate_radial_event",
+        "converged:reframed_primary_1",
+        "degenerate_radial_event"
+      ],
+      "value_converged": [
+        0,
+        1,
+        0,
+        1,
+        0
+      ],
+      "gradient_valid": null
+    },
+    {
+      "case": 488,
+      "engine": "value",
+      "classification": "exception",
+      "family": "near_collinear_or_clustered",
+      "rho": 1e-05,
+      "q": 1e-08,
+      "q2": 1.0,
+      "ang": 1.0471975511965976,
+      "stop": [
+        "degenerate_radial_event",
+        "converged:reframed_primary_1",
+        "converged:reframed_primary_1",
+        "converged:reframed_primary_1",
+        "degenerate_radial_event"
+      ],
+      "value_converged": [
+        0,
+        1,
+        1,
+        1,
+        0
+      ],
+      "gradient_valid": null
+    },
+    {
+      "case": 489,
+      "engine": "value",
+      "classification": "exception",
+      "family": "near_collinear_or_clustered",
+      "rho": 1e-05,
+      "q": 0.0001,
+      "q2": 1.0,
+      "ang": -1.0471975511965976,
+      "stop": [
+        "converged:reframed_primary_1",
+        "converged:reframed_primary_2",
+        "degenerate_radial_event",
+        "converged:reframed_primary_1",
+        "converged:reframed_primary_1"
+      ],
+      "value_converged": [
+        1,
+        1,
+        0,
+        1,
+        1
+      ],
+      "gradient_valid": null
+    },
+    {
+      "case": 499,
+      "engine": "value",
+      "classification": "exception",
+      "family": "near_collinear_or_clustered",
+      "rho": 0.1,
+      "q": 10000.0,
+      "q2": 1e-07,
+      "ang": 3.141592643589793,
+      "stop": [
+        "event_enclosure_limited",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event"
+      ],
+      "value_converged": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "gradient_valid": null
+    },
+    {
+      "case": 514,
+      "engine": "value",
+      "classification": "exception",
+      "family": "near_collinear_or_clustered",
+      "rho": 1e-05,
+      "q": 1.0,
+      "q2": 1e-07,
+      "ang": 0.0,
+      "stop": [
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "converged:reframed_primary_1",
+        "converged:reframed_primary_1"
+      ],
+      "value_converged": [
+        0,
+        0,
+        0,
+        1,
+        1
+      ],
+      "gradient_valid": null
+    },
+    {
+      "case": 515,
+      "engine": "value",
+      "classification": "exception",
+      "family": "near_collinear_or_clustered",
+      "rho": 1e-05,
+      "q": 10000.0,
+      "q2": 1e-07,
+      "ang": 1e-10,
+      "stop": [
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event"
+      ],
+      "value_converged": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "gradient_valid": null
+    },
+    {
+      "case": 519,
+      "engine": "value",
+      "classification": "exception",
+      "family": "near_collinear_or_clustered",
+      "rho": 0.003,
+      "q": 10000.0,
+      "q2": 0.01,
+      "ang": -1.0471975511965976,
+      "stop": [
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event"
+      ],
+      "value_converged": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "gradient_valid": null
+    },
+    {
+      "case": 14,
+      "engine": "gradient",
+      "classification": "exception",
+      "family": "wide_random",
+      "rho": 0.0004974305569608434,
+      "q": 13.646968017158216,
+      "q2": 9.588901283305667e-07,
+      "ang": -0.9185544456352894,
+      "stop": [
+        "converged_value_mesh",
+        "converged_value_mesh",
+        "converged_value_mesh",
+        "converged_value_mesh",
+        "converged_value_mesh",
+        "converged_value_mesh",
+        "gradient_event_precision"
+      ],
+      "value_converged": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        0
+      ],
+      "gradient_valid": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "case": 52,
+      "engine": "gradient",
+      "classification": "exception",
+      "family": "wide_random",
+      "rho": 0.0004226806992084662,
+      "q": 1.436858977965615e-07,
+      "q2": 91.0362826939728,
+      "ang": 1.9826520680699726,
+      "stop": [
+        "unresolved_root_cluster",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "converged_value_mesh",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event"
+      ],
+      "value_converged": [
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0
+      ],
+      "gradient_valid": [
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "case": 217,
+      "engine": "gradient",
+      "classification": "invalid_gradient",
+      "family": "wide_random",
+      "rho": 0.0005914499603908197,
+      "q": 0.663657081504471,
+      "q2": 2.1272813223082566e-07,
+      "ang": 2.155650195431533,
+      "stop": [
+        "stream_local_repair",
+        "converged_value_mesh",
+        "converged_value_mesh",
+        "converged_value_mesh:reframed_primary_1",
+        "converged_value_mesh:reframed_primary_1",
+        "converged_value_mesh:reframed_primary_1",
+        "converged_value_mesh"
+      ],
+      "value_converged": null,
+      "gradient_valid": [
+        false,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "case": 226,
+      "engine": "gradient",
+      "classification": "exception",
+      "family": "wide_random",
+      "rho": 3.09409456560104e-05,
+      "q": 1.726989690275142e-07,
+      "q2": 1.2121766268292481e-06,
+      "ang": 2.6924823708869514,
+      "stop": [
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event"
+      ],
+      "value_converged": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "gradient_valid": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "case": 400,
+      "engine": "gradient",
+      "classification": "exception",
+      "family": "near_collinear_or_clustered",
+      "rho": 1e-05,
+      "q": 1e-08,
+      "q2": 1e-07,
+      "ang": 0.0,
+      "stop": [
+        "converged_value_mesh",
+        "converged_value_mesh",
+        "unresolved_root_cluster",
+        "unresolved_root_cluster",
+        "degenerate_radial_event"
+      ],
+      "value_converged": [
+        1,
+        1,
+        0,
+        0,
+        0
+      ],
+      "gradient_valid": [
+        1,
+        1,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "case": 403,
+      "engine": "gradient",
+      "classification": "exception",
+      "family": "near_collinear_or_clustered",
+      "rho": 1e-05,
+      "q": 10000.0,
+      "q2": 1e-07,
+      "ang": 3.141592643589793,
+      "stop": [
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event"
+      ],
+      "value_converged": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "gradient_valid": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "case": 404,
+      "engine": "gradient",
+      "classification": "exception",
+      "family": "near_collinear_or_clustered",
+      "rho": 1e-05,
+      "q": 1e-08,
+      "q2": 0.01,
+      "ang": 1.0471975511965976,
+      "stop": [
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event"
+      ],
+      "value_converged": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "gradient_valid": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "case": 428,
+      "engine": "gradient",
+      "classification": "exception",
+      "family": "near_collinear_or_clustered",
+      "rho": 1e-05,
+      "q": 1e-08,
+      "q2": 100.0,
+      "ang": 1.0471975511965976,
+      "stop": [
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event"
+      ],
+      "value_converged": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "gradient_valid": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "case": 429,
+      "engine": "gradient",
+      "classification": "exception",
+      "family": "near_collinear_or_clustered",
+      "rho": 1e-05,
+      "q": 0.0001,
+      "q2": 100.0,
+      "ang": -1.0471975511965976,
+      "stop": [
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event"
+      ],
+      "value_converged": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "gradient_valid": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "case": 433,
+      "engine": "gradient",
+      "classification": "exception",
+      "family": "near_collinear_or_clustered",
+      "rho": 1e-05,
+      "q": 0.0001,
+      "q2": 1e-07,
+      "ang": 3.141592643589793,
+      "stop": [
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event"
+      ],
+      "value_converged": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "gradient_valid": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "case": 434,
+      "engine": "gradient",
+      "classification": "exception",
+      "family": "near_collinear_or_clustered",
+      "rho": 1e-05,
+      "q": 1.0,
+      "q2": 1e-07,
+      "ang": 1.0471975511965976,
+      "stop": [
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event"
+      ],
+      "value_converged": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "gradient_valid": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "case": 435,
+      "engine": "gradient",
+      "classification": "exception",
+      "family": "near_collinear_or_clustered",
+      "rho": 0.003,
+      "q": 10000.0,
+      "q2": 1e-07,
+      "ang": -1.0471975511965976,
+      "stop": [
+        "degenerate_angular_event",
+        "degenerate_angular_event",
+        "degenerate_angular_event",
+        "degenerate_angular_event",
+        "degenerate_angular_event"
+      ],
+      "value_converged": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "gradient_valid": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "case": 439,
+      "engine": "gradient",
+      "classification": "exception",
+      "family": "near_collinear_or_clustered",
+      "rho": 0.003,
+      "q": 10000.0,
+      "q2": 0.01,
+      "ang": 3.141592643589793,
+      "stop": [
+        "degenerate_radial_event",
+        "unresolved_root_cluster",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event"
+      ],
+      "value_converged": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "gradient_valid": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "case": 444,
+      "engine": "gradient",
+      "classification": "exception",
+      "family": "near_collinear_or_clustered",
+      "rho": 0.1,
+      "q": 1e-08,
+      "q2": 100.0,
+      "ang": 3.141592653589793,
+      "stop": [
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event"
+      ],
+      "value_converged": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "gradient_valid": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "case": 459,
+      "engine": "gradient",
+      "classification": "exception",
+      "family": "near_collinear_or_clustered",
+      "rho": 1e-05,
+      "q": 10000.0,
+      "q2": 1.0,
+      "ang": -1.0471975511965976,
+      "stop": [
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event"
+      ],
+      "value_converged": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "gradient_valid": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "case": 460,
+      "engine": "gradient",
+      "classification": "exception",
+      "family": "near_collinear_or_clustered",
+      "rho": 1e-05,
+      "q": 1e-08,
+      "q2": 100.0,
+      "ang": 0.0,
+      "stop": [
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event"
+      ],
+      "value_converged": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "gradient_valid": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "case": 464,
+      "engine": "gradient",
+      "classification": "exception",
+      "family": "near_collinear_or_clustered",
+      "rho": 0.003,
+      "q": 1e-08,
+      "q2": 1e-07,
+      "ang": 1.0471975511965976,
+      "stop": [
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event"
+      ],
+      "value_converged": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "gradient_valid": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "case": 467,
+      "engine": "gradient",
+      "classification": "exception",
+      "family": "near_collinear_or_clustered",
+      "rho": 0.003,
+      "q": 10000.0,
+      "q2": 1e-07,
+      "ang": 1e-10,
+      "stop": [
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event"
+      ],
+      "value_converged": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "gradient_valid": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "case": 483,
+      "engine": "gradient",
+      "classification": "exception",
+      "family": "near_collinear_or_clustered",
+      "rho": 1.0,
+      "q": 10000.0,
+      "q2": 1e-07,
+      "ang": -1.0471975511965976,
+      "stop": [
+        "converged_value_mesh:reframed_primary_1",
+        "converged_value_mesh:reframed_primary_1",
+        "converged_value_mesh:reframed_primary_1",
+        "converged_value_mesh:reframed_primary_1",
+        "degenerate_radial_event"
+      ],
+      "value_converged": [
+        1,
+        1,
+        1,
+        1,
+        0
+      ],
+      "gradient_valid": [
+        1,
+        1,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "case": 484,
+      "engine": "gradient",
+      "classification": "exception",
+      "family": "near_collinear_or_clustered",
+      "rho": 1e-05,
+      "q": 1e-08,
+      "q2": 0.01,
+      "ang": 0.0,
+      "stop": [
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event"
+      ],
+      "value_converged": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "gradient_valid": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "case": 488,
+      "engine": "gradient",
+      "classification": "exception",
+      "family": "near_collinear_or_clustered",
+      "rho": 1e-05,
+      "q": 1e-08,
+      "q2": 1.0,
+      "ang": 1.0471975511965976,
+      "stop": [
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event"
+      ],
+      "value_converged": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "gradient_valid": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "case": 499,
+      "engine": "gradient",
+      "classification": "exception",
+      "family": "near_collinear_or_clustered",
+      "rho": 0.1,
+      "q": 10000.0,
+      "q2": 1e-07,
+      "ang": 3.141592643589793,
+      "stop": [
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event"
+      ],
+      "value_converged": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "gradient_valid": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "case": 504,
+      "engine": "gradient",
+      "classification": "exception",
+      "family": "near_collinear_or_clustered",
+      "rho": 0.1,
+      "q": 1e-08,
+      "q2": 1.0,
+      "ang": 3.141592653589793,
+      "stop": [
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event"
+      ],
+      "value_converged": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "gradient_valid": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "case": 513,
+      "engine": "gradient",
+      "classification": "exception",
+      "family": "near_collinear_or_clustered",
+      "rho": 1e-05,
+      "q": 0.0001,
+      "q2": 1e-07,
+      "ang": -1.0471975511965976,
+      "stop": [
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event"
+      ],
+      "value_converged": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "gradient_valid": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "case": 514,
+      "engine": "gradient",
+      "classification": "exception",
+      "family": "near_collinear_or_clustered",
+      "rho": 1e-05,
+      "q": 1.0,
+      "q2": 1e-07,
+      "ang": 0.0,
+      "stop": [
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event"
+      ],
+      "value_converged": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "gradient_valid": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "case": 515,
+      "engine": "gradient",
+      "classification": "exception",
+      "family": "near_collinear_or_clustered",
+      "rho": 1e-05,
+      "q": 10000.0,
+      "q2": 1e-07,
+      "ang": 1e-10,
+      "stop": [
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event"
+      ],
+      "value_converged": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "gradient_valid": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "case": 519,
+      "engine": "gradient",
+      "classification": "exception",
+      "family": "near_collinear_or_clustered",
+      "rho": 0.003,
+      "q": 10000.0,
+      "q2": 0.01,
+      "ang": -1.0471975511965976,
+      "stop": [
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event"
+      ],
+      "value_converged": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "gradient_valid": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    }
+  ]
+}

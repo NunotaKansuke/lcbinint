@@ -1,0 +1,7 @@
+{
+  "src/lcbinint/magnification/algebraic_boundary/triple/annular_area_bound.hpp": "8c1ed2ea80d5f21ed139998cf8fe7e1b5ab983fe1d9f7be6cb5c897cb29d8c3c",
+  "tests/triple_algebraic/test_annular_area_bound.cpp": "80eda024d98f88462bd1ca29098920a5578ab1b190f70befac83b691a364cff0",
+  "tests/triple_algebraic/test_frame.cpp": "72dce413089587edaa702f42b46c0b4f890035b32f6aa21918613548947d2701",
+  "tests/triple_algebraic/CMakeLists.txt": "edc9fc565cff4bf4a59c21bf35ad56c7fc6b9c2dd4346703079fad55dcee0b11",
+  "tests/regression/test_triple_repaired_contact_packets.py": "29e974292eecaa2cfc153cbe14b80873bf2c3597c8b0d9505ec0c5ac372a067f"
+}

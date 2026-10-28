@@ -1,0 +1,781 @@
+{
+  "files": [
+    {
+      "path": "candidate/src/lcbinint/magnification/finite_source_magnifier.cpp",
+      "sha256": "ed7f8f9a0d191e3dacb439ad61b63353ee7c7c5894a987126ec357038ecf920c"
+    },
+    {
+      "path": "candidate/src/lcbinint/magnification/algebraic_boundary/triple/geometry.hpp",
+      "sha256": "621064e32b14668560bab5454c8c716e5a19ac1b2a1e79bbb6aabb2b331f3bc6"
+    },
+    {
+      "path": "candidate/src/lcbinint/magnification/algebraic_boundary/triple/angular_topology.hpp",
+      "sha256": "b2ce283bbee615b85bae6b1470a8fcfd05620447141505a954b3c8ae1a6f7cf8"
+    },
+    {
+      "path": "candidate/src/lcbinint/magnification/algebraic_boundary/triple/radius_terms.hpp",
+      "sha256": "97b0064aac1dff92a17c6365a4efee64db342d8bbe9d8ff40cded98c442e8285"
+    },
+    {
+      "path": "candidate/src/lcbinint/magnification/algebraic_boundary/triple/radial_panel.hpp",
+      "sha256": "9556c1b6edf5d10ae4226d9251cc59988149d027f8a903bfe27f60f86a2a9fa4"
+    },
+    {
+      "path": "candidate/src/lcbinint/magnification/algebraic_boundary/triple/radial_events.hpp",
+      "sha256": "82fd8e8f59c5df3a8708eb585cf784b1e775137c4b2e308a5655bc0e996f563c"
+    },
+    {
+      "path": "candidate/src/lcbinint/magnification/algebraic_boundary/triple/integrator.hpp",
+      "sha256": "1f5a391e2899c108997ed338d0efc0e72c34a7b60d00b8234be02306bf0f31af"
+    },
+    {
+      "path": "candidate/src/lcbinint/magnification/algebraic_boundary/triple/local_precision.hpp",
+      "sha256": "72fc4f9e73ea9d175d10206b3ec78addcd8377ea8e00f7792b9a77238dee9f3a"
+    },
+    {
+      "path": "candidate/src/lcbinint/magnification/algebraic_boundary/triple/frame.hpp",
+      "sha256": "5c08f0eba6c00e0138f6aebf2155524c5cbe243ccfcea188eafb2d588137647c"
+    },
+    {
+      "path": "candidate/src/lcbinint/magnification/algebraic_boundary/triple/event_surface.hpp",
+      "sha256": "14d09ce342c644d5fc9a6b3986aa7f24bb7c85056c5d1d97c4948b242feccda6"
+    },
+    {
+      "path": "candidate/src/lcbinint/magnification/algebraic_boundary/triple/interval.hpp",
+      "sha256": "154b5329737c0d0083800c3fbfd1939d0e90e1020e23f36822aed400c53ffd87"
+    },
+    {
+      "path": "candidate/src/lcbinint/magnification/algebraic_boundary/triple/radial_polynomial.hpp",
+      "sha256": "2f3cd7bf28c4eaacad17fdefa8d827f8ee767778007b2958aca839300df24aa1"
+    },
+    {
+      "path": "candidate/src/lcbinint/magnification/algebraic_boundary/triple/physical_jet.hpp",
+      "sha256": "5967118ca99537fad099a6272cbb596a84723164af628c7edac8688b0641f838"
+    },
+    {
+      "path": "candidate/src/lcbinint/magnification/algebraic_boundary/triple/regular_support.hpp",
+      "sha256": "c735966dcb74aaf17b8586f384d763141e996f55986465616690ebf01c3157f9"
+    },
+    {
+      "path": "candidate/src/lcbinint/magnification/algebraic_boundary/triple/coefficient_ball.hpp",
+      "sha256": "d25362367cc65e9ca4a019bfffe8a5193cbae00df0568636c8d744f83957c81a"
+    },
+    {
+      "path": "candidate/src/lcbinint/magnification/algebraic_boundary/triple/support_resultant.hpp",
+      "sha256": "3ca45be74aa22a7d12b35edd358a8caa6ed970ace4f664fa91a4b2d42819d4c6"
+    },
+    {
+      "path": "candidate/src/lcbinint/magnification/algebraic_boundary/triple/projected_radial_events.hpp",
+      "sha256": "a6a678eedc466854a8099450de6ccf1c4babb9cdf6000d312e6837e48eed36e9"
+    },
+    {
+      "path": "candidate/src/lcbinint/magnification/algebraic_boundary/triple/point_polynomial.hpp",
+      "sha256": "dcb8be9dfc7a33004f19cd9de03c47c662bd3494ab3a7775aae47dda747a8915"
+    },
+    {
+      "path": "candidate/src/lcbinint/magnification/algebraic_boundary/triple/resultant_matrix_terms.hpp",
+      "sha256": "fa83f13633ac4b4a799efea1e029848f02b23cf0418c91c266111e4882e7849f"
+    },
+    {
+      "path": "candidate/src/lcbinint/magnification/algebraic_boundary/triple/gradient_replay.hpp",
+      "sha256": "0f9f705846238a68648e596ba228cd5da4933aae205814d70c3ac6aaaa31cc30"
+    },
+    {
+      "path": "candidate/src/lcbinint/magnification/algebraic_boundary/triple/gradient_angular_chart.hpp",
+      "sha256": "f90347cf097e7c58db598d9de1b83747b5d1a2d38fbdc7f2f68047c77a9168d6"
+    },
+    {
+      "path": "candidate/src/lcbinint/magnification/algebraic_boundary/triple/gradient_quadrature.hpp",
+      "sha256": "cdae2a5812c5a6fde35f5f402bfceb044b9dfdbf9e93b9c0ac79a0c7b5b3d5bb"
+    },
+    {
+      "path": "candidate/src/lcbinint/magnification/algebraic_boundary/triple/gradient_radial_chart.hpp",
+      "sha256": "e91f941c1bf274b59a3589d99403631b18e8f185f6781b24148c47bee2173721"
+    },
+    {
+      "path": "candidate/src/lcbinint/magnification/algebraic_boundary/triple/gradient_hermite.hpp",
+      "sha256": "a8c1fb23c8d13c35f7412095c784132e77e080ea9597e777f4e80dedf76d4d68"
+    },
+    {
+      "path": "candidate/src/lcbinint/magnification/algebraic_boundary/triple/gradient_hermite_replay.hpp",
+      "sha256": "f32628b6e6e4cd6ddff11b18fd6219fea027fa89cdf22f6753a26eb3a038aa45"
+    },
+    {
+      "path": "candidate/src/lcbinint/magnification/algebraic_boundary/triple/root_pair.hpp",
+      "sha256": "f0900b055f4c7f7ef08491b439dbcf6f764f028aebb8b268c771a49a1dffe837"
+    },
+    {
+      "path": "candidate/src/lcbinint/magnification/algebraic_boundary/triple/root_pair_angular.hpp",
+      "sha256": "4ae0905f0ef27f100657f4e24a7e9ec6ef388ac7a261d9457e520d91c5002c89"
+    },
+    {
+      "path": "candidate/src/lcbinint/magnification/algebraic_boundary/triple/critical_pair.hpp",
+      "sha256": "8a6251de234a85f481567f2e7daabf511ba88361851967579ed292762a8ccb77"
+    },
+    {
+      "path": "candidate/src/lcbinint/magnification/algebraic_boundary/triple/pair_moments.hpp",
+      "sha256": "fd731d50ee81733cff2345a5a2d7bac94d6e3aaa900ead7397ef12e5fb6883fb"
+    },
+    {
+      "path": "candidate/src/lcbinint/magnification/algebraic_boundary/triple/fused_radius.hpp",
+      "sha256": "cae019eda2086bff0edd38d4c2995e6ed517e25656f9185171cbb1fbfa028072"
+    },
+    {
+      "path": "candidate/src/lcbinint/magnification/algebraic_boundary/triple/fused_radial_rule.hpp",
+      "sha256": "4d1f40a2c11c7cdd6c38468cfeb26db5f9ef37c03ae73a9150fae3e1ae5161f6"
+    },
+    {
+      "path": "candidate/src/lcbinint/magnification/algebraic_boundary/triple/value_trace.hpp",
+      "sha256": "50b36efd62c0055bced82192094b594f0854796026cd11366a856af98e4b6e28"
+    },
+    {
+      "path": "candidate/src/lcbinint/magnification/algebraic_boundary/triple/fused_boundary_guard.hpp",
+      "sha256": "de1fc9e3807f3ae7ea6cff06a83048cf9b405708ab4f5631900339ea138f57ce"
+    },
+    {
+      "path": "candidate/src/lcbinint/magnification/algebraic_boundary/triple/fused_pair.hpp",
+      "sha256": "101abfd2f5caa6018cab65e8dab37a54f8b4216bf37f5b4c5da8f4ae8736e356"
+    },
+    {
+      "path": "candidate/src/lcbinint/magnification/algebraic_boundary/triple/integration_types.hpp",
+      "sha256": "b721bdc5efc0a877bb7e6c677eca73c31d23c6865ed82497772c3c15419e1a2b"
+    },
+    {
+      "path": "candidate/src/lcbinint/magnification/algebraic_boundary/triple/fused_integrator.hpp",
+      "sha256": "e39215e077ddcaec68641abfba638fc19d57bae35cb09080ff978fd9997b6518"
+    },
+    {
+      "path": "candidate/src/lcbinint/magnification/algebraic_boundary/triple/coupled_profile.hpp",
+      "sha256": "ed9cd4ca5cd245f7bf703307268970619efef01eb8c4838998d56d9db0a4c727"
+    },
+    {
+      "path": "candidate/src/lcbinint/magnification/algebraic_boundary/triple/shape_transport.hpp",
+      "sha256": "4b91d23a9818cc334a7902de96277fa17e11dfe831ec2747021c55fe37b74c71"
+    },
+    {
+      "path": "candidate/src/lcbinint/magnification/algebraic_boundary/triple/stream_integrator.hpp",
+      "sha256": "2cc8c9ac21449185d8d8a450944274cc3e0e86bfbf4e356c7538ea841f782670"
+    },
+    {
+      "path": "candidate/src/lcbinint/magnification/algebraic_boundary/triple/stream_pair.hpp",
+      "sha256": "4f1dc1865fc1d151b672f2d465bce7fc2424eba205dc0f6ce581d32b9ed1a54c"
+    },
+    {
+      "path": "candidate/src/lcbinint/magnification/algebraic_boundary/triple/radial_coefficient_frame.hpp",
+      "sha256": "fa24c36f962f1aae67eb541db60c65542655b96f04f6ef74b714713f5faac5d7"
+    },
+    {
+      "path": "candidate/src/lcbinint/magnification/algebraic_boundary/triple/transport_stream.hpp",
+      "sha256": "c6d173e7e9d23f1dee3c74d3272dcf547aeece26305a5241159005256568283d"
+    },
+    {
+      "path": "candidate/src/lcbinint/magnification/algebraic_boundary/triple/patterson_rule.hpp",
+      "sha256": "5119805193a3f5638734034fa67eb363a3550052faa3d1fabeebc0c572268ddc"
+    },
+    {
+      "path": "candidate/src/lcbinint/magnification/algebraic_boundary/triple/patterson_stream.hpp",
+      "sha256": "d88ea23f72b7292c0e5c1d54e1f83d9ce5b237eaa0635c39a708de54b262a086"
+    },
+    {
+      "path": "candidate/src/lcbinint/magnification/algebraic_boundary/triple/mixed_fold_rule.hpp",
+      "sha256": "95128e9e7a2fabed07bfd7a0452cfc2f144c01b989e86ee44812259011c55cc3"
+    },
+    {
+      "path": "candidate/src/lcbinint/magnification/algebraic_boundary/triple/angular_stationarity.hpp",
+      "sha256": "0af1b3016abd92fe98390584be83dd694383c5a3c354319606a62521e08b5749"
+    },
+    {
+      "path": "candidate/src/lcbinint/magnification/algebraic_boundary/triple/gauss_kronrod_rule.hpp",
+      "sha256": "3ca3a44c311f5dbb900e6ff4b5d1af111323b106c5feb004816999194276c3d9"
+    },
+    {
+      "path": "candidate/src/lcbinint/magnification/algebraic_boundary/triple/cauchy_transport.hpp",
+      "sha256": "a849415380d3e7fff67501a28bfa22e5138d3adf45119badaabd71dad9f60327"
+    },
+    {
+      "path": "candidate/src/lcbinint/magnification/algebraic_boundary/triple/quartic_angular_geometry.hpp",
+      "sha256": "29cdc7087e7d0af4dd98fd6877b26a2a42747cee64b7614f62a239764dcbfdf7"
+    },
+    {
+      "path": "candidate/src/lcbinint/magnification/algebraic_boundary/triple/root_pair_reverse.hpp",
+      "sha256": "3c5ac5a0b356507f66d838515bf5baa3e5301aa3c90804013ba91eb3e22351c2"
+    },
+    {
+      "path": "candidate/src/lcbinint/magnification/algebraic_boundary/triple/global_angular_stream.hpp",
+      "sha256": "d0ce1100dbea7617d9d5cc69e457420d42a400d8632b2e9590cb19def1d21277"
+    },
+    {
+      "path": "candidate/src/lcbinint/magnification/algebraic_boundary/triple/dyadic_packet_cache.hpp",
+      "sha256": "b9c188c04e45da18559403aeaeb7f23855ac829bcdd95d9b30a391450deae599"
+    },
+    {
+      "path": "candidate/src/lcbinint/magnification/algebraic_boundary/triple/mixed_moment_transport.hpp",
+      "sha256": "ab7fa1f04f3eaa8907fe7c2aa2d1ca99eacc047682cbe4eaafc3ebc70a33c3be"
+    },
+    {
+      "path": "candidate/src/lcbinint/magnification/algebraic_boundary/triple/ordinary_moment_transport.hpp",
+      "sha256": "5717b3368e1b1b216e0923ed70545d39f600eeb65810c1b38707cfe3ddc2d064"
+    },
+    {
+      "path": "candidate/src/lcbinint/magnification/algebraic_boundary/triple/boundary_control_atlas.hpp",
+      "sha256": "8b0fda981ee5f4b26beae72166c1ef817c3a4a0150912c7e8d7f2c900ebb6a82"
+    },
+    {
+      "path": "candidate/src/lcbinint/magnification/algebraic_boundary/triple/endpoint_cofactor_transport.hpp",
+      "sha256": "ebde5b8bd8275f77376360bb749cf4035ccd3ce135098b5e69a1ffecc73e316f"
+    },
+    {
+      "path": "candidate/src/lcbinint/magnification/algebraic_boundary/triple/complex_fold_product_rule.hpp",
+      "sha256": "409291b2663b968c1d26e00517778855b0da6494e07d6f2e5dcd848cbd765973"
+    },
+    {
+      "path": "candidate/src/lcbinint/magnification/algebraic_boundary/triple/cofactor_core_adjoint.hpp",
+      "sha256": "7a45c2ae9002328dda96fd22904f45f995bac1921dbc4972407cb96b5f0ca5b4"
+    },
+    {
+      "path": "candidate/src/lcbinint/magnification/algebraic_boundary/triple/compact_critical_transport.hpp",
+      "sha256": "82c818d3342a1eb11f49a9e04efdb65cd1c931c4fcbe74faba3653ecd2d48a4b"
+    },
+    {
+      "path": "candidate/src/lcbinint/magnification/algebraic_boundary/triple/angular_sector_certificate.hpp",
+      "sha256": "8655a4c1a8128e706e01fd1c2d26f61de15c6e4c8e5818fd540c5ec2ee5dd379"
+    },
+    {
+      "path": "candidate/src/lcbinint/magnification/algebraic_boundary/triple/ray_winding_labels.hpp",
+      "sha256": "a3a2808360a05b7a499251c9dbf831068d89086632e1e46a50ce38e10ec1ebc3"
+    },
+    {
+      "path": "candidate/src/lcbinint/magnification/algebraic_boundary/triple/root_continuation_tube.hpp",
+      "sha256": "eea547184452b0804a06eb73f480972ce53abc0dc72a17c310f44e66c3fa19b6"
+    },
+    {
+      "path": "candidate/src/lcbinint/magnification/algebraic_boundary/triple/patterson_embedded_rule.hpp",
+      "sha256": "83afe053ea8e66347301ac04cf68c4b5857a909123220b2c2bf466d58f46cb99"
+    },
+    {
+      "path": "candidate/src/lcbinint/magnification/algebraic_boundary/triple/fold_leading_control.hpp",
+      "sha256": "a2ba7afe578e7a1408dea7feb124f285a93691b6618c6c923214359ce5bd6feb"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/finite_source_magnifier.cpp",
+      "sha256": "ed7f8f9a0d191e3dacb439ad61b63353ee7c7c5894a987126ec357038ecf920c"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/geometry.hpp",
+      "sha256": "621064e32b14668560bab5454c8c716e5a19ac1b2a1e79bbb6aabb2b331f3bc6"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/angular_topology.hpp",
+      "sha256": "b2ce283bbee615b85bae6b1470a8fcfd05620447141505a954b3c8ae1a6f7cf8"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/radius_terms.hpp",
+      "sha256": "97b0064aac1dff92a17c6365a4efee64db342d8bbe9d8ff40cded98c442e8285"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/radial_panel.hpp",
+      "sha256": "9556c1b6edf5d10ae4226d9251cc59988149d027f8a903bfe27f60f86a2a9fa4"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/radial_events.hpp",
+      "sha256": "82fd8e8f59c5df3a8708eb585cf784b1e775137c4b2e308a5655bc0e996f563c"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/integrator.hpp",
+      "sha256": "e4a07ec68680351de4019baedc5afc52e97533786ffa3e60f290bc6857ee1d9b"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/local_precision.hpp",
+      "sha256": "72fc4f9e73ea9d175d10206b3ec78addcd8377ea8e00f7792b9a77238dee9f3a"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/frame.hpp",
+      "sha256": "5c08f0eba6c00e0138f6aebf2155524c5cbe243ccfcea188eafb2d588137647c"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/event_surface.hpp",
+      "sha256": "14d09ce342c644d5fc9a6b3986aa7f24bb7c85056c5d1d97c4948b242feccda6"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/interval.hpp",
+      "sha256": "154b5329737c0d0083800c3fbfd1939d0e90e1020e23f36822aed400c53ffd87"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/radial_polynomial.hpp",
+      "sha256": "2f3cd7bf28c4eaacad17fdefa8d827f8ee767778007b2958aca839300df24aa1"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/physical_jet.hpp",
+      "sha256": "5967118ca99537fad099a6272cbb596a84723164af628c7edac8688b0641f838"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/regular_support.hpp",
+      "sha256": "c735966dcb74aaf17b8586f384d763141e996f55986465616690ebf01c3157f9"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/coefficient_ball.hpp",
+      "sha256": "d25362367cc65e9ca4a019bfffe8a5193cbae00df0568636c8d744f83957c81a"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/support_resultant.hpp",
+      "sha256": "3ca45be74aa22a7d12b35edd358a8caa6ed970ace4f664fa91a4b2d42819d4c6"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/projected_radial_events.hpp",
+      "sha256": "a6a678eedc466854a8099450de6ccf1c4babb9cdf6000d312e6837e48eed36e9"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/point_polynomial.hpp",
+      "sha256": "dcb8be9dfc7a33004f19cd9de03c47c662bd3494ab3a7775aae47dda747a8915"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/resultant_matrix_terms.hpp",
+      "sha256": "fa83f13633ac4b4a799efea1e029848f02b23cf0418c91c266111e4882e7849f"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/gradient_replay.hpp",
+      "sha256": "0f9f705846238a68648e596ba228cd5da4933aae205814d70c3ac6aaaa31cc30"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/gradient_angular_chart.hpp",
+      "sha256": "f90347cf097e7c58db598d9de1b83747b5d1a2d38fbdc7f2f68047c77a9168d6"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/gradient_quadrature.hpp",
+      "sha256": "cdae2a5812c5a6fde35f5f402bfceb044b9dfdbf9e93b9c0ac79a0c7b5b3d5bb"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/gradient_radial_chart.hpp",
+      "sha256": "e91f941c1bf274b59a3589d99403631b18e8f185f6781b24148c47bee2173721"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/gradient_hermite.hpp",
+      "sha256": "a8c1fb23c8d13c35f7412095c784132e77e080ea9597e777f4e80dedf76d4d68"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/gradient_hermite_replay.hpp",
+      "sha256": "f32628b6e6e4cd6ddff11b18fd6219fea027fa89cdf22f6753a26eb3a038aa45"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/root_pair.hpp",
+      "sha256": "f0900b055f4c7f7ef08491b439dbcf6f764f028aebb8b268c771a49a1dffe837"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/root_pair_angular.hpp",
+      "sha256": "4ae0905f0ef27f100657f4e24a7e9ec6ef388ac7a261d9457e520d91c5002c89"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/critical_pair.hpp",
+      "sha256": "8a6251de234a85f481567f2e7daabf511ba88361851967579ed292762a8ccb77"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/pair_moments.hpp",
+      "sha256": "fd731d50ee81733cff2345a5a2d7bac94d6e3aaa900ead7397ef12e5fb6883fb"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/fused_radius.hpp",
+      "sha256": "cae019eda2086bff0edd38d4c2995e6ed517e25656f9185171cbb1fbfa028072"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/fused_radial_rule.hpp",
+      "sha256": "4d1f40a2c11c7cdd6c38468cfeb26db5f9ef37c03ae73a9150fae3e1ae5161f6"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/value_trace.hpp",
+      "sha256": "50b36efd62c0055bced82192094b594f0854796026cd11366a856af98e4b6e28"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/fused_boundary_guard.hpp",
+      "sha256": "de1fc9e3807f3ae7ea6cff06a83048cf9b405708ab4f5631900339ea138f57ce"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/fused_pair.hpp",
+      "sha256": "101abfd2f5caa6018cab65e8dab37a54f8b4216bf37f5b4c5da8f4ae8736e356"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/integration_types.hpp",
+      "sha256": "b721bdc5efc0a877bb7e6c677eca73c31d23c6865ed82497772c3c15419e1a2b"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/fused_integrator.hpp",
+      "sha256": "f6eb98b6f7181946730dd91bf3a719dcc91b7c9a0bad4a502514dde18b9ada7b"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/coupled_profile.hpp",
+      "sha256": "ed9cd4ca5cd245f7bf703307268970619efef01eb8c4838998d56d9db0a4c727"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/shape_transport.hpp",
+      "sha256": "0f5637f409fe8eae3c11c80dcf3517c4e22f0d80d285270b868813fb9bd5b922"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/stream_integrator.hpp",
+      "sha256": "2cc8c9ac21449185d8d8a450944274cc3e0e86bfbf4e356c7538ea841f782670"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/stream_pair.hpp",
+      "sha256": "4f1dc1865fc1d151b672f2d465bce7fc2424eba205dc0f6ce581d32b9ed1a54c"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/radial_coefficient_frame.hpp",
+      "sha256": "fa24c36f962f1aae67eb541db60c65542655b96f04f6ef74b714713f5faac5d7"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/transport_stream.hpp",
+      "sha256": "c6d173e7e9d23f1dee3c74d3272dcf547aeece26305a5241159005256568283d"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/patterson_rule.hpp",
+      "sha256": "5119805193a3f5638734034fa67eb363a3550052faa3d1fabeebc0c572268ddc"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/patterson_stream.hpp",
+      "sha256": "d88ea23f72b7292c0e5c1d54e1f83d9ce5b237eaa0635c39a708de54b262a086"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/mixed_fold_rule.hpp",
+      "sha256": "95128e9e7a2fabed07bfd7a0452cfc2f144c01b989e86ee44812259011c55cc3"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/angular_stationarity.hpp",
+      "sha256": "0af1b3016abd92fe98390584be83dd694383c5a3c354319606a62521e08b5749"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/gauss_kronrod_rule.hpp",
+      "sha256": "3ca3a44c311f5dbb900e6ff4b5d1af111323b106c5feb004816999194276c3d9"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/cauchy_transport.hpp",
+      "sha256": "a849415380d3e7fff67501a28bfa22e5138d3adf45119badaabd71dad9f60327"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/quartic_angular_geometry.hpp",
+      "sha256": "29cdc7087e7d0af4dd98fd6877b26a2a42747cee64b7614f62a239764dcbfdf7"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/root_pair_reverse.hpp",
+      "sha256": "3c5ac5a0b356507f66d838515bf5baa3e5301aa3c90804013ba91eb3e22351c2"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/global_angular_stream.hpp",
+      "sha256": "d0ce1100dbea7617d9d5cc69e457420d42a400d8632b2e9590cb19def1d21277"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/dyadic_packet_cache.hpp",
+      "sha256": "b9c188c04e45da18559403aeaeb7f23855ac829bcdd95d9b30a391450deae599"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/mixed_moment_transport.hpp",
+      "sha256": "ab7fa1f04f3eaa8907fe7c2aa2d1ca99eacc047682cbe4eaafc3ebc70a33c3be"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/ordinary_moment_transport.hpp",
+      "sha256": "5717b3368e1b1b216e0923ed70545d39f600eeb65810c1b38707cfe3ddc2d064"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/boundary_control_atlas.hpp",
+      "sha256": "8b0fda981ee5f4b26beae72166c1ef817c3a4a0150912c7e8d7f2c900ebb6a82"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/endpoint_cofactor_transport.hpp",
+      "sha256": "ebde5b8bd8275f77376360bb749cf4035ccd3ce135098b5e69a1ffecc73e316f"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/complex_fold_product_rule.hpp",
+      "sha256": "409291b2663b968c1d26e00517778855b0da6494e07d6f2e5dcd848cbd765973"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/cofactor_core_adjoint.hpp",
+      "sha256": "7a45c2ae9002328dda96fd22904f45f995bac1921dbc4972407cb96b5f0ca5b4"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/compact_critical_transport.hpp",
+      "sha256": "82c818d3342a1eb11f49a9e04efdb65cd1c931c4fcbe74faba3653ecd2d48a4b"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/angular_sector_certificate.hpp",
+      "sha256": "8655a4c1a8128e706e01fd1c2d26f61de15c6e4c8e5818fd540c5ec2ee5dd379"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/ray_winding_labels.hpp",
+      "sha256": "a3a2808360a05b7a499251c9dbf831068d89086632e1e46a50ce38e10ec1ebc3"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/root_continuation_tube.hpp",
+      "sha256": "eea547184452b0804a06eb73f480972ce53abc0dc72a17c310f44e66c3fa19b6"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/patterson_embedded_rule.hpp",
+      "sha256": "83afe053ea8e66347301ac04cf68c4b5857a909123220b2c2bf466d58f46cb99"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/fold_leading_control.hpp",
+      "sha256": "a2ba7afe578e7a1408dea7feb124f285a93691b6618c6c923214359ce5bd6feb"
+    },
+    {
+      "path": "final/src/lcbinint/magnification/algebraic_boundary/triple/annular_area_bound.hpp",
+      "sha256": "8c1ed2ea80d5f21ed139998cf8fe7e1b5ab983fe1d9f7be6cb5c897cb29d8c3c"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/finite_source_magnifier.cpp",
+      "sha256": "ed7f8f9a0d191e3dacb439ad61b63353ee7c7c5894a987126ec357038ecf920c"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/geometry.hpp",
+      "sha256": "621064e32b14668560bab5454c8c716e5a19ac1b2a1e79bbb6aabb2b331f3bc6"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/angular_topology.hpp",
+      "sha256": "b2ce283bbee615b85bae6b1470a8fcfd05620447141505a954b3c8ae1a6f7cf8"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/radius_terms.hpp",
+      "sha256": "97b0064aac1dff92a17c6365a4efee64db342d8bbe9d8ff40cded98c442e8285"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/radial_panel.hpp",
+      "sha256": "9556c1b6edf5d10ae4226d9251cc59988149d027f8a903bfe27f60f86a2a9fa4"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/radial_events.hpp",
+      "sha256": "82fd8e8f59c5df3a8708eb585cf784b1e775137c4b2e308a5655bc0e996f563c"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/integrator.hpp",
+      "sha256": "e4a07ec68680351de4019baedc5afc52e97533786ffa3e60f290bc6857ee1d9b"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/local_precision.hpp",
+      "sha256": "72fc4f9e73ea9d175d10206b3ec78addcd8377ea8e00f7792b9a77238dee9f3a"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/frame.hpp",
+      "sha256": "5c08f0eba6c00e0138f6aebf2155524c5cbe243ccfcea188eafb2d588137647c"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/event_surface.hpp",
+      "sha256": "14d09ce342c644d5fc9a6b3986aa7f24bb7c85056c5d1d97c4948b242feccda6"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/interval.hpp",
+      "sha256": "154b5329737c0d0083800c3fbfd1939d0e90e1020e23f36822aed400c53ffd87"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/radial_polynomial.hpp",
+      "sha256": "2f3cd7bf28c4eaacad17fdefa8d827f8ee767778007b2958aca839300df24aa1"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/physical_jet.hpp",
+      "sha256": "5967118ca99537fad099a6272cbb596a84723164af628c7edac8688b0641f838"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/regular_support.hpp",
+      "sha256": "c735966dcb74aaf17b8586f384d763141e996f55986465616690ebf01c3157f9"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/coefficient_ball.hpp",
+      "sha256": "d25362367cc65e9ca4a019bfffe8a5193cbae00df0568636c8d744f83957c81a"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/support_resultant.hpp",
+      "sha256": "3ca45be74aa22a7d12b35edd358a8caa6ed970ace4f664fa91a4b2d42819d4c6"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/projected_radial_events.hpp",
+      "sha256": "a6a678eedc466854a8099450de6ccf1c4babb9cdf6000d312e6837e48eed36e9"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/point_polynomial.hpp",
+      "sha256": "dcb8be9dfc7a33004f19cd9de03c47c662bd3494ab3a7775aae47dda747a8915"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/resultant_matrix_terms.hpp",
+      "sha256": "fa83f13633ac4b4a799efea1e029848f02b23cf0418c91c266111e4882e7849f"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/gradient_replay.hpp",
+      "sha256": "0f9f705846238a68648e596ba228cd5da4933aae205814d70c3ac6aaaa31cc30"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/gradient_angular_chart.hpp",
+      "sha256": "f90347cf097e7c58db598d9de1b83747b5d1a2d38fbdc7f2f68047c77a9168d6"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/gradient_quadrature.hpp",
+      "sha256": "cdae2a5812c5a6fde35f5f402bfceb044b9dfdbf9e93b9c0ac79a0c7b5b3d5bb"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/gradient_radial_chart.hpp",
+      "sha256": "e91f941c1bf274b59a3589d99403631b18e8f185f6781b24148c47bee2173721"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/gradient_hermite.hpp",
+      "sha256": "a8c1fb23c8d13c35f7412095c784132e77e080ea9597e777f4e80dedf76d4d68"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/gradient_hermite_replay.hpp",
+      "sha256": "f32628b6e6e4cd6ddff11b18fd6219fea027fa89cdf22f6753a26eb3a038aa45"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/root_pair.hpp",
+      "sha256": "f0900b055f4c7f7ef08491b439dbcf6f764f028aebb8b268c771a49a1dffe837"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/root_pair_angular.hpp",
+      "sha256": "4ae0905f0ef27f100657f4e24a7e9ec6ef388ac7a261d9457e520d91c5002c89"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/critical_pair.hpp",
+      "sha256": "8a6251de234a85f481567f2e7daabf511ba88361851967579ed292762a8ccb77"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/pair_moments.hpp",
+      "sha256": "fd731d50ee81733cff2345a5a2d7bac94d6e3aaa900ead7397ef12e5fb6883fb"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/fused_radius.hpp",
+      "sha256": "cae019eda2086bff0edd38d4c2995e6ed517e25656f9185171cbb1fbfa028072"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/fused_radial_rule.hpp",
+      "sha256": "4d1f40a2c11c7cdd6c38468cfeb26db5f9ef37c03ae73a9150fae3e1ae5161f6"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/value_trace.hpp",
+      "sha256": "50b36efd62c0055bced82192094b594f0854796026cd11366a856af98e4b6e28"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/fused_boundary_guard.hpp",
+      "sha256": "de1fc9e3807f3ae7ea6cff06a83048cf9b405708ab4f5631900339ea138f57ce"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/fused_pair.hpp",
+      "sha256": "101abfd2f5caa6018cab65e8dab37a54f8b4216bf37f5b4c5da8f4ae8736e356"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/integration_types.hpp",
+      "sha256": "b721bdc5efc0a877bb7e6c677eca73c31d23c6865ed82497772c3c15419e1a2b"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/fused_integrator.hpp",
+      "sha256": "f6eb98b6f7181946730dd91bf3a719dcc91b7c9a0bad4a502514dde18b9ada7b"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/coupled_profile.hpp",
+      "sha256": "ed9cd4ca5cd245f7bf703307268970619efef01eb8c4838998d56d9db0a4c727"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/shape_transport.hpp",
+      "sha256": "0f5637f409fe8eae3c11c80dcf3517c4e22f0d80d285270b868813fb9bd5b922"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/stream_integrator.hpp",
+      "sha256": "2cc8c9ac21449185d8d8a450944274cc3e0e86bfbf4e356c7538ea841f782670"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/stream_pair.hpp",
+      "sha256": "4f1dc1865fc1d151b672f2d465bce7fc2424eba205dc0f6ce581d32b9ed1a54c"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/radial_coefficient_frame.hpp",
+      "sha256": "fa24c36f962f1aae67eb541db60c65542655b96f04f6ef74b714713f5faac5d7"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/transport_stream.hpp",
+      "sha256": "c6d173e7e9d23f1dee3c74d3272dcf547aeece26305a5241159005256568283d"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/patterson_rule.hpp",
+      "sha256": "5119805193a3f5638734034fa67eb363a3550052faa3d1fabeebc0c572268ddc"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/patterson_stream.hpp",
+      "sha256": "d88ea23f72b7292c0e5c1d54e1f83d9ce5b237eaa0635c39a708de54b262a086"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/mixed_fold_rule.hpp",
+      "sha256": "95128e9e7a2fabed07bfd7a0452cfc2f144c01b989e86ee44812259011c55cc3"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/angular_stationarity.hpp",
+      "sha256": "0af1b3016abd92fe98390584be83dd694383c5a3c354319606a62521e08b5749"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/gauss_kronrod_rule.hpp",
+      "sha256": "3ca3a44c311f5dbb900e6ff4b5d1af111323b106c5feb004816999194276c3d9"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/cauchy_transport.hpp",
+      "sha256": "a849415380d3e7fff67501a28bfa22e5138d3adf45119badaabd71dad9f60327"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/quartic_angular_geometry.hpp",
+      "sha256": "29cdc7087e7d0af4dd98fd6877b26a2a42747cee64b7614f62a239764dcbfdf7"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/root_pair_reverse.hpp",
+      "sha256": "3c5ac5a0b356507f66d838515bf5baa3e5301aa3c90804013ba91eb3e22351c2"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/global_angular_stream.hpp",
+      "sha256": "d0ce1100dbea7617d9d5cc69e457420d42a400d8632b2e9590cb19def1d21277"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/dyadic_packet_cache.hpp",
+      "sha256": "b9c188c04e45da18559403aeaeb7f23855ac829bcdd95d9b30a391450deae599"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/mixed_moment_transport.hpp",
+      "sha256": "ab7fa1f04f3eaa8907fe7c2aa2d1ca99eacc047682cbe4eaafc3ebc70a33c3be"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/ordinary_moment_transport.hpp",
+      "sha256": "5717b3368e1b1b216e0923ed70545d39f600eeb65810c1b38707cfe3ddc2d064"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/boundary_control_atlas.hpp",
+      "sha256": "8b0fda981ee5f4b26beae72166c1ef817c3a4a0150912c7e8d7f2c900ebb6a82"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/endpoint_cofactor_transport.hpp",
+      "sha256": "ebde5b8bd8275f77376360bb749cf4035ccd3ce135098b5e69a1ffecc73e316f"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/complex_fold_product_rule.hpp",
+      "sha256": "409291b2663b968c1d26e00517778855b0da6494e07d6f2e5dcd848cbd765973"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/cofactor_core_adjoint.hpp",
+      "sha256": "7a45c2ae9002328dda96fd22904f45f995bac1921dbc4972407cb96b5f0ca5b4"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/compact_critical_transport.hpp",
+      "sha256": "82c818d3342a1eb11f49a9e04efdb65cd1c931c4fcbe74faba3653ecd2d48a4b"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/angular_sector_certificate.hpp",
+      "sha256": "8655a4c1a8128e706e01fd1c2d26f61de15c6e4c8e5818fd540c5ec2ee5dd379"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/ray_winding_labels.hpp",
+      "sha256": "a3a2808360a05b7a499251c9dbf831068d89086632e1e46a50ce38e10ec1ebc3"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/root_continuation_tube.hpp",
+      "sha256": "eea547184452b0804a06eb73f480972ce53abc0dc72a17c310f44e66c3fa19b6"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/patterson_embedded_rule.hpp",
+      "sha256": "83afe053ea8e66347301ac04cf68c4b5857a909123220b2c2bf466d58f46cb99"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/fold_leading_control.hpp",
+      "sha256": "a2ba7afe578e7a1408dea7feb124f285a93691b6618c6c923214359ce5bd6feb"
+    },
+    {
+      "path": "pre-mass-bound/src/lcbinint/magnification/algebraic_boundary/triple/annular_area_bound.hpp",
+      "sha256": "d07c4afec3b9db100011ced3234fc100278fd3f41d96c7a5ab89642d6cbc3c4a"
+    }
+  ],
+  "missing": []
+}
