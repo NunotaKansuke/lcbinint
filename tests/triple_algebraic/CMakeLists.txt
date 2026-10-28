@@ -32,6 +32,12 @@ endif()
 # The prepared route reuses the native degree-six and point-image solvers.
 # Keep the isolated header-only reference suite independent of those solvers.
 if(TARGET lcbinint_lightcurve)
+    add_executable(triple_local_images test_local_images.cpp)
+    target_compile_features(triple_local_images PRIVATE cxx_std_17)
+    target_compile_options(triple_local_images PRIVATE -fno-fast-math -ffp-contract=off)
+    target_link_libraries(triple_local_images PRIVATE lcbinint_lightcurve quadmath)
+    add_test(NAME triple_local_images COMMAND triple_local_images)
+
     add_executable(triple_regular test_regular.cpp)
     target_compile_features(triple_regular PRIVATE cxx_std_17)
     target_compile_options(triple_regular PRIVATE -fno-fast-math -ffp-contract=off)

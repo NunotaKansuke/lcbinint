@@ -1,0 +1,44 @@
+{
+  "comparisons": 157,
+  "points": 81,
+  "conditions": 14,
+  "maximum_ratio": 0.0940078441136194,
+  "exceedances": [],
+  "exclusions": {
+    "reference_engine_disagreement": 2,
+    "reference_curve_failure": 7,
+    "reference_error_estimate_above_requested": 9
+  },
+  "vbm_exceedances": [
+    {
+      "case": 189,
+      "index": 0,
+      "engine": "SinglePoly",
+      "error": 150.222719337156
+    },
+    {
+      "case": 189,
+      "index": 3,
+      "engine": "SinglePoly",
+      "error": 433958685705.15814
+    },
+    {
+      "case": 189,
+      "index": 4,
+      "engine": "SinglePoly",
+      "error": 15927456658078.672
+    },
+    {
+      "case": 189,
+      "index": 5,
+      "engine": "SinglePoly",
+      "error": 3.1499681419026837
+    },
+    {
+      "case": 189,
+      "index": 6,
+      "engine": "SinglePoly",
+      "error": 79.02915579541141
+    }
+  ]
+}

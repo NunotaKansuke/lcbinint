@@ -1,0 +1,19 @@
+{
+  "plans": 84,
+  "before_completed": 10,
+  "after_completed": 10,
+  "changes": [],
+  "axis_fallbacks": 583,
+  "before_reasons": {
+    "completed": 10,
+    "degenerate_radial_event": 48,
+    "event_box_budget": 26
+  },
+  "after_reasons": {
+    "completed": 10,
+    "degenerate_angular_event": 48,
+    "event_box_budget": 26
+  },
+  "adopted": false,
+  "reason": "No additional support plans certified. Exhausting the remaining angular axis still refuses; no production change."
+}

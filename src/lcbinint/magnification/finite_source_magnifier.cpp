@@ -7882,7 +7882,16 @@ template<bool Gradient> auto triple_algebraic_epoch(
         out.value.diagnostic_stop=reason;
     };
     if(rho==0 || finite.finite_mode<=0) {
-        const auto p=triple_approximation::point<Gradient>(point,geometry,source);
+        // When available, an independent caustic winding count detects a
+        // lost positive/negative pair that parity alone cannot detect.
+        std::array<kernel::Complex,3> count_lenses;
+        for(int j=0;j<3;++j)count_lenses[j]={geometry.lens_positions[j].x,geometry.lens_positions[j].y};
+        const double probe=64*std::numeric_limits<double>::epsilon()*(1+std::hypot(source.x,source.y));
+        const auto count_frame=kernel::primary_frame(count_lenses,{source.x,source.y},probe,
+            geometry.masses[1],geometry.masses[2]);
+        const auto count=triple_support_preparation().caustic_clearance(count_frame.geometry,probe);
+        const auto p=triple_approximation::point<Gradient>(point,geometry,source,count.second);
+        out.point_magnification=p.mu;
         accept(p.mu,0,FiniteSourceMethod::point_source,1,"triple point source");
         out.value.center_image_count=p.images;
         out.value.converged=out.value.value_converged=p.valid;
@@ -7903,11 +7912,14 @@ template<bool Gradient> auto triple_algebraic_epoch(
     const double error=6*safety.quadrupole_indicator*rho*rho;
     if(std::isfinite(error)&&error<=budget(out.point_magnification)) {
         const auto clear=prepared.caustic_clearance(canonical.geometry,point_distance);
-        if(clear.first>point_distance&&clear.second==safety.image_count) {
-            const auto p=triple_approximation::point<Gradient>(point,geometry,source);
-            if(p.valid) {
-                accept(p.mu,error,FiniteSourceMethod::point_source,1,"triple point-source curvature and certified caustic clearance");
-                out.value.caustic_distance=clear.first;out.value.center_image_count=safety.image_count;
+        if(clear.first>point_distance&&clear.second>=4) {
+            const auto p=triple_approximation::point<Gradient>(point,geometry,source,clear.second);
+            const auto complete_safety=point.triple_safety_diagnostic(geometry,source);
+            const double complete_error=6*complete_safety.quadrupole_indicator*rho*rho;
+            if(p.valid && std::isfinite(complete_error) && complete_error<=budget(p.mu)) {
+                out.point_magnification=p.mu;
+                accept(p.mu,complete_error,FiniteSourceMethod::point_source,1,"triple point-source curvature and certified caustic clearance");
+                out.value.caustic_distance=clear.first;out.value.center_image_count=p.images;
                 if constexpr(Gradient){out.gradient=p.gradient;out.gradient_valid=p.gradient_valid;}
                 return out;
             }
@@ -7939,6 +7951,11 @@ template<bool Gradient> auto triple_algebraic_epoch(
     // exact-epoch plans are already full attempts, including explicit failure.
     // Share their support proof across modes; never cache a flux or tangent.
     const auto* supplied=(accuracy.relative_tolerance<1e-4||plan.completed)?&plan:nullptr;
+    const auto complete=[](const auto& result) {
+        bool valid=result.converged&&result.support_complete;
+        if constexpr(Gradient)valid=valid&&result.gradient_valid;
+        return valid;
+    };
     const auto value=kernel::integrate<Gradient>(frame.geometry,finite.limb_darkening_c,options,supplied);
     const auto assign=[&](const auto& result,const auto& coordinates) {
         out.value.decision={FiniteSourceMethod::algebraic_boundary,static_cast<int>(result.value_evaluations),"triple_algebraic_nested_fejer"};
@@ -7968,8 +7985,8 @@ template<bool Gradient> auto triple_algebraic_epoch(
                 geometry.masses[order[1]],geometry.masses[order[2]]);
             auto alternate_plan=triple_reframed_support_preparation(k).plan(alternate.geometry,
                 accuracy.relative_tolerance,alternate_options.event_box_budget,!Gradient);
-            const auto trial=kernel::integrate<Gradient>(alternate.geometry,finite.limb_darkening_c,
-                alternate_options,alternate_plan.completed?&alternate_plan:nullptr);
+            const auto trial=kernel::integrate<Gradient>(alternate.geometry,finite.limb_darkening_c,alternate_options,
+                alternate_plan.completed?&alternate_plan:nullptr);
             bool valid=trial.converged&&trial.support_complete;
             if constexpr(Gradient)valid=valid&&trial.gradient_valid;
             if(!valid)continue;
@@ -7977,6 +7994,47 @@ template<bool Gradient> auto triple_algebraic_epoch(
             if constexpr(Gradient)out.gradient=kernel::unpermute_physical_gradient(out.gradient,order);
             out.value.diagnostic_stop+=k==0?":reframed_primary_1":":reframed_primary_2";
             break;
+        }
+    }
+    const bool needs_full_support=[&] {
+        bool refused=!out.value.converged;
+        if constexpr(Gradient)refused=refused||!out.gradient_valid;
+        return refused;
+    }();
+    if(needs_full_support) {
+        // Exhaust the ordinary prepared frames before optional quadrature
+        // coordinates or a freshly reconstructed support. A refused frame
+        // must not delay another frame that already has a valid fast path.
+        const std::array<std::array<int,3>,3> orders{{{0,1,2},{1,0,2},{2,0,1}}};
+        bool recovered=false;
+        for(int strategy=0;strategy<2 && !recovered;++strategy) {
+            for(std::size_t k=0;k<orders.size();++k) {
+                const auto order=orders[k];
+                const std::array<kernel::Complex,3> ordered{lenses[order[0]],lenses[order[1]],lenses[order[2]]};
+                const auto coordinates=k==0?frame:kernel::primary_frame<Gradient>(ordered,{source.x,source.y},rho,
+                    geometry.masses[order[1]],geometry.masses[order[2]]);
+                auto plain=options;plain.separate_components=false;
+                if(k>0)plain.event_box_budget=std::min(options.event_box_budget,8192);
+                kernel::RadialEventPlan alternate_plan;
+                const auto* support=&plan;
+                if(k>0) {
+                    alternate_plan=triple_reframed_support_preparation(k-1).plan(coordinates.geometry,
+                        accuracy.relative_tolerance,plain.event_box_budget,!Gradient);
+                    support=&alternate_plan;
+                }
+                // An incomplete prepared plan already used the full planner
+                // in the ordinary attempt; do not repeat identical work.
+                if(!support->completed)continue;
+                if(strategy==0 && support->component_images.empty())continue;
+                const auto trial=kernel::integrate<Gradient>(coordinates.geometry,finite.limb_darkening_c,
+                    plain,strategy==0?support:nullptr);
+                if(!complete(trial))continue;
+                assign(trial,coordinates);
+                if constexpr(Gradient)if(k>0)out.gradient=kernel::unpermute_physical_gradient(out.gradient,order);
+                out.value.diagnostic_stop+=strategy==0?"_unpartitioned":"_full_support";
+                if(k>0)out.value.diagnostic_stop+=":reframed_primary_"+std::to_string(k);
+                recovered=true;break;
+            }
         }
     }
     return out;

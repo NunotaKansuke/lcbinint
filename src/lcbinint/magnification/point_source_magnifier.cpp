@@ -824,6 +824,61 @@ static SourcePosition polish_triple_image_root_high_precision(
     return {static_cast<double>(zx), static_cast<double>(zy)};
 }
 
+static bool polish_triple_image_root_local(
+    const model::TripleLensGeometry& geometry,
+    SourcePosition source,
+    std::size_t owner,
+    Complex seed,
+    double residual_tolerance,
+    TripleImageCandidate& candidate)
+{
+    using C = std::complex<long double>;
+    const auto pole = geometry.lens_positions[owner];
+    const auto evaluate = [&](C delta) {
+        C residual = C(static_cast<long double>(pole.x) - source.x,
+                       static_cast<long double>(pole.y) - source.y) + delta;
+        C shear {};
+        for (std::size_t j = 0; j < geometry.masses.size(); ++j) {
+            const auto lens = geometry.lens_positions[j];
+            const C separation(static_cast<long double>(pole.x) - lens.x,
+                               static_cast<long double>(pole.y) - lens.y);
+            const C inverse = 1.0L / std::conj(separation + delta);
+            const long double mass = geometry.masses[j];
+            residual -= mass * inverse;
+            shear += mass * inverse * inverse;
+        }
+        return std::pair<C, C>{residual, shear};
+    };
+    C delta(seed.real(), seed.imag());
+    for (int iteration = 0; iteration < 32; ++iteration) {
+        const auto [residual, shear] = evaluate(delta);
+        const long double determinant = 1.0L - std::norm(shear);
+        if (!std::isfinite(std::abs(residual)) || !std::isfinite(determinant) ||
+            determinant == 0.0L) { return false; }
+        const C step = (residual - shear * std::conj(residual)) / determinant;
+        if (!std::isfinite(std::abs(step))) { return false; }
+        const C next = delta - step;
+        const bool stationary = next == delta;
+        delta = next;
+        if (stationary || std::abs(step) <=
+            16 * std::numeric_limits<long double>::epsilon() * std::abs(delta)) { break; }
+    }
+    // Validate the actual retained double displacement, not a more precise
+    // transient Newton iterate or its rounded global-position projection.
+    const SourcePosition offset{static_cast<double>(delta.real()),
+                                static_cast<double>(delta.imag())};
+    const auto [residual, shear] = evaluate(C(offset.x, offset.y));
+    const double error = static_cast<double>(std::abs(residual));
+    const double determinant = static_cast<double>(1.0L - std::norm(shear));
+    const SourcePosition position{pole.x + offset.x, pole.y + offset.y};
+    if (!(error <= residual_tolerance) || !std::isfinite(determinant) || !(determinant < 0.0) ||
+        !std::isfinite(position.x) || !std::isfinite(position.y)) { return false; }
+    candidate = {position, determinant, error, false};
+    candidate.local_origin = static_cast<int>(owner);
+    candidate.local_offset = offset;
+    return true;
+}
+
 double triple_residual(
     const model::TripleLensGeometry& geometry,
     SourcePosition source,
@@ -1504,13 +1559,11 @@ double triple_curvature_indicator(
         if (!candidate.physical) {
             continue;
         }
-        const Complex z(candidate.position.x, candidate.position.y);
         Complex j1(0.0, 0.0);
         Complex j2(0.0, 0.0);
         Complex j3(0.0, 0.0);
         for (int k = 0; k < 3; ++k) {
-            const Complex zk(geometry.lens_positions[k].x, geometry.lens_positions[k].y);
-            const Complex dz = z - zk;
+            const Complex dz = triple_image_separation(geometry, candidate, k);
             const Complex dz2 = dz * dz;
             const Complex dz3 = dz2 * dz;
             const Complex dz4 = dz3 * dz;
@@ -1659,7 +1712,7 @@ std::vector<TripleImage> PointSourceMagnifier::triple_images(
 
 std::vector<TripleImageCandidate> PointSourceMagnifier::triple_image_candidates(
     const model::TripleLensGeometry& geometry,
-    SourcePosition source) const
+    SourcePosition source, int expected_images) const
 {
     // A direct solve replaces the shared diagnostics below without replacing
     // the one-entry candidate cache.  Invalidate it up front so a later cache
@@ -1877,7 +1930,24 @@ std::vector<TripleImageCandidate> PointSourceMagnifier::triple_image_candidates(
             }
         }
     }
-    if (physical_count < 4) {
+    int positive_count = 0;
+    bool distinct_positive_lenses = true;
+    for (std::size_t k = 0; k < geometry.masses.size(); ++k) {
+        distinct_positive_lenses = distinct_positive_lenses && geometry.masses[k] > 0.0;
+        for (std::size_t j = 0; j < k; ++j)
+            distinct_positive_lenses = distinct_positive_lenses &&
+                (geometry.lens_positions[k].x != geometry.lens_positions[j].x ||
+                 geometry.lens_positions[k].y != geometry.lens_positions[j].y);
+    }
+    for (int i = 0; i < physical_count; ++i)
+        positive_count += images[static_cast<std::size_t>(i)].jacobian_determinant > 0.0;
+    // For three distinct positive point masses, N_negative=N_positive+2.
+    // An even total alone can hide lost pole images in a multi-image region.
+    const bool missing_negative = distinct_positive_lenses &&
+        physical_count < 2 * positive_count + 2;
+    if (physical_count < 4 || missing_negative ||
+        (expected_images>=4 && expected_images<=10 && expected_images%2==0 &&
+         physical_count<expected_images)) {
         // A degree-ten polynomial can lose a very demagnified image near a
         // lens pole. Seed the local negative point-mass solution, then require
         // the original lens equation and the existing residual tolerance.
@@ -1901,29 +1971,101 @@ std::vector<TripleImageCandidate> PointSourceMagnifier::triple_image_candidates(
             }
             const double radius = -2.0 * mass /
                 (distance + std::hypot(distance, 2.0 * std::sqrt(mass)));
-            const Complex seed = pole + radius * (offset / distance);
+            const Complex local_seed = radius * (offset / distance);
+            const Complex seed = pole + local_seed;
             const SourcePosition polished = polish_triple_image_root_high_precision(
                 geometry, source, {seed.real(), seed.imag()});
-            const Complex z{polished.x, polished.y};
-            const double residual = triple_residual(geometry, source, z);
-            const double determinant = triple_jacobian_determinant(geometry, z);
+            const Complex projected{polished.x, polished.y};
+            const double residual = triple_residual(geometry, source, projected);
+            const double determinant = triple_jacobian_determinant(geometry, projected);
+            TripleImageCandidate recovered{polished, determinant, residual, false};
             if (!(residual <= absolute_tolerance) || !std::isfinite(determinant) ||
-                !(determinant < 0.0)) { continue; }
-            bool duplicate = false;
-            for (int i = 0; i < physical_count; ++i) {
-                const auto& old = images[static_cast<std::size_t>(i)].position;
-                if (std::norm(z - Complex{old.x, old.y}) < kDedupTol2) {
-                    duplicate = true; break;
+                !(determinant < 0.0)) {
+                // Do not promote an unvalidated prefix merely by appending
+                // a valid negative image. Keep at least one validated
+                // positive image and require every retained old root to
+                // satisfy the same original-equation residual criterion.
+                bool valid_prefix = physical_count > 0, positive = false;
+                for (int i = 0; i < physical_count; ++i) {
+                    const auto& old = images[static_cast<std::size_t>(i)];
+                    valid_prefix = valid_prefix && old.residual <= absolute_tolerance &&
+                        std::isfinite(old.jacobian_determinant) && old.jacobian_determinant != 0.0;
+                    positive = positive || old.jacobian_determinant > 0.0;
+                }
+                if (!valid_prefix || !positive || !polish_triple_image_root_local(
+                        geometry, source, k, local_seed, absolute_tolerance, recovered)) {
+                    continue;
                 }
             }
-            if (duplicate) { continue; }
+            const auto duplicate_candidate = [&](const TripleImageCandidate& candidate) {
+                const Complex z{candidate.position.x,candidate.position.y};
+                for (int i=0;i<physical_count;++i) {
+                    const auto& old=images[static_cast<std::size_t>(i)].position;
+                    if(std::norm(z-Complex{old.x,old.y})<kDedupTol2)return true;
+                }
+                return false;
+            };
+            if (duplicate_candidate(recovered)) {
+                // Rounding a pole seed can move global Newton into another
+                // negative image's basin. Try the retained displacement even
+                // when that other root passed its own residual check.
+                bool valid_prefix=physical_count>0,positive=false;
+                for(int i=0;i<physical_count;++i) {
+                    const auto& old=images[static_cast<std::size_t>(i)];
+                    valid_prefix=valid_prefix&&old.residual<=absolute_tolerance&&
+                        std::isfinite(old.jacobian_determinant)&&old.jacobian_determinant!=0.;
+                    positive=positive||old.jacobian_determinant>0.;
+                }
+                if(recovered.local_origin>=0 || !valid_prefix || !positive ||
+                   !polish_triple_image_root_local(geometry,source,k,local_seed,
+                       absolute_tolerance,recovered) || duplicate_candidate(recovered))continue;
+            }
             // Keep accepted candidates first; unphysical polynomial roots may
             // remain in the diagnostic tail and must not hide a recovered root.
-            images.insert(images.begin() + physical_count,
-                {polished, determinant, residual, false});
+            images.insert(images.begin() + physical_count, recovered);
             ++physical_count;
             diagnostics.root_used_high_precision = 1;
             diagnostics.root_needs_high_precision = 1;
+        }
+    }
+    // A polynomial seed can converge to the wrong physical image even
+    // when its residual is excellent. Away from critical Jacobians, a
+    // negative-index deficit or independent count deficit justifies a bounded
+    // search for additional roots.
+    // The index is a trigger, never a completeness certificate; downstream
+    // caustic/support proofs still gate finite-source approximations.
+    const bool has_expected=expected_images>=4 && expected_images<=10 && expected_images%2==0;
+    const int recovery_target=has_expected?expected_images:std::min(kTripleDegree,2*positive_count+2);
+    if(distinct_positive_lenses && physical_count < recovery_target) {
+        bool regular=physical_count>0 && positive_count>0;
+        for(int i=0;i<physical_count;++i) {
+            const auto& old=images[static_cast<std::size_t>(i)];
+            regular=regular && old.residual<=absolute_tolerance &&
+                std::isfinite(old.jacobian_determinant) &&
+                std::abs(old.jacobian_determinant)>1e-4;
+        }
+        if(regular)for(std::size_t lens=0;lens<geometry.masses.size();++lens) {
+            for(double scale:{.25,.5,1.,2.})for(int direction=0;direction<8;++direction) {
+                if(physical_count>=recovery_target)break;
+                const double angle=direction*(std::acos(-1.)/4.);
+                const double radius=scale*std::sqrt(geometry.masses[lens]);
+                const auto pole=geometry.lens_positions[lens];
+                const auto z=polish_triple_image_root_high_precision(geometry,source,
+                    {pole.x+radius*std::cos(angle),pole.y+radius*std::sin(angle)});
+                const Complex root{z.x,z.y};
+                const double residual=triple_residual(geometry,source,root);
+                const double determinant=triple_jacobian_determinant(geometry,root);
+                if(!(residual<=1e-12) || !std::isfinite(determinant) || !(std::abs(determinant)>1e-4) || (!has_expected && determinant>0))continue;
+                bool duplicate=false;
+                for(int i=0;i<physical_count;++i) {
+                    const auto old=images[static_cast<std::size_t>(i)].position;
+                    if(std::norm(root-Complex{old.x,old.y})<kDedupTol2){duplicate=true;break;}
+                }
+                if(duplicate)continue;
+                images.insert(images.begin()+physical_count,{z,determinant,residual,false});
+                ++physical_count;diagnostics.root_used_high_precision=1;
+                diagnostics.root_needs_high_precision=1;
+            }
         }
     }
     for (std::size_t i = 0; i < images.size(); ++i) {
@@ -1945,15 +2087,17 @@ std::vector<TripleImageCandidate> PointSourceMagnifier::triple_image_candidates(
 const std::vector<TripleImageCandidate>&
 PointSourceMagnifier::triple_image_candidates_cached(
     const model::TripleLensGeometry& geometry,
-    SourcePosition source) const
+    SourcePosition source, int expected_images) const
 {
     const bool cache_hit =
         triple_candidate_cache_valid_ &&
         triple_candidate_cache_source_.x == source.x &&
         triple_candidate_cache_source_.y == source.y &&
         triple_geometry_equals(triple_candidate_cache_geometry_, geometry);
-    if (!cache_hit) {
-        triple_candidate_cache_ = triple_image_candidates(geometry, source);
+    int retained=0;
+    if(cache_hit)for(const auto& image:triple_candidate_cache_)retained+=image.physical;
+    if (!cache_hit || (expected_images>0 && retained!=expected_images)) {
+        triple_candidate_cache_ = triple_image_candidates(geometry, source, expected_images);
         triple_candidate_cache_valid_ = true;
         triple_candidate_cache_geometry_ = geometry;
         triple_candidate_cache_source_ = source;

@@ -1,0 +1,9 @@
+{
+  "points": 7720,
+  "residual_failures": 0,
+  "index_mismatches": 72,
+  "families": {
+    "sampled_caustic_contact": 72
+  },
+  "maximum_recomputed_residual": 9.908769629647985e-08
+}

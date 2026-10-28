@@ -1,0 +1,12 @@
+{
+  "commit": "26c684b97a302319fe19261e3bb9f29f35c7c21c",
+  "branch": "experiment/algebraic_boundary",
+  "native_sha256": "85ef8301e253b0c8ff65b9de7d6cd66dbef8c76ac4aa2218b504d79e00313c37",
+  "cpu_budget": 8,
+  "ram_budget_gib": 16,
+  "source_hashes": {
+    "src/lcbinint/magnification/point_source_magnifier.cpp": "4b3e9421194bbd65fe56c42184ee5d3ead4c162c34e24c0de9827a1bc5558241",
+    "src/lcbinint/magnification/point_source_magnifier.hpp": "74dd9a26d0bfbe20e871061670899010c5d13326f5e945cdc7bef522ded14ffa",
+    "src/lcbinint/magnification/triple_approximation.hpp": "5beaf863b621e700939a362355c1a48f5815e46a0fa81e7ca355c39129a90ab6"
+  }
+}

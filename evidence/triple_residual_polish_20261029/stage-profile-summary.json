@@ -1,0 +1,302 @@
+[
+  {
+    "case": 972,
+    "epoch": 0,
+    "frame": 0,
+    "plan_seconds": 0.004372456,
+    "integral_seconds": 0.003053549,
+    "completed": 1,
+    "valid": 1,
+    "stop": "converged_value_mesh",
+    "nodes": 1557,
+    "exclusive_seconds": {
+      "topology": 0.001708093,
+      "endpoint": 0.000116915,
+      "chart": 6.6276e-05,
+      "pair": 0,
+      "angular": 0.000332893,
+      "witness": 0.000106022
+    },
+    "other_seconds": 0.0007233500000000002
+  },
+  {
+    "case": 972,
+    "epoch": 0,
+    "frame": 1,
+    "plan_seconds": 0.019822766,
+    "integral_seconds": 0.003184335,
+    "completed": 1,
+    "valid": 1,
+    "stop": "converged_value_mesh",
+    "nodes": 1010,
+    "exclusive_seconds": {
+      "topology": 0.002277995,
+      "endpoint": 4.0399e-05,
+      "chart": 3.0848e-05,
+      "pair": 0,
+      "angular": 0.000200063,
+      "witness": 1.299e-05
+    },
+    "other_seconds": 0.0006220399999999999
+  },
+  {
+    "case": 972,
+    "epoch": 0,
+    "frame": 2,
+    "plan_seconds": 0.003811718,
+    "integral_seconds": 0.001808569,
+    "completed": 1,
+    "valid": 1,
+    "stop": "converged_value_mesh",
+    "nodes": 1012,
+    "exclusive_seconds": {
+      "topology": 0.00125221,
+      "endpoint": 3.9037e-05,
+      "chart": 5.1522e-05,
+      "pair": 0,
+      "angular": 0.000164282,
+      "witness": 0.00010968
+    },
+    "other_seconds": 0.00019183800000000016
+  },
+  {
+    "case": 972,
+    "epoch": 1,
+    "frame": 0,
+    "plan_seconds": 0.044957133,
+    "integral_seconds": 0.874265348,
+    "completed": 0,
+    "valid": 0,
+    "stop": "refinement_budget",
+    "nodes": 258761,
+    "exclusive_seconds": {
+      "topology": 0.135631747,
+      "endpoint": 0.102319277,
+      "chart": 0.071059312,
+      "pair": 1.1755e-05,
+      "angular": 0.521383777,
+      "witness": 9.6846e-05
+    },
+    "other_seconds": 0.04376263399999991
+  },
+  {
+    "case": 972,
+    "epoch": 1,
+    "frame": 1,
+    "plan_seconds": 0.033800817,
+    "integral_seconds": 0.033711768,
+    "completed": 0,
+    "valid": 0,
+    "stop": "event_box_budget",
+    "nodes": 0,
+    "exclusive_seconds": {
+      "topology": 0,
+      "endpoint": 0,
+      "chart": 0,
+      "pair": 0,
+      "angular": 0,
+      "witness": 0
+    },
+    "other_seconds": 0.033711768
+  },
+  {
+    "case": 972,
+    "epoch": 1,
+    "frame": 2,
+    "plan_seconds": 0.010078198,
+    "integral_seconds": 0.005688923,
+    "completed": 1,
+    "valid": 1,
+    "stop": "converged_value_mesh",
+    "nodes": 2659,
+    "exclusive_seconds": {
+      "topology": 0.003224476,
+      "endpoint": 0.000311328,
+      "chart": 0.000216653,
+      "pair": 7.027e-06,
+      "angular": 0.000761103,
+      "witness": 0.00010318
+    },
+    "other_seconds": 0.0010651560000000011
+  },
+  {
+    "case": 972,
+    "epoch": 2,
+    "frame": 0,
+    "plan_seconds": 0.006312071,
+    "integral_seconds": 0.007548672,
+    "completed": 1,
+    "valid": 1,
+    "stop": "converged_value_mesh",
+    "nodes": 2332,
+    "exclusive_seconds": {
+      "topology": 0.00528272,
+      "endpoint": 0.000165455,
+      "chart": 0.000187149,
+      "pair": 1.386e-06,
+      "angular": 0.000393042,
+      "witness": 0.000101498
+    },
+    "other_seconds": 0.0014174219999999998
+  },
+  {
+    "case": 972,
+    "epoch": 2,
+    "frame": 1,
+    "plan_seconds": 0.028093088,
+    "integral_seconds": 0.003324704,
+    "completed": 1,
+    "valid": 1,
+    "stop": "converged_value_mesh",
+    "nodes": 1016,
+    "exclusive_seconds": {
+      "topology": 0.002433708,
+      "endpoint": 3.9403e-05,
+      "chart": 2.7412e-05,
+      "pair": 0,
+      "angular": 0.000196281,
+      "witness": 1.2869e-05
+    },
+    "other_seconds": 0.0006150309999999998
+  },
+  {
+    "case": 972,
+    "epoch": 2,
+    "frame": 2,
+    "plan_seconds": 0.004989143,
+    "integral_seconds": 0.004615148,
+    "completed": 1,
+    "valid": 1,
+    "stop": "converged_value_mesh",
+    "nodes": 2299,
+    "exclusive_seconds": {
+      "topology": 0.00293017,
+      "endpoint": 0.000140591,
+      "chart": 0.000173007,
+      "pair": 4.117e-06,
+      "angular": 0.000378397,
+      "witness": 0.000286661
+    },
+    "other_seconds": 0.000702205
+  },
+  {
+    "case": 940,
+    "epoch": 1,
+    "frame": 0,
+    "plan_seconds": 0.003384241,
+    "integral_seconds": 0.165833293,
+    "completed": 1,
+    "valid": 1,
+    "stop": "converged_value_mesh",
+    "nodes": 37008,
+    "exclusive_seconds": {
+      "topology": 0.003081824,
+      "endpoint": 0.023921783,
+      "chart": 0.007131803,
+      "pair": 0,
+      "angular": 0.119972363,
+      "witness": 2.6197e-05
+    },
+    "other_seconds": 0.011699322999999984
+  },
+  {
+    "case": 940,
+    "epoch": 1,
+    "frame": 1,
+    "plan_seconds": 0.008573435,
+    "integral_seconds": 0.002613211,
+    "completed": 1,
+    "valid": 1,
+    "stop": "converged_value_mesh",
+    "nodes": 1009,
+    "exclusive_seconds": {
+      "topology": 0.00224533,
+      "endpoint": 3.9016e-05,
+      "chart": 1.3003e-05,
+      "pair": 0,
+      "angular": 0.000202081,
+      "witness": 1.0105e-05
+    },
+    "other_seconds": 0.00010367600000000046
+  },
+  {
+    "case": 940,
+    "epoch": 1,
+    "frame": 2,
+    "plan_seconds": 0.002237592,
+    "integral_seconds": 0.178976324,
+    "completed": 1,
+    "valid": 1,
+    "stop": "converged_value_mesh",
+    "nodes": 38349,
+    "exclusive_seconds": {
+      "topology": 0.002181544,
+      "endpoint": 0.026868194,
+      "chart": 0.004443839,
+      "pair": 5.9146e-05,
+      "angular": 0.131437646,
+      "witness": 0.000230876
+    },
+    "other_seconds": 0.013755079000000003
+  },
+  {
+    "case": 1508,
+    "epoch": 1,
+    "frame": 0,
+    "plan_seconds": 0.006161647,
+    "integral_seconds": 0.189161797,
+    "completed": 1,
+    "valid": 1,
+    "stop": "converged_value_mesh",
+    "nodes": 70716,
+    "exclusive_seconds": {
+      "topology": 0.002645192,
+      "endpoint": 0.026108936,
+      "chart": 0.019092338,
+      "pair": 0,
+      "angular": 0.126196902,
+      "witness": 6.664e-06
+    },
+    "other_seconds": 0.015111765
+  },
+  {
+    "case": 1508,
+    "epoch": 1,
+    "frame": 1,
+    "plan_seconds": 0.004365766,
+    "integral_seconds": 0.001572914,
+    "completed": 1,
+    "valid": 1,
+    "stop": "converged_value_mesh",
+    "nodes": 1615,
+    "exclusive_seconds": {
+      "topology": 0.000965256,
+      "endpoint": 9.279e-05,
+      "chart": 7.8893e-05,
+      "pair": 2.416e-06,
+      "angular": 0.000276088,
+      "witness": 9.897e-06
+    },
+    "other_seconds": 0.0001475739999999997
+  },
+  {
+    "case": 1508,
+    "epoch": 1,
+    "frame": 2,
+    "plan_seconds": 0.012750783,
+    "integral_seconds": 0.008051052,
+    "completed": 1,
+    "valid": 1,
+    "stop": "converged_value_mesh",
+    "nodes": 3023,
+    "exclusive_seconds": {
+      "topology": 0.005912764,
+      "endpoint": 0.000374292,
+      "chart": 0.000165847,
+      "pair": 0,
+      "angular": 0.000791331,
+      "witness": 5.939e-06
+    },
+    "other_seconds": 0.0008008789999999991
+  }
+]

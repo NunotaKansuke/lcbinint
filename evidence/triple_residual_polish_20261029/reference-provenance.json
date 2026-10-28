@@ -1,0 +1,18 @@
+{
+  "probe": "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/evidence/triple_stress_expanded_20261028/vbm-audit/probe",
+  "sha256": "ea1a584a9c5d433247011acd0c127b750576703d8b936686e02b69c3c37ffdc7",
+  "methods": [
+    "SinglePoly",
+    "MultiPoly",
+    "NoPoly"
+  ],
+  "reference_methods": [
+    "MultiPoly",
+    "NoPoly"
+  ],
+  "reference_rtol": 1e-07,
+  "max_annuli": 100,
+  "worker_script": "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/evidence/triple_final_polish_20261029/holdout_run.py",
+  "worker_sha256": "f413c4334dae59bb9628ffd1ec489e43b50922d9777cf91c785c6efef71d5ddd",
+  "ld_gate": "Both error estimates <= 1e-7*abs(mu); both methods agree within requested native rtol*0.1; failures excluded explicitly."
+}

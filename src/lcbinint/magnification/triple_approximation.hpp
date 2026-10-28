@@ -13,19 +13,18 @@ template<> struct PointPacket<true> {
 };
 template<bool Gradient> PointPacket<Gradient> point(
         const PointSourceMagnifier& solver,const model::TripleLensGeometry& geometry,
-        SourcePosition source) {
+        SourcePosition source,int expected_images=0) {
     PointPacket<Gradient> out;
     // The value solve and the implicit tangent consume the same validated
     // roots. No polynomial is differentiated and no second root solve occurs.
-    const auto& images=solver.triple_image_candidates_cached(geometry,source);
+    const auto& images=solver.triple_image_candidates_cached(geometry,source,expected_images);
     for(const auto& image:images)if(image.physical) {
         out.mu+=1/std::abs(image.jacobian_determinant);++out.images;
         if constexpr(Gradient) {
             using C=std::complex<double>;
             std::array<C,3> v,v2,v3; C k{},third{};
             for(int j=0;j<3;++j) {
-                v[j]=1./std::conj(C(image.position.x-geometry.lens_positions[j].x,
-                    image.position.y-geometry.lens_positions[j].y));
+                v[j]=1./std::conj(triple_image_separation(geometry,image,j));
                 v2[j]=v[j]*v[j];v3[j]=v2[j]*v[j];
                 k+=geometry.masses[j]*v2[j];third+=geometry.masses[j]*v3[j];
             }
@@ -48,7 +47,8 @@ template<bool Gradient> PointPacket<Gradient> point(
             }
         }
     }
-    out.valid=out.valid&&std::isfinite(out.mu)&&out.mu>0;
+    out.valid=out.valid&&std::isfinite(out.mu)&&out.mu>0&&
+        (expected_images<=0 || out.images==expected_images);
     if constexpr(Gradient) {
         for(double g:out.gradient)out.gradient_valid=out.gradient_valid&&std::isfinite(g);
         if(!out.gradient_valid)out.gradient.fill(std::numeric_limits<double>::quiet_NaN());
@@ -61,14 +61,14 @@ template<bool Gradient> struct HexPacket:PointPacket<Gradient> {
 template<bool Gradient> HexPacket<Gradient> hex(
         const PointSourceMagnifier& solver,const model::TripleLensGeometry& geometry,
         SourcePosition source,double rho,double gamma,int expected_images) {
-    const auto center=point<Gradient>(solver,geometry,source);
+    const auto center=point<Gradient>(solver,geometry,source,expected_images);
     PointPacket<Gradient> axial,half,diagonal;
     constexpr double h=.7071067811865475244;
     const std::array<SourcePosition,4> axes{{{1,0},{0,1},{-1,0},{0,-1}}};
     const std::array<SourcePosition,4> diagonals{{{h,h},{-h,h},{-h,-h},{h,-h}}};
     const auto add=[&](auto& sum,SourcePosition direction,double scale) {
         auto p=point<Gradient>(solver,geometry,{source.x+rho*scale*direction.x,
-            source.y+rho*scale*direction.y});
+            source.y+rho*scale*direction.y},expected_images);
         sum.mu+=p.mu;sum.valid=sum.valid&&p.valid&&p.images==expected_images;
         if constexpr(Gradient) {
             p.gradient[2]+=scale*(direction.x*p.gradient[0]+direction.y*p.gradient[1]);

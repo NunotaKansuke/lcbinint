@@ -59,7 +59,26 @@ struct TripleImageCandidate {
     double jacobian_determinant = 0.0;
     double residual = 0.0;
     bool physical = false;
+    // A guarded pole-local solve can resolve a displacement that is lost
+    // when added to the lens position. Keep that representation for fields
+    // and tangents; position is its rounded diagnostic projection.
+    int local_origin = -1;
+    SourcePosition local_offset {};
 };
+
+inline Complex triple_image_separation(
+    const model::TripleLensGeometry& geometry,
+    const TripleImageCandidate& image, std::size_t lens)
+{
+    const auto& target = geometry.lens_positions[lens];
+    if (image.local_origin >= 0 &&
+        static_cast<std::size_t>(image.local_origin) < geometry.lens_positions.size()) {
+        const auto& origin = geometry.lens_positions[static_cast<std::size_t>(image.local_origin)];
+        return {(origin.x - target.x) + image.local_offset.x,
+                (origin.y - target.y) + image.local_offset.y};
+    }
+    return {image.position.x - target.x, image.position.y - target.y};
+}
 
 class PointSourceMagnifier {
 public:
@@ -101,9 +120,11 @@ public:
     std::vector<TripleImage> triple_images(
         const model::TripleLensGeometry& geometry,
         SourcePosition source) const;
+    // A positive expected_images value must come from an independent count
+    // proof. It requests additional root recovery, never synthetic roots.
     std::vector<TripleImageCandidate> triple_image_candidates(
         const model::TripleLensGeometry& geometry,
-        SourcePosition source) const;
+        SourcePosition source, int expected_images = 0) const;
     // Reuse the exact candidate set retained by triple_mag0 when a finite-
     // source caller immediately asks for centre-image seeds.  Probe sources
     // still take the ordinary solve path and refresh the one-entry cache.
@@ -111,7 +132,7 @@ public:
     // this magnifier.
     const std::vector<TripleImageCandidate>& triple_image_candidates_cached(
         const model::TripleLensGeometry& geometry,
-        SourcePosition source) const;
+        SourcePosition source, int expected_images = 0) const;
     SourcePosition triple_lens_equation(
         const model::TripleLensGeometry& geometry,
         SourcePosition image) const;

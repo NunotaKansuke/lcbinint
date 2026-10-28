@@ -1,0 +1,314 @@
+[
+  {
+    "case": 400,
+    "engine": "value",
+    "classification": "exception",
+    "family": "near_collinear_or_clustered",
+    "stop": [
+      "triple point-source curvature and certified caustic clearance",
+      "triple point-source curvature and certified caustic clearance",
+      "unresolved_root_cluster",
+      "triple point-source curvature and certified caustic clearance",
+      "triple point-source curvature and certified caustic clearance"
+    ]
+  },
+  {
+    "case": 400,
+    "engine": "gradient",
+    "classification": "exception",
+    "family": "near_collinear_or_clustered",
+    "stop": [
+      "triple point-source curvature and certified caustic clearance",
+      "triple point-source curvature and certified caustic clearance",
+      "unresolved_root_cluster",
+      "triple point-source curvature and certified caustic clearance",
+      "triple point-source curvature and certified caustic clearance"
+    ]
+  },
+  {
+    "case": 403,
+    "engine": "value",
+    "classification": "exception",
+    "family": "near_collinear_or_clustered",
+    "stop": [
+      "triple point-source curvature and certified caustic clearance",
+      "triple point-source curvature and certified caustic clearance",
+      "degenerate_radial_event",
+      "triple point-source curvature and certified caustic clearance",
+      "triple point-source curvature and certified caustic clearance"
+    ]
+  },
+  {
+    "case": 403,
+    "engine": "gradient",
+    "classification": "exception",
+    "family": "near_collinear_or_clustered",
+    "stop": [
+      "triple point-source curvature and certified caustic clearance",
+      "triple point-source curvature and certified caustic clearance",
+      "degenerate_radial_event",
+      "triple point-source curvature and certified caustic clearance",
+      "triple point-source curvature and certified caustic clearance"
+    ]
+  },
+  {
+    "case": 433,
+    "engine": "value",
+    "classification": "exception",
+    "family": "near_collinear_or_clustered",
+    "stop": [
+      "triple point-source curvature and certified caustic clearance",
+      "triple point-source curvature and certified caustic clearance",
+      "degenerate_radial_event",
+      "triple point-source curvature and certified caustic clearance",
+      "triple point-source curvature and certified caustic clearance"
+    ]
+  },
+  {
+    "case": 433,
+    "engine": "gradient",
+    "classification": "exception",
+    "family": "near_collinear_or_clustered",
+    "stop": [
+      "triple point-source curvature and certified caustic clearance",
+      "triple point-source curvature and certified caustic clearance",
+      "degenerate_radial_event",
+      "triple point-source curvature and certified caustic clearance",
+      "triple point-source curvature and certified caustic clearance"
+    ]
+  },
+  {
+    "case": 439,
+    "engine": "value",
+    "classification": "exception",
+    "family": "near_collinear_or_clustered",
+    "stop": [
+      "triple point-source curvature and certified caustic clearance",
+      "triple hexadecapole and certified caustic clearance",
+      "degenerate_radial_event",
+      "triple hexadecapole and certified caustic clearance",
+      "triple point-source curvature and certified caustic clearance"
+    ]
+  },
+  {
+    "case": 439,
+    "engine": "gradient",
+    "classification": "exception",
+    "family": "near_collinear_or_clustered",
+    "stop": [
+      "triple point-source curvature and certified caustic clearance",
+      "triple hexadecapole and certified caustic clearance",
+      "degenerate_radial_event",
+      "triple hexadecapole and certified caustic clearance",
+      "triple point-source curvature and certified caustic clearance"
+    ]
+  },
+  {
+    "case": 444,
+    "engine": "gradient",
+    "classification": "exception",
+    "family": "near_collinear_or_clustered",
+    "stop": [
+      "triple hexadecapole and certified caustic clearance",
+      "triple hexadecapole and certified caustic clearance",
+      "degenerate_radial_event",
+      "triple hexadecapole and certified caustic clearance",
+      "triple hexadecapole and certified caustic clearance"
+    ]
+  },
+  {
+    "case": 460,
+    "engine": "value",
+    "classification": "exception",
+    "family": "near_collinear_or_clustered",
+    "stop": [
+      "triple point-source curvature and certified caustic clearance",
+      "triple point-source curvature and certified caustic clearance",
+      "degenerate_radial_event",
+      "triple point-source curvature and certified caustic clearance",
+      "triple point-source curvature and certified caustic clearance"
+    ]
+  },
+  {
+    "case": 460,
+    "engine": "gradient",
+    "classification": "exception",
+    "family": "near_collinear_or_clustered",
+    "stop": [
+      "triple point-source curvature and certified caustic clearance",
+      "triple point-source curvature and certified caustic clearance",
+      "degenerate_radial_event",
+      "triple point-source curvature and certified caustic clearance",
+      "triple point-source curvature and certified caustic clearance"
+    ]
+  },
+  {
+    "case": 467,
+    "engine": "value",
+    "classification": "exception",
+    "family": "near_collinear_or_clustered",
+    "stop": [
+      "degenerate_radial_event",
+      "degenerate_radial_event",
+      "degenerate_radial_event",
+      "degenerate_radial_event",
+      "degenerate_radial_event"
+    ]
+  },
+  {
+    "case": 467,
+    "engine": "gradient",
+    "classification": "exception",
+    "family": "near_collinear_or_clustered",
+    "stop": [
+      "degenerate_radial_event",
+      "degenerate_radial_event",
+      "degenerate_radial_event",
+      "degenerate_radial_event",
+      "degenerate_radial_event"
+    ]
+  },
+  {
+    "case": 483,
+    "engine": "value",
+    "classification": "exception",
+    "family": "near_collinear_or_clustered",
+    "stop": [
+      "degenerate_radial_event",
+      "converged:reframed_primary_1",
+      "converged:reframed_primary_1",
+      "converged:reframed_primary_1",
+      "degenerate_radial_event"
+    ]
+  },
+  {
+    "case": 483,
+    "engine": "gradient",
+    "classification": "exception",
+    "family": "near_collinear_or_clustered",
+    "stop": [
+      "converged_value_mesh:reframed_primary_1",
+      "converged_value_mesh:reframed_primary_1",
+      "converged_value_mesh:reframed_primary_1",
+      "converged_value_mesh:reframed_primary_1",
+      "degenerate_radial_event"
+    ]
+  },
+  {
+    "case": 484,
+    "engine": "value",
+    "classification": "exception",
+    "family": "near_collinear_or_clustered",
+    "stop": [
+      "triple point-source curvature and certified caustic clearance",
+      "triple point-source curvature and certified caustic clearance",
+      "degenerate_radial_event",
+      "triple point-source curvature and certified caustic clearance",
+      "triple point-source curvature and certified caustic clearance"
+    ]
+  },
+  {
+    "case": 484,
+    "engine": "gradient",
+    "classification": "exception",
+    "family": "near_collinear_or_clustered",
+    "stop": [
+      "triple point-source curvature and certified caustic clearance",
+      "triple point-source curvature and certified caustic clearance",
+      "degenerate_radial_event",
+      "triple point-source curvature and certified caustic clearance",
+      "triple point-source curvature and certified caustic clearance"
+    ]
+  },
+  {
+    "case": 499,
+    "engine": "value",
+    "classification": "exception",
+    "family": "near_collinear_or_clustered",
+    "stop": [
+      "triple hexadecapole and certified caustic clearance",
+      "degenerate_radial_event",
+      "degenerate_radial_event",
+      "degenerate_radial_event",
+      "triple hexadecapole and certified caustic clearance"
+    ]
+  },
+  {
+    "case": 499,
+    "engine": "gradient",
+    "classification": "exception",
+    "family": "near_collinear_or_clustered",
+    "stop": [
+      "triple hexadecapole and certified caustic clearance",
+      "degenerate_radial_event",
+      "degenerate_radial_event",
+      "degenerate_radial_event",
+      "triple hexadecapole and certified caustic clearance"
+    ]
+  },
+  {
+    "case": 504,
+    "engine": "gradient",
+    "classification": "exception",
+    "family": "near_collinear_or_clustered",
+    "stop": [
+      "triple hexadecapole and certified caustic clearance",
+      "triple hexadecapole and certified caustic clearance",
+      "gradient_event_precision",
+      "triple hexadecapole and certified caustic clearance",
+      "triple hexadecapole and certified caustic clearance"
+    ]
+  },
+  {
+    "case": 514,
+    "engine": "value",
+    "classification": "exception",
+    "family": "near_collinear_or_clustered",
+    "stop": [
+      "degenerate_radial_event",
+      "degenerate_radial_event",
+      "degenerate_radial_event",
+      "converged:reframed_primary_1",
+      "converged:reframed_primary_1"
+    ]
+  },
+  {
+    "case": 514,
+    "engine": "gradient",
+    "classification": "exception",
+    "family": "near_collinear_or_clustered",
+    "stop": [
+      "degenerate_radial_event",
+      "degenerate_radial_event",
+      "degenerate_radial_event",
+      "degenerate_radial_event",
+      "degenerate_radial_event"
+    ]
+  },
+  {
+    "case": 515,
+    "engine": "value",
+    "classification": "exception",
+    "family": "near_collinear_or_clustered",
+    "stop": [
+      "degenerate_radial_event",
+      "degenerate_radial_event",
+      "degenerate_radial_event",
+      "degenerate_radial_event",
+      "degenerate_radial_event"
+    ]
+  },
+  {
+    "case": 515,
+    "engine": "gradient",
+    "classification": "exception",
+    "family": "near_collinear_or_clustered",
+    "stop": [
+      "degenerate_radial_event",
+      "degenerate_radial_event",
+      "degenerate_radial_event",
+      "degenerate_radial_event",
+      "degenerate_radial_event"
+    ]
+  }
+]
