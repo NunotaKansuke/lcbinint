@@ -15,3 +15,7 @@ branchは引き続き `experiment/algebraic_boundary`。新規worktreeは作成�
 ## 残差・像数の追加磨き込み
 
 [triple_residual_polish_20261029/REPORT.md](../evidence/triple_residual_polish_20261029/REPORT.md) が最新。計1768条件・7720 epochで値1757、微分1755成功、以前の成功条件の回帰0。停止は値11・微分13条件。極の局所変位を保持し、独立した像数の証明でpoint/hexの欠落を検出・回収する。C++32件・対象Python96件、監査済み4394精度比較で要求誤差超過0。全配置・全微分の認証ではなく、極端配置の停止とLDのframe依存の仕事量が残る。
+
+## LD座標選択の追試
+
+[triple_ld_frame_selection_20261029/REPORT.md](../evidence/triple_ld_frame_selection_20261029/REPORT.md) に不採用実験と独立微分検査を記録。値だけの予備積分によるframe選択は、全体のCPU費用増加と2条件の独立微分不一致により棄却。productionは656b7e03の採用DSOへ復元し、hashも一致。独立LD差分4件を追加して対象Python100件、C++32件が通過した。11/13条件の停止と全微分の精度認証は依然別の課題である。

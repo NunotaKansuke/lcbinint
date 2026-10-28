@@ -1,0 +1,23 @@
+{
+  "adopted": false,
+  "base_commit": "656b7e03",
+  "accepted_native_sha256": "a9b2ca2c3d1cff8795a0329c009719c7865259f3fcc08143460694308f7030a6",
+  "candidate_native_sha256": "e292a97270a486096d9376663bcab882ce5d4ce88934766429fd3592749979cc",
+  "accepted_source_sha256": "60d61d4fd0c25aca8f3ce53d3bc5c56aed6cea09a4027ef07c039a9babd0562c",
+  "candidate_source_sha256": "9c66afaabc64d5657b66fe0ca36aa2a23dcdaa2ee9d5e72bfbdc21c545d9fd0e",
+  "production_source_matches_base": true,
+  "restored_dso_matches_accepted": true,
+  "tests": {
+    "accepted_cpp": 32,
+    "accepted_python": 100,
+    "rejected_new_regressions": {
+      "passed": 2,
+      "failed": 2
+    }
+  },
+  "reasons": [
+    "Primal pilot overhead increased aggregate gradient CPU time in the campaign.",
+    "Independent LD alpha and rho differences reject the newly selected frames at requested coarse value tolerance."
+  ],
+  "limits": "Value convergence and finite/valid gradients do not certify all parameter derivatives."
+}

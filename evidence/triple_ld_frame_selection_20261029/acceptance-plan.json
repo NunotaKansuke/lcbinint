@@ -1,0 +1,21 @@
+{
+  "prior_curves": 1768,
+  "prior_reference_comparisons": 4394,
+  "value_rtol": [
+    0.001,
+    0.0001
+  ],
+  "atol": 0,
+  "classification_regressions_allowed": 0,
+  "reference_exceedances_allowed": 0,
+  "transformation_value_gate": "per-case requested relative tolerance",
+  "transformation_gradient_scaled_gate": 0.0001,
+  "pilot_limits": {
+    "maximum_refinements": 8,
+    "alternate_event_boxes": 8192,
+    "minimum_original_work": 192,
+    "maximum_alternate_work_fraction": 0.5
+  },
+  "eligible": "gradient + linear LD + rtol>=1e-4 + completed original plan with >=10 events",
+  "primal_pilot_used_for": "coordinate choice only; no final value, derivative, or mesh reuse"
+}

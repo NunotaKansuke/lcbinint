@@ -1,0 +1,17 @@
+{
+  "files": 5426,
+  "uncompressed_bytes": 15508896,
+  "verified": true,
+  "created": 1793227664.3064606,
+  "accepted_native_sha256": "a9b2ca2c3d1cff8795a0329c009719c7865259f3fcc08143460694308f7030a6",
+  "candidate_native_sha256": "e292a97270a486096d9376663bcab882ce5d4ce88934766429fd3592749979cc",
+  "adopted": false,
+  "raw-evidence.tar.gz": {
+    "bytes": 2924192,
+    "sha256": "cfb875484ea2e6868e1250231d8dece52505468361e6ee04924a9d74ab0f69a5"
+  },
+  "raw-evidence-manifest.json.gz": {
+    "bytes": 243338,
+    "sha256": "0bceddbc6a4255a6aa2a021dcb17f6db989cd1dc4608cb05d0350a7b5f0c9b81"
+  }
+}

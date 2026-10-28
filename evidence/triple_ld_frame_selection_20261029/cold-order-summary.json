@@ -1,0 +1,77 @@
+[
+  {
+    "case": 940,
+    "order": "reverse",
+    "state": "ok",
+    "value": 0.0,
+    "gradient": 0.0,
+    "stops": [
+      "converged_value_mesh:primal_work_primary_1",
+      "converged_value_mesh:primal_work_primary_1",
+      "converged_value_mesh:primal_work_primary_1"
+    ]
+  },
+  {
+    "case": 940,
+    "order": "duplicate",
+    "state": "ok",
+    "value": 0.0,
+    "gradient": 0.0,
+    "stops": [
+      "converged_value_mesh:primal_work_primary_1",
+      "converged_value_mesh:primal_work_primary_1",
+      "converged_value_mesh:primal_work_primary_1",
+      "converged_value_mesh:primal_work_primary_1"
+    ]
+  },
+  {
+    "case": 972,
+    "order": "reverse",
+    "state": "ok",
+    "value": 6.661338147750939e-16,
+    "gradient": 4.639733059033467e-16,
+    "stops": [
+      "converged_value_mesh:primal_work_primary_1",
+      "converged_value_mesh:primal_work_primary_2",
+      "converged_value_mesh"
+    ]
+  },
+  {
+    "case": 972,
+    "order": "duplicate",
+    "state": "ok",
+    "value": 0.0,
+    "gradient": 0.0,
+    "stops": [
+      "converged_value_mesh",
+      "converged_value_mesh:primal_work_primary_2",
+      "converged_value_mesh:primal_work_primary_1",
+      "converged_value_mesh"
+    ]
+  },
+  {
+    "case": 1508,
+    "order": "reverse",
+    "state": "ok",
+    "value": 0.0,
+    "gradient": 0.0,
+    "stops": [
+      "converged_value_mesh:primal_work_primary_2",
+      "converged_value_mesh:primal_work_primary_2",
+      "converged_value_mesh:primal_work_primary_2"
+    ]
+  },
+  {
+    "case": 1508,
+    "order": "duplicate",
+    "state": "ok",
+    "value": 0.0,
+    "gradient": 0.0,
+    "stops": [
+      "converged_value_mesh:primal_work_primary_2",
+      "converged_value_mesh:primal_work_primary_2",
+      "converged_value_mesh:primal_work_primary_2",
+      "converged_value_mesh:primal_work_primary_2"
+    ]
+  }
+]

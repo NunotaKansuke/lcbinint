@@ -1,0 +1,12 @@
+{
+  "host": "rogue1",
+  "python": "3.10.19 (main, Oct 21 2025, 16:43:05) [GCC 11.2.0]",
+  "executable": "/home/nunota/.miniconda3/envs/myenv/bin/python",
+  "numpy": "2.2.6",
+  "vbm": "5.5",
+  "vbm_module_hashes": {
+    "/home/nunota/.miniconda3/envs/myenv/lib/python3.10/site-packages/VBMicrolensing/VBMicrolensing.so": "2da21fc58898c511e036d1576dfbc5dee8e33e694830d91b9e5dad34a8a80dae",
+    "/home/nunota/.miniconda3/envs/myenv/lib/python3.10/site-packages/VBMicrolensing/__init__.py": "638a7effe100143688eb98f17f7f2b09251c46ba9b5c6bf8c5618e08ffb606a1"
+  },
+  "compiler": "g++ (GCC) 11.5.0 20240719 (Red Hat 11.5.0-5)"
+}

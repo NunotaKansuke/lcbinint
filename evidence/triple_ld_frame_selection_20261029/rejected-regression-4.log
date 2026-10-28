@@ -1,0 +1,53 @@
+/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/evidence/triple_ld_frame_selection_20261029/candidate-package/lcbinint/_lcbinint.cpython-310-x86_64-linux-gnu.so
+..FF                                                                     [100%]
+=================================== FAILURES ===================================
+_ test_ld_contact_derivative_matches_uniform_disk_difference[params2-times2-1-1.0-0.001-alpha--0.01498-0.0-0.0001] _
+
+params = {'alpha': 3.0210722997708777, 'ang': -2.9649440787105177, 'q': 0.656718789272734, 'q2': 0.0016528384914630317, ...}
+times = [-0.0003, 0.0, 0.0003], index = 1, limb = 1.0, rtol = 0.001
+parameter = 'alpha', reference = -0.01498, relative = 0.0, absolute = 0.0001
+
+    @pytest.mark.parametrize("params,times,index,limb,rtol,parameter,reference,relative,absolute", CASES)
+    def test_ld_contact_derivative_matches_uniform_disk_difference(
+            params,times,index,limb,rtol,parameter,reference,relative,absolute):
+        model=lc.LightCurve(lens="triple",param_type="vbm",ld_c=limb,
+            options=lc.Options(finite_source_tol=0.,finite_source_reltol=rtol))
+        result=model.magnification(times,params,with_gradient=True)
+        assert all(x==0 for x in result.status)
+        assert all(result.gradient_valid)
+        column=list(result.gradient_parameters).index(parameter)
+>       assert result.gradients[index,column]==pytest.approx(reference,rel=relative,abs=absolute)
+E       assert np.float64(-0...0493570562574) == -0.01498 ± 1.0e-04
+E
+E         comparison failed
+E         Obtained: -0.14610493570562574
+E         Expected: -0.01498 ± 1.0e-04
+
+tests/regression/test_triple_ld_contact_gradients.py:96: AssertionError
+_ test_ld_contact_derivative_matches_uniform_disk_difference[params3-times3-1-1.0-0.001-rho-91.4-0.0-0.3] _
+
+params = {'alpha': 0.8676124891755457, 'ang': -1.4588327189644557, 'q': 0.0031095254424007655, 'q2': 0.01937108018185108, ...}
+times = [-0.0003, 0.0, 0.0003], index = 1, limb = 1.0, rtol = 0.001
+parameter = 'rho', reference = 91.4, relative = 0.0, absolute = 0.3
+
+    @pytest.mark.parametrize("params,times,index,limb,rtol,parameter,reference,relative,absolute", CASES)
+    def test_ld_contact_derivative_matches_uniform_disk_difference(
+            params,times,index,limb,rtol,parameter,reference,relative,absolute):
+        model=lc.LightCurve(lens="triple",param_type="vbm",ld_c=limb,
+            options=lc.Options(finite_source_tol=0.,finite_source_reltol=rtol))
+        result=model.magnification(times,params,with_gradient=True)
+        assert all(x==0 for x in result.status)
+        assert all(result.gradient_valid)
+        column=list(result.gradient_parameters).index(parameter)
+>       assert result.gradients[index,column]==pytest.approx(reference,rel=relative,abs=absolute)
+E       assert np.float64(122.35993560588372) == 91.4 ± 0.3
+E
+E         comparison failed
+E         Obtained: 122.35993560588372
+E         Expected: 91.4 ± 0.3
+
+tests/regression/test_triple_ld_contact_gradients.py:96: AssertionError
+=========================== short test summary info ============================
+FAILED tests/regression/test_triple_ld_contact_gradients.py::test_ld_contact_derivative_matches_uniform_disk_difference[params2-times2-1-1.0-0.001-alpha--0.01498-0.0-0.0001]
+FAILED tests/regression/test_triple_ld_contact_gradients.py::test_ld_contact_derivative_matches_uniform_disk_difference[params3-times3-1-1.0-0.001-rho-91.4-0.0-0.3]
+2 failed, 2 passed in 0.36s

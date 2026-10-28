@@ -1,0 +1,7 @@
+{
+  "commit": "656b7e03",
+  "native_sha256": "a9b2ca2c3d1cff8795a0329c009719c7865259f3fcc08143460694308f7030a6",
+  "cpu_limit": 8,
+  "ram_gib": 16,
+  "claim": "Validation-only deterministic primal-work frame pilot; no production source changes."
+}
