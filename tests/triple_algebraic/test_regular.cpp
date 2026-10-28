@@ -47,6 +47,44 @@ int main(){
    if(local_values<4){for(double limb:{0.,.5}){tr::IntegrationOptions strict;strict.absolute_tolerance=0;strict.relative_tolerance=1e-7;auto reference=tr::integrate(p,limb,strict);require(reference.converged,"strict value reference");for(double tolerance:{1e-3,1e-4}){auto fast=prepared.plan(p,tolerance);require(fast.completed,"selected prepared support");auto options=strict;options.relative_tolerance=tolerance;auto value=tr::integrate(p,limb,options,&fast);require(value.converged,"prepared value convergence");require(std::abs(value.magnification-reference.magnification)<=value.error_estimate+reference.error_estimate+1e-10,"prepared value outside reported error");require(std::abs(value.magnification-reference.magnification)<=tolerance*reference.magnification,"prepared relative accuracy");}}++values;++local_values;}
   }
  }
+ // A geometry refresh must invalidate both successful and refused source
+ // witnesses. Compare retained Newton proposals to a fresh tree and to the
+ // independently solved physical images, including a large geometry jump.
+ {
+  auto p=geometries.front();rs::Tree moving(p);
+  (void)moving.count({p.X,p.Y},p.rho);
+  for(int step=0;step<12;++step) {
+   p.a=step==8?1.7:1.+step*1e-4;p.m1=.2+step*1e-5;
+   moving.update_geometry(p);rs::Tree fresh(p);
+   for(auto source:{Complex(.5,.4),Complex(.1,.15),Complex(-.2,-.5),Complex(2.,.2)}) {
+    int n=moving.count(source,.005),cold=fresh.count(source,.005);
+    model::TripleLensGeometry g;g.masses=p.masses();auto l=p.lenses();
+    for(int j=0;j<3;++j)g.lens_positions[j]={l[j].real(),l[j].imag()};
+    int actual=point.triple_images(g,{source.real(),source.imag()}).size();
+    require(n<0 || n==actual,"refreshed geometry retained a stale image count");
+    require(cold<0 || cold==actual,"fresh geometry image count");
+    require(n<0 || cold<0 || n==cold,"refreshed/fresh count mismatch");
+   }
+  }
+ }
+ // Rotating the initial source-phase partition is only a search hint:
+ // every completed plan must retain the same stationary events.
+ {
+  auto p=geometries.front();model::TripleLensGeometry g;g.masses=p.masses();auto l=p.lenses();
+  for(int j=0;j<3;++j)g.lens_positions[j]={l[j].real(),l[j].imag()};
+  std::vector<Complex> images;for(auto image:point.triple_images(g,{p.X,p.Y}))images.push_back({image.position.x,image.position.y});
+  auto reference=rs::event_plan(p,images,4096,1e-4,false);
+  require(reference.completed,"phase rotation reference");
+  for(double origin:{-6.,.137,1.3,9.8}) {
+   auto rotated=rs::event_plan(p,images,4096,1e-4,false,nullptr,origin);
+   require(rotated.completed && rotated.events.size()==reference.events.size(),"phase hint changed event coverage");
+   for(auto e:reference.events) {
+    bool found=false;for(auto f:rotated.events)if(std::abs(e.radius-f.radius)<1e-8 &&
+     std::abs(std::remainder((e.reciprocal?rs::pi:0)+2*std::atan(e.coordinate)-(f.reciprocal?rs::pi:0)-2*std::atan(f.coordinate),2*rs::pi))<1e-8)found=true;
+    require(found,"phase hint lost a stationary branch");
+   }
+  }
+ }
  // Overlapping radial ranges must still integrate as separate certified
  // image domains. This reuses the ordinary weighted panel rule, not a point
  // source or single-annulus LD approximation.

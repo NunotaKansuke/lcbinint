@@ -45,8 +45,15 @@ inline PattersonTuning active_patterson_tuning(){return {};}
 // A gradient-owned stream: no completed scalar integral or tangent replay.
 // The proved band supplies the root count. Successful angular endpoints and
 // complete value/tangent packets are retained as the radial rule grows.
-template<bool Gradient> class PattersonPanel {
+template<bool Gradient,bool Fejer=false> class FirstOrderPanel {
  static_assert(Gradient,"stream panel is a gradient-specific implementation");
+ // Quadrature family is independent of the first-order physical transport.
+ // Both families retain the same complete value/tangent packets.
+ static const auto& first_order_rule(int level){
+  if constexpr(Fejer)return fejer_rule(level);
+  else return patterson_rule(level);
+ }
+
 #ifdef LCBININT_TRIPLE_KRONROD_STREAM
  static constexpr bool high_degree_=true;
 #else
@@ -98,7 +105,7 @@ std::shared_ptr<const BoundaryControlAtlas> control;
  std::shared_ptr<Context> context_=std::make_shared<Context>();bool owns_context_=true;
  Geometry p_;FoldRadialMap map_;AngularOptions options_;std::shared_ptr<SharedRadiusCache<Gradient>> shared_;
  double relative_,absolute_,uniform_weight_=1,limb_weight_=0,origin_=0,safe_lo_=0,safe_hi_=0;
- bool uniform_,weighted_,moving_=false,charts_checked_=false,mixed_=false,mixed_declined_=false,geometry_probe_=false;
+ bool uniform_,weighted_,moving_=false,charts_checked_=false,mixed_=false,mixed_declined_=false,geometry_probe_=false,discovery_retry_=false;
  mutable bool trace_active_=true;
  std::array<double,8> base_{},slope_{};
  std::optional<AngularTopology> band_;std::vector<RadialEvent> events_;
@@ -114,7 +121,7 @@ std::shared_ptr<const BoundaryControlAtlas> control;
  std::vector<std::array<double,2>> previous_cells_;
 #ifdef LCBININT_TRIPLE_MULTIRATE_ARCS
  int arc_sector_=-1;bool lanes_checked_=false,gap_lanes_=false,whole_gap_background_=false,geometry_guard_=false;std::vector<double> sector_cuts_,discovery_radii_;std::vector<sector_certificate_detail::MovingRay> sector_rays_;
- std::vector<std::unique_ptr<PattersonPanel>> lanes_;
+ std::vector<std::unique_ptr<FirstOrderPanel>> lanes_;
 #ifdef LCBININT_TRIPLE_WINDING_ARCS
  std::shared_ptr<winding_label_detail::Plan> winding_;int reference_lo_=0,reference_hi_=0;std::array<std::pair<double,unsigned>,2> fold_masks_{};unsigned fold_masks_count_=0;
  static int cyclic(int i,int n){return (i%n+n)%n;}
@@ -157,12 +164,12 @@ std::shared_ptr<const BoundaryControlAtlas> control;
 #endif
   int index=-1;for(std::size_t i=0;i<point.anchor.count;++i)if(sector_id(point.anchor.radius,point.cores?(*point.cores)[i][2].w:std::polar(1.,.5*(point.anchor.arcs[i].lo+point.anchor.arcs[i].hi)))==arc_sector_){if(index>=0)return -1;index=int(i);}return index;
  }
- std::unique_ptr<PattersonPanel> lane(double a,double b,bool left,bool right,int sector){
+ std::unique_ptr<FirstOrderPanel> lane(double a,double b,bool left,bool right,int sector){
   const bool had_left=left,had_right=right;
 #if defined(LCBININT_TRIPLE_FOLD_SECTORS) || defined(LCBININT_TRIPLE_WINDING_ARCS)
   left=left&&relevant_fold(a,sector);right=right&&relevant_fold(b,sector);
 #endif
-  auto out=std::make_unique<PattersonPanel>(p_,a,b,left,right,options_,shared_,absolute_,relative_,uniform_,false,limb_weight_,true);
+  auto out=std::make_unique<FirstOrderPanel>(p_,a,b,left,right,options_,shared_,absolute_,relative_,uniform_,false,limb_weight_,true);
   out->context_=context_;out->owns_context_=false;out->arc_sector_=sector;out->sector_cuts_=sector_cuts_;out->sector_rays_=sector_rays_;out->gap_lanes_=gap_lanes_;out->whole_gap_background_=whole_gap_background_;out->geometry_guard_=geometry_guard_||(had_left&&!left)||(had_right&&!right);
 #ifdef LCBININT_TRIPLE_WINDING_ARCS
  out->winding_=winding_;out->reference_lo_=reference_lo_;out->reference_hi_=reference_hi_;out->fold_masks_=fold_masks_;out->fold_masks_count_=fold_masks_count_;
@@ -250,11 +257,12 @@ out->events_=events_;out->hints_=hints_;out->origin_=origin_;out->base_=base_;ou
  RuleView integration_rule(int level,bool weighted,bool limb=false)const{
   if(mixed_){const auto& q=mixed_fold_rule(level);return {q.x,q.w,q.interp};}
   if(weighted){const auto& q=limb?linear_radial_rule(level):radial_rule(level,true);return {q.x,q.w,q.interp};}
-  const auto& q=use_kronrod()?gradient_kronrod_rule(level):patterson_rule(level);return {q.x,q.w,q.interp};
+  if(use_kronrod()){const auto& q=gradient_kronrod_rule(level);return {q.x,q.w,q.interp};}
+  const auto& q=first_order_rule(level);return {q.x,q.w,q.interp};
  }
 
  bool build_curve(Cell& cell,int level,bool discovery=false){
-  const auto ordinary_rule=integration_rule(level,weighted_&&cell.kind==0);const auto& seed_rule=patterson_rule(2);const RuleView rule=discovery?RuleView{seed_rule.x,seed_rule.w,seed_rule.interp}:ordinary_rule;if(rule.x.size()>7)return false;
+  const auto ordinary_rule=integration_rule(level,weighted_&&cell.kind==0);const auto& seed_rule=first_order_rule(2);const RuleView rule=discovery?RuleView{seed_rule.x,seed_rule.w,seed_rule.interp}:ordinary_rule;if(rule.x.size()>7)return false;
   auto curve=std::make_shared<Curve>();curve->n=int(rule.x.size());
   for(int k=0;k<curve->n;++k){const auto node=mapped(cell,rule.x[k]);auto it=context_->points.find(node[0]);if(it==context_->points.end()||it->second->anchor.radius!=node[0])return false;const auto& anchor=it->second->anchor;
    if(!anchor.count||anchor.count>3||(k&&int(anchor.count)!=curve->count))return false;curve->count=int(anchor.count);curve->x[k]=rule.x[k];
@@ -278,10 +286,10 @@ out->events_=events_;out->hints_=hints_;out->origin_=origin_;out->base_=base_;ou
  // parts identities. No additional endpoint solves or parameter jets occur.
  bool spatially_resolved(const Cell& cell)const{
   if(!cell.curve||cell.curve->n!=7)return false;
-  const auto& c=*cell.curve;const auto& q=patterson_rule(3);
+  const auto& c=*cell.curve;const auto& q=first_order_rule(3);
   struct Weights{std::array<std::array<double,7>,3>a{},b{};};
   static const auto weights=[](){
-   Weights w;const auto& q=patterson_rule(3);
+   Weights w;const auto& q=first_order_rule(3);
    std::array<double,7> bary{},plus{},minus{};double sp=0,sm=0;
    for(int j=0;j<7;++j){
     bary[j]=1;for(int k=0;k<7;++k)if(k!=j)bary[j]/=q.x[j]-q.x[k];
@@ -427,7 +435,7 @@ out->events_=events_;out->hints_=hints_;out->origin_=origin_;out->base_=base_;ou
   else cells_.push_back({0,weighted_?FoldRadialMap{map_.a,map_.b,false,false}:map_,0,1});
  }
  bool boundary_resolved(){
-  const auto& witnesses=patterson_rule(3);bool okay=true;
+  const auto& witnesses=first_order_rule(3);bool okay=true;
   for(auto& cell:cells_){if(!build_curve(cell,2))return false;
    for(std::size_t k=0;k<witnesses.x.size();k+=2){const double x=witnesses.x[k];const auto node=mapped(cell,x);AngularTopology guess;if(!predict(cell,x,guess))return false;Point* actual=nullptr;if(!geometry_point(node[0],actual))return false;if(actual->anchor.radius!=node[0]||actual->anchor.count!=guess.arcs.size())return false;
     std::array<bool,3> used{};for(const auto& arc:guess.arcs){int selected=-1;double best=INFINITY,shift=0;const double center=(arc.lo+arc.hi)*.5;for(std::size_t j=0;j<actual->anchor.count;++j)if(!used[j]){const auto& root=actual->anchor.arcs[j];const double s=2*std::acos(-1.)*std::round((center-(root.lo+root.hi)*.5)/(2*std::acos(-1.))),distance=std::abs((root.lo+root.hi)*.5+s-center);if(distance<best){best=distance;selected=int(j);shift=s;}}
@@ -474,15 +482,15 @@ out->events_=events_;out->hints_=hints_;out->origin_=origin_;out->base_=base_;ou
  }
 public:
 #ifdef LCBININT_TRIPLE_MULTIRATE_ARCS
- PattersonPanel(PattersonPanel&&)=default;PattersonPanel& operator=(PattersonPanel&&)=default;
+ FirstOrderPanel(FirstOrderPanel&&)=default;FirstOrderPanel& operator=(FirstOrderPanel&&)=default;
 #endif
  int split_level=5;
  std::string reason="stream_not_started";
- PattersonPanel(const Geometry&p,double a,double b,bool left,bool right,AngularOptions options,std::shared_ptr<SharedRadiusCache<Gradient>> shared,double absolute,double relative,bool uniform,bool weighted,double limb):p_(p),map_{a,b,left,right},options_(options),shared_(std::move(shared)),relative_(relative),absolute_(absolute),uniform_weight_(1-limb),limb_weight_(limb),safe_lo_(a),safe_hi_(b),uniform_(uniform),weighted_(weighted){
+ FirstOrderPanel(const Geometry&p,double a,double b,bool left,bool right,AngularOptions options,std::shared_ptr<SharedRadiusCache<Gradient>> shared,double absolute,double relative,bool uniform,bool weighted,double limb):p_(p),map_{a,b,left,right},options_(options),shared_(std::move(shared)),relative_(relative),absolute_(absolute),uniform_weight_(1-limb),limb_weight_(limb),safe_lo_(a),safe_hi_(b),uniform_(uniform),weighted_(weighted){
   if(shared_){if(!shared_->first_order_coefficients)shared_->first_order_coefficients=std::make_shared<std::unique_ptr<root_pair_detail::RadialCache<8>>>();context_->pairs=shared_->first_order_coefficients;}
   else context_->pairs=std::make_shared<std::unique_ptr<root_pair_detail::RadialCache<8>>>();
  }
- ~PattersonPanel(){
+ ~FirstOrderPanel(){
 #ifdef LCBININT_TRIPLE_DIAGNOSTIC_TUNING
   if(trace_active_&&context_&&level_){PattersonRecord r{map_.a,map_.b,radial_error_,inner_error_,level_,context_->points.size(),accepted_,{}};for(const auto& c:cells_)r.cells.push_back({double(c.kind),c.coordinates.a,c.coordinates.b,c.center,c.scale});patterson_records.push_back(std::move(r));}
 #endif
@@ -492,9 +500,9 @@ public:
   if(uniform_){if(shared_){if(!shared_->boundary_control)shared_->boundary_control=std::make_shared<BoundaryControlAtlas>(p_,events_);context_->control=shared_->boundary_control;}else context_->control=std::make_shared<BoundaryControlAtlas>(p_,events_);}
 #endif
 }
- void inherit_stream(const PattersonPanel& parent){context_=parent.context_;owns_context_=false;parent.trace_active_=false;events_=parent.events_;hints_=parent.hints_;mixed_declined_=parent.mixed_declined_;}
+ void inherit_stream(const FirstOrderPanel& parent){context_=parent.context_;owns_context_=false;parent.trace_active_=false;events_=parent.events_;hints_=parent.hints_;mixed_declined_=parent.mixed_declined_;}
 #ifdef LCBININT_TRIPLE_MULTIRATE_ARCS
- void inherited_arc_identity(const PattersonPanel& parent){arc_sector_=parent.arc_sector_;sector_cuts_=parent.sector_cuts_;}
+ void inherited_arc_identity(const FirstOrderPanel& parent){arc_sector_=parent.arc_sector_;sector_cuts_=parent.sector_cuts_;}
  bool branches_active()const{return !lanes_.empty();}
  bool refine_branches(int angular){
   std::size_t worst=0;double error=-1;for(std::size_t i=0;i<lanes_.size();++i){const double e=lanes_[i]->radial_error()+lanes_[i]->inner_error();if(e>error){error=e;worst=i;}}
@@ -522,7 +530,7 @@ public:
    radial_error_=16*std::numeric_limits<double>::epsilon()*std::abs(accepted_.f0);inner_error_=0;accepted_.angular_error=radial_error_;level_=std::max(level_,requested);angular_level_=std::max(angular_level_,angular);reason="stream_full_annulus_exact";return true;
   }
   if(cells_.empty()){
-   real_cells();const auto& probes=patterson_rule(2);
+   real_cells();const auto& probes=first_order_rule(2);
    for(const auto& cell:cells_)for(double x:probes.x){const double R=mapped(cell,x)[0];
 #ifdef LCBININT_TRIPLE_MULTIRATE_ARCS
     if(arc_sector_>=0)discovery_radii_.push_back(R);
@@ -532,7 +540,7 @@ public:
     if(boundary_resolved())charts_checked_=true;
     else{geometry_probe_=false;cells_.clear();real_cells();for(const auto& cell:cells_)for(double x:probes.x){Point* geometry=nullptr;if(!geometry_point(mapped(cell,x)[0],geometry))return false;}complex_cells();}
    }else complex_cells();
-   const int geometry_level=2;for(auto& cell:cells_){const auto normal_probes=integration_rule(geometry_level,weighted_&&cell.kind==0);const auto& seed_rule=patterson_rule(2);const RuleView final_probes=use_kronrod()?RuleView{seed_rule.x,seed_rule.w,seed_rule.interp}:normal_probes;for(double x:final_probes.x){Point* geometry=nullptr;if(!geometry_point(mapped(cell,x)[0],geometry))return false;}build_curve(cell,geometry_level,use_kronrod());}
+   const int geometry_level=2;for(auto& cell:cells_){const auto normal_probes=integration_rule(geometry_level,weighted_&&cell.kind==0);const auto& seed_rule=first_order_rule(2);const RuleView final_probes=use_kronrod()?RuleView{seed_rule.x,seed_rule.w,seed_rule.interp}:normal_probes;for(double x:final_probes.x){Point* geometry=nullptr;if(!geometry_point(mapped(cell,x)[0],geometry))return false;}build_curve(cell,geometry_level,use_kronrod());}
   }
   split_level=use_kronrod()?3:5;
   if(requested<=level_)return true;auto previous=accepted_;bool have=level_>0;
@@ -599,10 +607,13 @@ public:
      local_error=uniform_weight_*std::abs(cell_value[0]-previous_cells_[index][0])+limb_weight_*std::abs(cell_value[1]-previous_cells_[index][1]);
      if(!weighted&&!mixed_&&!use_kronrod()&&node_level>=3&&node_level<=5){
       const auto observable=[&](const auto& a){return uniform_weight_*a.f0+limb_weight_*a.fh;};
-      const auto embedded=embedded_patterson_detail::embedded_estimate(node_level,samples,observable);
+      const auto embedded=[&](){
+       if constexpr(Fejer)return panel_detail::embedded_estimate(node_level,samples,observable);
+       else return embedded_patterson_detail::embedded_estimate(node_level,samples,observable);
+      }();
       const double fine=uniform_weight_*cell_value[0]+limb_weight_*cell_value[1],old=uniform_weight_*previous_cells_[index][0]+limb_weight_*previous_cells_[index][1];
       const double low=std::abs(embedded.first-old),high=std::abs(fine-embedded.first);
-      if(low>64*std::numeric_limits<double>::epsilon()*std::abs(fine)&&high<=low*.25){local_error=high;embedded_detail=embedded.second;embedded_used=true;}
+      if(low>64*std::numeric_limits<double>::epsilon()*std::abs(fine)&&high<=low*.25){local_error=std::max(local_error,high);embedded_detail=embedded.second;embedded_used=true;}
      }
      if(!cell_geometry_ok)local_error=INFINITY;
      cell_error+=local_error;
@@ -623,7 +634,7 @@ if(weighted)detail+=uniform_weight_*panel_detail::interpolation_detail(rule,samp
    radial_error_=have&&previous_cells_.size()==next_cells.size()?cell_error:INFINITY;
    radial_error_=std::max(radial_error_,(QuadratureErrorPolicy::weighted_detail_floor/QuadratureErrorPolicy::difference_safety)*detail);
    // Never accept a one/three-node coincidence as a geometry certificate.
-   const auto tuning=active_patterson_tuning();const int default_minimum=mixed_?3:(use_kronrod()?2:3);const int minimum=weighted_&&!uniform_?4:(map_.a>=tuning.selected_lo&&map_.b<=tuning.selected_hi&&tuning.minimum_radial?tuning.minimum_radial:default_minimum);
+   const auto tuning=active_patterson_tuning();const int default_minimum=mixed_?3:(use_kronrod()?2:(Fejer?5:3));const int minimum=weighted_&&!uniform_?4:(map_.a>=tuning.selected_lo&&map_.b<=tuning.selected_hi&&tuning.minimum_radial?tuning.minimum_radial:default_minimum);
    if(lev<minimum)radial_error_=INFINITY;
 #if defined(LCBININT_TRIPLE_MULTIRATE_ARCS) && defined(LCBININT_TRIPLE_SECTOR_BOUNDARY_WITNESS)
    if(!boundary_ok){radial_error_=INFINITY;if(lev>=4)split_level=4;}
@@ -631,7 +642,14 @@ if(weighted)detail+=uniform_weight_*panel_detail::interpolation_detail(rule,samp
 
    inner_error_=inner;next.angular_error=radial_error_+inner;
    previous=next;previous_cells_=std::move(next_cells);have=true;
-   if(lev==2&&complex_cells()){
+   bool rediscovered=false;
+   if constexpr(Fejer)if(lev==3&&!discovery_retry_&&std::none_of(cells_.begin(),cells_.end(),[](const Cell& c){return c.kind==1;})){
+    // An empty search from three discovery positions is not a certificate
+    // that no nearby complex fold exists. Retry once on the new geometry;
+    // retain all old physical packets when a chart is introduced.
+    discovery_retry_=true;charts_checked_=false;rediscovered=complex_cells();
+   }
+   if(rediscovered||(lev==2&&complex_cells())){
     // The old nodes remain cached as continuation/discovery work. Rebuild
     // only the coarse rule on the new coordinates before forming a nested
     // difference; two different coordinate systems are not an embedded pair.
@@ -646,6 +664,15 @@ if(weighted)detail+=uniform_weight_*panel_detail::interpolation_detail(rule,samp
   angular_level_=angular;reason="stream_completed";return true;
  }
 };
+template<bool Gradient> using PattersonPanel=FirstOrderPanel<Gradient,false>;
+template<bool Gradient> using FejerPanel=FirstOrderPanel<Gradient,true>;
+// Internal comparison/reference route. No mixed spatial/parameter jets and
+// no derivative-error controller; production dispatch is unchanged until
+// this route establishes a matched speed advantage.
+template<bool Gradient=true> IntegrationResult<Gradient> integrate_fejer_first_order(const Geometry& p,double limb,IntegrationOptions options={},const RadialEventPlan* plan=nullptr){
+ static_assert(Gradient,"dedicated derivative stream");
+ return integrate_coupled<Gradient,FejerPanel>(p,limb,options,plan);
+}
 template<bool Gradient=true> IntegrationResult<Gradient> integrate_patterson(const Geometry& p,double limb,IntegrationOptions options={},const RadialEventPlan* plan=nullptr){
  static_assert(Gradient,"dedicated derivative stream");
  // Tight requests retain the higher-order mixed transport in the same

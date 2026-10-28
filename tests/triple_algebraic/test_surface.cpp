@@ -3,7 +3,12 @@
 #include <random>
 #include <cstring>
 using namespace lcbinint::algebraic_boundary::triple;
-int main(){Geometry p{.1,.15,.15,.2,.08,1.,-.4,.6};
+int main(){
+ for(int n=0;n<=16;++n)for(int k=0;k<=n;++k) {
+  int reference=1;for(int j=1;j<=k;++j)reference=reference*(n-j+1)/j;
+  if(angular_detail::choose(n,k)!=reference)throw std::runtime_error("cached exact binomial coefficient");
+ }
+ Geometry p{.1,.15,.15,.2,.08,1.,-.4,.6};
  for(bool reciprocal:{false,true}) {
   auto tensor=surface_detail::make(.25,2.,reciprocal,p);
   auto sub=surface_detail::restrict(tensor,.25,2.,-1,1,.5,1.5,-.5,.5);

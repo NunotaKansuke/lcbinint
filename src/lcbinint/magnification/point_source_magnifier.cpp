@@ -663,6 +663,17 @@ Polynomial triple_polynomial_coefficients(
     return coefficients;
 }
 
+// Ordinary-range reciprocal. Keep scaled division for extreme separation
+// norms. General Newton quotients still use the library's scaled division:
+// forming a*conj(b) first could underflow even when a/b is representable.
+Complex triple_point_inverse(Complex b)
+{
+    const double n=std::norm(b);
+    if(n>=32*std::numeric_limits<double>::min() && std::isfinite(n))
+        return std::conj(b)*(1/n);
+    return 1.0/b;
+}
+
 template <std::size_t Degree>
 bool continue_triple_polynomial_roots(
     const Polynomial& coefficients,
@@ -687,6 +698,15 @@ bool continue_triple_polynomial_roots(
     constexpr double convergence_tolerance = 1.0e-9;
     for (int iteration = 0; iteration < maximum_iterations; ++iteration) {
         double maximum_update = 0.0;
+        std::array<Complex,Degree> repulsion{};
+        // A pair contributes opposite reciprocals. Form it once, retaining
+        // the original ascending-j summation order for each root.
+        for(std::size_t i=0;i<Degree;++i)for(std::size_t j=i+1;j<Degree;++j) {
+            const Complex separation=current[i]-current[j];
+            if(std::norm(separation)<1.0e-36)return false;
+            const Complex inverse=triple_point_inverse(separation);
+            repulsion[i]+=inverse;repulsion[j]-=inverse;
+        }
         for (std::size_t i = 0; i < Degree; ++i) {
             const Complex z = current[i];
             Complex value = coefficients.back();
@@ -695,28 +715,21 @@ bool continue_triple_polynomial_roots(
                 derivative = derivative * z + value;
                 value = value * z + coefficients[index - 1];
             }
-            Complex root_repulsion = 0.0;
-            for (std::size_t j = 0; j < Degree; ++j) {
-                if (j == i) continue;
-                const Complex separation = z - current[j];
-                if (std::abs(separation) < 1.0e-18) return false;
-                root_repulsion += 1.0 / separation;
-            }
-            const Complex denominator = derivative - value * root_repulsion;
+            const Complex denominator = derivative - value * repulsion[i];
             if (!std::isfinite(denominator.real()) ||
                 !std::isfinite(denominator.imag()) ||
-                std::abs(denominator) == 0.0) {
+                (denominator.real()==0 && denominator.imag()==0)) {
                 return false;
             }
-            const Complex step = value / denominator;
+            const Complex step = value/denominator;
             if (!std::isfinite(step.real()) || !std::isfinite(step.imag())) {
                 return false;
             }
             next[i] = z - step;
-            maximum_update = std::max(maximum_update, std::abs(step));
+            maximum_update = std::max(maximum_update, std::norm(step));
         }
         current = next;
-        if (maximum_update <= convergence_tolerance) break;
+        if (maximum_update <= convergence_tolerance*convergence_tolerance) break;
     }
     for (std::size_t i = 0; i < Degree; ++i) {
         roots[i] = current[i];
@@ -848,6 +861,8 @@ bool polynomial_roots_are_usable(
         return false;
     }
     constexpr double residual_tolerance = 1.0e-8;
+    std::array<double,Degree+1> magnitudes{};
+    for(std::size_t j=0;j<=Degree;++j)magnitudes[j]=std::abs(coefficients[j]);
     for (std::size_t i = 0; i < Degree; ++i) {
         const Complex z = roots[i];
         if (!std::isfinite(z.real()) || !std::isfinite(z.imag())) {
@@ -856,9 +871,9 @@ bool polynomial_roots_are_usable(
         Complex value = 0.0;
         double scale = 0.0;
         const double radius = std::abs(z);
-        for (auto it = coefficients.rbegin(); it != coefficients.rend(); ++it) {
-            value = value * z + *it;
-            scale = scale * radius + std::abs(*it);
+        for(std::size_t j=Degree+1;j-->0;) {
+            value=value*z+coefficients[j];
+            scale=scale*radius+magnitudes[j];
         }
         if (std::abs(value) > residual_tolerance * std::max(scale, 1.0)) {
             return false;
@@ -1480,7 +1495,7 @@ SourcePosition PointSourceMagnifier::binary_lens_equation(
     return {source.real(), source.imag()};
 }
 
-double triple_derivative_error_indicator(
+double triple_curvature_indicator(
     const model::TripleLensGeometry& geometry,
     const std::vector<TripleImageCandidate>& candidates)
 {
@@ -1585,6 +1600,17 @@ PointSourceResult PointSourceMagnifier::triple_mag0(
     return result;
 }
 
+PointSourceSafetyDiagnostic PointSourceMagnifier::triple_safety_diagnostic(
+    const model::TripleLensGeometry& geometry,SourcePosition source) const
+{
+    const auto value=triple_mag0(geometry,source);
+    PointSourceSafetyDiagnostic out;
+    out.magnification=value.magnification;out.image_count=value.image_count;
+    out.quadrupole_indicator=triple_curvature_indicator(geometry,
+        triple_image_candidates_cached(geometry,source));
+    return out;
+}
+
 PointSourceDerivativeResult PointSourceMagnifier::triple_mag0_with_derivatives(
     const model::TripleLensGeometry& geometry,
     SourcePosition source) const
@@ -1612,7 +1638,7 @@ PointSourceDerivativeResult PointSourceMagnifier::triple_mag0_with_derivatives(
         magnification += 1.0 / std::abs(candidate.jacobian_determinant);
         ++image_count;
     }
-    const double indicator = triple_derivative_error_indicator(geometry, candidates);
+    const double indicator = triple_curvature_indicator(geometry, candidates);
     return {magnification, image_count, indicator};
 }
 

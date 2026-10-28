@@ -11,6 +11,7 @@
 #include "lcbinint/magnification/binary_caustic_tree.hpp"
 
 #include "lcbinint/magnification/point_source_magnifier.hpp"
+#include "lcbinint/magnification/triple_approximation.hpp"
 #include "lcbinint/magnification/probe_diagnostics.hpp"
 #include "lcbinint/math/polynomial_roots.hpp"
 
@@ -34,6 +35,7 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <type_traits>
 #include <vector>
 
 namespace lcbinint::magnification {
@@ -7831,56 +7833,131 @@ FiniteSourceResult FiniteSourceMagnifier::algebraic_boundary_deep_solve(
     return result;
 }
 
-FiniteSourceResult FiniteSourceMagnifier::algebraic_boundary_triple_mag(
-    const model::TripleLensGeometry& geometry, SourcePosition source,
-    double source_radius, const AlgebraicBoundarySettings& settings) const
-{
-    namespace kernel=lcbinint::algebraic_boundary::triple;
-    if(settings_.limb_darkening_d!=0)
-        throw std::invalid_argument("triple algebraic supports uniform and linear limb darkening only");
+namespace {
+struct TripleRoutedValue {
+    FiniteSourceResult value;
+    double point_magnification=std::numeric_limits<double>::quiet_NaN();
+};
+inline algebraic_boundary::triple::PreparedRegularSupport& triple_support_preparation() {
+    // Lens coefficients and continued seed proposals are shared by both modes;
+    // every new source still proves its own support. No gradient is cached here.
+    static thread_local algebraic_boundary::triple::PreparedRegularSupport prepared;
+    return prepared;
+}
+inline algebraic_boundary::triple::RadialEventPlan triple_strict_support(
+        const algebraic_boundary::triple::Geometry& p,int budget) {
+    namespace kernel=algebraic_boundary::triple;
+    struct Cache {std::optional<kernel::RadialEventPlan> plan;int budget=0;};
+    static thread_local Cache cache;
+    const std::array<double,8> identity{p.X,p.Y,p.rho,p.m1,p.m2,p.a,p.bx,p.by};
+    if(!cache.plan||cache.plan->identity!=identity||cache.budget!=budget) {
+        cache.plan=kernel::radial_event_plan(p,budget);cache.budget=budget;
+    }
+    return *cache.plan;
+}
+template<bool Gradient> auto triple_algebraic_epoch(
+        const model::TripleLensGeometry& geometry,SourcePosition source,double rho,
+        const FiniteSourceSettings& finite,const AlgebraicBoundarySettings& accuracy,
+        const PointSourceMagnifier& point,double known_point=std::numeric_limits<double>::quiet_NaN()) {
+    namespace kernel=algebraic_boundary::triple;
+    using Result=std::conditional_t<Gradient,TripleAlgebraicGradientResult,TripleRoutedValue>;
+    Result out;
+    if(finite.limb_darkening_d!=0||!std::isfinite(finite.limb_darkening_c)||finite.limb_darkening_c<0||finite.limb_darkening_c>1)throw std::invalid_argument("triple supports uniform and linear limb darkening only");
+    if(!std::isfinite(rho)||rho<0||!std::isfinite(accuracy.absolute_tolerance)||accuracy.absolute_tolerance<0||
+       !std::isfinite(accuracy.relative_tolerance)||accuracy.relative_tolerance<0||
+       accuracy.absolute_tolerance+accuracy.relative_tolerance<=0)
+        throw std::invalid_argument("invalid triple finite-source tolerance or radius");
+    for(double m:geometry.masses)if(!(m>0)||!std::isfinite(m))throw std::invalid_argument("triple requires positive masses");
+    if(std::abs(geometry.masses[0]+geometry.masses[1]+geometry.masses[2]-1)>1e-12)
+        throw std::invalid_argument("triple masses must sum to one");
+    out.point_magnification=std::isfinite(known_point)?known_point:point.triple_mag0(geometry,source).magnification;
+    const auto budget=[&](double mu){return accuracy.absolute_tolerance+accuracy.relative_tolerance*std::abs(mu);};
+    const auto accept=[&](double mu,double error,FiniteSourceMethod method,int count,const char* reason) {
+        out.value.magnification=mu;out.value.error_estimate=error;
+        out.value.decision={method,count,reason};out.value.converged=out.value.value_converged=true;
+        out.value.diagnostic_stop=reason;
+    };
+    if(rho==0 || finite.finite_mode<=0) {
+        const auto p=triple_approximation::point<Gradient>(point,geometry,source);
+        accept(p.mu,0,FiniteSourceMethod::point_source,1,"triple point source");
+        out.value.center_image_count=p.images;
+        out.value.converged=out.value.value_converged=p.valid;
+        if constexpr(Gradient){out.gradient=p.gradient;out.gradient_valid=p.gradient_valid;}
+        return out;
+    }
+    // The binary-style continuous caustic tree is already used by the
+    // triple support planner. Share it with point/hex guards: build only the
+    // required phase enclosures, retain witnesses across moving epochs, and
+    // reuse every enclosure if this source later needs a full support proof.
     std::array<kernel::Complex,3> lenses;
     for(int j=0;j<3;++j)lenses[j]={geometry.lens_positions[j].x,geometry.lens_positions[j].y};
-    for(double mass:geometry.masses)if(!(mass>0) || !std::isfinite(mass))
-        throw std::invalid_argument("triple algebraic requires positive masses");
-    if(std::abs(geometry.masses[0]+geometry.masses[1]+geometry.masses[2]-1)>1e-12)
-        throw std::invalid_argument("triple algebraic masses must sum to one");
-    const auto frame=kernel::primary_frame(lenses,{source.x,source.y},source_radius,
-        geometry.masses[1],geometry.masses[2]);
-    const auto& p=frame.geometry;
-    const std::array<double,8> identity{p.X,p.Y,p.rho,p.m1,p.m2,p.a,p.bx,p.by};
-    kernel::IntegrationOptions options;
-    options.absolute_tolerance=settings.absolute_tolerance;
-    options.relative_tolerance=settings.relative_tolerance;
-    kernel::RadialEventPlan plan;
-    if(std::isfinite(settings.relative_tolerance) && settings.relative_tolerance>=1e-4 &&
-       std::isfinite(settings.absolute_tolerance) && settings.absolute_tolerance>=0) {
-        // Reuse lens-only preparation and seed proposals across epochs. Every
-        // new source still receives its own support-completeness proof.
-        thread_local kernel::PreparedRegularSupport prepared;
-        plan=prepared.plan(p,settings.relative_tolerance,options.event_box_budget);
-    } else {
-        // Strict requests retain the full planner and exact-epoch cache.
-        thread_local std::optional<kernel::RadialEventPlan> cached_plan;
-        if(!cached_plan || cached_plan->identity!=identity)
-            cached_plan=kernel::radial_event_plan(p,options.event_box_budget);
-        plan=*cached_plan;
+    const auto canonical=kernel::primary_frame(lenses,{source.x,source.y},rho,geometry.masses[1],geometry.masses[2]);
+    auto& prepared=triple_support_preparation();
+    const double point_distance=std::max(20.,finite.kinji_threshold)*rho;
+    const auto safety=point.triple_safety_diagnostic(geometry,source);
+    out.value.center_image_count=safety.image_count;
+    const double error=6*safety.quadrupole_indicator*rho*rho;
+    if(std::isfinite(error)&&error<=budget(out.point_magnification)) {
+        const auto clear=prepared.caustic_clearance(canonical.geometry,point_distance);
+        if(clear.first>point_distance&&clear.second==safety.image_count) {
+            const auto p=triple_approximation::point<Gradient>(point,geometry,source);
+            if(p.valid) {
+                accept(p.mu,error,FiniteSourceMethod::point_source,1,"triple point-source curvature and certified caustic clearance");
+                out.value.caustic_distance=clear.first;out.value.center_image_count=safety.image_count;
+                if constexpr(Gradient){out.gradient=p.gradient;out.gradient_valid=p.gradient_valid;}
+                return out;
+            }
+        }
     }
-    const auto value=kernel::integrate(p,settings_.limb_darkening_c,options,
-        plan.completed?&plan:nullptr);
-    FiniteSourceResult out;
-    out.decision={FiniteSourceMethod::algebraic_boundary,
-        static_cast<int>(value.value_evaluations),"triple_algebraic_nested_fejer"};
-    out.magnification=value.magnification>0?value.magnification:std::numeric_limits<double>::quiet_NaN();
-    out.error_estimate=value.error_estimate;
-    out.refinement_level=value.refinements;
-    out.value_converged=value.converged;
-    out.frontier_discovery_completed=value.support.completed;
-    out.seed_support_proven=value.support_complete;
-    // This is a support-completeness statement, not an enclosure of flux error.
-    out.integral_support_certified=value.support_complete;
-    out.converged=value.converged && value.support_complete;
-    out.diagnostic_stop=value.reason;
+    const double hex_distance=std::max(5.,finite.hex_threshold)*rho;
+    const auto clear=prepared.caustic_clearance(canonical.geometry,hex_distance);
+    out.value.caustic_distance=clear.first;
+    if(clear.first>hex_distance&&finite.adaptive_hex_threshold>0) {
+        const auto hex=triple_approximation::hex<Gradient>(point,geometry,source,rho,limb_darkening_gamma(finite),clear.second);
+        if(hex.valid&&hex.error<=budget(hex.mu)) {
+            accept(hex.mu,hex.error,FiniteSourceMethod::hexadecapole,13,"triple hexadecapole and certified caustic clearance");
+            out.value.center_image_count=clear.second;
+            if constexpr(Gradient){out.gradient=hex.gradient;out.gradient_valid=hex.gradient_valid;}
+            return out;
+        }
+    }
+    const auto frame=[&](){
+        if constexpr(Gradient)return kernel::primary_frame<true>(lenses,{source.x,source.y},rho,geometry.masses[1],geometry.masses[2]);
+        else return canonical;
+    }();
+    kernel::IntegrationOptions options;options.absolute_tolerance=accuracy.absolute_tolerance;
+    options.relative_tolerance=accuracy.relative_tolerance;
+    kernel::RadialEventPlan plan;
+    if(accuracy.relative_tolerance>=1e-4)
+        plan=triple_support_preparation().plan(frame.geometry,accuracy.relative_tolerance,options.event_box_budget,!Gradient);
+    else plan=triple_strict_support(frame.geometry,options.event_box_budget);
+    // A regular proposal can refuse and fall back to the full planner. Tight
+    // exact-epoch plans are already full attempts, including explicit failure.
+    // Share their support proof across modes; never cache a flux or tangent.
+    const auto* supplied=(accuracy.relative_tolerance<1e-4||plan.completed)?&plan:nullptr;
+    const auto value=kernel::integrate<Gradient>(frame.geometry,finite.limb_darkening_c,options,supplied);
+    out.value.decision={FiniteSourceMethod::algebraic_boundary,static_cast<int>(value.value_evaluations),"triple_algebraic_nested_fejer"};
+    out.value.magnification=value.magnification;
+    out.value.error_estimate=value.error_estimate;out.value.refinement_level=value.refinements;
+    out.value.value_converged=value.converged;out.value.converged=value.converged&&value.support_complete;
+    out.value.frontier_discovery_completed=value.support.completed;
+    out.value.seed_support_proven=out.value.integral_support_certified=value.support_complete;
+    out.value.diagnostic_stop=value.reason;
+    if constexpr(Gradient){out.gradient=frame.pullback(value.normalized.df0);out.gradient_valid=value.gradient_valid;}
     return out;
+}
+} // namespace
+FiniteSourceResult FiniteSourceMagnifier::algebraic_boundary_triple_mag(
+        const model::TripleLensGeometry& geometry,SourcePosition source,double rho,
+        const AlgebraicBoundarySettings& accuracy,const PointSourceMagnifier* hint,double known_point) const {
+    PointSourceMagnifier local;
+    return triple_algebraic_epoch<false>(geometry,source,rho,settings_,accuracy,hint?*hint:local,known_point).value;
+}
+TripleAlgebraicGradientResult FiniteSourceMagnifier::algebraic_boundary_triple_jacobian(
+        const model::TripleLensGeometry& geometry,SourcePosition source,double rho,
+        const AlgebraicBoundarySettings& accuracy,const PointSourceMagnifier* hint) const {
+    PointSourceMagnifier local;
+    return triple_algebraic_epoch<true>(geometry,source,rho,settings_,accuracy,hint?*hint:local);
 }
 
 FiniteSourceResult FiniteSourceMagnifier::triple_mag(

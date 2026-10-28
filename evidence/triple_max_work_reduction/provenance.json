@@ -1,0 +1,30 @@
+{
+  "host": "rogue1",
+  "checkout": "/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary",
+  "head": "df24d90fdb806c63ade8bab4cb01fd0e2ffa8737",
+  "hashes": {
+    "src/lcbinint/magnification/point_source_magnifier.cpp": "3a2604f14c5373da9d4cedc211673845906db5d431756aab8e9be96c26c3147b",
+    "src/lcbinint/magnification/algebraic_boundary/triple/regular_support.hpp": "c735966dcb74aaf17b8586f384d763141e996f55986465616690ebf01c3157f9",
+    "src/lcbinint/magnification/algebraic_boundary/triple/shape_transport.hpp": "1113fc8833be5067aba67c371ba18699e325ed71661db7aedffe85d1185ac5d0",
+    "src/lcbinint/magnification/algebraic_boundary/triple/local_precision.hpp": "72fc4f9e73ea9d175d10206b3ec78addcd8377ea8e00f7792b9a77238dee9f3a",
+    "src/lcbinint/magnification/algebraic_boundary/triple/angular_topology.hpp": "13b1ab54d9dbc2ded5ae77d5ace1d738a6d374a5065ea75bb1429a1f5aa94bcc",
+    "tests/triple_algebraic/test_regular.cpp": "2b1cd87658a85d5873ee11011ffda394a7d626063f7055ac45351c06666e2c94",
+    "tests/triple_algebraic/test_surface.cpp": "de125954cb510aadf71f164820b32e5279a94f8be3c256135f4dd01fa3d654cc",
+    "build-triple-native/lcbinint/_lcbinint.cpython-310-x86_64-linux-gnu.so": "74eca911af677f1fc660d38c6aa7af73f5e96fd3295045372a8bb7ae01476ace",
+    "evidence/triple_max_work_reduction/before-package/_lcbinint.cpython-310-x86_64-linux-gnu.so": "cb3a6cf63624f4f0edfe5ec62c6506ff0ea7279425d2c6c03fd1b9a36d8099aa",
+    "evidence/triple_max_work_reduction/audit.py": "20004ac0ec5484ec29315b9efcdbdf6eafafe1ccd0876d33fd91da9177997b94",
+    "evidence/triple_max_work_reduction/cases.json": "f1a207721d1b689f17fd27bb1620e246d76e6232d99e262c1550606002dcc827",
+    "evidence/triple_max_work_reduction/summarize.py": "94b3f394400a1a30c7e5204d5e43ee633814295dadfc32abea377b9be10f0d69"
+  },
+  "note": "Final reciprocal-only division specialization; general Newton division retains standard scaled complex division. General-division intermediate trial retained separately and excluded from final timings.",
+  "measurement_notes": [
+    "First final timing coordinator ended with exit143 after26 completed conditions; resumed audit.py skipped completed rows and computed remaining22 without changing source/native. No failure recorded within a completed condition.",
+    "VBM5.5 relative-only Tol=0, native default static triple; CPU0 one thread; compilation and verification excluded from timing."
+  ],
+  "build_configuration": {
+    "CMAKE_BUILD_TYPE:STRING": "Release",
+    "LCBININT_ENABLE_OPENMP:BOOL": "OFF"
+  },
+  "uname": "Linux rogue1 5.14.0-570.23.1.el9_6.x86_64 #1 SMP PREEMPT_DYNAMIC Thu Jun 26 19:29:53 UTC 2025 x86_64 x86_64 x86_64 GNU/Linux",
+  "cpu_model": "INTEL(R) XEON(R) GOLD 6530"
+}

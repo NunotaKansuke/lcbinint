@@ -33,11 +33,11 @@ using Poly=std::vector<Complex>;
 inline Poly mul(const Poly&a,const Poly&b){Poly c(a.size()+b.size()-1);for(size_t i=0;i<a.size();++i)for(size_t j=0;j<b.size();++j)c[i+j]+=a[i]*b[j];return c;}
 inline Poly critical(const Geometry&p,double phi){auto l=p.lenses();auto m=p.masses();Poly all{1};for(auto z:l)all=mul(all,{z*z,-2.*z,1.});Poly c=all;for(auto&v:c)v*=-std::polar(1.,phi);for(int j=0;j<3;++j){Poly a{1};for(int k=0;k<3;++k)if(k!=j)a=mul(a,{l[k]*l[k],-2.*l[k],1.});for(size_t k=0;k<a.size();++k)c[k]+=m[j]*a[k];}return c;}
 inline std::pair<Complex,Complex> kappa(Complex z,const Geometry&p){Complex k{},d{};auto l=p.lenses();auto m=p.masses();for(int j=0;j<3;++j){auto inv=1./(z-l[j]);k+=m[j]*inv*inv;d-=2.*m[j]*inv*inv*inv;}return {k,d};}
-inline std::vector<Disk> cover(const Geometry&p,double phi,double half,std::vector<Complex>&roots){
+inline std::vector<Disk> cover(const Geometry&p,double phi,double half,std::vector<Complex>&roots,bool polish=true){
  const auto l=p.lenses();const auto m=p.masses();const auto phase=std::polar(1.,phi);
  if(roots.size()!=6){auto coefficients=critical(p,phi);for(auto c:coefficients)if(!std::isfinite(c.real()) || !std::isfinite(c.imag()))return {};lcbinint::math::PolynomialRootSolver solver;roots=solver.solve(coefficients).roots;}
  if(roots.size()!=6)return {};
- for(auto&z:roots)for(int i=0;i<8;++i){auto[k,d]=kappa(z,p);if(fast_abs(d)==0)return {};auto step=(k-phase)/d;z-=step;if(fast_abs(step)<8e-16*(1+fast_abs(z)))break;}
+ if(polish)for(auto&z:roots)for(int i=0;i<8;++i){auto[k,d]=kappa(z,p);if(fast_abs(d)==0)return {};auto step=(k-phase)/d;z-=step;if(fast_abs(step)<8e-16*(1+fast_abs(z)))break;}
  std::vector<Disk> out;
  for(int i=0;i<6;++i){auto z=roots[i];auto[k,d]=kappa(z,p);double deriv=fast_abs(d);if(!(deriv>0&&std::isfinite(deriv)))return {};
   double limit=INFINITY,condition=1,dc=0;for(int j=0;j<3;++j){double a=fast_abs(z-l[j]);limit=std::min(limit,.45*a);condition+=(m[j]+.01)/(a*a);dc+=2*(m[j]+.01)/(a*a*a);}
@@ -53,7 +53,7 @@ inline std::vector<Disk> cover(const Geometry&p,double phi,double half,std::vect
  }
  return out;
 }
-struct Node {double phi,half;int depth,left=-1;bool ready=false;std::vector<Complex> roots;std::vector<Disk> disks,ends[2];};
+struct Node {double phi,half;int depth,left=-1;bool ready=false;std::vector<Complex> roots;std::vector<Disk> disks,ends[2];bool old_proposal=false,had_cover=false;};
 class Tree {
  Geometry geometry_;std::vector<Node> nodes_;
  Complex witness_source_{};double witness_clearance_=0;int witness_count_=-1;std::size_t witness_hits_=0;
@@ -61,7 +61,26 @@ class Tree {
  std::optional<std::array<double,3>> refused_query_;
  std::size_t refusal_hits_=0;
  bool visit(int id,Complex source,double rho,int&budget,double&angle,double&uncertainty,double&clearance){
-  if(!nodes_[id].ready){if(--budget<0)return false;auto&n=nodes_[id];n.disks=cover(geometry_,n.phi,n.half,n.roots);n.ready=true;}
+  if(!nodes_[id].ready){
+   if(--budget<0)return false;
+   auto&n=nodes_[id];
+   // The new residual enters beta and the new derivative/contraction proof
+   // is evaluated in full. A nearby old root need not be polished first.
+   n.disks=cover(geometry_,n.phi,n.half,n.roots,!n.old_proposal);
+   if(n.old_proposal && n.disks.empty())
+    n.disks=cover(geometry_,n.phi,n.half,n.roots);
+   if(n.old_proposal && n.disks.empty()) {
+    // A wide phase interval can fail even with all six correct roots.
+    // Certify the phase centre before deciding to repeat the polynomial
+    // solve: a proved centre needs subdivision, not another root solve.
+    auto roots=n.roots;
+    if(cover(geometry_,n.phi,0,roots).size()!=6) {
+     n.roots.clear();n.disks=cover(geometry_,n.phi,n.half,n.roots);
+    } else n.roots=std::move(roots);
+   }
+   n.old_proposal=false;n.had_cover=!n.disks.empty();
+   n.ready=true;
+  }
   auto&n=nodes_[id];bool clear=n.disks.size()==6;
   if(clear)for(auto d:n.disks){double distance=fast_abs(d.w-source);if(distance-d.h<=rho+eps*(1+distance+rho)){clear=false;break;}}
   if(clear){
@@ -93,6 +112,24 @@ class Tree {
  }
 public:
  explicit Tree(const Geometry&p):geometry_(p){for(int j=0;j<32;++j)nodes_.push_back({2*pi*(j+.5)/32,pi/32,0});}
+ // Keep phase subdivisions and root proposals across a nearby lens update,
+ // exactly as the binary tree does. All geometry-dependent certificates and
+ // both positive and negative source witnesses are invalidated first.
+ void update_geometry(const Geometry& p) {
+  geometry_=p;
+  witness_clearance_=0;witness_count_=-1;
+  interior_witnesses_.clear();refused_query_.reset();
+  for(auto& n:nodes_) {
+   n.old_proposal=n.roots.size()==6;
+   // Children partition a failed parent cover, so reprove them directly.
+   // Retain revalidation of successful parent covers: their critical-point
+   // anchors can cheaply refuse a source before visiting fine descendants.
+   // Skipping a failed parent is only a subdivision choice, never reuse of
+   // a certificate across geometries.
+   n.ready=n.left>=0 && !n.had_cover;
+   n.disks.clear();n.ends[0].clear();n.ends[1].clear();
+  }
+ }
  int count(Complex source,double rho,int budget=256){
   if(!(rho>0) || !std::isfinite(rho+source.real()+source.imag()))return -1;
   // The same witness-clearance reuse as BinaryCausticTree. This caches
@@ -114,6 +151,13 @@ public:
   const int count=4+2*int(winding);
   if(count<4 || count>10 || !(clearance>rho))return -1;
   witness_source_=source;witness_clearance_=clearance;witness_count_=count;return count;
+ }
+ std::pair<double,int> clearance(Complex source,double required,int budget=256) {
+  const int images=count(source,required,budget);
+  if(images<0)return {0,-1};
+  const double moved=fast_abs(source-witness_source_);
+  const double lower=witness_clearance_-moved-eps*(1+witness_clearance_+moved+fast_abs(source)+fast_abs(witness_source_));
+  return {std::max(0.,lower),images};
  }
  std::size_t witness_hits()const{return witness_hits_;}
  std::size_t refusal_hits()const{return refusal_hits_;}
@@ -296,7 +340,7 @@ inline std::optional<RadialEvent> event_from_arc(const Disk&parent,double phi,do
  if(fast_abs(phase-phi)+phase_error>=half)return std::nullopt;
  return RadialEvent{r,t,proof.r.lo,proof.r.hi,chart,proof.t.lo,proof.t.hi};
 }
-inline RadialEventPlan event_plan(const Geometry&p,const std::vector<Complex>&proposals,int max_nodes=256,double omission_budget=0,bool allow_omission=true,const Disk* component=nullptr){
+inline RadialEventPlan event_plan(const Geometry&p,const std::vector<Complex>&proposals,int max_nodes=256,double omission_budget=0,bool allow_omission=true,const Disk* component=nullptr,double phase_origin=.137){
  RadialEventPlan out;out.identity={p.X,p.Y,p.rho,p.m1,p.m2,p.a,p.bx,p.by};out.rmin=INFINITY;out.rmax=0;out.expected_images=int(proposals.size());
  std::vector<Complex> retained;std::vector<Disk> verified_images;
  for(auto z:proposals) {
@@ -327,7 +371,7 @@ inline RadialEventPlan event_plan(const Geometry&p,const std::vector<Complex>&pr
  struct Arc{double phi,half;int depth;};
  struct Branch{Arc arc;Disk ball;const ArcMotionModel* model=nullptr;bool reused=false;};std::vector<Arc>pending;std::vector<Branch>branches;
  for(int j=0;j<8;++j) {
-  Arc arc{.137+2*pi*(j+.5)/8,pi/8,0};
+  Arc arc{phase_origin+2*pi*(j+.5)/8,pi/8,0};
   if(component)branches.push_back({arc,*component,&*component_model});
   else if(full_cover)for(std::size_t k=0;k<verified_images.size();++k)
    branches.push_back({arc,verified_images[k],&full_models[k],true});
@@ -402,6 +446,10 @@ class PreparedRegularSupport {
     std::optional<Geometry> refused_partial_;
     std::optional<Geometry> event_seed_geometry_;
     std::vector<projected_event_detail::Guess> event_seeds_;
+    // Search-order hint only. Eight arcs still partition the entire source
+    // circle, and every branch is certified anew at the current epoch.
+    std::optional<double> regular_phase_origin_;
+    Complex regular_phase_source_{};
     RadialEventPlan contact_plan(const Geometry&p,double tolerance,int budget) {
         RadialEventPlan out;out.reason="regular_caustic_or_budget";
         if(budget<64)return out;
@@ -451,6 +499,14 @@ class PreparedRegularSupport {
         return projected(make_components);
     }
 public:
+    // Continuous caustic enclosures, reused by scalar routing and by the
+    // later support proof. Refusal is conservative and never accepts a shortcut.
+    std::pair<double,int> caustic_clearance(const Geometry& p,double required) {
+        p.validate();
+        if(!angular_detail::enclosure::environment_ok())return {0,-1};
+        prepare_lens(p);
+        return tree_->clearance({p.X,p.Y},required);
+    }
     std::size_t native_seed_solves() const{return native_solves_;}
     std::size_t continued_seed_hits() const{return continued_seeds_;}
     RadialEventPlan plan(const Geometry& p,double relative_tolerance,int event_budget=1000000,bool allow_omission=true) {
@@ -462,6 +518,18 @@ public:
         return out;
     }
 private:
+    void prepare_lens(const Geometry& p) {
+        const std::array<double,5> identity{p.m1,p.m2,p.a,p.bx,p.by};
+        if(!identity_ || *identity_!=identity){
+            // Large topology changes start afresh. Nearby updates retain only
+            // Newton proposals, never old disks, counts, events or fluxes.
+            double movement=0,scale=1;
+            if(identity_)for(int j=0;j<5;++j){movement=std::max(movement,std::abs(identity[j]-(*identity_)[j]));scale=std::max(scale,std::abs((*identity_)[j]));}
+            if(tree_ && movement<=.01*scale)tree_->update_geometry(p);
+            else tree_.emplace(p);
+            identity_=identity;regular_phase_origin_.reset();image_seeds_.clear();refused_partial_.reset();event_seeds_.clear();event_seed_geometry_.reset();
+        }
+    }
     RadialEventPlan plan_impl(const Geometry& p,double relative_tolerance,int event_budget,bool allow_omission) {
         RadialEventPlan out;
         // This optimization is validated for loose relative value requests.
@@ -477,8 +545,7 @@ private:
             out.reason="regular_geometry_gate";return out;
         }
         if(!angular_detail::enclosure::environment_ok()){out.reason="floating_environment";return out;}
-        const std::array<double,5> identity{p.m1,p.m2,p.a,p.bx,p.by};
-        if(!identity_ || *identity_!=identity){tree_.emplace(p);identity_=identity;image_seeds_.clear();refused_partial_.reset();event_seeds_.clear();event_seed_geometry_.reset();}
+        prepare_lens(p);
         const int expected=tree_->count({p.X,p.Y},p.rho);
         if(expected<0)return contact_plan(p,relative_tolerance,event_budget);
         std::vector<Complex> proposals;
@@ -508,7 +575,22 @@ private:
             for(auto image:images)proposals.push_back({image.position.x,image.position.y});
         }
         image_seeds_=proposals;seed_source_={p.X,p.Y};
-        return regular_support_detail::event_plan(p,proposals,std::min(256,event_budget),relative_tolerance/8,allow_omission);
+        const double moved=std::abs(Complex(p.X,p.Y)-regular_phase_source_);
+        const double origin=regular_phase_origin_ && moved>0 && moved<p.rho ? *regular_phase_origin_:.137;
+        // Do not discard a nearly finished regular frontier at 256 boxes and
+        // repeat the whole proof in the global planner. Continue it in place.
+        auto result=regular_support_detail::event_plan(p,proposals,std::min(1024,event_budget),relative_tolerance/8,allow_omission,nullptr,origin);
+        if(result.completed && !result.events.empty()) {
+            const auto e=result.events.back();
+            Complex z=std::polar(e.radius,(e.reciprocal?regular_support_detail::pi:0)+2*std::atan(e.coordinate));
+            Complex w=z-Complex(p.X,p.Y);
+            for(int j=0;j<3;++j)w-=masses[j]*inverse_conjugate(z-lenses[j]);
+            if(std::isfinite(w.real()+w.imag()) && std::norm(w)>0) {
+                regular_phase_origin_=std::arg(w)-regular_support_detail::pi/8;
+                regular_phase_source_={p.X,p.Y};
+            }
+        }
+        return result;
     }
 };
 }

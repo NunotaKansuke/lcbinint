@@ -441,7 +441,7 @@ MagnificationResult LensModel::magnification_impl(
 
         const auto finite = use_algebraic_boundary
             ? finite_magnifier_->algebraic_boundary_triple_mag(geometry,source,std::abs(params_.rho),
-                {plan->algebraic_boundary_atol,plan->algebraic_boundary_rtol})
+                {plan->algebraic_boundary_atol,plan->algebraic_boundary_rtol}, &point_magnifier_,point.magnification)
             : finite_magnifier_->triple_mag(
             geometry,
             source,

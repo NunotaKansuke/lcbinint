@@ -366,15 +366,10 @@ public:
                 if constexpr(Gradient)detail=confluent_detail(*h0,observable);
                 const double fine=observable(next),old=observable(previous);
                 radial_error_=have_previous?std::max(std::abs(fine-old),detail_scale*detail):INFINITY;
-                // Require contraction across old, embedded and fine estimates;
-                // keep the shared difference safety and interpolation floor.
-                // Transported-gradient panels retain their confluent estimator.
-                if(!Gradient && lev>=3 && lev<=5 && have_previous) {
-                    const auto embedded=panel_detail::embedded_estimate(lev,integrands,observable);
-                    const double low=std::abs(embedded.first-old),high=std::abs(fine-embedded.first);
-                    if(low>64*std::numeric_limits<double>::epsilon()*std::abs(fine) && high<=low*.25)
-                        radial_error_=std::max(high,detail_scale*embedded.second);
-                }
+                // A shared-node embedded estimate can underestimate a narrow
+                // fold missed by both rules. Keep the independent nested
+                // difference as well as the interpolation-detail floor.
+
             }
             if constexpr(Gradient) {
                 // Check the actual boundary equation at independent spatial

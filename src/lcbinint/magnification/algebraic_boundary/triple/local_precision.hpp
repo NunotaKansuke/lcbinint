@@ -71,7 +71,7 @@ public:
 // Fixed-radius derivative kernel. Keep the general three-lens evaluator above
 // as the independent reference; fold the central lens into radial constants.
 class GradientRay {
-    Q radius_,inverse_radius_,radial_,radial_derivative_,rho_,rho2_;
+    Q radius_,inverse_radius_,radial_,radial_derivative_,rho_,rho2_,derivative_scale_;
     C source_;
     std::array<C,2> lenses_;
     std::array<Q,2> masses_;
@@ -80,7 +80,7 @@ public:
         inverse_radius_(Q(1)/Q(radius)),
         radial_(Q(radius)-(Q(1)-Q(p.m1)-Q(p.m2))/Q(radius)),
         radial_derivative_(Q(1)+(Q(1)-Q(p.m1)-Q(p.m2))/(Q(radius)*Q(radius))),
-        rho_(p.rho),rho2_(Q(p.rho)*Q(p.rho)),source_{Q(p.X),Q(p.Y)},
+        rho_(p.rho),rho2_(Q(p.rho)*Q(p.rho)),derivative_scale_(-Q(2)/rho2_),source_{Q(p.X),Q(p.Y)},
         lenses_{C{Q(p.a)},C{Q(p.bx),Q(p.by)}},masses_{Q(p.m1),Q(p.m2)} {}
     Gradient evaluate(Q theta) const {
         Q sn,cs;sincosq(theta,&sn,&cs);
@@ -93,7 +93,10 @@ public:
             g.re-=masses_[j]*inv[j].re;g.im-=masses_[j]*inv[j].im;
             shear.re+=masses_[j]*square[j].re;shear.im+=masses_[j]*square[j].im;
         }
-        const auto derivative=[&](C dg){return -Q(2)*(g.re*dg.re+g.im*dg.im)/rho2_;};
+        // One adjoint of phi supplies all first-order directions. Preserve
+        // the original division in phi itself to avoid cancellation changes.
+        const C adjoint{derivative_scale_*g.re,derivative_scale_*g.im};
+        const auto derivative=[&](C dg){return adjoint.re*dg.re+adjoint.im*dg.im;};
         const C secondary=zb*shear;
         const C angular{radial_*cs-secondary.re,radial_*sn-secondary.im};
         Gradient out;const Q n=norm(g);out.phi=1-n/rho2_;
@@ -101,7 +104,7 @@ public:
         out.dR=derivative(C{radial_derivative_*cs+inverse_radius_*secondary.re,
                               radial_derivative_*sn+inverse_radius_*secondary.im});
         const C primary{inverse_radius_*unit.re,inverse_radius_*unit.im};
-        out.dp={derivative(C{-1}),derivative(C{0,-1}),Q(2)*n/(rho2_*rho_),
+        out.dp={-adjoint.re,-adjoint.im,Q(2)*n/(rho2_*rho_),
             derivative(primary-inv[0]),derivative(primary-inv[1]),
             derivative(C{-masses_[0]*square[0].re,-masses_[0]*square[0].im}),
             derivative(C{-masses_[1]*square[1].re,-masses_[1]*square[1].im}),

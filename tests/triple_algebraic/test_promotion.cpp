@@ -29,5 +29,31 @@ int main(){
   for(int j=0;j<8;++j)if(retained.result().df0[j]!=fresh.result().df0[j]||retained.result().dfh[j]!=fresh.result().dfh[j])
    throw std::runtime_error("transport cache changed derivatives");
  }
+ // initialize also clears settings applied before its first call.
+ {
+  RadiusWorkspace<true> configured,fresh;std::array<double,8> motion{};motion.fill(.1);
+  configured.set_radius_motion(motion);configured.set_value_spatial_scale(7);
+  if(!configured.initialize(.89,p)||!fresh.initialize(.89,p)||!configured.refine(3)||!fresh.refine(3))
+   throw std::runtime_error("preinitialized derivative workspace");
+  if(configured.result().df0!=fresh.result().df0||configured.result().dfh!=fresh.result().dfh)
+   throw std::runtime_error("initialize retained preconfigured motion");
+ }
+ // Reinitialization after both success and failure must clear the lazy
+ // angular/quad state; fresh workspaces provide a separate lifetime reference.
+ RadiusWorkspace<> reused;
+ for(int cycle=0;cycle<6;++cycle){
+  const double R=cycle%2?.93:.89;auto q=p;q.X+=.003*cycle;
+  const bool uniform=cycle%3!=1;RadiusWorkspace<> fresh;
+  if(!reused.initialize(R,q,{},uniform,1e-6)||!fresh.initialize(R,q,{},uniform,1e-6))
+   throw std::runtime_error("lazy workspace reinitialization");
+  if(!uniform&&!reused.topology.arcs.empty())
+   if(!reused.prepare_precise_arc(0)||!fresh.prepare_precise_arc(0))throw std::runtime_error("lazy early promotion");
+  if(!reused.refine(6)||!fresh.refine(6))throw std::runtime_error("lazy workspace refinement");
+  const auto a=reused.result(),b=fresh.result();
+  if(a.f0!=b.f0||a.fh!=b.fh||a.angular_error!=b.angular_error||a.endpoint_error!=b.endpoint_error||reused.value_evaluations!=fresh.value_evaluations)
+   throw std::runtime_error("reinitialization retained stale angular state");
+  AngularOptions invalid;invalid.maximum_boxes=0;
+  if(reused.initialize(R,q,invalid,uniform))throw std::runtime_error("invalid topology unexpectedly accepted");
+ }
  std::cout<<"scalar endpoint promotion and derivative packet retention\n";
 }

@@ -42,11 +42,13 @@ def _normalize_finite_source_backend(value):
     return value
 
 
-def _default_finite_source_backend(native_curve):
+def _default_finite_source_backend(native_curve, *, jax=False):
     """Select the backend supported by the model."""
     model = native_curve.model
     if (
-        model.lens == "binary"
+        model.lens in ("binary", "triple")
+        and (model.lens != "triple" or (not jax and not model.parallax
+             and native_curve.orbital_motion == "static" and native_curve.ld_d == 0.0))
         and model.source == "single"
         and model.xallarap == "none"
     ):
@@ -69,9 +71,9 @@ class Options:
     ``jax`` and ``t_lim`` deliberately live outside ``lcbi_options`` so these
     controls do not change the layout of the public C ABI structure.
     ``finite_source_backend=None`` selects the backend after the model
-    is known: single-source binary curves use algebraic boundary, while
-    models outside that backend's support keep the standard router. Pass
-    ``'default'`` explicitly to request the standard router for a binary curve.
+    is known: single-source binary and supported native static triple curves
+    use algebraic boundary, while models outside that backend's support keep the standard router. Pass
+    ``'default'`` explicitly to request the legacy router for either lens.
     """
 
     __slots__ = (
@@ -200,8 +202,8 @@ class LightCurveInfo:
     never replaces a candidate with zero or ``None``. Detailed backend
     diagnostics are included only when requested with ``with_diagnostics=True``.
     Supported eager binary calls use the algebraic-boundary value path
-    and its forward-mode Jacobian. A false validity flag means the candidate
-    is not certified to the requested gradient accuracy.
+    and its forward-mode Jacobian. `gradient_valid` records whether the analytic derivative pass produced
+    usable output under its route's support and continuation checks.
 
     The object converts to its magnification array for NumPy/JAX expressions,
     while retaining status and gradient metadata for callers that need it.
@@ -504,7 +506,7 @@ class LightCurve:
                     kwargs["site"] = limited_site
         self._native = _NativeLightCurve(*positional, **kwargs)
         if finite_source_backend is None:
-            finite_source_backend = _default_finite_source_backend(self._native)
+            finite_source_backend = _default_finite_source_backend(self._native, jax=jax)
         self.limb_darkening = LimbDarkening(self._native.ld_c, self._native.ld_d)
         self._options = Options._from_native(
             self._native.options,

@@ -1,4 +1,4 @@
-#include "lcbinint/magnification/algebraic_boundary/triple/patterson_stream.hpp"
+#include "lcbinint/magnification/algebraic_boundary/triple/integrator.hpp"
 #include <iostream>
 using namespace lcbinint::algebraic_boundary::triple;
 static void require(bool ok,const char* why){if(!ok)throw std::runtime_error(why);}
@@ -25,6 +25,41 @@ int main(){
  for(int j=0;j<8;++j)for(double h:{1e-5,3e-6}){auto plus=p,minus=p;plus.*fields[j]+=h;minus.*fields[j]-=h;RadialPanel<> vp(plus,a,b),vm(minus,a,b);require(vp.refine(7,2)&&vm.refine(7,2),"independent value panels");const double fd=(vp.result().f0-vm.result().f0)/(2*h),actual=g.result().df0[j];if(std::abs(actual-fd)>2e-7+2e-5*std::abs(fd)){std::cerr<<j<<" "<<h<<" "<<actual<<" "<<fd<<"\n";return 1;}}
  PattersonPanel<true> ld(p,a,b,false,false,{},nullptr,0,1e-8,false,false,1);auto ld_band=angular_topology((a+b)*.5,p);require(ld_band.completed,"LD fixed band topology");ld.set_certified_band(ld_band,a,b);require(ld.refine(5,4),"LD fixed band transport");
  for(int j=0;j<8;++j)for(double h:{1e-5,3e-6}){auto plus=p,minus=p;plus.*fields[j]+=h;minus.*fields[j]-=h;RadialPanel<> vp(plus,a,b),vm(minus,a,b);require(vp.refine(7,7)&&vm.refine(7,7),"independent LD value panels");const double fd=(vp.result().fh-vm.result().fh)/(2*h),actual=ld.result().dfh[j];require(std::abs(actual-fd)<=2e-7+2e-5*std::abs(fd),"LD first order versus independent scalar FD");}
+ // The same first-order physical packets must also work with Fejer nodes.
+ // Compare against the independent value-only radial/angular implementation.
+ for(double limb:{0.,1.}){
+  FejerPanel<true> fg(p,a,b,false,false,{},nullptr,0,1e-8,limb==0,false,limb);
+  fg.set_certified_band(ld_band,a,b);require(fg.refine(3,4),"Fejer coarse transport");
+  const auto old_work=fg.work().evaluations;require(fg.refine(5,4),"Fejer nested upgrade");
+  const auto new_work=fg.work().evaluations;require(new_work>old_work,"Fejer upgrade adds packets");
+  require(fg.refine(5,4)&&fg.work().evaluations==new_work,"Fejer retains tangent packets");
+  for(int j=0;j<8;++j)for(double h:{1e-5,3e-6}){
+   auto plus=p,minus=p;plus.*fields[j]+=h;minus.*fields[j]-=h;
+   RadialPanel<> vp(plus,a,b),vm(minus,a,b);
+   require(vp.refine(7,7)&&vm.refine(7,7),"independent Fejer value references");
+   const double fd=limb==0?(vp.result().f0-vm.result().f0)/(2*h):(vp.result().fh-vm.result().fh)/(2*h);
+   const double actual=limb==0?fg.result().df0[j]:fg.result().dfh[j];
+   require(std::abs(actual-fd)<=2e-7+2e-5*std::abs(fd),"Fejer first order versus scalar FD");
+  }
+ }
+ // Regression: three discovery positions miss a nearby complex fold on
+ // this geometry. Growing the Fejer lattice must revisit the chart search.
+ {
+  Geometry q{.11679707353164853,.06909304634121483,.26444043517414206,
+      .07859522928565225,.019793312681219057,1.244802050913814,
+      -.6129645179471843,.41248665883383057};
+  IntegrationOptions options;options.absolute_tolerance=0;options.relative_tolerance=1e-3;
+  const auto fg=integrate_fejer_first_order(q,0,options);
+  require(fg.converged&&fg.gradient_valid,"Fejer complex-fold discovery regression");
+  options.relative_tolerance=1e-8;options.maximum_refinements=1000;
+  for(double h:{1e-5,3e-6}){
+   auto plus=q,minus=q;plus.m2+=h;minus.m2-=h;
+   const auto vp=integrate_value(plus,0,options),vm=integrate_value(minus,0,options);
+   require(vp.converged&&vm.converged,"complex-fold independent scalar references");
+   const double fd=(vp.magnification-vm.magnification)/(2*h);
+   require(std::abs(fg.normalized.df0[4]-fd)<=1e-4+2e-4*std::abs(fd),"complex-fold scalar FD regression");
+  }
+ }
  int root_components=0;double root_worst=0;
  for(double r:{.45,.65,.85,1.05,1.25})for(double angle:{-2.,-1.,0.,1.,2.}){const auto pair=shape_gradient_detail::radial_complex_pair(r,angle,.25,1.5,p,true);if(!pair||!pair->material)continue;
   for(int j=0;j<8;++j)for(double h:{1e-5,3e-6}){auto plus=p,minus=p;plus.*fields[j]+=h;minus.*fields[j]-=h;const auto hi=shape_gradient_detail::radial_complex_pair(r,angle,.25,1.5,plus),lo=shape_gradient_detail::radial_complex_pair(r,angle,.25,1.5,minus);if(!hi||!lo||std::abs(hi->center-pair->center)>.01||std::abs(lo->center-pair->center)>.01)continue;

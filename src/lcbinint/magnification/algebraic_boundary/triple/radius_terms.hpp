@@ -60,7 +60,7 @@ template<bool Gradient=false> class RadiusWorkspace:private fused_detail::Storag
         if constexpr(Gradient)for(int j=0;j<8;++j)jet.dp[j]+=jet.dR*local_precision::Q(radius_motion_[j]);
         return jet;
     }
-    bool initialized_=false,moving_=false;
+    bool initialized_=false,moving_=false,started_=false;
     bool uniform_source_=false;
     double sample_relative_tolerance_=0;
     double fixed_radial_=0,primary_deflection_=0,primary_shear_=0,source_norm_=0;
@@ -109,6 +109,7 @@ public:
 
     void set_radius_motion(const std::array<double,8>& motion,const std::array<double,8>& slope={}) {
         if constexpr(Gradient) {
+            started_=true;
             if(level_>0 && (radius_motion_!=motion || jacobian_motion_!=slope))
                 throw std::invalid_argument("cannot change retained radius derivative coordinates");
             radius_motion_=motion;jacobian_motion_=slope;moving_=true;
@@ -118,7 +119,9 @@ public:
                     double sample_relative_tolerance=0,AngularCoefficientCache* coefficients=nullptr,
                     const AngularTopology* inherited=nullptr,int certified_count=-1) {
         // Explicit reinitialization discards geometry-dependent samples.
-        *this=RadiusWorkspace{};
+        if(started_)*this=RadiusWorkspace{};
+        started_=true;
+        value_evaluations=gradient_evaluations=reused_samples=quad_samples=0;
         geometry_=p;radius_=R;uniform_source_=uniform_source;
         if(inherited)topology=continued_topology(R,p,*inherited,options,certified_count,coefficients);
         continued_topology_used=inherited && topology.completed;
@@ -138,7 +141,7 @@ public:
             topology.quad_promotions+=previous.quad_promotions;
         }
         sample_relative_tolerance_=sample_relative_tolerance;
-        if constexpr(!Gradient)if(sample_relative_tolerance>0) {
+        if constexpr(!Gradient)if(!uniform_source_ && sample_relative_tolerance>0) {
             const double primary=1-p.m1-p.m2;
             primary_deflection_=primary/R;primary_shear_=primary_deflection_/R;
             fixed_radial_=R-primary_deflection_;source_norm_=std::hypot(p.X,p.Y);
@@ -146,12 +149,14 @@ public:
 
         reason=topology.reason;
         if(!topology.completed)return false;
-        samples_.resize(topology.arcs.size());precise_arcs_.resize(topology.arcs.size());
-        if constexpr(Gradient)endpoints_.resize(topology.arcs.size());
+        // Topology-only users do not need angular or promoted sample storage.
+        // Allocate each kind only when its numerical path is entered.
         initialized_=true;
         return true;
     }
     bool prepare_precise_arc(std::size_t a) {
+        if(precise_arcs_.empty())precise_arcs_.resize(topology.arcs.size());
+        if constexpr(Gradient){if(endpoints_.empty())endpoints_.resize(topology.arcs.size());if(samples_.empty())samples_.resize(topology.arcs.size());}
         auto& q=precise_arcs_[a];
         if(q.ready) {
             if constexpr(Gradient)for(int j=0;j<8;++j) {
@@ -321,9 +326,9 @@ public:
         }
         reason="angular_repair_budget";return false;
     }
-    void set_value_spatial_scale(double scale){if constexpr(Gradient)this->spatial_scale=scale;}
+    void set_value_spatial_scale(double scale){if constexpr(Gradient){started_=true;this->spatial_scale=scale;}}
     auto spatial_witness(double theta,double gate,double width,std::size_t* promotions)const {return this->fused->spatial_witness(theta,gate,width,promotions);}
-    void set_coefficient_frames(std::shared_ptr<root_pair_detail::PreparedFrames> frames){if constexpr(Gradient)this->coefficient_frames=std::move(frames);}
+    void set_coefficient_frames(std::shared_ptr<root_pair_detail::PreparedFrames> frames){if constexpr(Gradient){started_=true;this->coefficient_frames=std::move(frames);}}
     void resolved_endpoint_geometry(AngularTopology& result)const {if constexpr(Gradient)if(this->fused)this->fused->endpoint_geometry(result);}
     int level() const {return level_;}
     double radius() const {return radius_;}
@@ -375,6 +380,12 @@ public:
             value_evaluations=gradient_evaluations=this->fused->evaluations;
             quad_samples=this->fused->promoted;reason="completed_fused";return true;
         }
+        if constexpr(!Gradient)if(uniform_source_){
+            RadiusIntegral<false> next;next.endpoint_error=radius_*topology.angular_measure_error;
+            for(const auto& arc:topology.arcs)next.f0+=radius_*(arc.hi-arc.lo);
+            accepted_=next;level_=requested_level;endpoints_ready_=true;reason="completed";return true;
+        }
+        if(samples_.empty())samples_.resize(topology.arcs.size());
         // Process every intervening level so coarse/fine error estimates use
         // adjacent rules; existing canonical samples are never re-evaluated.
         for(int lev=std::max(((Gradient && !moving_) || uniform_source_)?2:1,level_+1);lev<=requested_level;++lev) {

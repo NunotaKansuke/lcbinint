@@ -90,6 +90,8 @@ public:
         double mass_ratio,
         SourcePosition source) const;
     SourcePosition binary_lens_equation(double separation, double mass_ratio, SourcePosition image) const;
+    PointSourceSafetyDiagnostic triple_safety_diagnostic(
+        const model::TripleLensGeometry& geometry, SourcePosition source) const;
     PointSourceResult triple_mag0(
         const model::TripleLensGeometry& geometry,
         SourcePosition source) const;

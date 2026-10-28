@@ -26,6 +26,16 @@ struct Ray {
     struct Core {Complex w{},g{},i1{},i2{},shear{};double norm=0,phi=0,radial=0,angular=0,roundoff=0,theta=0;};
     const Geometry& p;
     double R,inverse_R,inverse_rho2,inverse_rho,parameter_scale,primary,radial,rho2,source_size;
+    mutable std::optional<local_precision::GradientRay> precise_gradient_;
+    mutable std::optional<local_precision::ValueRay> precise_value_;
+    const local_precision::GradientRay& precise() const {
+        if(!precise_gradient_)precise_gradient_.emplace(R,p);
+        return *precise_gradient_;
+    }
+    const local_precision::ValueRay& precise_value() const {
+        if(!precise_value_)precise_value_.emplace(R,p);
+        return *precise_value_;
+    }
     Ray(const Geometry& geometry,double radius):p(geometry),R(radius),inverse_R(1/R),inverse_rho2(1/(p.rho*p.rho)),inverse_rho(1/p.rho),parameter_scale(-2*inverse_rho2),
         primary((1-p.m1-p.m2)*inverse_R),radial(R-primary),rho2(p.rho*p.rho),source_size(std::hypot(p.X,p.Y)){}
     // A concave phi has no positive interior minimum, hence no complex-pair
@@ -68,7 +78,7 @@ struct Ray {
         const C tangent=z-conj(z)*shear;
         return parameter_scale*(-g.re*tangent.im+g.im*tangent.re);
     }
-    template<bool Parameters,bool Radial> Evaluation<true> sample_real(Complex unit,double theta,double& phi_error,Core* retained)const{
+    template<bool Parameters,bool Radial> Evaluation<true> sample_real(Complex unit,double theta,double& phi_error,Core* retained,double* curvature=nullptr)const{
         using C=coefficient_detail::C<double>;using coefficient_detail::conj;
         const auto scale=[](C a,double b){return C(a.re*b,a.im*b);};
         const auto norm=[](C a){return a.re*a.re+a.im*a.im;};
@@ -86,6 +96,11 @@ struct Ray {
         const C tangent=z-conj(z)*shear;
         Evaluation<true> out{};out.phi=1-n*inverse_rho2;out.dtheta=derivative(C(-tangent.im,tangent.re));
         if constexpr(Radial)out.dR=derivative(w+conj(w)*shear);
+        if(curvature) {
+            const C cubic=scale(i0,1-p.m1-p.m2)*i0*i0+first*i1+second*i2;
+            const C gtt=scale(z+conj(z)*shear,-1)+scale(conj(z)*conj(z)*cubic,2);
+            *curvature=parameter_scale*(norm(tangent)+g.re*gtt.re+g.im*gtt.im);
+        }
         if(retained)*retained={unit,Complex(g.re,g.im),Complex(i1.re,i1.im),Complex(i2.re,i2.im),Complex(shear.re,shear.im),n,out.phi,out.dR,out.dtheta,phi_error,theta};
         if constexpr(Parameters)out.dp={derivative(C(-1)),derivative(C(0,-1)),2*n*inverse_rho2*inverse_rho,derivative(i0-i1),derivative(i0-i2),derivative(scale(first,-1)),derivative(scale(second,-1)),derivative(C(-second.im,second.re))};
         return out;
@@ -94,33 +109,7 @@ struct Ray {
         return sample_unit<Parameters,Radial>(Complex(std::cos(theta),std::sin(theta)),theta,phi_error,curvature,retained);
     }
     template<bool Parameters=true,bool Radial=true> Evaluation<true> sample_unit(Complex w,double theta,double& phi_error,double* curvature=nullptr,Core* retained=nullptr)const {
-        if(!curvature)return sample_real<Parameters,Radial>(w,theta,phi_error,retained);
-        const Complex z=R*w;
-        const Complex i0=w*inverse_R,i1=inverse_conjugate(z-Complex(p.a,0)),
-            i2=inverse_conjugate(z-Complex(p.bx,p.by));
-        const Complex g=radial*w-Complex(p.X,p.Y)-p.m1*i1-p.m2*i2;
-        const double norm=std::norm(g),eps=std::numeric_limits<double>::epsilon();
-        const double deflection=primary+p.m1*radius_value_detail::bound_magnitude(i1,std::norm(i1))+p.m2*radius_value_detail::bound_magnitude(i2,std::norm(i2));
-        const double shear_bound=(1-p.m1-p.m2)/(R*R)+p.m1*std::norm(i1)+p.m2*std::norm(i2);
-        const double delta=32*eps*(R+source_size+deflection+R*shear_bound);
-        phi_error=(2*radius_value_detail::bound_magnitude(g,norm)*delta+delta*delta)*inverse_rho2+16*eps*(1+norm*inverse_rho2);
-        const auto derivative=[&](Complex dg){return parameter_scale*(g.real()*dg.real()+g.imag()*dg.imag());};
-        Evaluation<true> out{};out.phi=1-norm*inverse_rho2;
-        const Complex first_shear=p.m1*i1*i1,second_shear=p.m2*i2*i2;
-        const Complex shear=(1-p.m1-p.m2)*i0*i0+first_shear+second_shear;
-        if constexpr(Radial)out.dR=derivative(w+std::conj(w)*shear);
-        out.dtheta=derivative(Complex(0,1)*(z-std::conj(z)*shear));
-        if(curvature) {
-            const Complex gt=Complex(0,1)*(z-std::conj(z)*shear);
-            const Complex cubic=(1-p.m1-p.m2)*i0*i0*i0+p.m1*i1*i1*i1+p.m2*i2*i2*i2;
-            const Complex gtt=-(z+std::conj(z)*shear)+2.*std::conj(z)*std::conj(z)*cubic;
-            *curvature=parameter_scale*(std::norm(gt)+std::real(std::conj(g)*gtt));
-        }
-        if(retained)*retained={w,g,i1,i2,shear,norm,out.phi,out.dR,out.dtheta,phi_error,theta};
-        if constexpr(Parameters)out.dp={derivative(-1.),derivative(Complex(0,-1)),2*norm*inverse_rho2*inverse_rho,
-            derivative(i0-i1),derivative(i0-i2),derivative(-first_shear),
-            derivative(-second_shear),derivative(Complex(-second_shear.imag(),second_shear.real()))};
-        return out;
+        return sample_real<Parameters,Radial>(w,theta,phi_error,retained,curvature);
     }
     double short_angular_bound(double lo,double hi,const Core& core,double gate)const{
         const double half=(hi-lo)*.5,D=6*half,eps=std::numeric_limits<double>::epsilon();
@@ -198,7 +187,7 @@ inline bool endpoint_impl(const Ray& ray,double R,const Geometry& p,double theta
     LCBININT_COUPLED_SCOPE(endpoint);
     const double initial=theta,eps=std::numeric_limits<double>::epsilon();
     bool resolved=false;Evaluation<true> jet{};double roundoff=0;
-    if(!mixed&&retained_wide){const auto q=local_precision::evaluate<true>(local_precision::Q(R),*retained_wide,p);++work.quad_samples;++work.evaluations;if(q.dtheta==0)return false;
+    if(!mixed&&retained_wide){const auto q=ray.precise().evaluate(*retained_wide);++work.quad_samples;++work.evaluations;if(q.dtheta==0)return false;
         out.theta=double(*retained_wide);out.precise_theta=*retained_wide;out.wide=true;out.radial_motion=double(-q.dR/q.dtheta);out.slope=double(q.dtheta);out.error=4*eps*(1+std::abs(out.theta));for(int j=0;j<8;++j)out.motion[j]=double(-q.dp[j]/q.dtheta);return true;}
     if(!mixed&&polished){
         if(retained_core&&retained_core->theta==theta&&retained_core->angular!=0){ray.add_parameters(jet,*retained_core);roundoff=retained_core->roundoff;}
@@ -256,7 +245,7 @@ inline bool endpoint_impl(const Ray& ray,double R,const Geometry& p,double theta
         // other radius stay retained. No broad small-arc quad threshold.
         using Q=local_precision::Q;Q refined;
         if(!local_precision::endpoint(R,theta,p,refined))return false;
-        const auto q=local_precision::evaluate<true>(Q(R),refined,p);
+        const auto q=ray.precise().evaluate(refined);
         ++work.quad_samples;++work.evaluations;
         if(q.dtheta==0 || !finiteq(q.dtheta))return false;
         out.theta=double(refined);out.precise_theta=refined;out.wide=true;out.error=4*eps*(1+std::abs(out.theta));out.radial_motion=double(-q.dR/q.dtheta);out.slope=double(q.dtheta);
@@ -460,17 +449,17 @@ inline bool radius(double R,const Geometry& p,const AngularTopology& topology,
                 if(!precise.ready) {
                     if(full){precise.lo=Q(lo.theta);precise.hi=Q(hi.theta);}
                     else {
-                        if(!local_precision::endpoint(R,lo.theta,p,precise.lo) ||
-                           !local_precision::endpoint(R,hi.theta,p,precise.hi))return false;
-                        const auto lq=local_precision::evaluate<true>(Q(R),precise.lo,p),
-                                   hq=local_precision::evaluate<true>(Q(R),precise.hi,p);
+                        if(!local_precision::endpoint(ray.precise_value(),lo.theta,p,precise.lo) ||
+                           !local_precision::endpoint(ray.precise_value(),hi.theta,p,precise.hi))return false;
+                        const auto lq=ray.precise().evaluate(precise.lo),
+                                   hq=ray.precise().evaluate(precise.hi);
                         for(int j=0;j<8;++j){precise.dlo[j]=-(lq.dp[j]+lq.dR*Q(motion[j]))/lq.dtheta;
                             precise.dhi[j]=-(hq.dp[j]+hq.dR*Q(motion[j]))/hq.dtheta;}
                     }
                     precise.ready=true;
                 }
                 const Q halfq=(precise.hi-precise.lo)/2,xq=Q(x);
-                const auto q=local_precision::evaluate<true>(Q(R),precise.lo+halfq*(1+xq),p);++work.quad_samples;
+                const auto q=ray.precise().evaluate(precise.lo+halfq*(1+xq));++work.quad_samples;
                 if(!(q.phi>0) || !finiteq(q.phi))return false;
                 const Q root=sqrtq(q.phi/Q(shape));flux=double(Q(R)*halfq*root);
                 for(int j=0;j<8;++j) {

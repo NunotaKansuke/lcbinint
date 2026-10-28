@@ -6,6 +6,7 @@
 #include "lcbinint/magnification/algebraic_boundary_autodiff.hpp"
 #include "lcbinint/magnification/point_source_magnifier.hpp"
 
+#include <array>
 #include <cstddef>
 #include <limits>
 #include <memory>
@@ -128,6 +129,14 @@ struct FiniteSourceResult {
     std::string diagnostic_stop;
 };
 
+// Physical tangent, with the same coordinates as triple::Frame::pullback.
+struct TripleAlgebraicGradientResult {
+    FiniteSourceResult value;
+    double point_magnification = std::numeric_limits<double>::quiet_NaN();
+    std::array<double,11> gradient{};
+    bool gradient_valid = false;
+};
+
 struct BinaryRoutingDiagnostics {
     double point_magnification = 0.0;
     double point_error_estimate = std::numeric_limits<double>::infinity();
@@ -218,7 +227,13 @@ public:
         const PointSourceMagnifier* point_magnifier_hint = nullptr) const;
     FiniteSourceResult algebraic_boundary_triple_mag(
         const model::TripleLensGeometry& geometry, SourcePosition source,
-        double source_radius, const AlgebraicBoundarySettings& settings) const;
+        double source_radius, const AlgebraicBoundarySettings& settings,
+        const PointSourceMagnifier* point_hint = nullptr,
+        double known_point_magnification = std::numeric_limits<double>::quiet_NaN()) const;
+    TripleAlgebraicGradientResult algebraic_boundary_triple_jacobian(
+        const model::TripleLensGeometry& geometry, SourcePosition source,
+        double source_radius, const AlgebraicBoundarySettings& settings,
+        const PointSourceMagnifier* point_hint = nullptr) const;
 
     FiniteSourceResult triple_mag(
         const model::TripleLensGeometry& geometry,

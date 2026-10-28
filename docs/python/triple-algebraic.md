@@ -1,10 +1,12 @@
 # Triple-lens algebraic finite-source integration
 
-The explicit `algebraic_boundary` backend supports static, single-source triple
-lenses with uniform or linear limb darkening. It integrates image-plane angular
-arcs from a sextic boundary polynomial, then integrates radius with nested rules.
-It does not use D14 or a sampled angular grid as support authority. Existing
-triple defaults are unchanged.
+Ordinary native `LightCurve(lens="triple")` calls now use the same automatic
+controller family as binary for static, single-source models with uniform or
+linear limb darkening. No backend argument or separate algebraic lightcurve API
+is needed. Point-source and hexadecapole shortcuts precede the algebraic integral.
+The integral evaluates image-plane angular arcs from a sextic boundary polynomial,
+then radius with nested rules. D14 and sampled angular grids are not support
+authority. Unsupported model/JAX combinations retain their existing backend.
 
 ## LightCurve
 
@@ -12,9 +14,8 @@ triple defaults are unchanged.
 import lcbinint
 
 options = lcbinint.Options(
-    finite_source_backend="algebraic_boundary",
-    finite_source_tol=1e-6,
-    finite_source_reltol=1e-5,
+    finite_source_tol=0.0,
+    finite_source_reltol=1e-4,
 )
 curve = lcbinint.LightCurve(
     lens="triple", param_type="vbm", options=options, ld_c=0.5,
@@ -23,7 +24,7 @@ params = dict(
     t0=0.0, u0=0.15, tE=1.0, alpha=0.2, rho=0.15,
     q=0.2, s=1.0, q2=0.08, sep2=0.7, ang=2.1,
 )
-result = curve.info([0.1], params, with_gradient=True)
+result = curve.magnification([0.1], params, with_gradient=True)
 print(result.magnifications, result.status, result.gradient_valid)
 print(result.gradient_parameters, result.gradients)
 ```
@@ -39,8 +40,30 @@ A value-only call does not instantiate parameter derivatives. Native analytic
 triple gradients are requested through `with_gradient=True`; JAX tracing is not
 part of this native implementation. Orbital motion, parallax, xallarap, binary
 sources and quadratic limb darkening are not supported on this triple route.
-The finite-source gradient requires positive `rho`. Batch/warmup and other JAX
-backends retain their existing, separate contracts.
+`rho=0` uses the point-source limit with its analytic tangent. Batched likelihood,
+warmup and traced triple evaluation remain outside this native controller.
+The historical explicit backend option remains available for compatibility.
+
+### Shared scalar routing
+
+The scalar error budget is `atol + rtol*abs(mu)` in both call modes. A
+point-source shortcut requires the central curvature estimate to fit that
+budget and a certified caustic clearance of at least 20 source radii. Hex uses
+the existing 13-point stencil and LD coefficients, a five-radius caustic guard,
+and a fourth-order correction within the value budget. The certified physical
+image count must match every retained point-root set.
+
+Both guards reuse the continuous caustic enclosure tree already used by the
+triple support planner, following the binary cache/witness design. Only relevant
+phase intervals are built; proof work carries forward to nearby epochs and the
+integral's support checks. Budget or floating-environment refusal selects the
+integral. Plotting polylines are not constructed by this numerical selector.
+
+The value-only selector constructs no parameter jets. On point and hex paths,
+analytic tangents differentiate the implicit lens equation using the same
+physical roots as the scalar calculation, including motion of the hex samples
+with `rho`. No root polynomial or completed lightcurve is differentiated by
+finite differences. `info()` provides method IDs 0/1/7 for point/hex/integral.
 
 ## Standalone physical-coordinate API
 
@@ -89,7 +112,7 @@ value convergence. The API returns no derivative error estimates or precision
 flags. The LightCurve API follows the same contract. Independent finite-difference
 and analytic-limit tests check the derivative implementation offline.
 There is no derivative-error-controlled integration policy or policy selector.
-All calls use image-plane algebraic boundary panels. Source-disk
+All standalone integrals use image-plane algebraic boundary panels. Source-disk
 quadrature is not used. The compatibility diagnostics `smooth_source_used`,
 `smooth_source_samples`, and `smooth_source_reused_samples` remain false/zero.
 
@@ -120,17 +143,19 @@ Common angular packets use a small inline cache and allocate additional storage
 only on refinement; all previously completed nodes retain their identity.
 
 The first-order radial controller shares the value controller's positive
-embedded-rule construction and contraction test. Its error estimate uses only
-the scalar flux samples already present; the difference safety factor and
-interpolation-witness floor are unchanged. Endpoint-weighted rules retain their
+embedded-rule construction. Embedded and fine rules share nodes, so their
+apparent contraction never replaces the independent old/fine nested difference.
+Both differences and the interpolation-witness floor remain in the scalar error
+estimate; the shared binary difference safety factor is unchanged. Endpoint-weighted rules retain their
 existing estimator. Angular stationary-point scans compute only the slope;
 accepted minima retain the full physical evaluation and local precision guards.
 
 Angular and radial p-refinement reuse canonical nested nodes. Local angular
 repair and radial h-refinement retain their parent work and use epoch-local
 radius registries. Cache identities include geometry, source, radius and angular
-settings. Event plans cannot be reused for a different epoch. Repeated identical
-native C++ LightCurve epochs reuse the support plan.
+settings. Event plans cannot be reused for a different epoch. Repeated exact-epoch full-support requests reuse the cached plan; loose
+requests reuse continued seeds and geometry while retaining a source-specific
+support proof.
 
 `support_complete` concerns coverage of stationary boundary events in a bounded
 radial domain. It is separate from the estimated flux error and derivative

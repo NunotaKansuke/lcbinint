@@ -20,7 +20,16 @@ namespace angular_detail {
 namespace enclosure=interval_detail;
 template<class T> using I=enclosure::Interval<T>;
 template<class T> using Polynomial=std::array<I<T>,7>;
+// The degree-six angular and degree-eight surface transforms repeatedly
+// request the same exact integers. Keep their hot range division-free.
+inline constexpr auto ordinary_binomials=[]() constexpr {
+    std::array<std::array<int,17>,17> table{};
+    for(int n=0;n<=16;++n){table[n][0]=table[n][n]=1;
+        for(int k=1;k<n;++k)table[n][k]=table[n-1][k-1]+table[n-1][k];}
+    return table;
+}();
 inline int choose(int n,int k) {
+    if(n>=0 && n<=16 && k>=0 && k<=n)return ordinary_binomials[n][k];
     int out=1;for(int j=1;j<=k;++j)out=out*(n-j+1)/j;return out;
 }
 template<class T> Polynomial<T> chart(Polynomial<T> p,bool reciprocal_chart) {
