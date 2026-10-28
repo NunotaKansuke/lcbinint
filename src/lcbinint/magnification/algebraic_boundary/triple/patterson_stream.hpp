@@ -237,17 +237,23 @@ out->events_=events_;out->hints_=hints_;out->origin_=origin_;out->base_=base_;ou
   value.motion=motion;value.value_ready=true;output=&context_->arc_packets.emplace(key,std::move(value)).first->second;return true;
  }
 #endif
+ double canonical_radius(double R)const{
+  if(R<=safe_lo_)R=std::nextafter(safe_lo_,map_.b);
+  if(R>=safe_hi_)R=std::nextafter(safe_hi_,map_.a);
+  return R;
+ }
  std::array<double,2> mapped(const Cell& cell,double x)const{
-  const auto t=cell.coordinates(x);if(!cell.kind||cell.kind==4)return t;
-  if(cell.kind==1)return {cell.center+cell.scale*std::sinh(t[0]),cell.scale*std::cosh(t[0])*t[1]};
+  auto t=cell.coordinates(x);if(!cell.kind||cell.kind==4){t[0]=canonical_radius(t[0]);return t;}
+  if(cell.kind==1)return {canonical_radius(cell.center+cell.scale*std::sinh(t[0])),cell.scale*std::cosh(t[0])*t[1]};
   const double sh=std::sinh(t[0]*.5),d=2*cell.scale*sh*sh;
-  return {cell.kind==2?cell.center+d:cell.center-d,cell.scale*std::sinh(t[0])*t[1]};
+  return {canonical_radius(cell.kind==2?cell.center+d:cell.center-d),cell.scale*std::sinh(t[0])*t[1]};
  }
  struct MappedTransport {std::array<double,2> node;std::array<std::array<double,8>,2> material{};};
  MappedTransport mapped_transport(const Cell& cell,double x)const{
   MappedTransport out;const auto u=cell.coordinates(x);out.node=u;double sh=0,ch=0,half=0;
   if(cell.kind==1){sh=std::sinh(u[0]);ch=std::cosh(u[0]);out.node={cell.center+cell.scale*sh,cell.scale*ch*u[1]};}
   else if(cell.kind==2||cell.kind==3){half=std::sinh(u[0]*.5);sh=std::sinh(u[0]);if(cell.material)ch=std::cosh(u[0]);const double d=2*cell.scale*half*half;out.node={cell.kind==2?cell.center+d:cell.center-d,cell.scale*sh*u[1]};}
+  out.node[0]=canonical_radius(out.node[0]);
   for(int j=0;j<8;++j){out.material[0][j]=base_[j]+slope_[j]*(out.node[0]-origin_);out.material[1][j]=slope_[j];}
   if(!cell.kind||cell.kind==4||!cell.material)return out;
   const double span=cell.coordinates.b-cell.coordinates.a,fraction=(u[0]-cell.coordinates.a)/span,sign=cell.kind==2?1:-1;
@@ -630,7 +636,23 @@ public:
       const double low=std::abs(embedded.first-old),high=std::abs(fine-embedded.first);
       if(low>64*std::numeric_limits<double>::epsilon()*std::abs(fine)&&high<=low*.25){local_error=std::max(local_error,high);embedded_detail=embedded.second;embedded_used=true;}
      }
-     if(!cell_geometry_ok)local_error=INFINITY;
+     if(!cell_geometry_ok){
+      local_error=INFINITY;
+      // A binary64 radial collision cannot be repaired by subdividing its
+      // angular interpolant indefinitely. Bound the scalar area rather than
+      // silently accepting interpolation or dropping an image component.
+      const auto& lattice=first_order_rule(3);std::array<double,7> radius{};bool collision=false;
+      for(int j=0;j<7;++j){radius[j]=mapped(cell,lattice.x[j])[0];for(int k=0;k<j;++k)collision=collision||radius[j]==radius[k];}
+      if(collision){
+       const double upper=std::nextafter(std::acos(-1.)*(map_.b-map_.a)*(map_.b+map_.a)* (1+8*std::numeric_limits<double>::epsilon()),INFINITY);
+       const double fine=uniform_weight_*cell_value[0]+limb_weight_*cell_value[1];
+       local_error=std::max(std::abs(fine),std::abs(upper-fine));
+       // All retained physical packets and tangents stay in the sum. Only
+       // the flux error estimator changes: any cell's true weighted area is
+       // in [0, full annulus area], including a cell with unresolved shape.
+       // This bound enters the ordinary requested value-error budget.
+      }
+     }
      cell_error+=local_error;
     }
     next_cells.push_back(cell_value);
