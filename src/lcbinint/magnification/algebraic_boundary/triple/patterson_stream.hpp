@@ -30,7 +30,10 @@ inline double first_order_chart_width(bool uniform){
 #ifdef LCBININT_TRIPLE_WIDE_CHARTS
  return uniform?6.:2.;
 #else
- return uniform?3.:2.;
+ // Exterior/complex fold coordinates can have nearly flat flux while
+ // boundary transport stays sharp. Bound each uniform chart geometrically;
+ // the adaptive controller continues to observe scalar flux only.
+ return uniform?1.5:2.;
 #endif
 }
 struct PattersonTuning {double angular_scale=1;int minimum_radial=0,critical_order=6;double selected_lo=-INFINITY,selected_hi=INFINITY,chart_width=0;bool quad_uniform=false;};
@@ -385,19 +388,31 @@ out->events_=events_;out->hints_=hints_;out->origin_=origin_;out->base_=base_;ou
  bool geometry_point(double R,Point*& output,const AngularTopology* predicted=nullptr){
   if(R<=safe_lo_)R=std::nextafter(safe_lo_,map_.b);if(R>=safe_hi_)R=std::nextafter(safe_hi_,map_.a);auto found=context_->points.find(R);if(found!=context_->points.end()){output=found->second.get();return true;}
   AngularTopology topology;Anchor anchor;double seed_radius=R;if(predicted)topology=*predicted;else if(!proposal(R,topology,seed_radius,anchor))return false;
-  Point value;value.cores=std::make_unique<shape_gradient_detail::GeometryCores>();const auto resolve=[&](AngularTopology& t){shape_gradient_detail::Ray ray(p_,R);value.anchor={};value.anchor.radius=R;
+  Point value;value.cores=std::make_unique<shape_gradient_detail::GeometryCores>();const auto resolve=[&](AngularTopology& t,bool promote_unresolved){shape_gradient_detail::Ray ray(p_,R);value.anchor={};value.anchor.radius=R;
    if(t.arcs.size()>3)return false;
    for(std::size_t i=0;i<t.arcs.size();++i){const auto arc=t.arcs[i];shape_gradient_detail::Endpoint lo,hi;lo.theta=arc.lo;hi.theta=arc.hi;
-    if(!t.roots.empty()){const double width=arc.hi-arc.lo;if(!shape_gradient_detail::spatial_endpoint(ray,R,p_,arc.lo,width,lo,context_->work,&(*value.cores)[i][0],shape_gradient_detail::endpoint_relative_budget(std::max(1e-12,relative_*.1)))||!shape_gradient_detail::spatial_endpoint(ray,R,p_,arc.hi,width,hi,context_->work,&(*value.cores)[i][1],shape_gradient_detail::endpoint_relative_budget(std::max(1e-12,relative_*.1)))||!(lo.slope>0&&hi.slope<0&&hi.theta>lo.theta))return false;
+    if(!t.roots.empty()){const double width=arc.hi-arc.lo;if(!shape_gradient_detail::spatial_endpoint(ray,R,p_,arc.lo,width,lo,context_->work,&(*value.cores)[i][0],shape_gradient_detail::endpoint_relative_budget(std::max(1e-12,relative_*.1)),promote_unresolved)||!shape_gradient_detail::spatial_endpoint(ray,R,p_,arc.hi,width,hi,context_->work,&(*value.cores)[i][1],shape_gradient_detail::endpoint_relative_budget(std::max(1e-12,relative_*.1)),promote_unresolved)||!(lo.slope>0&&hi.slope<0&&hi.theta>lo.theta))return false;
      for(std::size_t j=0;j<i;++j)for(int turn:{-1,0,1}){const auto& previous=value.anchor.arcs[j];const double shift=turn*2*std::acos(-1.);if(std::max(lo.theta,previous.lo+shift)<std::min(hi.theta,previous.hi+shift))return false;}
      double error=0;if(!(ray.sample<false>((lo.theta+hi.theta)*.5,error,nullptr,&(*value.cores)[i][2]).phi>0))return false;
     }
     value.anchor.arcs[value.anchor.count++]={lo.theta,hi.theta,lo.radial_motion,hi.radial_motion,lo.precise_theta,hi.precise_theta,lo.wide,hi.wide};t.arcs[i]={lo.theta,hi.theta};
    }value.anchor.geometry_verified=true;return true;
   };
-  if(!resolve(topology)){LCBININT_COUPLED_SCOPE(topology);auto proposals=topology;proposals.roots.clear();for(const auto& arc:topology.arcs)for(double angle:{arc.lo,arc.hi}){while(angle<-std::acos(-1.)*.5)angle+=2*std::acos(-1.);while(angle>std::acos(-1.)*1.5)angle-=2*std::acos(-1.);proposals.roots.push_back({angle,angle});}std::sort(proposals.roots.begin(),proposals.roots.end(),[](auto a,auto b){return a.lo<b.lo;});auto repaired=continued_topology(R,p_,proposals,options_,int(topology.roots.size()),shared_?shared_->coefficients.get():nullptr);
-   if(!repaired.completed){repaired=angular_topology(R,p_,options_,shared_?shared_->coefficients.get():nullptr);++context_->work.global_radii;}else ++context_->work.continued_radii;
-   if(!repaired.completed||!resolve(repaired)){reason="patterson_geometry_repair";return false;}topology=std::move(repaired);
+  if(!resolve(topology,false)){LCBININT_COUPLED_SCOPE(topology);auto proposals=topology;proposals.roots.clear();for(const auto& arc:topology.arcs)for(double angle:{arc.lo,arc.hi}){while(angle<-std::acos(-1.)*.5)angle+=2*std::acos(-1.);while(angle>std::acos(-1.)*1.5)angle-=2*std::acos(-1.);proposals.roots.push_back({angle,angle});}std::sort(proposals.roots.begin(),proposals.roots.end(),[](auto a,auto b){return a.lo<b.lo;});auto repaired=continued_topology(R,p_,proposals,options_,int(topology.roots.size()),shared_?shared_->coefficients.get():nullptr);
+   const bool continued=repaired.completed;
+   bool resolved=continued&&resolve(repaired,false);
+   if(continued)++context_->work.continued_radii;
+   if(!resolved){
+    repaired=angular_topology(R,p_,options_,shared_?shared_->coefficients.get():nullptr);++context_->work.global_radii;
+    resolved=repaired.completed&&resolve(repaired,true);
+   }
+   if(!resolved){
+    // Re-isolation itself can refuse a nearly singular binary64 endpoint.
+    // The retained band still supplies the certified crossing count; promote
+    // its endpoint candidates and keep every physical acceptance check.
+    repaired=topology;
+    if(!resolve(repaired,true)){reason="patterson_geometry_repair";return false;}
+   }topology=std::move(repaired);
   }
   value.topology=std::move(topology);output=context_->points.emplace(R,std::make_unique<Point>(std::move(value))).first->second.get();return true;
  }

@@ -260,7 +260,7 @@ inline bool endpoint(double R,const Geometry& p,double theta,double width,Endpoi
 // Geometry-only planning never evaluates parameter RHS or a limb integral.
 // Retain a promoted endpoint itself, so adding tangents needs one Q field
 // evaluation rather than solving the same promoted root again.
-inline bool spatial_endpoint(const Ray& ray,double R,const Geometry& p,double theta,double width,Endpoint& out,ShapeGradientResult& work,Ray::Core* retained=nullptr,double endpoint_relative=0){
+inline bool spatial_endpoint(const Ray& ray,double R,const Geometry& p,double theta,double width,Endpoint& out,ShapeGradientResult& work,Ray::Core* retained=nullptr,double endpoint_relative=0,bool promote_unresolved=true){
     const double initial=theta,eps=std::numeric_limits<double>::epsilon();Evaluation<true> q{};double error=0;bool resolved=false;
 #ifdef LCBININT_TRIPLE_HALF_ANGLE_ENDPOINTS
     Ray::Core local;auto* saved=retained?retained:&local;resolved=half_angle_polish<true>(ray,theta,width,q,error,*saved,work,endpoint_relative);
@@ -271,7 +271,7 @@ inline bool spatial_endpoint(const Ray& ray,double R,const Geometry& p,double th
 #else
         q=ray.sample<false>(theta,error,nullptr,retained);
 #endif
-        ++work.geometry_evaluations;const double step=q.phi/q.dtheta;if(!std::isfinite(step)||std::abs(theta-initial)+std::abs(step)>width*.25)return false;
+        ++work.geometry_evaluations;const double step=q.phi/q.dtheta;if(!std::isfinite(step)||std::abs(theta-initial)+std::abs(step)>width*.25)break;
         if(std::abs(step)<std::max({32*eps*(1+std::abs(theta)),2*error/std::abs(q.dtheta),endpoint_relative*width})){resolved=true;break;}
         double update=step;
 #ifdef LCBININT_TRIPLE_HALLEY_ENDPOINTS
@@ -279,9 +279,12 @@ inline bool spatial_endpoint(const Ray& ray,double R,const Geometry& p,double th
 #endif
         theta-=update;
     }
-    if(!resolved)return false;
-    if(std::isfinite(q.dtheta)&&error<std::abs(q.dtheta)*width*1e-7){out.theta=theta;out.radial_motion=-q.dR/q.dtheta;out.slope=q.dtheta;out.error=2*(std::abs(q.phi)+error)/std::abs(q.dtheta);return std::isfinite(out.radial_motion);}
-    using Q=local_precision::Q;Q thetaq;if(!local_precision::endpoint(R,theta,p,thetaq))return false;const auto precise=fused_detail::Ray<Q>(R,p).sample<false>(thetaq);++work.quad_samples;++work.geometry_evaluations;if(precise.t==0)return false;
+    // A stale continuation guess should first be independently re-isolated.
+    // Promote an unresolved polish only once that inexpensive repair failed.
+    if(!resolved&&!promote_unresolved)return false;
+    if(resolved&&std::isfinite(q.dtheta)&&error<std::abs(q.dtheta)*width*1e-7){out.theta=theta;out.radial_motion=-q.dR/q.dtheta;out.slope=q.dtheta;out.error=2*(std::abs(q.phi)+error)/std::abs(q.dtheta);return std::isfinite(out.radial_motion);}
+    using Q=local_precision::Q;Q thetaq;if(!local_precision::endpoint(R,resolved?theta:initial,p,thetaq))return false;
+    const auto precise=fused_detail::Ray<Q>(R,p).sample<false>(thetaq);++work.quad_samples;++work.geometry_evaluations;if(precise.t==0)return false;
     out.theta=double(thetaq);out.precise_theta=thetaq;out.wide=true;out.radial_motion=double(-precise.r/precise.t);out.slope=double(precise.t);out.error=4*eps*(1+std::abs(out.theta));return std::isfinite(out.radial_motion);
 }
 

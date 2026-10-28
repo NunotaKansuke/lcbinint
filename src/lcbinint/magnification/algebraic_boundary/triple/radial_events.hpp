@@ -497,7 +497,16 @@ inline RadialEventPlan radial_event_plan(const Geometry& p,int max_boxes=100000,
             old.rhi>=b.rlo && old.tlo<=b.thi && old.thi>=b.tlo) {
             const Box joined{std::min(old.rlo,b.rlo),std::max(old.rhi,b.rhi),
                 std::min(old.tlo,b.tlo),std::max(old.thi,b.thi),b.reciprocal};
-            if(prove_physical(joined,p).kind==2)return true;
+            const auto proof=prove_physical(joined,p);
+            if(proof.kind==2)return true;
+            // Overlapping machine-scale inclusions can lose uniqueness in
+            // binary64 interval arithmetic. Promote this local union before
+            // publishing a second copy of the same physical stationary root.
+            if(proof.kind==0 && joined.rhi-joined.rlo<1e-8*(1+joined.rhi) &&
+                    joined.thi-joined.tlo<1e-8) {
+                ++out.quad_boxes;
+                if(prove_quad(joined,p).kind==2)return true;
+            }
         }
         return false;
     };

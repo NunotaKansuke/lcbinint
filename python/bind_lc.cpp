@@ -2300,7 +2300,10 @@ LightCurves with a ground Site apply the terrestrial correction.)")
             py::arg("limb_darkening") = PyLimbDarkening{}, py::arg("site") = py::none())
         // Constructor 2: kwargs directly (convenience, backward-compatible)
         .def(py::init([&](py::kwargs kw) {
-            auto o = kDefaultOpts;
+            // Options supplies defaults; explicit keywords override them
+            // independently of Python keyword insertion order.
+            auto o = kw.contains("options")
+                ? kw["options"].cast<lcbi_options>() : kDefaultOpts;
             PyLimbDarkening ld{};
             auto model = std::make_shared<Model>();
             std::shared_ptr<Site> site;
@@ -2340,7 +2343,7 @@ LightCurves with a ground Site apply the terrestrial correction.)")
 	                else if (key == "finite_source_reltol")   o.finite_source_reltol   = item.second.cast<double>();
 	                else if (key == "tol")                    o.finite_source_tol      = item.second.cast<double>();
 	                else if (key == "reltol")                 o.finite_source_reltol   = item.second.cast<double>();
-	                else if (key == "options")                o = item.second.cast<lcbi_options>();
+	                else if (key == "options")                continue; // loaded before explicit overrides
                 // --- LimbDarkening ---
                 else if (key == "ld_c" || key == "limb_darkening_c") ld.c = item.second.cast<double>();
                 else if (key == "ld_d" || key == "limb_darkening_d") ld.d = item.second.cast<double>();

@@ -1877,6 +1877,55 @@ std::vector<TripleImageCandidate> PointSourceMagnifier::triple_image_candidates(
             }
         }
     }
+    if (physical_count < 4) {
+        // A degree-ten polynomial can lose a very demagnified image near a
+        // lens pole. Seed the local negative point-mass solution, then require
+        // the original lens equation and the existing residual tolerance.
+        // These are candidates, not a replacement for image-count safety.
+        for (std::size_t k = 0; k < geometry.masses.size(); ++k) {
+            const auto& pole_position = geometry.lens_positions[k];
+            const Complex pole{pole_position.x, pole_position.y};
+            Complex offset = Complex{source.x, source.y} - pole;
+            bool distinct = true;
+            for (std::size_t j = 0; j < geometry.masses.size(); ++j) {
+                if (j == k) { continue; }
+                const auto& other = geometry.lens_positions[j];
+                const Complex separation = pole - Complex{other.x, other.y};
+                if (separation == Complex{}) { distinct = false; break; }
+                offset += geometry.masses[j] / std::conj(separation);
+            }
+            const double distance = std::abs(offset);
+            const double mass = geometry.masses[k];
+            if (!distinct || !(distance > 0.0) || !std::isfinite(distance) || !(mass > 0.0)) {
+                continue;
+            }
+            const double radius = -2.0 * mass /
+                (distance + std::hypot(distance, 2.0 * std::sqrt(mass)));
+            const Complex seed = pole + radius * (offset / distance);
+            const SourcePosition polished = polish_triple_image_root_high_precision(
+                geometry, source, {seed.real(), seed.imag()});
+            const Complex z{polished.x, polished.y};
+            const double residual = triple_residual(geometry, source, z);
+            const double determinant = triple_jacobian_determinant(geometry, z);
+            if (!(residual <= absolute_tolerance) || !std::isfinite(determinant) ||
+                !(determinant < 0.0)) { continue; }
+            bool duplicate = false;
+            for (int i = 0; i < physical_count; ++i) {
+                const auto& old = images[static_cast<std::size_t>(i)].position;
+                if (std::norm(z - Complex{old.x, old.y}) < kDedupTol2) {
+                    duplicate = true; break;
+                }
+            }
+            if (duplicate) { continue; }
+            // Keep accepted candidates first; unphysical polynomial roots may
+            // remain in the diagnostic tail and must not hide a recovered root.
+            images.insert(images.begin() + physical_count,
+                {polished, determinant, residual, false});
+            ++physical_count;
+            diagnostics.root_used_high_precision = 1;
+            diagnostics.root_needs_high_precision = 1;
+        }
+    }
     for (std::size_t i = 0; i < images.size(); ++i) {
         images[i].physical = static_cast<int>(i) < physical_count;
     }
