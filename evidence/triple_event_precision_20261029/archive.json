@@ -1,0 +1,15 @@
+{
+  "files": 31466,
+  "uncompressed_bytes": 108908310,
+  "verified_all_members": true,
+  "artifacts": {
+    "raw-evidence.tar.gz": {
+      "bytes": 19927271,
+      "sha256": "c65b7d9f02ceba1d405a8e933d45ee0b46e4fca5b32be4d8f2b89ccff072a66c"
+    },
+    "raw-evidence-manifest.json.gz": {
+      "bytes": 1407543,
+      "sha256": "eed550bc7f70063df3319230c62000b4308a6662441971c129f28a1717b5910a"
+    }
+  }
+}

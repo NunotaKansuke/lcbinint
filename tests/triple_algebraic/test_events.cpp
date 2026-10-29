@@ -1,4 +1,5 @@
 #include "lcbinint/magnification/algebraic_boundary/triple/radial_events.hpp"
+#include "lcbinint/magnification/algebraic_boundary/triple/frame.hpp"
 #include <iostream>
 using namespace lcbinint::algebraic_boundary::triple;
 void check(bool ok,const char* s){if(!ok)throw std::runtime_error(s);}
@@ -51,6 +52,34 @@ int main(){
     check(count==expected,"no unreported root-count change inside event band");
    }
   }
+ }
+ // A 1e-8 companion at separation 100 has two radial folds only
+ // about 1e-13 apart. A fixed 32*eps*(1+r) proposal cannot prove either
+ // one unique, even when promoted Newton has already converged.
+ {
+  const double q=1e-8,s=100.,q2=1.,sep=100.1,ang=std::acos(-1.);
+  const double off=q*s/(1+q),den=1+q+q2,alpha=-.9190931997774809;
+  const Complex source(-std::cos(alpha)-.5*std::sin(alpha),
+                       -std::sin(alpha)+.5*std::cos(alpha));
+  const auto frame=primary_frame({Complex(-s/(1+q),0),Complex(off,0),
+      Complex(off,0)-sep*std::polar(1.,ang)},source,.1,1/den,q2/den);
+  RadialEvent event{5.0055296119529426e-11,.005503362362115934,
+      4.9827893990889966e-11,5.0282698248168885e-11,true,
+      .0055030781356412801,.0055036465885914777};
+  const auto original=event;bool quad=false;
+  check(refine_event_center(event,frame.geometry,false,&quad) && quad,
+        "pole-local event needs a narrower proof proposal");
+  check(event.radius_lo>=original.radius_lo && event.radius_hi<=original.radius_hi &&
+        event.coordinate_lo>=original.coordinate_lo && event.coordinate_hi<=original.coordinate_hi,
+        "local repair stays inside retained event enclosure");
+  // The contracted Krawczyk image itself need not be strictly invariant;
+  // independently enclose the tiny neighbourhood around the retained centre.
+  const double w=std::ldexp(32*std::numeric_limits<double>::epsilon(),-16);
+  const event_detail::Box box{event.radius-w,event.radius+w,
+      std::nextafter(event.coordinate-w,-INFINITY),
+      std::nextafter(event.coordinate+w,INFINITY),event.reciprocal};
+  check(event_detail::prove_quad(box,frame.geometry).kind==2,
+        "independent local physical uniqueness proof");
  }
  auto budget=radial_event_plan(p,1);check(!budget.completed,"event budget fails closed");
  std::cout<<"PASS: global interval event coverage, "<<plan.events.size()<<" physical folds; boxes="<<plan.boxes<<"\n";

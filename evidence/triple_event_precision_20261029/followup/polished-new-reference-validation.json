@@ -1,0 +1,20 @@
+{
+  "comparisons": 88,
+  "points": 44,
+  "conditions": 10,
+  "maximum_ratio": 0.118707083196945,
+  "exceedances": [],
+  "exclusions": {
+    "reference_curve_failure": 6,
+    "reference_error_estimate_above_requested": 6,
+    "unverified_unlensed_reference": 80
+  },
+  "vbm_exceedances": [
+    {
+      "case": 3,
+      "index": 4,
+      "engine": "SinglePoly",
+      "error": 1.9422315382661193
+    }
+  ]
+}

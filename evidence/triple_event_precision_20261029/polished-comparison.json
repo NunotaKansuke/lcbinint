@@ -1,0 +1,88 @@
+{
+  "counts": {
+    "value": {
+      "ok": 1759,
+      "exception": 9
+    },
+    "gradient": {
+      "ok": 1759,
+      "exception": 9
+    }
+  },
+  "regressions": [],
+  "changes": [
+    {
+      "case": 444,
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 483,
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 483,
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 504,
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 514,
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 514,
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    }
+  ],
+  "selected": [],
+  "selected_curves": 0,
+  "gradient_changes": [],
+  "cpu_sums_uncontrolled": {
+    "value": [
+      43.320057634000065,
+      49.75102803799999
+    ],
+    "gradient": [
+      44.61842072899994,
+      49.95209886899999
+    ]
+  },
+  "reference_comparisons": 4394,
+  "reference_points": 2202,
+  "maximum_ratio": 0.8167345901752832,
+  "exceedances": [],
+  "value_changes": [
+    {
+      "case": 508,
+      "engine": "gradient",
+      "relative": 2.5171954076697034e-08,
+      "ratio": 2.5171954076697034e-05
+    },
+    {
+      "case": 448,
+      "engine": "gradient",
+      "relative": 8.230934822606173e-09,
+      "ratio": 8.230934822606173e-06
+    },
+    {
+      "case": 419,
+      "engine": "gradient",
+      "relative": 6.661338147750939e-16,
+      "ratio": 6.661338147750939e-12
+    }
+  ]
+}

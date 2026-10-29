@@ -1,0 +1,98 @@
+{
+  "counts": {
+    "value": {
+      "before": {
+        "ok": 25,
+        "exception": 7
+      },
+      "after": {
+        "ok": 32
+      }
+    },
+    "gradient": {
+      "before": {
+        "exception": 11,
+        "ok": 21
+      },
+      "after": {
+        "ok": 32
+      }
+    }
+  },
+  "regressions": [],
+  "recoveries": [
+    {
+      "case": 17,
+      "engine": "value"
+    },
+    {
+      "case": 19,
+      "engine": "value"
+    },
+    {
+      "case": 20,
+      "engine": "value"
+    },
+    {
+      "case": 24,
+      "engine": "value"
+    },
+    {
+      "case": 25,
+      "engine": "value"
+    },
+    {
+      "case": 28,
+      "engine": "value"
+    },
+    {
+      "case": 31,
+      "engine": "value"
+    },
+    {
+      "case": 0,
+      "engine": "gradient"
+    },
+    {
+      "case": 2,
+      "engine": "gradient"
+    },
+    {
+      "case": 9,
+      "engine": "gradient"
+    },
+    {
+      "case": 15,
+      "engine": "gradient"
+    },
+    {
+      "case": 17,
+      "engine": "gradient"
+    },
+    {
+      "case": 19,
+      "engine": "gradient"
+    },
+    {
+      "case": 20,
+      "engine": "gradient"
+    },
+    {
+      "case": 24,
+      "engine": "gradient"
+    },
+    {
+      "case": 25,
+      "engine": "gradient"
+    },
+    {
+      "case": 28,
+      "engine": "gradient"
+    },
+    {
+      "case": 31,
+      "engine": "gradient"
+    }
+  ],
+  "remaining": []
+}

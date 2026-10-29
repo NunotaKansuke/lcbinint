@@ -350,6 +350,23 @@ inline bool refine_event_center(RadialEvent& event,const Geometry& p,bool double
         std::max(event.coordinate_lo,td-tw),std::min(event.coordinate_hi,td+tw),event.reciprocal};
     auto proof=prove_quad(box,p,nullptr,false,true);
     if(proof.kind!=2)proof=prove_quad(box,p,nullptr,false,false);
+    // A fixed absolute arithmetic-floor box can contain both folds of a
+    // tiny image. Newton supplies only a proposal: shrink its neighbourhood
+    // inside the original certified box and require a fresh uniqueness proof.
+    // Keep an outward binary64 enclosure even after the proposed width rounds
+    // away. No event or image contribution is removed by this local repair.
+    Box previous=box;
+    for(int level=1;proof.kind!=2 && level<=12;++level) {
+        const double scale=std::ldexp(1.,-4*level);
+        Box local{std::max(event.radius_lo,std::min(rd-rw*scale,std::nextafter(rd,-INFINITY))),
+            std::min(event.radius_hi,std::max(rd+rw*scale,std::nextafter(rd,INFINITY))),
+            std::max(event.coordinate_lo,std::min(td-tw*scale,std::nextafter(td,-INFINITY))),
+            std::min(event.coordinate_hi,std::max(td+tw*scale,std::nextafter(td,INFINITY))),event.reciprocal};
+        if(local.rlo==previous.rlo && local.rhi==previous.rhi &&
+           local.tlo==previous.tlo && local.thi==previous.thi)break;
+        previous=local;
+        proof=prove_quad(local,p,nullptr,false,true);
+    }
     if(proof.kind!=2)return false;
     event={rd,td,proof.r.lo,proof.r.hi,event.reciprocal,proof.t.lo,proof.t.hi};return true;
 }

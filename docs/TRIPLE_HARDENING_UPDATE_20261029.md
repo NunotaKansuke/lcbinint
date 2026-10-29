@@ -19,3 +19,7 @@ branchは引き続き `experiment/algebraic_boundary`。新規worktreeは作成�
 ## LD座標選択の追試
 
 [triple_ld_frame_selection_20261029/REPORT.md](../evidence/triple_ld_frame_selection_20261029/REPORT.md) に不採用実験と独立微分検査を記録。値だけの予備積分によるframe選択は、全体のCPU費用増加と2条件の独立微分不一致により棄却。productionは656b7e03の採用DSOへ復元し、hashも一致。独立LD差分4件を追加して対象Python100件、C++32件が通過した。11/13条件の停止と全微分の精度認証は依然別の課題である。
+
+## イベント精度・遠方caustic証明の追加検証
+
+最新は [triple_event_precision_20261029/REPORT.md](../evidence/triple_event_precision_20261029/REPORT.md)。1800条件・7880 epochで値／微分とも1791条件成功、9条件停止、成功分類の回帰0。再監査した4502精度比較で要求誤差超過0、480不変性検査・C++33件・対象Python120件通過。小さいfoldと像ごとのsupport丸めを修正し、遠方で全causticの外側かつ無限遠へ接続することを証明する幾何guardを追加。遠方case514は正確性修正済み中間版との同条件測定で値656→0.300ms、微分478→0.318ms。VBMの1.0返却を独立80桁参照と照合し、未検証のflat値は厳密参照から除外した。無条件frame優先試作は独立alpha微分反例により棄却。残る9条件と重いLDは未解決で、全微分精度の認証ではない。

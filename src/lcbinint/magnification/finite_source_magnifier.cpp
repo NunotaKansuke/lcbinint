@@ -3,6 +3,7 @@
 #include "lcbinint/magnification/algebraic_boundary/triple/integrator.hpp"
 #include "lcbinint/magnification/algebraic_boundary/triple/regular_support.hpp"
 #include "lcbinint/magnification/algebraic_boundary/triple/frame.hpp"
+#include "lcbinint/magnification/algebraic_boundary/triple/exterior_caustic_bound.hpp"
 #include "lcbinint/magnification/algebraic_boundary_autodiff.hpp"
 #include "lcbinint/magnification/algebraic_boundary/fused_gradient.hpp"
 #include "lcbinint/magnification/cartesian_run_fill.hpp"
@@ -7859,6 +7860,42 @@ inline algebraic_boundary::triple::RadialEventPlan triple_strict_support(
     }
     return *cache.plan;
 }
+inline std::pair<double,int> triple_caustic_clearance(
+        const model::TripleLensGeometry& physical,SourcePosition source,
+        const algebraic_boundary::triple::Geometry& canonical,double required,
+        algebraic_boundary::triple::PreparedRegularSupport& prepared) {
+    namespace kernel=algebraic_boundary::triple;
+    if(kernel::interval_detail::environment_ok()) {
+        struct Cache {std::array<double,9> identity{};std::optional<kernel::ExteriorCausticBound> bound;};
+        static thread_local Cache cache;
+        std::array<double,9> identity{};std::array<kernel::Complex,3> lenses;
+        for(int j=0;j<3;++j) {
+            identity[j]=physical.masses[j];
+            identity[3+2*j]=physical.lens_positions[j].x;
+            identity[4+2*j]=physical.lens_positions[j].y;
+            lenses[j]={physical.lens_positions[j].x,physical.lens_positions[j].y};
+        }
+        if(!cache.bound || cache.identity!=identity) {
+            cache.bound.emplace(lenses,physical.masses);cache.identity=identity;
+        }
+        const auto exterior=cache.bound->clearance({source.x,source.y});
+        if(exterior.first>required)return exterior;
+    }
+    return prepared.caustic_clearance(canonical,required);
+}
+inline bool triple_refine_support_events(
+        algebraic_boundary::triple::RadialEventPlan& plan,
+        const algebraic_boundary::triple::Geometry& geometry) {
+    const double floor=128*std::numeric_limits<double>::epsilon();
+    for(auto& event:plan.events) {
+        if(event.radius_hi-event.radius_lo<=floor*(1+std::abs(event.radius)) &&
+           event.coordinate_hi-event.coordinate_lo<=floor*(1+std::abs(event.coordinate)))continue;
+        bool quad=false;
+        if(!algebraic_boundary::triple::refine_event_center(event,geometry,true,&quad))return false;
+        if(quad)++plan.quad_refinements;else ++plan.double_refinements;
+    }
+    return true;
+}
 template<bool Gradient> auto triple_algebraic_epoch(
         const model::TripleLensGeometry& geometry,SourcePosition source,double rho,
         const FiniteSourceSettings& finite,const AlgebraicBoundarySettings& accuracy,
@@ -7911,7 +7948,7 @@ template<bool Gradient> auto triple_algebraic_epoch(
     out.value.center_image_count=safety.image_count;
     const double error=6*safety.quadrupole_indicator*rho*rho;
     if(std::isfinite(error)&&error<=budget(out.point_magnification)) {
-        const auto clear=prepared.caustic_clearance(canonical.geometry,point_distance);
+        const auto clear=triple_caustic_clearance(geometry,source,canonical.geometry,point_distance,prepared);
         if(clear.first>point_distance&&clear.second>=4) {
             const auto p=triple_approximation::point<Gradient>(point,geometry,source,clear.second);
             const auto complete_safety=point.triple_safety_diagnostic(geometry,source);
@@ -7926,7 +7963,7 @@ template<bool Gradient> auto triple_algebraic_epoch(
         }
     }
     const double hex_distance=std::max(5.,finite.hex_threshold)*rho;
-    const auto clear=prepared.caustic_clearance(canonical.geometry,hex_distance);
+    const auto clear=triple_caustic_clearance(geometry,source,canonical.geometry,hex_distance,prepared);
     out.value.caustic_distance=clear.first;
     if(clear.first>hex_distance&&finite.adaptive_hex_threshold>0) {
         const auto hex=triple_approximation::hex<Gradient>(point,geometry,source,rho,limb_darkening_gamma(finite),clear.second);
@@ -7947,16 +7984,11 @@ template<bool Gradient> auto triple_algebraic_epoch(
     if(accuracy.relative_tolerance>=1e-4)
         plan=triple_support_preparation().plan(frame.geometry,accuracy.relative_tolerance,options.event_box_budget,!Gradient);
     else plan=triple_strict_support(frame.geometry,options.event_box_budget);
-    // A regular proposal can refuse and fall back to the full planner. Tight
-    // exact-epoch plans are already full attempts, including explicit failure.
-    // Share their support proof across modes; never cache a flux or tangent.
-    const auto* supplied=(accuracy.relative_tolerance<1e-4||plan.completed)?&plan:nullptr;
     const auto complete=[](const auto& result) {
         bool valid=result.converged&&result.support_complete;
         if constexpr(Gradient)valid=valid&&result.gradient_valid;
         return valid;
     };
-    const auto value=kernel::integrate<Gradient>(frame.geometry,finite.limb_darkening_c,options,supplied);
     const auto assign=[&](const auto& result,const auto& coordinates) {
         out.value.decision={FiniteSourceMethod::algebraic_boundary,static_cast<int>(result.value_evaluations),"triple_algebraic_nested_fejer"};
         out.value.magnification=result.magnification;
@@ -7967,6 +7999,11 @@ template<bool Gradient> auto triple_algebraic_epoch(
         out.value.diagnostic_stop=result.reason;
         if constexpr(Gradient){out.gradient=coordinates.pullback(result.normalized.df0);out.gradient_valid=result.gradient_valid;}
     };
+    // A regular proposal can refuse and fall back to the full planner. Tight
+    // exact-epoch plans are already full attempts, including explicit failure.
+    // Share their support proof across modes; never cache a flux or tangent.
+    const auto* supplied=(accuracy.relative_tolerance<1e-4||plan.completed)?&plan:nullptr;
+    const auto value=kernel::integrate<Gradient>(frame.geometry,finite.limb_darkening_c,options,supplied);
     assign(value,frame);
     bool accepted=value.converged&&value.support_complete;
     if constexpr(Gradient)accepted=accepted&&value.gradient_valid;
@@ -8007,7 +8044,7 @@ template<bool Gradient> auto triple_algebraic_epoch(
         // must not delay another frame that already has a valid fast path.
         const std::array<std::array<int,3>,3> orders{{{0,1,2},{1,0,2},{2,0,1}}};
         bool recovered=false;
-        for(int strategy=0;strategy<2 && !recovered;++strategy) {
+        for(int strategy=0;strategy<(Gradient?2:3) && !recovered;++strategy) {
             for(std::size_t k=0;k<orders.size();++k) {
                 const auto order=orders[k];
                 const std::array<kernel::Complex,3> ordered{lenses[order[0]],lenses[order[1]],lenses[order[2]]};
@@ -8024,17 +8061,87 @@ template<bool Gradient> auto triple_algebraic_epoch(
                 }
                 // An incomplete prepared plan already used the full planner
                 // in the ordinary attempt; do not repeat identical work.
-                if(!support->completed)continue;
+                if(strategy!=2 && !support->completed)continue;
                 if(strategy==0 && support->component_images.empty())continue;
+                kernel::RadialEventPlan refined_plan;
+                if(strategy==2) {
+                    // A value-only attempt can also need tightly separated
+                    // fold cuts. Rebuild full support and refine its events
+                    // before constructing any panels; no tangent is evaluated.
+                    kernel::PreparedRegularSupport precision_support;
+                    refined_plan=precision_support.plan(coordinates.geometry,
+                        accuracy.relative_tolerance,plain.event_box_budget,false);
+                    if(!refined_plan.completed)continue;
+                    bool precise=true;
+                    for(auto& event:refined_plan.events)
+                        if(!kernel::refine_event_center(event,coordinates.geometry,true)) {
+                            precise=false;break;
+                        }
+                    if(!precise)continue;
+                }
                 const auto trial=kernel::integrate<Gradient>(coordinates.geometry,finite.limb_darkening_c,
-                    plain,strategy==0?support:nullptr);
+                    plain,strategy==0?support:strategy==1?nullptr:&refined_plan);
                 if(!complete(trial))continue;
                 assign(trial,coordinates);
                 if constexpr(Gradient)if(k>0)out.gradient=kernel::unpermute_physical_gradient(out.gradient,order);
-                out.value.diagnostic_stop+=strategy==0?"_unpartitioned":"_full_support";
+                out.value.diagnostic_stop+=strategy==0?"_unpartitioned":
+                    strategy==1?"_full_support":"_refined_events";
                 if(k>0)out.value.diagnostic_stop+=":reframed_primary_"+std::to_string(k);
                 recovered=true;break;
             }
+        }
+    }
+    if(!out.value.converged) {
+        // A refused support attempt may refine the same continuous caustic
+        // tree enough to prove the original hex guard. Recheck that proof
+        // before returning failure, rather than requiring a second API call.
+        // Values and IFT tangents are evaluated together in a fresh packet;
+        // no accepted integral or stored tangent is replayed.
+        const auto continued=triple_caustic_clearance(geometry,source,canonical.geometry,hex_distance,prepared);
+        if(continued.first>hex_distance && finite.adaptive_hex_threshold>0) {
+            const auto hex=triple_approximation::hex<Gradient>(point,geometry,source,rho,
+                limb_darkening_gamma(finite),continued.second);
+            if(hex.valid && hex.error<=budget(hex.mu)) {
+                accept(hex.mu,hex.error,FiniteSourceMethod::hexadecapole,13,
+                    "triple hexadecapole and continued certified caustic clearance");
+                out.value.caustic_distance=continued.first;
+                out.value.center_image_count=continued.second;
+                if constexpr(Gradient){out.gradient=hex.gradient;out.gradient_valid=hex.gradient_valid;}
+            }
+        }
+    }
+    const bool remaining_refusal=[&] {
+        bool refused=!out.value.converged;
+        if constexpr(Gradient)refused=refused||!out.gradient_valid;
+        return refused;
+    }();
+    if(remaining_refusal) {
+        // The secondary lens also sets the polar chart orientation. Exhaust
+        // those other orientations only after the ordinary routes refuse.
+        // Use the full Bernstein/quad angular isolator: a complete support
+        // count alone does not validate a fast continued endpoint proposal.
+        const std::array<std::array<int,3>,3> orders{{{0,2,1},{1,2,0},{2,1,0}}};
+        for(const auto& order:orders) {
+            const double m1=geometry.masses[order[1]],m2=geometry.masses[order[2]];
+            if(!(1-m1-m2>0) || m1+m2>1)continue;
+            const std::array<kernel::Complex,3> ordered{lenses[order[0]],lenses[order[1]],lenses[order[2]]};
+            const auto coordinates=kernel::primary_frame<Gradient>(ordered,{source.x,source.y},rho,m1,m2);
+            auto conservative=options;
+            conservative.event_box_budget=std::min(options.event_box_budget,8192);
+            conservative.angular.fast_roots=false;conservative.separate_components=false;
+            kernel::PreparedRegularSupport fresh;
+            auto support=fresh.plan(coordinates.geometry,accuracy.relative_tolerance,
+                conservative.event_box_budget,false);
+            if(!support.completed)
+                support=kernel::radial_event_plan(coordinates.geometry,conservative.event_box_budget);
+            if(!support.completed || !triple_refine_support_events(support,coordinates.geometry))continue;
+            const auto trial=kernel::integrate<Gradient>(coordinates.geometry,finite.limb_darkening_c,
+                conservative,&support);
+            if(!complete(trial))continue;
+            assign(trial,coordinates);
+            if constexpr(Gradient)out.gradient=kernel::unpermute_physical_gradient(out.gradient,order);
+            out.value.diagnostic_stop+=":secondary_chart_"+std::to_string(order[0])+std::to_string(order[1]);
+            break;
         }
     }
     return out;

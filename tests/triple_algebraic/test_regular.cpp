@@ -2,6 +2,7 @@
 #include "lcbinint/magnification/algebraic_boundary/triple/integrator.hpp"
 #include <iostream>
 #include <random>
+#include "lcbinint/magnification/algebraic_boundary/triple/frame.hpp"
 using namespace lcbinint;
 namespace tr=algebraic_boundary::triple;
 namespace rs=tr::regular_support_detail;
@@ -231,6 +232,30 @@ int main(){
   const auto result=tr::integrate(p,.5,opt,plan.completed?&plan:nullptr);
   require(result.converged && result.support_complete,"strict LD arithmetic promotion convergence");
   require(result.error_estimate<=opt.relative_tolerance*std::abs(result.magnification),"strict LD unchanged relative error contract");
+ }
+ // A distant image must not set the numerical padding of a tiny
+ // primary image. All four full-source components and eight folds remain.
+ {
+  const double s=98.1900391759434,q=3.2603069899243716e-9,
+      sep=102.92350649972043,ang=3.141592653612933,q2=.7935392202810023;
+  const auto geometry=model::make_triple_lens_geometry_vbm(s,q,sep,ang,q2);
+  std::array<tr::Complex,3> lenses;
+  for(int j=0;j<3;++j)lenses[j]={geometry.lens_positions[j].x,geometry.lens_positions[j].y};
+  const double alpha=.031623515241303135,u0=.3367958906193129;
+  const auto frame=tr::primary_frame({lenses[1],lenses[0],lenses[2]},
+      {-u0*std::sin(alpha),u0*std::cos(alpha)},.06699926684438164,
+      geometry.masses[0],geometry.masses[2]);
+  tr::PreparedRegularSupport prepared;
+  auto plan=prepared.plan(frame.geometry,1e-3,8192,false);
+  require(plan.completed && plan.events.size()==8 && plan.expected_images==4,
+      "wide faint full support keeps all images and folds");
+  require(plan.rmin>0 && plan.rmin<1e-10 && plan.rmax>100,
+      "local radial bounds retain the tiny primary image");
+  require(plan.excluded_images.empty() && plan.bounded_component_value==0,
+      "wide faint support omits no image contribution");
+  for(auto& event:plan.events)
+      require(tr::refine_event_center(event,frame.geometry,true),
+          "every retained tiny-primary event has a physical precision proof");
  }
  std::cout<<"PASS: "<<accepted<<" prepared plans, "<<counts<<" winding counts ("<<multiple<<" with >4 images, maximum "<<max_count<<"), "<<motion_checks<<" quad motion checks, "<<values*4<<" relative value comparisons, "<<bounded<<" bounded-component plans\n";
 }

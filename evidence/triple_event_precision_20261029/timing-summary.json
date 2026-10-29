@@ -1,0 +1,218 @@
+[
+  {
+    "case": 21,
+    "native": {
+      "before_value": 0.0003924000000000011,
+      "before_value_first": 0.001386833000000004,
+      "after_value": 0.00038969599999999494,
+      "after_value_first": 0.0015195779999999937,
+      "before_gradient": 0.0003377190000000002,
+      "before_gradient_first": 0.0012524299999999988,
+      "after_gradient": 0.0004011859999999978,
+      "after_gradient_first": 0.0014867770000000086
+    },
+    "vbm": {
+      "SinglePoly": {
+        "seconds": 0.0014571050000000002,
+        "returncode": null,
+        "error": null,
+        "validated_points": 7,
+        "maximum_error_ratio": 0.01603963236451733
+      },
+      "MultiPoly": {
+        "seconds": 0.0018228709999999898,
+        "returncode": null,
+        "error": null,
+        "validated_points": 7,
+        "maximum_error_ratio": 0.019178339276670897
+      },
+      "NoPoly": {
+        "seconds": 0.002782503999999991,
+        "returncode": null,
+        "error": null,
+        "validated_points": 7,
+        "maximum_error_ratio": 0.014790635156636256
+      }
+    }
+  },
+  {
+    "case": 514,
+    "native": {
+      "before_value": 0.6564509950000001,
+      "before_value_first": 0.645740558,
+      "after_value": 0.00029986600000000974,
+      "after_value_first": 0.0008849630000000025,
+      "before_gradient": 0.478199265,
+      "before_gradient_first": 0.46339690600000005,
+      "after_gradient": 0.0003175560000000105,
+      "after_gradient_first": 0.0011266429999999966
+    },
+    "vbm": {
+      "SinglePoly": {
+        "seconds": 3.0760000000046306e-06,
+        "returncode": null,
+        "error": null,
+        "validated_points": 5,
+        "maximum_error_ratio": 0.00024045278512740964
+      },
+      "MultiPoly": {
+        "seconds": 3.918999999998063e-06,
+        "returncode": null,
+        "error": null,
+        "validated_points": 5,
+        "maximum_error_ratio": 0.00024045278512740964
+      },
+      "NoPoly": {
+        "seconds": 2.8509999999981606e-06,
+        "returncode": null,
+        "error": null,
+        "validated_points": 5,
+        "maximum_error_ratio": 0.00024045278512740964
+      }
+    }
+  },
+  {
+    "case": 483,
+    "native": {
+      "before_value": 0.28853961699999986,
+      "before_value_first": 0.296610433,
+      "after_value": 0.2951182560000003,
+      "after_value_first": 0.290753311,
+      "before_gradient": 0.29892797300000007,
+      "before_gradient_first": 0.288977967,
+      "after_gradient": 0.30149594299999993,
+      "after_gradient_first": 0.30772270199999996
+    },
+    "vbm": {
+      "SinglePoly": {
+        "seconds": null,
+        "returncode": null,
+        "error": "TimeoutExpired(['/home/nunota/.miniconda3/envs/myenv/bin/python', '/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/evidence/triple_event_precision_20261029/polished_timing.py', '--worker', '483', 'SinglePoly'], 75)"
+      },
+      "MultiPoly": {
+        "seconds": 0.0941262140000001,
+        "returncode": null,
+        "error": null,
+        "validated_points": 5,
+        "maximum_error_ratio": 0.5755220607572831
+      },
+      "NoPoly": {
+        "seconds": 0.17838632499999996,
+        "returncode": null,
+        "error": null,
+        "validated_points": 5,
+        "maximum_error_ratio": 0.5755220579106712
+      }
+    }
+  },
+  {
+    "case": 940,
+    "native": {
+      "before_value": 0.020896695999999992,
+      "before_value_first": 0.019471581,
+      "after_value": 0.018225274999999985,
+      "after_value_first": 0.020157953999999992,
+      "before_gradient": 0.21264297300000035,
+      "before_gradient_first": 0.22178689099999999,
+      "after_gradient": 0.22061678100000015,
+      "after_gradient_first": 0.23609705799999997
+    },
+    "vbm": {
+      "SinglePoly": {
+        "seconds": null,
+        "returncode": null,
+        "error": "TimeoutExpired(['/home/nunota/.miniconda3/envs/myenv/bin/python', '/rogue1_8/nunota/lcbinint/experiments/algebraic_boundary/evidence/triple_event_precision_20261029/polished_timing.py', '--worker', '940', 'SinglePoly'], 75)"
+      },
+      "MultiPoly": {
+        "seconds": 0.05016429499999997,
+        "returncode": null,
+        "error": null,
+        "validated_points": 0,
+        "maximum_error_ratio": null
+      },
+      "NoPoly": {
+        "seconds": 0.22422208100000018,
+        "returncode": null,
+        "error": null,
+        "validated_points": 0,
+        "maximum_error_ratio": null
+      }
+    }
+  },
+  {
+    "case": 972,
+    "native": {
+      "before_value": 0.105018571,
+      "before_value_first": 0.10179304299999999,
+      "after_value": 0.093131623,
+      "after_value_first": 0.100276556,
+      "before_gradient": 1.0473744729999996,
+      "before_gradient_first": 1.0436680029999998,
+      "after_gradient": 1.0393794449999998,
+      "after_gradient_first": 1.169028344
+    },
+    "vbm": {
+      "SinglePoly": {
+        "seconds": 0.008460582999999994,
+        "returncode": null,
+        "error": null,
+        "validated_points": 2,
+        "maximum_error_ratio": 0.4922962356350702
+      },
+      "MultiPoly": {
+        "seconds": 0.011064582000000017,
+        "returncode": null,
+        "error": null,
+        "validated_points": 2,
+        "maximum_error_ratio": 0.4922962316022961
+      },
+      "NoPoly": {
+        "seconds": 0.038873252999999997,
+        "returncode": null,
+        "error": null,
+        "validated_points": 2,
+        "maximum_error_ratio": 0.4922962323645752
+      }
+    }
+  },
+  {
+    "case": 1508,
+    "native": {
+      "before_value": 0.043742139999999985,
+      "before_value_first": 0.04311430299999999,
+      "after_value": 0.04493495399999997,
+      "after_value_first": 0.052830298,
+      "before_gradient": 0.6625352020000004,
+      "before_gradient_first": 0.707822551,
+      "after_gradient": 0.8529011369999999,
+      "after_gradient_first": 0.827059706
+    },
+    "vbm": {
+      "SinglePoly": {
+        "seconds": 0.02468699499999999,
+        "returncode": null,
+        "error": null,
+        "validated_points": 0,
+        "maximum_error_ratio": null
+      },
+      "MultiPoly": {
+        "seconds": 0.034136147000000006,
+        "returncode": null,
+        "error": null,
+        "validated_points": 0,
+        "maximum_error_ratio": null
+      },
+      "NoPoly": {
+        "seconds": 0.07705698299999997,
+        "returncode": null,
+        "error": null,
+        "validated_points": 0,
+        "maximum_error_ratio": null
+      }
+    },
+    "repeated_gradient": {
+      "before": 0.6476963819999995,
+      "after": 0.6495100090000003
+    }
+  }
+]

@@ -1,0 +1,87 @@
+{
+  "conditions": 1800,
+  "epochs": 7880,
+  "counts": {
+    "value": {
+      "ok": 1791,
+      "exception": 9
+    },
+    "gradient": {
+      "ok": 1791,
+      "exception": 9
+    }
+  },
+  "native_sha256": "0cb54c74b5e67ac30732722fd49d8162c2801a8f706d70c5112f5a4cffdd6fb5",
+  "maximum_worker_rss_kib": 47208,
+  "largest_value_gradient_differences": [
+    {
+      "case": 813,
+      "ratio": 0.816722278926374
+    },
+    {
+      "case": 1505,
+      "ratio": 0.731347780697611
+    },
+    {
+      "case": 965,
+      "ratio": 0.6461196025893123
+    },
+    {
+      "case": 974,
+      "ratio": 0.5749329095694478
+    },
+    {
+      "case": 425,
+      "ratio": 0.4843581660907148
+    }
+  ],
+  "largest_warm_differences": [
+    {
+      "case": 321,
+      "engine": "gradient",
+      "ratio": 0.0058326180940593275
+    },
+    {
+      "case": 321,
+      "engine": "value",
+      "ratio": 0.005453743999739302
+    },
+    {
+      "case": 53,
+      "engine": "value",
+      "ratio": 0.0029905615628322835
+    },
+    {
+      "case": 1777,
+      "engine": "gradient",
+      "ratio": 0.002459119439190971
+    },
+    {
+      "case": 1777,
+      "engine": "value",
+      "ratio": 0.002453786441813932
+    }
+  ],
+  "invariants": {
+    "curves": 160,
+    "checks": 480,
+    "errors": [],
+    "exceedances": [],
+    "maximum_value": 5.832621496892898e-07,
+    "maximum_gradient": 2.377476721309528e-05
+  },
+  "reference_validation": {
+    "comparisons": 4502,
+    "main_comparisons": 4414,
+    "followup_comparisons": 88,
+    "points": 2251,
+    "conditions": 471,
+    "maximum_ratio": 0.8167345901752832,
+    "exceedances": [],
+    "additional_reference_exclusions": {
+      "unverified_unlensed_reference": 10,
+      "reference_error_estimate_above_requested": 5,
+      "reference_curve_failure": 1
+    }
+  }
+}

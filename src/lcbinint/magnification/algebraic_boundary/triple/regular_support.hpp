@@ -377,8 +377,16 @@ inline RadialEventPlan event_plan(const Geometry&p,const std::vector<Complex>&pr
    branches.push_back({arc,verified_images[k],&full_models[k],true});
   else pending.push_back(arc);
  }
- if(component){out.rmin=fast_abs(component->z)-component->r;out.rmax=fast_abs(component->z)+component->r;}
- if(full_cover)for(auto ball:verified_images){out.rmin=std::min(out.rmin,fast_abs(ball.z)-ball.r);out.rmax=std::max(out.rmax,fast_abs(ball.z)+ball.r);}
+ // Expand each certified disk at its own coordinate scale. Padding the
+ // final minimum by the most distant image radius can erase a tiny but
+ // well-resolved primary image and falsely refuse an otherwise full cover.
+ auto include_domain=[&](const Disk& ball) {
+  const double R=fast_abs(ball.z),padding=eps*(1+R+ball.r);
+  out.rmin=std::min(out.rmin,interval_detail::down(R-ball.r-padding));
+  out.rmax=std::max(out.rmax,interval_detail::up(R+ball.r+padding));
+ };
+ if(component)include_domain(*component);
+ if(full_cover)for(auto ball:verified_images)include_domain(ball);
  auto ball_for=[&](Arc a,Complex anchor)->std::optional<Disk>{Geometry local=p;auto target=Complex(p.X,p.Y)+std::polar(p.rho,a.phi);local.X=target.real();local.Y=target.imag();local.rho=2*p.rho*std::sin(a.half*.5)+eps*(1+fast_abs(target)+p.rho);return image_ball(solve_image(anchor,target,p),local);};
  while(!pending.empty()){
   if(++out.boxes>max_nodes){out.reason="regular_arc_budget";return out;}auto a=pending.back();pending.pop_back();
@@ -396,7 +404,7 @@ inline RadialEventPlan event_plan(const Geometry&p,const std::vector<Complex>&pr
    }
    for(auto other:balls)if(fast_abs(other.z-ball->z)<=other.r+ball->r){valid=false;break;}if(!valid)break;balls.push_back(*ball);}
   if(!valid){if(a.depth>=18){out.reason="regular_initial_cover";return out;}pending.push_back({a.phi-a.half*.5,a.half*.5,a.depth+1});pending.push_back({a.phi+a.half*.5,a.half*.5,a.depth+1});continue;}
-  for(auto b:balls){branches.push_back({a,b});out.rmin=std::min(out.rmin,fast_abs(b.z)-b.r);out.rmax=std::max(out.rmax,fast_abs(b.z)+b.r);}
+  for(auto b:balls){branches.push_back({a,b});include_domain(b);}
  }
  while(!branches.empty()){
   if(++out.boxes>max_nodes){out.reason="regular_branch_budget";return out;}auto branch=branches.back();branches.pop_back();auto a=branch.arc;auto ball=branch.ball;bool resolved=false;
@@ -428,7 +436,7 @@ inline RadialEventPlan event_plan(const Geometry&p,const std::vector<Complex>&pr
    else branches.push_back({child,ball,branch.model});
   }
  }
- std::sort(out.events.begin(),out.events.end(),[](auto a,auto b){return a.radius<b.radius;});out.rmin=std::max(0.,out.rmin-eps*(1+out.rmax));out.rmax+=eps*(1+out.rmax);out.completed=!out.events.empty()&&out.rmin>0;out.reason=out.completed?"regular_source_boundary":"regular_empty_events";return out;
+ std::sort(out.events.begin(),out.events.end(),[](auto a,auto b){return a.radius<b.radius;});out.rmin=std::max(0.,out.rmin);out.completed=!out.events.empty()&&out.rmin>0;out.reason=out.completed?"regular_source_boundary":"regular_empty_events";return out;
 }
 }
 

@@ -1,0 +1,218 @@
+[
+  {
+    "case": 400,
+    "group": "main",
+    "engine": "value",
+    "stop": [
+      "triple point-source curvature and certified caustic clearance",
+      "triple point-source curvature and certified caustic clearance",
+      "unresolved_root_cluster",
+      "triple point-source curvature and certified caustic clearance",
+      "triple point-source curvature and certified caustic clearance"
+    ]
+  },
+  {
+    "case": 400,
+    "group": "main",
+    "engine": "gradient",
+    "stop": [
+      "triple point-source curvature and certified caustic clearance",
+      "triple point-source curvature and certified caustic clearance",
+      "unresolved_root_cluster",
+      "triple point-source curvature and certified caustic clearance",
+      "triple point-source curvature and certified caustic clearance"
+    ]
+  },
+  {
+    "case": 403,
+    "group": "main",
+    "engine": "value",
+    "stop": [
+      "triple point-source curvature and certified caustic clearance",
+      "triple point-source curvature and certified caustic clearance",
+      "degenerate_radial_event",
+      "triple point-source curvature and certified caustic clearance",
+      "triple point-source curvature and certified caustic clearance"
+    ]
+  },
+  {
+    "case": 403,
+    "group": "main",
+    "engine": "gradient",
+    "stop": [
+      "triple point-source curvature and certified caustic clearance",
+      "triple point-source curvature and certified caustic clearance",
+      "degenerate_radial_event",
+      "triple point-source curvature and certified caustic clearance",
+      "triple point-source curvature and certified caustic clearance"
+    ]
+  },
+  {
+    "case": 433,
+    "group": "main",
+    "engine": "value",
+    "stop": [
+      "triple point-source curvature and certified caustic clearance",
+      "triple point-source curvature and certified caustic clearance",
+      "degenerate_radial_event",
+      "triple point-source curvature and certified caustic clearance",
+      "triple point-source curvature and certified caustic clearance"
+    ]
+  },
+  {
+    "case": 433,
+    "group": "main",
+    "engine": "gradient",
+    "stop": [
+      "triple point-source curvature and certified caustic clearance",
+      "triple point-source curvature and certified caustic clearance",
+      "degenerate_radial_event",
+      "triple point-source curvature and certified caustic clearance",
+      "triple point-source curvature and certified caustic clearance"
+    ]
+  },
+  {
+    "case": 439,
+    "group": "main",
+    "engine": "value",
+    "stop": [
+      "triple point-source curvature and certified caustic clearance",
+      "triple hexadecapole and certified caustic clearance",
+      "degenerate_radial_event",
+      "triple hexadecapole and certified caustic clearance",
+      "triple point-source curvature and certified caustic clearance"
+    ]
+  },
+  {
+    "case": 439,
+    "group": "main",
+    "engine": "gradient",
+    "stop": [
+      "triple point-source curvature and certified caustic clearance",
+      "triple hexadecapole and certified caustic clearance",
+      "degenerate_radial_event",
+      "triple hexadecapole and certified caustic clearance",
+      "triple point-source curvature and certified caustic clearance"
+    ]
+  },
+  {
+    "case": 460,
+    "group": "main",
+    "engine": "value",
+    "stop": [
+      "triple point-source curvature and certified caustic clearance",
+      "triple point-source curvature and certified caustic clearance",
+      "degenerate_radial_event",
+      "triple point-source curvature and certified caustic clearance",
+      "triple point-source curvature and certified caustic clearance"
+    ]
+  },
+  {
+    "case": 460,
+    "group": "main",
+    "engine": "gradient",
+    "stop": [
+      "triple point-source curvature and certified caustic clearance",
+      "triple point-source curvature and certified caustic clearance",
+      "degenerate_radial_event",
+      "triple point-source curvature and certified caustic clearance",
+      "triple point-source curvature and certified caustic clearance"
+    ]
+  },
+  {
+    "case": 467,
+    "group": "main",
+    "engine": "value",
+    "stop": [
+      "degenerate_radial_event",
+      "degenerate_radial_event",
+      "degenerate_radial_event",
+      "degenerate_radial_event",
+      "degenerate_radial_event"
+    ]
+  },
+  {
+    "case": 467,
+    "group": "main",
+    "engine": "gradient",
+    "stop": [
+      "degenerate_radial_event",
+      "degenerate_radial_event",
+      "degenerate_radial_event",
+      "degenerate_radial_event",
+      "degenerate_radial_event"
+    ]
+  },
+  {
+    "case": 484,
+    "group": "main",
+    "engine": "value",
+    "stop": [
+      "triple point-source curvature and certified caustic clearance",
+      "triple point-source curvature and certified caustic clearance",
+      "degenerate_radial_event",
+      "triple point-source curvature and certified caustic clearance",
+      "triple point-source curvature and certified caustic clearance"
+    ]
+  },
+  {
+    "case": 484,
+    "group": "main",
+    "engine": "gradient",
+    "stop": [
+      "triple point-source curvature and certified caustic clearance",
+      "triple point-source curvature and certified caustic clearance",
+      "degenerate_radial_event",
+      "triple point-source curvature and certified caustic clearance",
+      "triple point-source curvature and certified caustic clearance"
+    ]
+  },
+  {
+    "case": 499,
+    "group": "main",
+    "engine": "value",
+    "stop": [
+      "triple hexadecapole and certified caustic clearance",
+      "degenerate_radial_event",
+      "degenerate_radial_event",
+      "degenerate_radial_event",
+      "triple hexadecapole and certified caustic clearance"
+    ]
+  },
+  {
+    "case": 499,
+    "group": "main",
+    "engine": "gradient",
+    "stop": [
+      "triple hexadecapole and certified caustic clearance",
+      "degenerate_radial_event",
+      "degenerate_radial_event",
+      "degenerate_radial_event",
+      "triple hexadecapole and certified caustic clearance"
+    ]
+  },
+  {
+    "case": 515,
+    "group": "main",
+    "engine": "value",
+    "stop": [
+      "degenerate_radial_event",
+      "degenerate_radial_event",
+      "degenerate_radial_event",
+      "degenerate_radial_event",
+      "degenerate_radial_event"
+    ]
+  },
+  {
+    "case": 515,
+    "group": "main",
+    "engine": "gradient",
+    "stop": [
+      "degenerate_radial_event",
+      "degenerate_radial_event",
+      "degenerate_radial_event",
+      "degenerate_radial_event",
+      "degenerate_radial_event"
+    ]
+  }
+]

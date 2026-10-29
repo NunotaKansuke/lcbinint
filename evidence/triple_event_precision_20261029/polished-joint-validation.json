@@ -1,0 +1,14 @@
+{
+  "comparisons": 4502,
+  "main_comparisons": 4414,
+  "followup_comparisons": 88,
+  "points": 2251,
+  "conditions": 471,
+  "maximum_ratio": 0.8167345901752832,
+  "exceedances": [],
+  "additional_reference_exclusions": {
+    "unverified_unlensed_reference": 10,
+    "reference_error_estimate_above_requested": 5,
+    "reference_curve_failure": 1
+  }
+}
