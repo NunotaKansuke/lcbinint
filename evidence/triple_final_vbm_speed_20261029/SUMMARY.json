@@ -1,0 +1,232 @@
+{
+  "definition": "VBM value warm CPU median / native value warm CPU median; greater than one means native is faster",
+  "cases": 23,
+  "fully_referenced_cases": 16,
+  "methods": {
+    "SinglePoly": {
+      "count": 8,
+      "median_value_speedup": 1.5397756166387286,
+      "min_value_speedup": 0.007874169108202718,
+      "max_value_speedup": 3744.270784909227,
+      "native_faster": 5,
+      "total_value_time_speedup": 265.65795219216113,
+      "median_gradient_vs_vbm_value_ratio": 1.1246836001515188,
+      "cases": [
+        16,
+        21,
+        24,
+        192,
+        222,
+        460,
+        467,
+        514
+      ],
+      "exclusions": {
+        "failed": 3,
+        "reference_error": 8,
+        "incomplete_reference": 4
+      }
+    },
+    "MultiPoly": {
+      "count": 13,
+      "median_value_speedup": 2.5055396288458667,
+      "min_value_speedup": 0.010639866667778388,
+      "max_value_speedup": 4.228582477705418,
+      "native_faster": 8,
+      "total_value_time_speedup": 1.132012023860906,
+      "median_gradient_vs_vbm_value_ratio": 2.131588431550969,
+      "cases": [
+        16,
+        21,
+        24,
+        54,
+        192,
+        222,
+        400,
+        403,
+        433,
+        460,
+        467,
+        499,
+        514
+      ],
+      "exclusions": {
+        "failed": 0,
+        "reference_error": 3,
+        "incomplete_reference": 7
+      }
+    },
+    "NoPoly": {
+      "count": 12,
+      "median_value_speedup": 2.573250636206503,
+      "min_value_speedup": 0.007612624268587697,
+      "max_value_speedup": 14.011226746600762,
+      "native_faster": 10,
+      "total_value_time_speedup": 2.4441038440266465,
+      "median_gradient_vs_vbm_value_ratio": 1.9403745517890942,
+      "cases": [
+        16,
+        21,
+        24,
+        54,
+        192,
+        222,
+        403,
+        433,
+        439,
+        484,
+        499,
+        514
+      ],
+      "exclusions": {
+        "failed": 4,
+        "reference_error": 0,
+        "incomplete_reference": 7
+      }
+    }
+  },
+  "agreement_only_methods": {
+    "SinglePoly": {
+      "count": 11,
+      "median_value_speedup": 1.823109364415896,
+      "min_value_speedup": 0.007874169108202718,
+      "max_value_speedup": 3744.270784909227,
+      "native_faster": 7,
+      "total_value_time_speedup": 16.47624733041934,
+      "median_gradient_vs_vbm_value_ratio": 1.5510107227604446,
+      "cases": [
+        16,
+        21,
+        24,
+        80,
+        116,
+        192,
+        222,
+        460,
+        467,
+        514,
+        972
+      ]
+    },
+    "MultiPoly": {
+      "count": 19,
+      "median_value_speedup": 2.5055396288458667,
+      "min_value_speedup": 0.010639866667778388,
+      "max_value_speedup": 7.786026049779616,
+      "native_faster": 13,
+      "total_value_time_speedup": 1.0513329553604314,
+      "median_gradient_vs_vbm_value_ratio": 0.981497887798055,
+      "cases": [
+        16,
+        21,
+        24,
+        54,
+        80,
+        116,
+        192,
+        200,
+        222,
+        400,
+        403,
+        433,
+        460,
+        467,
+        499,
+        514,
+        940,
+        972,
+        1070
+      ]
+    },
+    "NoPoly": {
+      "count": 18,
+      "median_value_speedup": 4.285515639647825,
+      "min_value_speedup": 0.007612624268587697,
+      "max_value_speedup": 14.011226746600762,
+      "native_faster": 15,
+      "total_value_time_speedup": 3.3133922865941123,
+      "median_gradient_vs_vbm_value_ratio": 1.21610142072513,
+      "cases": [
+        16,
+        21,
+        24,
+        54,
+        80,
+        116,
+        192,
+        200,
+        222,
+        403,
+        433,
+        439,
+        484,
+        499,
+        514,
+        940,
+        972,
+        1070
+      ]
+    }
+  },
+  "common_qualified_cases": [
+    16,
+    21,
+    24,
+    192,
+    222,
+    514
+  ],
+  "common_methods": {
+    "SinglePoly": {
+      "count": 6,
+      "median_value_speedup": 0.9793974882529888,
+      "min_value_speedup": 0.007874169108202718,
+      "max_value_speedup": 2.5645216281254815,
+      "native_faster": 3,
+      "total_value_time_speedup": 1.0081499361913424,
+      "median_gradient_vs_vbm_value_ratio": 0.5880188255278879,
+      "cases": [
+        16,
+        21,
+        24,
+        192,
+        222,
+        514
+      ]
+    },
+    "MultiPoly": {
+      "count": 6,
+      "median_value_speedup": 1.3375864889644822,
+      "min_value_speedup": 0.010639866667778388,
+      "max_value_speedup": 3.2027664019727102,
+      "native_faster": 3,
+      "total_value_time_speedup": 1.3254511545228809,
+      "median_gradient_vs_vbm_value_ratio": 0.8003404334626985,
+      "cases": [
+        16,
+        21,
+        24,
+        192,
+        222,
+        514
+      ]
+    },
+    "NoPoly": {
+      "count": 6,
+      "median_value_speedup": 1.7677987379204871,
+      "min_value_speedup": 0.007612624268587697,
+      "max_value_speedup": 4.9689562759424515,
+      "native_faster": 4,
+      "total_value_time_speedup": 1.8488857045426355,
+      "median_gradient_vs_vbm_value_ratio": 0.9755949967053763,
+      "cases": [
+        16,
+        21,
+        24,
+        192,
+        222,
+        514
+      ]
+    }
+  }
+}

@@ -1,0 +1,88 @@
+{
+  "commit": "e39af1c4b462c7294ba1bfa195637bf36cf6f551",
+  "branch": "experiment/algebraic_boundary",
+  "host": "rogue1",
+  "platform": "Linux-5.14.0-570.23.1.el9_6.x86_64-x86_64-with-glibc2.34",
+  "cpu": [
+    {
+      "field": "Architecture:",
+      "data": "x86_64"
+    },
+    {
+      "field": "CPU(s):",
+      "data": "64"
+    },
+    {
+      "field": "Model name:",
+      "data": "INTEL(R) XEON(R) GOLD 6530"
+    },
+    {
+      "field": "Thread(s) per core:",
+      "data": "1"
+    },
+    {
+      "field": "Core(s) per socket:",
+      "data": "32"
+    },
+    {
+      "field": "Socket(s):",
+      "data": "2"
+    }
+  ],
+  "native_sha256": "863253398bab41c1d9fbc3018282234fbad67ad3ac57ad9d649ea9b32cb5f7df",
+  "native_provenance_sha256": "b63d621cf9d131e41034ebfe06754287106d1e5bb5b51f9e3eecc34d9ed1d425",
+  "vbm_version": "5.5",
+  "vbm_native": "/home/nunota/.miniconda3/envs/myenv/lib/python3.10/site-packages/VBMicrolensing/VBMicrolensing.so",
+  "vbm_sha256": "2da21fc58898c511e036d1576dfbc5dee8e33e694830d91b9e5dad34a8a80dae",
+  "reference_sha256": "2f65f4ddefebc2eff67dda4753a73df5f6b3ce5511d010227672981ae173a46c",
+  "input_hashes": {
+    "0016.json": "bf22f68e88050ae81fd7e9452fc65535c6de169bb64b5b0df89b75db98d18f4a",
+    "0021.json": "54c91fc34187c52e6ccf0cac9ddb68f7f2224627f5f2bb70b51a39878325aaf0",
+    "0024.json": "567fdedb9c3886b6ff9ce11b255f509a93a1ba40cef73da5c51c977032eb6bde",
+    "0054.json": "6ce5b0496b3f3f2da849292eb83a0384163c57286dd78a7fd16f29b56cd48cf5",
+    "0080.json": "b69badba9452be27d5a1053d224238f9512630a0450579589c34f1568840dfc8",
+    "0116.json": "fbd611e2c52ba3add93b5004c3749a87f7bbb7275e99c6109e5b940fbe6c3477",
+    "0192.json": "493e648754489fc697868ef3c4df17538719de4fa5198da0cbad39af99ad6a74",
+    "0200.json": "f3b5315eb90798daa511b6fe78784a2306a1b512336208acafc2f91c9d071f51",
+    "0222.json": "4b0b4757997b39c838f025c53e1a512a7e517ead92c3edef3418c07c475bb36b",
+    "0400.json": "f1456e0652b30501b1141ab87c3c98210456fbfdcb1877fa9684af4a5a8d6da2",
+    "0403.json": "2349c48ded3c97b44d8db2c3052d5657950112bec870954fc1ba8ec923c5fb65",
+    "0433.json": "a9db2d8093e46339eff76177a5d079cca67bf3bf9e05635edc6f65351bcd89ee",
+    "0439.json": "aa2c4377db6248402bc5d428e4b4cb9fe3dba1df06c82c6a9628906c47630ab1",
+    "0460.json": "1e82584901be20a7487e00d9f53d4fd26021e9ebaa68f762dce94a2e692a4302",
+    "0467.json": "12e914cd5c9067144fcc79fc730b091a465238e7ef96919619c5bce655bc8e0e",
+    "0484.json": "714fe39c52869c197fff1325abf20740f210c0c3dde89b707776660ec1bf1bc5",
+    "0499.json": "e96e5a7609ee5a89cd7889113c8272d492db19f5e1f1101bafc5220ce6c0d4bc",
+    "0514.json": "fef70d330441ddd4bd4336beaa5db88b6127222fcc6dad41d026f8d1f19aa18f",
+    "0515.json": "967e9269e222f3bcfc1e1f7434a1af75038ce66ed5eac542608a72c34b4bafc1",
+    "0940.json": "66fb878ca2dca7fa088afc8c6e4f0dafbbf11442034feab729101f45cbb88b9f",
+    "0972.json": "61b23ab92a02cb59242d99e7c15edaabc46ca809604f57fcf1376ee05b562949",
+    "1070.json": "f88cebad5caaf68b01609d2c6fe34e9189525d53995c1ce0080dba13c44fcf6d",
+    "1508.json": "e4403083b341f25fad3b727c36f86a24b04ea80e0879628767a9673222c7ae07"
+  },
+  "protocol": {
+    "cpu": 0,
+    "execution": "serial independent processes; rotated engine order per case",
+    "cold_calls": 1,
+    "warmup_calls": 2,
+    "measured_calls": 9,
+    "statistic": "median thread CPU seconds",
+    "excluded": "imports and model construction",
+    "atol": 0,
+    "rtol": "input request unchanged",
+    "cpu_seconds_per_worker": 60,
+    "address_space_gib_per_worker": 2,
+    "threads_per_library": 1,
+    "external_load_and_frequency": "uncontrolled"
+  },
+  "resource_budget": {
+    "cpu_max": 8,
+    "ram_gib": 16,
+    "active_timing_workers": 1
+  },
+  "script_hashes": {
+    "measure.py": "0d5c2ebb314a315f636ae8f0a7264af159609113c2b0688655119928c2c2a8db",
+    "summarize.py": "c8e2defac9072020c16c27c601be6f11fddad5521d0c0825a2f03f42c9a74745",
+    "finish.py": "eff19f9d8f1af4d5e2b4931c65bd30516f567d613aaf75a9347431f9dde2a51e"
+  }
+}

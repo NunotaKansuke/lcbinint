@@ -1,0 +1,2484 @@
+[
+  {
+    "case": 16,
+    "index": 0,
+    "engine": "value",
+    "native": 1.011696450768746,
+    "references": [
+      1.0116965028842049,
+      1.0116965028852534
+    ],
+    "error_over_requested": 5.151397397540336e-05,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 16,
+    "index": 0,
+    "engine": "gradient",
+    "native": 1.011696450768746,
+    "references": [
+      1.0116965028842049,
+      1.0116965028852534
+    ],
+    "error_over_requested": 5.151397397540336e-05,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 16,
+    "index": 1,
+    "engine": "value",
+    "native": 1.0746463604235008,
+    "references": [
+      1.074646468896587,
+      1.0746464688957875
+    ],
+    "error_over_requested": 0.00010093839175606689,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 16,
+    "index": 1,
+    "engine": "gradient",
+    "native": 1.0746463604235008,
+    "references": [
+      1.074646468896587,
+      1.0746464688957875
+    ],
+    "error_over_requested": 0.00010093839175606689,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 16,
+    "index": 2,
+    "engine": "value",
+    "native": 1.0963204292911237,
+    "references": [
+      1.096320428750639,
+      1.0963204287496906
+    ],
+    "error_over_requested": 4.938638387130823e-07,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 16,
+    "index": 2,
+    "engine": "gradient",
+    "native": 1.0963204292911237,
+    "references": [
+      1.096320428750639,
+      1.0963204287496906
+    ],
+    "error_over_requested": 4.938638387130823e-07,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 16,
+    "index": 3,
+    "engine": "value",
+    "native": 1.0914815200592654,
+    "references": [
+      1.0914813847050036,
+      1.0914813847058331
+    ],
+    "error_over_requested": 0.00012400968407710877,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 16,
+    "index": 3,
+    "engine": "gradient",
+    "native": 1.0914815200592654,
+    "references": [
+      1.0914813847050036,
+      1.0914813847058331
+    ],
+    "error_over_requested": 0.00012400968407710877,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 16,
+    "index": 4,
+    "engine": "value",
+    "native": 1.0809383653970146,
+    "references": [
+      1.0809381828915785,
+      1.080938182891801
+    ],
+    "error_over_requested": 0.0001688398458821183,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 16,
+    "index": 4,
+    "engine": "gradient",
+    "native": 1.0809383653970146,
+    "references": [
+      1.0809381828915785,
+      1.080938182891801
+    ],
+    "error_over_requested": 0.0001688398458821183,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 16,
+    "index": 5,
+    "engine": "value",
+    "native": 1.044856672015762,
+    "references": [
+      1.0448566302813056,
+      1.0448566302819156
+    ],
+    "error_over_requested": 3.994275887819754e-05,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 16,
+    "index": 5,
+    "engine": "gradient",
+    "native": 1.0448565676835244,
+    "references": [
+      1.0448566302813056,
+      1.0448566302819156
+    ],
+    "error_over_requested": 5.991098617208479e-05,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 16,
+    "index": 6,
+    "engine": "value",
+    "native": 1.0212087910369578,
+    "references": [
+      1.0212100013004584,
+      1.021210001300495
+    ],
+    "error_over_requested": 0.0011851269920981622,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 16,
+    "index": 6,
+    "engine": "gradient",
+    "native": 1.0212099411423332,
+    "references": [
+      1.0212100013004584,
+      1.021210001300495
+    ],
+    "error_over_requested": 5.890870802272019e-05,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 21,
+    "index": 0,
+    "engine": "value",
+    "native": 1.015638378111067,
+    "references": [
+      1.015638395053307,
+      1.0156383795828632
+    ],
+    "error_over_requested": 0.00016681370174076449,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 21,
+    "index": 0,
+    "engine": "gradient",
+    "native": 1.015638378111067,
+    "references": [
+      1.015638395053307,
+      1.0156383795828632
+    ],
+    "error_over_requested": 0.00016681370174076449,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 21,
+    "index": 1,
+    "engine": "value",
+    "native": 1.3196195400210171,
+    "references": [
+      1.3196197644240297,
+      1.3196195421646502
+    ],
+    "error_over_requested": 0.0017005126673463877,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 21,
+    "index": 1,
+    "engine": "gradient",
+    "native": 1.3196195400210171,
+    "references": [
+      1.3196197644240297,
+      1.3196195421646502
+    ],
+    "error_over_requested": 0.0017005126673463877,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 21,
+    "index": 2,
+    "engine": "value",
+    "native": 3.1653500217129764,
+    "references": [
+      3.165350020196612,
+      3.1653500242532777
+    ],
+    "error_over_requested": 8.025340392237013e-06,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 21,
+    "index": 2,
+    "engine": "gradient",
+    "native": 3.1653500217129764,
+    "references": [
+      3.165350020196612,
+      3.1653500242532777
+    ],
+    "error_over_requested": 8.025340392237013e-06,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 21,
+    "index": 3,
+    "engine": "value",
+    "native": 4.385853818546805,
+    "references": [
+      4.385853702765137,
+      4.385853821256561
+    ],
+    "error_over_requested": 0.00026398889518830515,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 21,
+    "index": 3,
+    "engine": "gradient",
+    "native": 4.385853818546805,
+    "references": [
+      4.385853702765137,
+      4.385853821256561
+    ],
+    "error_over_requested": 0.00026398889518830515,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 21,
+    "index": 4,
+    "engine": "value",
+    "native": 2.8755276617161285,
+    "references": [
+      2.8755275829559923,
+      2.875527664090847
+    ],
+    "error_over_requested": 0.0002738980375838196,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 21,
+    "index": 4,
+    "engine": "gradient",
+    "native": 2.8755276617161285,
+    "references": [
+      2.8755275829559923,
+      2.875527664090847
+    ],
+    "error_over_requested": 0.0002738980375838196,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 21,
+    "index": 5,
+    "engine": "value",
+    "native": 1.2902991480179256,
+    "references": [
+      1.2902991244840551,
+      1.2902991501145318
+    ],
+    "error_over_requested": 0.00018239081134296953,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 21,
+    "index": 5,
+    "engine": "gradient",
+    "native": 1.2902991480179256,
+    "references": [
+      1.2902991244840551,
+      1.2902991501145318
+    ],
+    "error_over_requested": 0.00018239081134296953,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 21,
+    "index": 6,
+    "engine": "value",
+    "native": 1.0148909399726151,
+    "references": [
+      1.0148909042821932,
+      1.014890941443063
+    ],
+    "error_over_requested": 0.00035166757061944054,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 21,
+    "index": 6,
+    "engine": "gradient",
+    "native": 1.0148909399726151,
+    "references": [
+      1.0148909042821932,
+      1.014890941443063
+    ],
+    "error_over_requested": 0.00035166757061944054,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 24,
+    "index": 0,
+    "engine": "value",
+    "native": 1.0141828463002036,
+    "references": [
+      1.0141828440373923,
+      1.0141828440585596
+    ],
+    "error_over_requested": 2.2311670289099084e-06,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 24,
+    "index": 0,
+    "engine": "gradient",
+    "native": 1.0141828463002036,
+    "references": [
+      1.0141828440373923,
+      1.0141828440585596
+    ],
+    "error_over_requested": 2.2311670289099084e-06,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 24,
+    "index": 1,
+    "engine": "value",
+    "native": 1.3436008770756118,
+    "references": [
+      1.343593052052275,
+      1.3435930520570258
+    ],
+    "error_over_requested": 0.005823953409755944,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 24,
+    "index": 1,
+    "engine": "gradient",
+    "native": 1.3435930514648724,
+    "references": [
+      1.343593052052275,
+      1.3435930520570258
+    ],
+    "error_over_requested": 4.407237907955164e-07,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 24,
+    "index": 2,
+    "engine": "value",
+    "native": 2.893479584525488,
+    "references": [
+      2.8934580614452337,
+      2.8934580615207275
+    ],
+    "error_over_requested": 0.007438531956394101,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 24,
+    "index": 2,
+    "engine": "gradient",
+    "native": 2.893458061178357,
+    "references": [
+      2.8934580614452337,
+      2.8934580615207275
+    ],
+    "error_over_requested": 1.1832579360770978e-07,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 24,
+    "index": 3,
+    "engine": "value",
+    "native": 2.711564116941664,
+    "references": [
+      2.7115384620866103,
+      2.7115384620902163
+    ],
+    "error_over_requested": 0.00946136498236605,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 24,
+    "index": 3,
+    "engine": "gradient",
+    "native": 2.7115384619287934,
+    "references": [
+      2.7115384620866103,
+      2.7115384620902163
+    ],
+    "error_over_requested": 5.953182391493783e-08,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 24,
+    "index": 4,
+    "engine": "value",
+    "native": 1.9357864213861022,
+    "references": [
+      1.9357501927161744,
+      1.9357501927095129
+    ],
+    "error_over_requested": 0.018715574316319206,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 24,
+    "index": 4,
+    "engine": "gradient",
+    "native": 1.9357501925197587,
+    "references": [
+      1.9357501927161744,
+      1.9357501927095129
+    ],
+    "error_over_requested": 1.0146750106798663e-07,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 24,
+    "index": 5,
+    "engine": "value",
+    "native": 1.167942930709519,
+    "references": [
+      1.167942915794136,
+      1.1679429157860917
+    ],
+    "error_over_requested": 1.2777531477325965e-05,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 24,
+    "index": 5,
+    "engine": "gradient",
+    "native": 1.1679429150567557,
+    "references": [
+      1.167942915794136,
+      1.1679429157860917
+    ],
+    "error_over_requested": 6.313495282128656e-07,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 24,
+    "index": 6,
+    "engine": "value",
+    "native": 1.0080205922676306,
+    "references": [
+      1.008020591798421,
+      1.0080205917857878
+    ],
+    "error_over_requested": 4.780089657430153e-07,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 24,
+    "index": 6,
+    "engine": "gradient",
+    "native": 1.0080205922676306,
+    "references": [
+      1.008020591798421,
+      1.0080205917857878
+    ],
+    "error_over_requested": 4.780089657430153e-07,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 54,
+    "index": 0,
+    "engine": "value",
+    "native": 1.0167656694149736,
+    "references": [
+      1.0167656140790011,
+      1.0167656141047983
+    ],
+    "error_over_requested": 5.4423528572655755e-05,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 54,
+    "index": 0,
+    "engine": "gradient",
+    "native": 1.0167656694149736,
+    "references": [
+      1.0167656140790011,
+      1.0167656141047983
+    ],
+    "error_over_requested": 5.4423528572655755e-05,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 54,
+    "index": 1,
+    "engine": "value",
+    "native": 1.3026027820476433,
+    "references": [
+      1.3026022048455683,
+      1.3026022046709056
+    ],
+    "error_over_requested": 0.00044324870307477227,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 54,
+    "index": 1,
+    "engine": "gradient",
+    "native": 1.3026022041495053,
+    "references": [
+      1.3026022048455683,
+      1.3026022046709056
+    ],
+    "error_over_requested": 5.343634423837784e-07,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 54,
+    "index": 2,
+    "engine": "value",
+    "native": 2.422219851671203,
+    "references": [
+      2.422219671275395,
+      2.42221967137143
+    ],
+    "error_over_requested": 7.447541205962693e-05,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 54,
+    "index": 2,
+    "engine": "gradient",
+    "native": 2.422219655631439,
+    "references": [
+      2.422219671275395,
+      2.42221967137143
+    ],
+    "error_over_requested": 6.498168336754873e-06,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 54,
+    "index": 3,
+    "engine": "value",
+    "native": 3.0381388667135147,
+    "references": [
+      3.0381748922772602,
+      3.0381388672948115
+    ],
+    "error_over_requested": 0.011857633290701663,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 54,
+    "index": 3,
+    "engine": "gradient",
+    "native": 3.038138866315172,
+    "references": [
+      3.0381748922772602,
+      3.0381388672948115
+    ],
+    "error_over_requested": 0.01185776440315589,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 54,
+    "index": 4,
+    "engine": "value",
+    "native": 2.4271563849934266,
+    "references": [
+      2.427156922609351,
+      2.4271569227211587
+    ],
+    "error_over_requested": 0.0002215463397181594,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 54,
+    "index": 4,
+    "engine": "gradient",
+    "native": 2.4271569204426426,
+    "references": [
+      2.427156922609351,
+      2.4271569227211587
+    ],
+    "error_over_requested": 9.387592925236277e-07,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 54,
+    "index": 5,
+    "engine": "value",
+    "native": 1.307093463135487,
+    "references": [
+      1.3070922705163392,
+      1.3070922705252195
+    ],
+    "error_over_requested": 0.0009124215440969863,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 54,
+    "index": 5,
+    "engine": "gradient",
+    "native": 1.3070922700593977,
+    "references": [
+      1.3070922705163392,
+      1.3070922705252195
+    ],
+    "error_over_requested": 3.563802586370457e-07,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 54,
+    "index": 6,
+    "engine": "value",
+    "native": 1.017705597321017,
+    "references": [
+      1.0177056007982033,
+      1.017705600455261
+    ],
+    "error_over_requested": 3.4166917073363834e-06,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 54,
+    "index": 6,
+    "engine": "gradient",
+    "native": 1.017705597321017,
+    "references": [
+      1.0177056007982033,
+      1.017705600455261
+    ],
+    "error_over_requested": 3.4166917073363834e-06,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 80,
+    "index": 0,
+    "engine": "value",
+    "native": 1.0172562722146261,
+    "references": [
+      1.0172562928289046,
+      1.017256292828904
+    ],
+    "error_over_requested": 2.026458689741162e-05,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 80,
+    "index": 0,
+    "engine": "gradient",
+    "native": 1.017256231247765,
+    "references": [
+      1.0172562928289046,
+      1.017256292828904
+    ],
+    "error_over_requested": 6.0536503920793905e-05,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 80,
+    "index": 6,
+    "engine": "value",
+    "native": 1.0172567672549753,
+    "references": [
+      1.0172567878051382,
+      1.0172567878051393
+    ],
+    "error_over_requested": 2.020155009940794e-05,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 80,
+    "index": 6,
+    "engine": "gradient",
+    "native": 1.017256726208046,
+    "references": [
+      1.0172567878051382,
+      1.0172567878051393
+    ],
+    "error_over_requested": 6.055215751032961e-05,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 116,
+    "index": 0,
+    "engine": "value",
+    "native": 1.0149333083221161,
+    "references": [
+      1.0149333367732105,
+      1.0149333367979492
+    ],
+    "error_over_requested": 2.8056850620572504e-05,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 116,
+    "index": 0,
+    "engine": "gradient",
+    "native": 1.0149333083221161,
+    "references": [
+      1.0149333367732105,
+      1.0149333367979492
+    ],
+    "error_over_requested": 2.8056850620572504e-05,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 116,
+    "index": 3,
+    "engine": "value",
+    "native": 1.6500424795822741,
+    "references": [
+      1.6500424609145665,
+      1.650042460906273
+    ],
+    "error_over_requested": 1.1318497250556447e-05,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 116,
+    "index": 3,
+    "engine": "gradient",
+    "native": 1.6500424795822741,
+    "references": [
+      1.6500424609145665,
+      1.650042460906273
+    ],
+    "error_over_requested": 1.1318497250556447e-05,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 116,
+    "index": 4,
+    "engine": "value",
+    "native": 1.6369940823969016,
+    "references": [
+      1.6369941483568378,
+      1.636994148358588
+    ],
+    "error_over_requested": 4.029439348851582e-05,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 116,
+    "index": 4,
+    "engine": "gradient",
+    "native": 1.6369940823969016,
+    "references": [
+      1.6369941483568378,
+      1.636994148358588
+    ],
+    "error_over_requested": 4.029439348851582e-05,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 116,
+    "index": 5,
+    "engine": "value",
+    "native": 1.2371530265542445,
+    "references": [
+      1.2371530947013885,
+      1.2371530946893543
+    ],
+    "error_over_requested": 5.508384059993432e-05,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 116,
+    "index": 5,
+    "engine": "gradient",
+    "native": 1.2371530265542445,
+    "references": [
+      1.2371530947013885,
+      1.2371530946893543
+    ],
+    "error_over_requested": 5.508384059993432e-05,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 116,
+    "index": 6,
+    "engine": "value",
+    "native": 1.015388256032597,
+    "references": [
+      1.0153882858986585,
+      1.0153882856959
+    ],
+    "error_over_requested": 2.9413439017744736e-05,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 116,
+    "index": 6,
+    "engine": "gradient",
+    "native": 1.015388256032597,
+    "references": [
+      1.0153882858986585,
+      1.0153882856959
+    ],
+    "error_over_requested": 2.9413439017744736e-05,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 192,
+    "index": 0,
+    "engine": "value",
+    "native": 1.0106472184909094,
+    "references": [
+      1.0106472198607164,
+      1.0106472198613574
+    ],
+    "error_over_requested": 1.3560101930210067e-06,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 192,
+    "index": 0,
+    "engine": "gradient",
+    "native": 1.0106472184909094,
+    "references": [
+      1.0106472198607164,
+      1.0106472198613574
+    ],
+    "error_over_requested": 1.3560101930210067e-06,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 192,
+    "index": 1,
+    "engine": "value",
+    "native": 1.0651150209259914,
+    "references": [
+      1.0651150221285062,
+      1.0651150221285097
+    ],
+    "error_over_requested": 1.1290032242428083e-06,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 192,
+    "index": 1,
+    "engine": "gradient",
+    "native": 1.0651150209259914,
+    "references": [
+      1.0651150221285062,
+      1.0651150221285097
+    ],
+    "error_over_requested": 1.1290032242428083e-06,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 192,
+    "index": 2,
+    "engine": "value",
+    "native": 1.0964982370685645,
+    "references": [
+      1.0964982506154206,
+      1.0964982506154197
+    ],
+    "error_over_requested": 1.2354653633472878e-05,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 192,
+    "index": 2,
+    "engine": "gradient",
+    "native": 1.096498249538413,
+    "references": [
+      1.0964982506154206,
+      1.0964982506154197
+    ],
+    "error_over_requested": 9.82224634960005e-07,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 192,
+    "index": 3,
+    "engine": "value",
+    "native": 1.0989140139768205,
+    "references": [
+      1.0988988019477133,
+      1.0988988019477182
+    ],
+    "error_over_requested": 0.013842975422617698,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 192,
+    "index": 3,
+    "engine": "gradient",
+    "native": 1.098898795208512,
+    "references": [
+      1.0988988019477133,
+      1.0988988019477182
+    ],
+    "error_over_requested": 6.132690355542536e-06,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 192,
+    "index": 4,
+    "engine": "value",
+    "native": 1.099692044173672,
+    "references": [
+      1.0997279338175012,
+      1.0997279338174872
+    ],
+    "error_over_requested": 0.03263502064976276,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 192,
+    "index": 4,
+    "engine": "gradient",
+    "native": 1.099727961340732,
+    "references": [
+      1.0997279338175012,
+      1.0997279338174872
+    ],
+    "error_over_requested": 2.5027321770565436e-05,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 192,
+    "index": 5,
+    "engine": "value",
+    "native": 1.0649952010865793,
+    "references": [
+      1.0649952024239469,
+      1.0649952024239453
+    ],
+    "error_over_requested": 1.255749837447695e-06,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 192,
+    "index": 5,
+    "engine": "gradient",
+    "native": 1.0649952010865793,
+    "references": [
+      1.0649952024239469,
+      1.0649952024239453
+    ],
+    "error_over_requested": 1.255749837447695e-06,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 192,
+    "index": 6,
+    "engine": "value",
+    "native": 1.010605183713449,
+    "references": [
+      1.0106051850812827,
+      1.0106051850813682
+    ],
+    "error_over_requested": 1.353564260675455e-06,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 192,
+    "index": 6,
+    "engine": "gradient",
+    "native": 1.010605183713449,
+    "references": [
+      1.0106051850812827,
+      1.0106051850813682
+    ],
+    "error_over_requested": 1.353564260675455e-06,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 200,
+    "index": 0,
+    "engine": "value",
+    "native": 1.0114221792249716,
+    "references": [
+      1.011422265594153,
+      1.0114222655737222
+    ],
+    "error_over_requested": 8.53937908162905e-05,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 200,
+    "index": 0,
+    "engine": "gradient",
+    "native": 1.0114221792249716,
+    "references": [
+      1.011422265594153,
+      1.0114222655737222
+    ],
+    "error_over_requested": 8.53937908162905e-05,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 200,
+    "index": 6,
+    "engine": "value",
+    "native": 1.011474040645483,
+    "references": [
+      1.0114740133968336,
+      1.0114740133966855
+    ],
+    "error_over_requested": 2.6939691144534095e-05,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 200,
+    "index": 6,
+    "engine": "gradient",
+    "native": 1.011474040645483,
+    "references": [
+      1.0114740133968336,
+      1.0114740133966855
+    ],
+    "error_over_requested": 2.6939691144534095e-05,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 222,
+    "index": 0,
+    "engine": "value",
+    "native": 1.0282681380333134,
+    "references": [
+      1.0282688703809137,
+      1.0282688703809129
+    ],
+    "error_over_requested": 0.0007122141119086933,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 222,
+    "index": 0,
+    "engine": "gradient",
+    "native": 1.0282688692635829,
+    "references": [
+      1.0282688703809137,
+      1.0282688703809129
+    ],
+    "error_over_requested": 1.0866135768949903e-06,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 222,
+    "index": 1,
+    "engine": "value",
+    "native": 1.2234841383858797,
+    "references": [
+      1.223484141933745,
+      1.2234841419337283
+    ],
+    "error_over_requested": 2.8998049517170443e-06,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 222,
+    "index": 1,
+    "engine": "gradient",
+    "native": 1.2234841383858797,
+    "references": [
+      1.223484141933745,
+      1.2234841419337283
+    ],
+    "error_over_requested": 2.8998049517170443e-06,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 222,
+    "index": 2,
+    "engine": "value",
+    "native": 1.6611452032947165,
+    "references": [
+      1.6611449669821194,
+      1.661144966982122
+    ],
+    "error_over_requested": 0.00014225886468821614,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 222,
+    "index": 2,
+    "engine": "gradient",
+    "native": 1.6611452032947165,
+    "references": [
+      1.6611449669821194,
+      1.661144966982122
+    ],
+    "error_over_requested": 0.00014225886468821614,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 222,
+    "index": 3,
+    "engine": "value",
+    "native": 1.740900120045539,
+    "references": [
+      1.7408996685196287,
+      1.7408996685196327
+    ],
+    "error_over_requested": 0.0002593635453074228,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 222,
+    "index": 3,
+    "engine": "gradient",
+    "native": 1.740900120045539,
+    "references": [
+      1.7408996685196287,
+      1.7408996685196327
+    ],
+    "error_over_requested": 0.0002593635453074228,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 222,
+    "index": 4,
+    "engine": "value",
+    "native": 1.6366302199755773,
+    "references": [
+      1.6366301140118285,
+      1.636630114011832
+    ],
+    "error_over_requested": 6.4745080852191e-05,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 222,
+    "index": 4,
+    "engine": "gradient",
+    "native": 1.6366302199755773,
+    "references": [
+      1.6366301140118285,
+      1.636630114011832
+    ],
+    "error_over_requested": 6.4745080852191e-05,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 222,
+    "index": 5,
+    "engine": "value",
+    "native": 1.2026747159396072,
+    "references": [
+      1.202674719580129,
+      1.2026747195801146
+    ],
+    "error_over_requested": 3.0270211892613474e-06,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 222,
+    "index": 5,
+    "engine": "gradient",
+    "native": 1.2026747159396072,
+    "references": [
+      1.202674719580129,
+      1.2026747195801146
+    ],
+    "error_over_requested": 3.0270211892613474e-06,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 222,
+    "index": 6,
+    "engine": "value",
+    "native": 1.0120905826355722,
+    "references": [
+      1.0120905840244077,
+      1.012090584024387
+    ],
+    "error_over_requested": 1.372244207153983e-06,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 222,
+    "index": 6,
+    "engine": "gradient",
+    "native": 1.0120905826355722,
+    "references": [
+      1.0120905840244077,
+      1.012090584024387
+    ],
+    "error_over_requested": 1.372244207153983e-06,
+    "source": "VBM RelTol=1e-7"
+  },
+  {
+    "case": 972,
+    "index": 0,
+    "engine": "value",
+    "native": 20.563258775416706,
+    "references": [
+      20.564059861019015,
+      20.564059861038356
+    ],
+    "error_over_requested": 0.03895561611189091,
+    "source": "independent LD uniform disks RelTol=1e-6, nested GL convergence and MP/NP agreement"
+  },
+  {
+    "case": 972,
+    "index": 0,
+    "engine": "gradient",
+    "native": 20.564059854331582,
+    "references": [
+      20.564059861019015,
+      20.564059861038356
+    ],
+    "error_over_requested": 3.26140559003818e-07,
+    "source": "independent LD uniform disks RelTol=1e-6, nested GL convergence and MP/NP agreement"
+  },
+  {
+    "case": 972,
+    "index": 1,
+    "engine": "value",
+    "native": 21.240151505258503,
+    "references": [
+      21.240173515356165,
+      21.240173515455332
+    ],
+    "error_over_requested": 0.0010362531555063725,
+    "source": "independent LD uniform disks RelTol=1e-6, nested GL convergence and MP/NP agreement"
+  },
+  {
+    "case": 972,
+    "index": 1,
+    "engine": "gradient",
+    "native": 21.240177108406034,
+    "references": [
+      21.240173515356165,
+      21.240173515455332
+    ],
+    "error_over_requested": 0.00016916292455704252,
+    "source": "independent LD uniform disks RelTol=1e-6, nested GL convergence and MP/NP agreement"
+  },
+  {
+    "case": 514,
+    "index": 0,
+    "engine": "value",
+    "native": 1.0000002404510282,
+    "references": [
+      1.0000002404510284,
+      1.0000002404510284,
+      1.0000002404510284
+    ],
+    "error_over_requested": 2.220446049250313e-13,
+    "source": "independent 80-digit original equation; 4-image source-disk GL2/4/8 and 8/16/32 angles; validation only"
+  },
+  {
+    "case": 514,
+    "index": 0,
+    "engine": "gradient",
+    "native": 1.0000002404510282,
+    "references": [
+      1.0000002404510284,
+      1.0000002404510284,
+      1.0000002404510284
+    ],
+    "error_over_requested": 2.220446049250313e-13,
+    "source": "independent 80-digit original equation; 4-image source-disk GL2/4/8 and 8/16/32 angles; validation only"
+  },
+  {
+    "case": 514,
+    "index": 1,
+    "engine": "value",
+    "native": 1.0000002399871888,
+    "references": [
+      1.0000002399871888,
+      1.0000002399871888,
+      1.0000002399871888
+    ],
+    "error_over_requested": 0.0,
+    "source": "independent 80-digit original equation; 4-image source-disk GL2/4/8 and 8/16/32 angles; validation only"
+  },
+  {
+    "case": 514,
+    "index": 1,
+    "engine": "gradient",
+    "native": 1.0000002399871888,
+    "references": [
+      1.0000002399871888,
+      1.0000002399871888,
+      1.0000002399871888
+    ],
+    "error_over_requested": 0.0,
+    "source": "independent 80-digit original equation; 4-image source-disk GL2/4/8 and 8/16/32 angles; validation only"
+  },
+  {
+    "case": 514,
+    "index": 2,
+    "engine": "value",
+    "native": 1.0000002399680281,
+    "references": [
+      1.0000002399680283,
+      1.0000002399680283,
+      1.0000002399680283
+    ],
+    "error_over_requested": 2.220446049250313e-13,
+    "source": "independent 80-digit original equation; 4-image source-disk GL2/4/8 and 8/16/32 angles; validation only"
+  },
+  {
+    "case": 514,
+    "index": 2,
+    "engine": "gradient",
+    "native": 1.0000002399680281,
+    "references": [
+      1.0000002399680283,
+      1.0000002399680283,
+      1.0000002399680283
+    ],
+    "error_over_requested": 2.220446049250313e-13,
+    "source": "independent 80-digit original equation; 4-image source-disk GL2/4/8 and 8/16/32 angles; validation only"
+  },
+  {
+    "case": 514,
+    "index": 3,
+    "engine": "value",
+    "native": 1.0000002399875512,
+    "references": [
+      1.000000239987551,
+      1.000000239987551,
+      1.000000239987551
+    ],
+    "error_over_requested": 2.220446049250313e-13,
+    "source": "independent 80-digit original equation; 4-image source-disk GL2/4/8 and 8/16/32 angles; validation only"
+  },
+  {
+    "case": 514,
+    "index": 3,
+    "engine": "gradient",
+    "native": 1.0000002399875512,
+    "references": [
+      1.000000239987551,
+      1.000000239987551,
+      1.000000239987551
+    ],
+    "error_over_requested": 2.220446049250313e-13,
+    "source": "independent 80-digit original equation; 4-image source-disk GL2/4/8 and 8/16/32 angles; validation only"
+  },
+  {
+    "case": 514,
+    "index": 4,
+    "engine": "value",
+    "native": 1.0000002404528432,
+    "references": [
+      1.000000240452843,
+      1.000000240452843,
+      1.000000240452843
+    ],
+    "error_over_requested": 2.220446049250313e-13,
+    "source": "independent 80-digit original equation; 4-image source-disk GL2/4/8 and 8/16/32 angles; validation only"
+  },
+  {
+    "case": 514,
+    "index": 4,
+    "engine": "gradient",
+    "native": 1.0000002404528432,
+    "references": [
+      1.000000240452843,
+      1.000000240452843,
+      1.000000240452843
+    ],
+    "error_over_requested": 2.220446049250313e-13,
+    "source": "independent 80-digit original equation; 4-image source-disk GL2/4/8 and 8/16/32 angles; validation only"
+  },
+  {
+    "case": 400,
+    "index": 0,
+    "engine": "value",
+    "native": 1.341640428480123,
+    "references": [
+      1.3416404284801202,
+      1.3416404284801233
+    ],
+    "error_over_requested": 2.220446049250313e-12,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 400,
+    "index": 0,
+    "engine": "gradient",
+    "native": 1.341640428480123,
+    "references": [
+      1.3416404284801202,
+      1.3416404284801233
+    ],
+    "error_over_requested": 2.220446049250313e-12,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 400,
+    "index": 1,
+    "engine": "value",
+    "native": 5.07462808964397,
+    "references": [
+      5.074628089643958,
+      5.074628089643969
+    ],
+    "error_over_requested": 2.4424906541753444e-12,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 400,
+    "index": 1,
+    "engine": "gradient",
+    "native": 5.07462808964397,
+    "references": [
+      5.074628089643958,
+      5.074628089643969
+    ],
+    "error_over_requested": 2.4424906541753444e-12,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 400,
+    "index": 2,
+    "engine": "value",
+    "native": 1000.0125364924503,
+    "references": [
+      1000.0125364924281,
+      1000.0125364924304
+    ],
+    "error_over_requested": 2.220446049250313e-11,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 400,
+    "index": 2,
+    "engine": "gradient",
+    "native": 1000.0125364924503,
+    "references": [
+      1000.0125364924281,
+      1000.0125364924304
+    ],
+    "error_over_requested": 2.220446049250313e-11,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 400,
+    "index": 3,
+    "engine": "value",
+    "native": 5.074628107744972,
+    "references": [
+      5.074628107744959,
+      5.074628107744971
+    ],
+    "error_over_requested": 2.4424906541753444e-12,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 400,
+    "index": 3,
+    "engine": "gradient",
+    "native": 5.074628107744972,
+    "references": [
+      5.074628107744959,
+      5.074628107744971
+    ],
+    "error_over_requested": 2.4424906541753444e-12,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 400,
+    "index": 4,
+    "engine": "value",
+    "native": 1.3416404290059487,
+    "references": [
+      1.3416404290059458,
+      1.341640429005949
+    ],
+    "error_over_requested": 2.220446049250313e-12,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 400,
+    "index": 4,
+    "engine": "gradient",
+    "native": 1.3416404290059487,
+    "references": [
+      1.3416404290059458,
+      1.341640429005949
+    ],
+    "error_over_requested": 2.220446049250313e-12,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 403,
+    "index": 0,
+    "engine": "value",
+    "native": 1.3410226872125368,
+    "references": [
+      1.3410226872125337,
+      1.3410226872125368
+    ],
+    "error_over_requested": 2.220446049250313e-11,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 403,
+    "index": 0,
+    "engine": "gradient",
+    "native": 1.3410226872125368,
+    "references": [
+      1.3410226872125337,
+      1.3410226872125368
+    ],
+    "error_over_requested": 2.220446049250313e-11,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 403,
+    "index": 1,
+    "engine": "value",
+    "native": 5.054442853680736,
+    "references": [
+      5.054442853680725,
+      5.0544428536807375
+    ],
+    "error_over_requested": 1.9984014443252818e-11,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 403,
+    "index": 1,
+    "engine": "gradient",
+    "native": 5.054442853680736,
+    "references": [
+      5.054442853680725,
+      5.0544428536807375
+    ],
+    "error_over_requested": 1.9984014443252818e-11,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 403,
+    "index": 2,
+    "engine": "value",
+    "native": 1080.3574240461196,
+    "references": [
+      1080.3574240460564,
+      1080.357424046059
+    ],
+    "error_over_requested": 5.839773109528323e-10,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 403,
+    "index": 2,
+    "engine": "gradient",
+    "native": 1080.3574240461196,
+    "references": [
+      1080.3574240460564,
+      1080.357424046059
+    ],
+    "error_over_requested": 5.839773109528323e-10,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 403,
+    "index": 3,
+    "engine": "value",
+    "native": 5.094590949397227,
+    "references": [
+      5.094590949397215,
+      5.094590949397228
+    ],
+    "error_over_requested": 2.220446049250313e-11,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 403,
+    "index": 3,
+    "engine": "gradient",
+    "native": 5.094590949397227,
+    "references": [
+      5.094590949397215,
+      5.094590949397228
+    ],
+    "error_over_requested": 2.220446049250313e-11,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 403,
+    "index": 4,
+    "engine": "value",
+    "native": 1.3421891773562304,
+    "references": [
+      1.3421891773562273,
+      1.3421891773562304
+    ],
+    "error_over_requested": 2.220446049250313e-11,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 403,
+    "index": 4,
+    "engine": "gradient",
+    "native": 1.3421891773562304,
+    "references": [
+      1.3421891773562273,
+      1.3421891773562304
+    ],
+    "error_over_requested": 2.220446049250313e-11,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 433,
+    "index": 0,
+    "engine": "value",
+    "native": 1.34169130027047,
+    "references": [
+      1.3416913002704671,
+      1.3416913002704702
+    ],
+    "error_over_requested": 2.220446049250313e-11,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 433,
+    "index": 0,
+    "engine": "gradient",
+    "native": 1.34169130027047,
+    "references": [
+      1.3416913002704671,
+      1.3416913002704702
+    ],
+    "error_over_requested": 2.220446049250313e-11,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 433,
+    "index": 1,
+    "engine": "value",
+    "native": 5.0772513119584834,
+    "references": [
+      5.077251311958472,
+      5.0772513119584834
+    ],
+    "error_over_requested": 2.220446049250313e-11,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 433,
+    "index": 1,
+    "engine": "gradient",
+    "native": 5.0772513119584834,
+    "references": [
+      5.077251311958472,
+      5.0772513119584834
+    ],
+    "error_over_requested": 2.220446049250313e-11,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 433,
+    "index": 2,
+    "engine": "value",
+    "native": 503.5822608543339,
+    "references": [
+      503.58226085433483,
+      503.58226085433597
+    ],
+    "error_over_requested": 4.107825191113079e-11,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 433,
+    "index": 2,
+    "engine": "gradient",
+    "native": 503.5822608543339,
+    "references": [
+      503.58226085433483,
+      503.58226085433597
+    ],
+    "error_over_requested": 4.107825191113079e-11,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 433,
+    "index": 3,
+    "engine": "value",
+    "native": 5.071140897872784,
+    "references": [
+      5.0711408978727714,
+      5.071140897872783
+    ],
+    "error_over_requested": 2.4424906541753444e-11,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 433,
+    "index": 3,
+    "engine": "gradient",
+    "native": 5.071140897872784,
+    "references": [
+      5.0711408978727714,
+      5.071140897872783
+    ],
+    "error_over_requested": 2.4424906541753444e-11,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 433,
+    "index": 4,
+    "engine": "value",
+    "native": 1.3415136006112565,
+    "references": [
+      1.3415136006112534,
+      1.3415136006112565
+    ],
+    "error_over_requested": 2.220446049250313e-11,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 433,
+    "index": 4,
+    "engine": "gradient",
+    "native": 1.3415136006112565,
+    "references": [
+      1.3415136006112534,
+      1.3415136006112565
+    ],
+    "error_over_requested": 2.220446049250313e-11,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 460,
+    "index": 0,
+    "engine": "value",
+    "native": 1.3447068656636065,
+    "references": [
+      1.3447068656636034,
+      1.3447068656636065
+    ],
+    "error_over_requested": 2.220446049250313e-12,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 460,
+    "index": 0,
+    "engine": "gradient",
+    "native": 1.3447068656636065,
+    "references": [
+      1.3447068656636034,
+      1.3447068656636065
+    ],
+    "error_over_requested": 2.220446049250313e-12,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 460,
+    "index": 1,
+    "engine": "value",
+    "native": 5.181844576134436,
+    "references": [
+      5.181844576134424,
+      5.181844576134436
+    ],
+    "error_over_requested": 2.4424906541753444e-12,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 460,
+    "index": 1,
+    "engine": "gradient",
+    "native": 5.181844576134436,
+    "references": [
+      5.181844576134424,
+      5.181844576134436
+    ],
+    "error_over_requested": 2.4424906541753444e-12,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 460,
+    "index": 2,
+    "engine": "value",
+    "native": 221.01303126410517,
+    "references": [
+      221.0130312641037,
+      221.0130312641042
+    ],
+    "error_over_requested": 6.661338147750939e-12,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 460,
+    "index": 2,
+    "engine": "gradient",
+    "native": 221.01303126410517,
+    "references": [
+      221.0130312641037,
+      221.0130312641042
+    ],
+    "error_over_requested": 6.661338147750939e-12,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 460,
+    "index": 3,
+    "engine": "value",
+    "native": 4.971792400579409,
+    "references": [
+      4.971792400579398,
+      4.971792400579409
+    ],
+    "error_over_requested": 2.220446049250313e-12,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 460,
+    "index": 3,
+    "engine": "gradient",
+    "native": 4.971792400579409,
+    "references": [
+      4.971792400579398,
+      4.971792400579409
+    ],
+    "error_over_requested": 2.220446049250313e-12,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 460,
+    "index": 4,
+    "engine": "value",
+    "native": 1.338606567511515,
+    "references": [
+      1.3386065675115124,
+      1.3386065675115155
+    ],
+    "error_over_requested": 1.9984014443252818e-12,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 460,
+    "index": 4,
+    "engine": "gradient",
+    "native": 1.338606567511515,
+    "references": [
+      1.3386065675115124,
+      1.3386065675115155
+    ],
+    "error_over_requested": 1.9984014443252818e-12,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 467,
+    "index": 0,
+    "engine": "value",
+    "native": 1.3380319053259828,
+    "references": [
+      1.338031905325566,
+      1.3380319053259828
+    ],
+    "error_over_requested": 3.1152858070981893e-09,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 467,
+    "index": 0,
+    "engine": "gradient",
+    "native": 1.3380319053259828,
+    "references": [
+      1.338031905325566,
+      1.3380319053259828
+    ],
+    "error_over_requested": 3.1152858070981893e-09,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 467,
+    "index": 1,
+    "engine": "value",
+    "native": 4.5447284591506785,
+    "references": [
+      4.544728459148658,
+      4.544728459150133
+    ],
+    "error_over_requested": 4.445332990599127e-09,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 467,
+    "index": 1,
+    "engine": "gradient",
+    "native": 4.5447284591506785,
+    "references": [
+      4.544728459148658,
+      4.544728459150133
+    ],
+    "error_over_requested": 4.445332990599127e-09,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 467,
+    "index": 2,
+    "engine": "value",
+    "native": 10.028003518649053,
+    "references": [
+      10.02800351855626,
+      10.028003518559899
+    ],
+    "error_over_requested": 9.253486865645755e-08,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 467,
+    "index": 2,
+    "engine": "gradient",
+    "native": 10.028003518649053,
+    "references": [
+      10.02800351855626,
+      10.028003518559899
+    ],
+    "error_over_requested": 9.253486865645755e-08,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 467,
+    "index": 3,
+    "engine": "value",
+    "native": 4.556983837440796,
+    "references": [
+      4.556983837439145,
+      4.556983837440612
+    ],
+    "error_over_requested": 3.6215475063272606e-09,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 467,
+    "index": 3,
+    "engine": "gradient",
+    "native": 4.556983837440796,
+    "references": [
+      4.556983837439145,
+      4.556983837440612
+    ],
+    "error_over_requested": 3.6215475063272606e-09,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 467,
+    "index": 4,
+    "engine": "value",
+    "native": 1.3381345438929093,
+    "references": [
+      1.3381345438924923,
+      1.3381345438929093
+    ],
+    "error_over_requested": 3.1152858070981893e-09,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 467,
+    "index": 4,
+    "engine": "gradient",
+    "native": 1.3381345438929093,
+    "references": [
+      1.3381345438924923,
+      1.3381345438929093
+    ],
+    "error_over_requested": 3.1152858070981893e-09,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 484,
+    "index": 0,
+    "engine": "value",
+    "native": 1.337999879902453,
+    "references": [
+      1.33799987990245,
+      1.337999879902453
+    ],
+    "error_over_requested": 2.220446049250313e-12,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 484,
+    "index": 0,
+    "engine": "gradient",
+    "native": 1.337999879902453,
+    "references": [
+      1.33799987990245,
+      1.337999879902453
+    ],
+    "error_over_requested": 2.220446049250313e-12,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 484,
+    "index": 1,
+    "engine": "value",
+    "native": 5.046934729270482,
+    "references": [
+      5.046934729270472,
+      5.046934729270484
+    ],
+    "error_over_requested": 1.9984014443252818e-12,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 484,
+    "index": 1,
+    "engine": "gradient",
+    "native": 5.046934729270482,
+    "references": [
+      5.046934729270472,
+      5.046934729270484
+    ],
+    "error_over_requested": 1.9984014443252818e-12,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 484,
+    "index": 2,
+    "engine": "value",
+    "native": 1149.4586146080362,
+    "references": [
+      1149.4586146080617,
+      1149.4586146080644
+    ],
+    "error_over_requested": 2.453592884421596e-11,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 484,
+    "index": 2,
+    "engine": "gradient",
+    "native": 1149.4586146080362,
+    "references": [
+      1149.4586146080617,
+      1149.4586146080644
+    ],
+    "error_over_requested": 2.453592884421596e-11,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 484,
+    "index": 3,
+    "engine": "value",
+    "native": 5.053465283112379,
+    "references": [
+      5.053465283112368,
+      5.05346528311238
+    ],
+    "error_over_requested": 1.9984014443252818e-12,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 484,
+    "index": 3,
+    "engine": "gradient",
+    "native": 5.053465283112379,
+    "references": [
+      5.053465283112368,
+      5.05346528311238
+    ],
+    "error_over_requested": 1.9984014443252818e-12,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 484,
+    "index": 4,
+    "engine": "value",
+    "native": 1.3381887726266701,
+    "references": [
+      1.338188772626667,
+      1.3381887726266701
+    ],
+    "error_over_requested": 2.220446049250313e-12,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 484,
+    "index": 4,
+    "engine": "gradient",
+    "native": 1.3381887726266701,
+    "references": [
+      1.338188772626667,
+      1.3381887726266701
+    ],
+    "error_over_requested": 2.220446049250313e-12,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 515,
+    "index": 0,
+    "engine": "value",
+    "native": 1.338094994486816,
+    "references": [
+      1.3380949944863998,
+      1.3380949944868161
+    ],
+    "error_over_requested": 3.1086244689504383e-09,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 515,
+    "index": 0,
+    "engine": "gradient",
+    "native": 1.338094994486816,
+    "references": [
+      1.3380949944863998,
+      1.3380949944868161
+    ],
+    "error_over_requested": 3.1086244689504383e-09,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 515,
+    "index": 1,
+    "engine": "value",
+    "native": 4.555555600528156,
+    "references": [
+      4.555555600526741,
+      4.555555600528158
+    ],
+    "error_over_requested": 3.106404022901188e-09,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 515,
+    "index": 1,
+    "engine": "gradient",
+    "native": 4.555555600528156,
+    "references": [
+      4.555555600526741,
+      4.555555600528158
+    ],
+    "error_over_requested": 3.106404022901188e-09,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 515,
+    "index": 2,
+    "engine": "value",
+    "native": 10.03746105433066,
+    "references": [
+      10.037461054327531,
+      10.037461054330652
+    ],
+    "error_over_requested": 3.1175062531474396e-09,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 515,
+    "index": 2,
+    "engine": "gradient",
+    "native": 10.03746105433066,
+    "references": [
+      10.037461054327531,
+      10.037461054330652
+    ],
+    "error_over_requested": 3.1175062531474396e-09,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 515,
+    "index": 3,
+    "engine": "value",
+    "native": 4.55555549606023,
+    "references": [
+      4.555555496058815,
+      4.555555496060232
+    ],
+    "error_over_requested": 3.106404022901188e-09,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 515,
+    "index": 3,
+    "engine": "gradient",
+    "native": 4.55555549606023,
+    "references": [
+      4.555555496058815,
+      4.555555496060232
+    ],
+    "error_over_requested": 3.106404022901188e-09,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 515,
+    "index": 4,
+    "engine": "value",
+    "native": 1.3380949901159682,
+    "references": [
+      1.338094990115552,
+      1.3380949901159684
+    ],
+    "error_over_requested": 3.1086244689504383e-09,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 515,
+    "index": 4,
+    "engine": "gradient",
+    "native": 1.3380949901159682,
+    "references": [
+      1.338094990115552,
+      1.3380949901159684
+    ],
+    "error_over_requested": 3.1086244689504383e-09,
+    "source": "independent 70-digit original equation; 4 distinct images per sample; GL8/16, angles32/64"
+  },
+  {
+    "case": 439,
+    "index": 0,
+    "engine": "value",
+    "native": 1.334725492142279,
+    "references": [
+      1.3347254921422793,
+      1.3347254921422793
+    ],
+    "error_over_requested": 1.1102230246251565e-12,
+    "source": "independent 70-digit Green contour, 64/128 boundary samples"
+  },
+  {
+    "case": 439,
+    "index": 0,
+    "engine": "gradient",
+    "native": 1.334725492142279,
+    "references": [
+      1.3347254921422793,
+      1.3347254921422793
+    ],
+    "error_over_requested": 1.1102230246251565e-12,
+    "source": "independent 70-digit Green contour, 64/128 boundary samples"
+  },
+  {
+    "case": 439,
+    "index": 1,
+    "engine": "value",
+    "native": 4.845956042366235,
+    "references": [
+      4.8459560423663355,
+      4.8459560423663355
+    ],
+    "error_over_requested": 2.0761170560490427e-10,
+    "source": "independent 70-digit Green contour, 64/128 boundary samples"
+  },
+  {
+    "case": 439,
+    "index": 1,
+    "engine": "gradient",
+    "native": 4.845956042366235,
+    "references": [
+      4.8459560423663355,
+      4.8459560423663355
+    ],
+    "error_over_requested": 2.0761170560490427e-10,
+    "source": "independent 70-digit Green contour, 64/128 boundary samples"
+  },
+  {
+    "case": 439,
+    "index": 2,
+    "engine": "value",
+    "native": 103.0663678698532,
+    "references": [
+      103.0663678694944,
+      103.0663678694944
+    ],
+    "error_over_requested": 3.481215316014641e-08,
+    "source": "independent 70-digit Green contour, 64/128 boundary samples"
+  },
+  {
+    "case": 439,
+    "index": 2,
+    "engine": "gradient",
+    "native": 103.06636786945974,
+    "references": [
+      103.0663678694944,
+      103.0663678694944
+    ],
+    "error_over_requested": 3.362865541589599e-09,
+    "source": "independent 70-digit Green contour, 64/128 boundary samples"
+  },
+  {
+    "case": 439,
+    "index": 3,
+    "engine": "value",
+    "native": 5.326771270573342,
+    "references": [
+      5.3267712705734995,
+      5.3267712705734995
+    ],
+    "error_over_requested": 2.9531932455029164e-10,
+    "source": "independent 70-digit Green contour, 64/128 boundary samples"
+  },
+  {
+    "case": 439,
+    "index": 3,
+    "engine": "gradient",
+    "native": 5.326771270573342,
+    "references": [
+      5.3267712705734995,
+      5.3267712705734995
+    ],
+    "error_over_requested": 2.9531932455029164e-10,
+    "source": "independent 70-digit Green contour, 64/128 boundary samples"
+  },
+  {
+    "case": 439,
+    "index": 4,
+    "engine": "value",
+    "native": 1.3486616843789605,
+    "references": [
+      1.3486616843789607,
+      1.3486616843789607
+    ],
+    "error_over_requested": 1.1102230246251565e-12,
+    "source": "independent 70-digit Green contour, 64/128 boundary samples"
+  },
+  {
+    "case": 439,
+    "index": 4,
+    "engine": "gradient",
+    "native": 1.3486616843789605,
+    "references": [
+      1.3486616843789607,
+      1.3486616843789607
+    ],
+    "error_over_requested": 1.1102230246251565e-12,
+    "source": "independent 70-digit Green contour, 64/128 boundary samples"
+  },
+  {
+    "case": 499,
+    "index": 0,
+    "engine": "value",
+    "native": 1.3453506786718636,
+    "references": [
+      1.3453506785010318,
+      1.3453506785010318
+    ],
+    "error_over_requested": 1.269793159508481e-06,
+    "source": "independent 70-digit Green contour, 64/128 boundary samples"
+  },
+  {
+    "case": 499,
+    "index": 0,
+    "engine": "gradient",
+    "native": 1.3453506786718636,
+    "references": [
+      1.3453506785010318,
+      1.3453506785010318
+    ],
+    "error_over_requested": 1.269793159508481e-06,
+    "source": "independent 70-digit Green contour, 64/128 boundary samples"
+  },
+  {
+    "case": 499,
+    "index": 1,
+    "engine": "value",
+    "native": 5.332826142958884,
+    "references": [
+      5.332826142016287,
+      5.332826142016287
+    ],
+    "error_over_requested": 1.7675372276926282e-06,
+    "source": "independent 70-digit Green contour, 64/128 boundary samples"
+  },
+  {
+    "case": 499,
+    "index": 1,
+    "engine": "gradient",
+    "native": 5.3328261410337925,
+    "references": [
+      5.332826142016287,
+      5.332826142016287
+    ],
+    "error_over_requested": 1.8423518266530436e-06,
+    "source": "independent 70-digit Green contour, 64/128 boundary samples"
+  },
+  {
+    "case": 499,
+    "index": 2,
+    "engine": "value",
+    "native": 19.964142263785185,
+    "references": [
+      19.964142263792183,
+      19.964142263792183
+    ],
+    "error_over_requested": 3.5060843117662444e-09,
+    "source": "independent 70-digit Green contour, 64/128 boundary samples"
+  },
+  {
+    "case": 499,
+    "index": 2,
+    "engine": "gradient",
+    "native": 19.96414227210835,
+    "references": [
+      19.964142263792183,
+      19.964142263792183
+    ],
+    "error_over_requested": 4.165552347501489e-06,
+    "source": "independent 70-digit Green contour, 64/128 boundary samples"
+  },
+  {
+    "case": 499,
+    "index": 3,
+    "engine": "value",
+    "native": 5.155227199808631,
+    "references": [
+      5.155227199066124,
+      5.155227199066124
+    ],
+    "error_over_requested": 1.4402989911843633e-06,
+    "source": "independent 70-digit Green contour, 64/128 boundary samples"
+  },
+  {
+    "case": 499,
+    "index": 3,
+    "engine": "gradient",
+    "native": 5.1552271985222315,
+    "references": [
+      5.155227199066124,
+      5.155227199066124
+    ],
+    "error_over_requested": 1.0550305074019661e-06,
+    "source": "independent 70-digit Green contour, 64/128 boundary samples"
+  },
+  {
+    "case": 499,
+    "index": 4,
+    "engine": "value",
+    "native": 1.340672566584058,
+    "references": [
+      1.3406725656344682,
+      1.3406725656344682
+    ],
+    "error_over_requested": 7.0829364595681454e-06,
+    "source": "independent 70-digit Green contour, 64/128 boundary samples"
+  },
+  {
+    "case": 499,
+    "index": 4,
+    "engine": "gradient",
+    "native": 1.340672566584058,
+    "references": [
+      1.3406725656344682,
+      1.3406725656344682
+    ],
+    "error_over_requested": 7.0829364595681454e-06,
+    "source": "independent 70-digit Green contour, 64/128 boundary samples"
+  }
+]
