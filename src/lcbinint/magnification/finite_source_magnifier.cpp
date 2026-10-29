@@ -4,6 +4,7 @@
 #include "lcbinint/magnification/algebraic_boundary/triple/regular_support.hpp"
 #include "lcbinint/magnification/algebraic_boundary/triple/frame.hpp"
 #include "lcbinint/magnification/algebraic_boundary/triple/exterior_caustic_bound.hpp"
+#include "lcbinint/magnification/algebraic_boundary/triple/pole_partition.hpp"
 #include "lcbinint/magnification/algebraic_boundary_autodiff.hpp"
 #include "lcbinint/magnification/algebraic_boundary/fused_gradient.hpp"
 #include "lcbinint/magnification/cartesian_run_fill.hpp"
@@ -8034,6 +8035,30 @@ template<bool Gradient> auto triple_algebraic_epoch(
             return out;
         }
     }
+    const auto try_pole_partition=[&]() {
+        kernel::IntegrationOptions partition_options;
+        partition_options.absolute_tolerance=accuracy.absolute_tolerance;
+        partition_options.relative_tolerance=accuracy.relative_tolerance;
+        const auto partition=kernel::integrate_pole_partition<Gradient>(lenses,{source.x,source.y},rho,
+            geometry.masses,finite.limb_darkening_c,partition_options);
+        if(!partition.converged || !partition.support_complete || (Gradient && !partition.gradient_valid))return false;
+        out.value.magnification=partition.magnification;out.value.error_estimate=partition.error_estimate;
+        out.value.decision={FiniteSourceMethod::algebraic_boundary,static_cast<int>(partition.value_evaluations),"triple_complete_pole_partition"};
+        out.value.converged=out.value.value_converged=true;
+        out.value.seed_support_proven=out.value.integral_support_certified=out.value.frontier_discovery_completed=true;
+        out.value.diagnostic_stop=partition.reason;
+        if constexpr(Gradient){out.gradient=partition.physical_gradient;out.gradient_valid=partition.gradient_valid;}
+        return true;
+    };
+    if(finite.limb_darkening_c==0 && accuracy.relative_tolerance>=1e-4) {
+        const auto primary=std::max_element(geometry.masses.begin(),geometry.masses.end())-geometry.masses.begin();
+        double distance=INFINITY;
+        for(int j=0;j<3;++j)if(j!=primary)distance=std::min(distance,std::abs(lenses[j]-lenses[primary]));
+        // A work-order screen only. The two local contractions, annular
+        // exclusions and complete complement proof still decide acceptance.
+        if(distance>16*(1+std::sqrt(geometry.masses[primary])+rho+
+            std::abs(kernel::Complex(source.x,source.y)-lenses[primary])) && try_pole_partition())return out;
+    }
     const auto frame=[&](){
         if constexpr(Gradient)return kernel::primary_frame<true>(lenses,{source.x,source.y},rho,geometry.masses[1],geometry.masses[2]);
         else return canonical;
@@ -8237,6 +8262,9 @@ template<bool Gradient> auto triple_algebraic_epoch(
             return out;
         }
     }
+    if([&]{if constexpr(Gradient)return !out.value.converged || !out.gradient_valid;else return !out.value.converged;}())
+        try_pole_partition();
+
     return out;
 }
 } // namespace

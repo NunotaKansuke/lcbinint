@@ -6,6 +6,8 @@ struct IntegrationOptions {
     double absolute_tolerance=1e-6,relative_tolerance=1e-5;
     int event_box_budget=1000000,maximum_refinements=160;
     AngularOptions angular{};
+    // Internal partition member: the owner must integrate all excluded components.
+    bool complete_partition_member=false;
     bool automatic_endpoint_tolerance=true;
     bool separate_components=true;
     bool moving_radial_gradients=true;

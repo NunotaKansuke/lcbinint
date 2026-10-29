@@ -32,7 +32,7 @@ template<bool Gradient=false,template<bool>class PanelWorkspace=RadialPanel> inl
     out.support=supplied_plan?*supplied_plan:radial_event_plan(p,options.event_box_budget,
         (Gradient || trace)?0:options.relative_tolerance*.1);
     if(!out.support.completed){out.reason=out.support.reason;return out;}
-    if constexpr(Gradient)if(!out.support.excluded_images.empty() || (Gradient && out.support.bounded_component_value!=0)) {
+    if constexpr(Gradient)if((!out.support.excluded_images.empty() && !options.complete_partition_member) || out.support.bounded_component_value!=0) {
         out.reason="gradient_omitted_support";return out;
     }
     options.angular.exclusions=out.support.excluded_images.empty()?nullptr:&out.support.excluded_images;
@@ -220,7 +220,7 @@ template<bool Gradient=false,template<bool>class PanelWorkspace=RadialPanel> inl
         shared->coefficients=coefficients;all_shared.push_back(shared);
         std::vector<bool> occupied(unique.size()-1);
         struct OrientedEvent {RadialEvent event;int change;double angle_lo,angle_hi;};
-        std::vector<OrientedEvent> oriented;bool count_plan=true;int net_change=0;
+        std::vector<OrientedEvent> oriented;bool count_plan=!domain.unisolated_folds;int net_change=0;
         for(auto e:domain.events) {
             auto f=event_detail::physical(event_detail::I(e.radius_lo,e.radius_hi),
                 event_detail::I(e.coordinate_lo,e.coordinate_hi),p,e.reciprocal);
@@ -329,7 +329,7 @@ template<bool Gradient=false,template<bool>class PanelWorkspace=RadialPanel> inl
                 if(event.radius==hi)safe_hi=std::min(safe_hi,event.radius_lo);
             }
             const double midpoint=lo+(hi-lo)*.5;
-            if(midpoint>safe_lo && midpoint<safe_hi)
+            if(!domain.unisolated_folds && midpoint>safe_lo && midpoint<safe_hi)
                 panel.workspace->set_certified_band(shared->radii.at(midpoint)->topology,safe_lo,safe_hi);
             if(!panel.workspace->refine(panel.radial_level,panel.angular_level)) {
                 out.reason=panel.workspace->reason;return out;

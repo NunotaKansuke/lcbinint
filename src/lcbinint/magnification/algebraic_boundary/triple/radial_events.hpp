@@ -380,6 +380,8 @@ struct RadialEventPlan {
     int resultant_nodes=0,resultant_events=0,resultant_solves=0;
     double bounded_component_value=0,bounded_component_error=0;
     bool completed=false;
+    // A contraction proof can cover a local component without isolating its folds.
+    bool unisolated_folds=false;
     const char* reason="not_started";
     int boxes=0,contractions=0,quad_refinements=0,quad_boxes=0,double_refinements=0;
     std::array<double,4> last_box{};

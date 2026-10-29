@@ -2149,6 +2149,60 @@ PointSourceMagnifier::triple_image_candidates_cached(
     return triple_candidate_cache_;
 }
 
+const std::vector<TripleImageCandidate>&
+PointSourceMagnifier::triple_image_candidates_continued_cached(
+    const model::TripleLensGeometry& geometry,SourcePosition source,int expected_images) const
+{
+    if(expected_images<4 || expected_images>10 || expected_images%2 ||
+       !triple_candidate_cache_valid_ || !triple_geometry_equals(triple_candidate_cache_geometry_,geometry))
+        return triple_image_candidates_cached(geometry,source,expected_images);
+    if(source.x==triple_candidate_cache_source_.x && source.y==triple_candidate_cache_source_.y)
+        return triple_image_candidates_cached(geometry,source,expected_images);
+    std::vector<TripleImageCandidate> continued;continued.reserve(expected_images);
+    bool valid=true;int positive=0;
+    double maximum_residual=0;
+    for(const auto& old:triple_candidate_cache_)if(old.physical) {
+        TripleImageCandidate image;
+        if(old.jacobian_determinant<0) {
+            int owner=old.local_origin;
+            if(owner<0){owner=0;for(int k=1;k<3;++k)
+                if(std::norm(triple_image_separation(geometry,old,k))<
+                   std::norm(triple_image_separation(geometry,old,owner)))owner=k;}
+            if(!polish_triple_image_root_local(geometry,source,owner,
+                triple_image_separation(geometry,old,owner),1e-7,image)){valid=false;break;}
+        } else {
+            const auto refined=polish_triple_image_root_high_precision(geometry,source,old.position);
+            const Complex z{refined.x,refined.y};
+            image={refined,triple_jacobian_determinant(geometry,z),triple_residual(geometry,source,z),false};
+            if(!(image.jacobian_determinant>0)){valid=false;break;}
+        }
+        const double det=image.jacobian_determinant;
+        const double correction=image.residual*(1+std::sqrt(std::max(0.,1-det)))/std::abs(det);
+        if(!(image.residual<=1e-7) || !std::isfinite(det) || det==0 ||
+           !std::isfinite(correction) || correction>1e-12*(1+std::hypot(image.position.x,image.position.y))) {valid=false;break;}
+        for(const auto& other:continued) {
+            // Compare retained pole offsets before projecting global positions.
+            const int owner=image.local_origin>=0?image.local_origin:0;
+            if(std::norm(triple_image_separation(geometry,image,owner)-
+                         triple_image_separation(geometry,other,owner))<1e-16){valid=false;break;}
+        }
+        if(!valid)break;
+        image.physical=true;positive+=det>0;maximum_residual=std::max(maximum_residual,image.residual);
+        continued.push_back(image);
+    }
+    if(!valid || int(continued.size())!=expected_images || expected_images!=2*positive+2)
+        return triple_image_candidates_cached(geometry,source,expected_images);
+    // Only roots are retained. Every sample recomputes its magnification and
+    // complete implicit tangent; neither flux nor a tangent is cached.
+    triple_candidate_cache_=std::move(continued);triple_candidate_cache_source_=source;
+    triple_candidate_cache_diagnostics_={};
+    triple_candidate_cache_diagnostics_.root_candidate_count=expected_images;
+    triple_candidate_cache_diagnostics_.root_used_warm_start=1;
+    triple_candidate_cache_diagnostics_.root_used_high_precision=1;
+    triple_candidate_cache_diagnostics_.root_max_residual=maximum_residual;
+    return triple_candidate_cache_;
+}
+
 SourcePosition PointSourceMagnifier::triple_lens_equation(
     const model::TripleLensGeometry& geometry,
     SourcePosition image) const

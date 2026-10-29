@@ -166,10 +166,10 @@ int main() {
             {{0.002901204496815435,0.005825620513112304,153.65806180649102}},
             {{0.0029782321518493264,0.005803059635291774,153.31363210666092}},
         }};
-        for(int expected:{0,4}) {
+        for(int expected:{0,4})for(bool continuation:{false,true}) {
             PointSourceMagnifier solver;
             for(int repeat=0;repeat<3;++repeat)for(const auto& a:samples) {
-                const auto packet=triple_approximation::point<true>(solver,g,{a[0],a[1]},expected);
+                const auto packet=triple_approximation::point<true>(solver,g,{a[0],a[1]},expected,continuation);
                 if(!packet.valid || !packet.gradient_valid || packet.images!=4 ||
                    std::abs(packet.mu/a[2]-1)>1e-10)
                     throw std::runtime_error("index-preserving unfinished duplicate");

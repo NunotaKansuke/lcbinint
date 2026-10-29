@@ -31,3 +31,7 @@ branchは引き続き `experiment/algebraic_boundary`。新規worktreeは作成�
 ## Finite-radius tangents and index-preserving duplicates
 
 最新は [triple_finite_radius_closeout_20261029/REPORT.md](../evidence/triple_finite_radius_closeout_20261029/REPORT.md)。通常の正rhoのpoint近似をjoint hexへ置換し、以前0だったrho微分の4反例を修正。13点の評価順で総数4・正負像数を保って残る未収束重複も、Newton補正量による再研磨で修正した。1856条件で成功分類の回帰0、4764値比較で超過0、独立70微分・501不変性検査・Python226件・C++33件成功。ただし軽いpoint領域は約9–11倍の費用増で、重いLDの高速化ではない。439・499の積分停止は未解決であり、全体の完成とは扱わない。
+
+## Complete pole partitions and physical-root continuation
+
+最新は [triple_component_completion_20261029/REPORT.md](../evidence/triple_component_completion_20261029/REPORT.md)。既知の停止439・499を、極ごとの収縮・annular exclusionと完全なcomplement積分で解消。全成分の値・全IFTを合算し、省略しない。1880条件・8280 epochで値／微分とも全成功、4800値比較で超過0、独立90微分・507不変性検査・C++34件・対象Python252件成功。joint hexの物理根を元方程式で継続し、軽い領域を約3–5msから約0.5–0.8msへ改善。439/499は約1.97/5.45msで全微分付き曲線を返す。LD controllerの高速化候補は小さい角度微分の反例で棄却し、現行経路を維持した。値rtolと全微分の任意精度認証は区別する。

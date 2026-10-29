@@ -133,6 +133,12 @@ public:
     const std::vector<TripleImageCandidate>& triple_image_candidates_cached(
         const model::TripleLensGeometry& geometry,
         SourcePosition source, int expected_images = 0) const;
+    // For a caller with a certified constant physical image count (hex
+    // samples), continue all retained physical branches on the original
+    // equation. Any failed residual/sign/distinctness check uses the full solve.
+    const std::vector<TripleImageCandidate>& triple_image_candidates_continued_cached(
+        const model::TripleLensGeometry& geometry,
+        SourcePosition source, int expected_images) const;
     SourcePosition triple_lens_equation(
         const model::TripleLensGeometry& geometry,
         SourcePosition image) const;

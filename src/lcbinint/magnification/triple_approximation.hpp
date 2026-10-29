@@ -13,11 +13,12 @@ template<> struct PointPacket<true> {
 };
 template<bool Gradient> PointPacket<Gradient> point(
         const PointSourceMagnifier& solver,const model::TripleLensGeometry& geometry,
-        SourcePosition source,int expected_images=0) {
+        SourcePosition source,int expected_images=0,bool continue_branches=false) {
     PointPacket<Gradient> out;
     // The value solve and the implicit tangent consume the same validated
     // roots. No polynomial is differentiated and no second root solve occurs.
-    const auto& images=solver.triple_image_candidates_cached(geometry,source,expected_images);
+    const auto& images=continue_branches?solver.triple_image_candidates_continued_cached(geometry,source,expected_images):
+        solver.triple_image_candidates_cached(geometry,source,expected_images);
     for(const auto& image:images)if(image.physical) {
         out.mu+=1/std::abs(image.jacobian_determinant);++out.images;
         if constexpr(Gradient) {
@@ -68,7 +69,7 @@ template<bool Gradient> HexPacket<Gradient> hex(
     const std::array<SourcePosition,4> diagonals{{{h,h},{-h,h},{-h,-h},{h,-h}}};
     const auto add=[&](auto& sum,SourcePosition direction,double scale) {
         auto p=point<Gradient>(solver,geometry,{source.x+rho*scale*direction.x,
-            source.y+rho*scale*direction.y},expected_images);
+            source.y+rho*scale*direction.y},expected_images,true);
         sum.mu+=p.mu;sum.valid=sum.valid&&p.valid&&p.images==expected_images;
         if constexpr(Gradient) {
             p.gradient[2]+=scale*(direction.x*p.gradient[0]+direction.y*p.gradient[1]);
