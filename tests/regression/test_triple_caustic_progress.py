@@ -133,6 +133,25 @@ CASES = [{'name': 'near_collinear_or_clustered-0400',
                  '3': 4.555555496060232,
                  '4': 1.3380949901159684}}]
 
+# Hex promotion exposed a duplicate that preserves both count and index.
+CASES.append({'case': 1848,
+ 'epochs': [-1.0, -0.2, 0.0, 0.2, 1.0],
+ 'family': 'near-515',
+ 'limb': 0.0,
+ 'name': 'critical-progress-holdout-515-0',
+ 'params': {'alpha': -0.45834950099374794,
+            'ang': -6.3601796963176e-12,
+            'q': 10822.69862065665,
+            'q2': 8.672217693889778e-08,
+            'rho': 0.00010893355442672599,
+            's': 0.01,
+            'sep2': 0.01001,
+            't0': 0.0,
+            'tE': 1.0,
+            'u0': 0.0065568600773687055},
+ 'references': {'2': 152.51974011677714},
+ 'rtol': 0.001})
+
 def curve(c):
     return lc.LightCurve(lens="triple",param_type="vbm",ld_c=c["limb"],
         options=lc.Options(finite_source_tol=0.,finite_source_reltol=c["rtol"]))
@@ -158,9 +177,8 @@ def test_cold_and_retained_caustic_proof_agree(case):
     assert np.max(np.abs(warm.magnifications/cold.magnifications-1))<=case["rtol"]
     assert np.max(np.abs(warm.gradients-cold.gradients)/(1+np.abs(cold.gradients)))<=1e-4
 
-# Hex routes retain a finite-source rho derivative. Point routes deliberately
-# differentiate the point approximation; their zero rho derivative is not
-# certified against the full finite-source model by a value tolerance.
+# Positive-radius default queries retain finite-source radius dependence.
+# Independent references also cover cases previously accepted as point sources.
 HEX_REFERENCES = [(403, 't0', -1028197.9808499109),
  (403, 'u0', -552515.4778095641),
  (403, 'tE', 0.0),
@@ -192,7 +210,48 @@ HEX_REFERENCES = [(403, 't0', -1028197.9808499109),
  (484, 'q2', 15588.174655199777),
  (484, 'ang', 206.07434180590295)]
 
-@pytest.mark.parametrize("case_id,name,reference",HEX_REFERENCES)
+FINITE_RADIUS_REFERENCES = [(400, 't0', -0.3676591309031182),
+ (400, 'u0', -1000036.4493604209),
+ (400, 'tE', 0.0),
+ (400, 'alpha', -0.0003676591309031182),
+ (400, 'rho', 2500.185908509485),
+ (400, 's', 7.111081756119779e-06),
+ (400, 'q', 2.374967627885453),
+ (400, 'sep2', -0.06778906931771272),
+ (400, 'q2', -3390.0465077457848),
+ (400, 'ang', 0.00036760067302662867),
+ (433, 't0', 15806.602614639645),
+ (433, 'u0', -253114.2571684074),
+ (433, 'tE', 0.0),
+ (433, 'alpha', 15.806602614639646),
+ (433, 'rho', 318.8947948487861),
+ (433, 's', -25.584068199391528),
+ (433, 'q', -2504675.5195082417),
+ (433, 'sep2', 9.020477652906045e-05),
+ (433, 'q2', -15288.019924866645),
+ (433, 'ang', -0.0001028262086479039),
+ (460, 't0', 46016.892944468564),
+ (460, 'u0', 16381.275995694292),
+ (460, 'tE', 0.0),
+ (460, 'alpha', 46.016892944468566),
+ (460, 'rho', 26.988970108204114),
+ (460, 's', 0.0004747814605597588),
+ (460, 'q', 477.13285302536343),
+ (460, 'sep2', -47478.20795834935),
+ (460, 'q2', -0.023504810455218135),
+ (460, 'ang', -46.01689386480402),
+ (515, 't0', 3.5320794675095032e-06),
+ (515, 'u0', -99.62616941964967),
+ (515, 'tE', 0.0),
+ (515, 'alpha', 3.5320794675095033e-07),
+ (515, 'rho', 0.0023085445104083766),
+ (515, 's', 9.822053038770092e-06),
+ (515, 'q', -3.70530067789393e-12),
+ (515, 'sep2', 6.729852320820453e-10),
+ (515, 'q2', 7.402398807702044e-08),
+ (515, 'ang', 7.351902727746382e-12)]
+
+@pytest.mark.parametrize("case_id,name,reference",HEX_REFERENCES+FINITE_RADIUS_REFERENCES)
 def test_hex_tangents_against_independent_disk_differences(case_id,name,reference):
     case=next(c for c in CASES if c["case"]==case_id)
     result=curve(case).magnification([0.],case["params"],with_gradient=True)

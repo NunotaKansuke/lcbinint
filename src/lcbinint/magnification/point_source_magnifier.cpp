@@ -1941,15 +1941,27 @@ std::vector<TripleImageCandidate> PointSourceMagnifier::triple_image_candidates(
     }
     for (int i = 0; i < physical_count; ++i)
         positive_count += images[static_cast<std::size_t>(i)].jacobian_determinant > 0.0;
+    bool unfinished_newton=false;
+    for(int i=0;i<physical_count;++i) {
+        const auto& image=images[static_cast<std::size_t>(i)];
+        const double det=image.jacobian_determinant;
+        // ||J^-1|| = (1+|shear|)/|det J|. A source residual
+        // alone can hide a spatially unfinished bright image. In particular,
+        // a duplicate negative image can replace a missing pole image while
+        // preserving BOTH the independent total and the signed index.
+        const double correction=image.residual*(1+std::sqrt(std::max(0.,1-det)))/std::abs(det);
+        unfinished_newton=unfinished_newton || correction>
+            1e-11*(1+std::hypot(image.position.x,image.position.y));
+    }
     if(distinct_positive_lenses &&
-       ((expected_images>=4 && physical_count>expected_images) ||
+       (unfinished_newton || (expected_images>=4 && physical_count>expected_images) ||
         physical_count!=2*positive_count+2)) {
         // An unfinished Newton iterate can pass the source residual floor
         // while lying near an already accepted bright image. Continue from
         // the retained iterate, not its distant polynomial seed, then apply
         // the same physical residual and spatial duplicate tests again.
-        // An independent count or the necessary physical index triggers
-        // repair; neither selects a prefix of the requested size or licenses
+        // A Newton correction, independent count or necessary index triggers
+        // repair; none selects a prefix of the requested size or licenses
         // dropping a distinct valid root.
         std::vector<TripleImageCandidate> repaired;
         repaired.reserve(images.size());

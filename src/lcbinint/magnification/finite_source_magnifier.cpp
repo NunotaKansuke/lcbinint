@@ -7989,10 +7989,27 @@ template<bool Gradient> auto triple_algebraic_epoch(
             const double complete_error=6*complete_safety.quadrupole_indicator*rho*rho;
             if(p.valid && std::isfinite(complete_error) && complete_error<=budget(p.mu)) {
                 out.point_magnification=p.mu;
+                // A positive-radius finite-source query must retain the
+                // radius dependence in both its value and its tangent.
+                // The point curvature screen certifies value accuracy only;
+                // differentiating that approximation would erase dmu/drho.
+                // Use the same joint hex packet in both public API modes.
+                if(finite.adaptive_hex_threshold>0) {
+                    const auto hex=triple_approximation::hex<Gradient>(point,geometry,source,rho,
+                        limb_darkening_gamma(finite),clear.second);
+                    if(hex.valid && hex.error<=budget(hex.mu)) {
+                        accept(hex.mu,hex.error,FiniteSourceMethod::hexadecapole,13,
+                            "triple finite-source hexadecapole and certified point clearance");
+                        out.value.caustic_distance=clear.first;out.value.center_image_count=clear.second;
+                        if constexpr(Gradient){out.gradient=hex.gradient;out.gradient_valid=hex.gradient_valid;}
+                        return out;
+                    }
+                } else {
                 accept(p.mu,complete_error,FiniteSourceMethod::point_source,1,"triple point-source curvature and certified caustic clearance");
                 out.value.caustic_distance=clear.first;out.value.center_image_count=p.images;
                 if constexpr(Gradient){out.gradient=p.gradient;out.gradient_valid=p.gradient_valid;}
                 return out;
+                }
             }
         }
     }
@@ -8197,7 +8214,7 @@ template<bool Gradient> auto triple_algebraic_epoch(
         const auto clear=triple_continue_caustic_clearance(geometry,source,rho,
             canonical.geometry,hex_distance,prepared);
         if(clear.first>hex_distance) {
-            if(clear.first>point_distance) {
+            if(clear.first>point_distance && finite.adaptive_hex_threshold<=0) {
                 const auto packet=triple_approximation::point<Gradient>(point,geometry,source,clear.second);
                 const auto safety=point.triple_safety_diagnostic(geometry,source);
                 const double estimate=6*safety.quadrupole_indicator*rho*rho;

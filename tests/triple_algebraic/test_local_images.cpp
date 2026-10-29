@@ -145,5 +145,36 @@ int main() {
     }
     check_six(model::make_triple_lens_geometry_vbm(1.2725950334694136,28.452407713501238,0.15575480539239409,-0.30732930862308194,9.810429332179342e-07),{0.49640501183679264,0.11943708241206857},6.444764519040969);
     check_six(model::make_triple_lens_geometry_vbm(1.0,1.0,1.7,1.0471975511965976,1e-07),{0.22354679077699266,-0.0051799935624929905},8.096020451794297);
+    // Independent 70-digit roots at the exact interleaved hex sample
+    // coordinates. A duplicate bright negative root used to replace the
+    // faint pole root, passing both total=4 and the signed-index check.
+    {
+        const auto g=model::make_triple_lens_geometry_vbm(.01,10822.69862065665,
+            .01001,-6.3601796963176e-12,8.672217693889778e-8);
+        const std::array<std::array<double,3>,13> samples{{
+            {{0.002901204496815435,0.005880087290325666,152.51447754963286}},
+            {{0.003010138051242161,0.005880087290325666,151.38500023132116}},
+            {{0.002955671274028798,0.005880087290325666,151.95179396130115}},
+            {{0.0029782321518493264,0.005957114945359558,150.15012899972743}},
+            {{0.002901204496815435,0.0059890208447523925,150.27167156417627}},
+            {{0.002901204496815435,0.005934554067539029,151.3857603023157}},
+            {{0.002824176841781543,0.005957114945359558,151.6862618485235}},
+            {{0.0027922709423887086,0.005880087290325666,153.62657965843118}},
+            {{0.0028467377196020717,0.005880087290325666,153.07281816939113}},
+            {{0.002824176841781543,0.005803059635291774,154.94999655872257}},
+            {{0.002901204496815435,0.00577115373589894,154.81675486217594}},
+            {{0.002901204496815435,0.005825620513112304,153.65806180649102}},
+            {{0.0029782321518493264,0.005803059635291774,153.31363210666092}},
+        }};
+        for(int expected:{0,4}) {
+            PointSourceMagnifier solver;
+            for(int repeat=0;repeat<3;++repeat)for(const auto& a:samples) {
+                const auto packet=triple_approximation::point<true>(solver,g,{a[0],a[1]},expected);
+                if(!packet.valid || !packet.gradient_valid || packet.images!=4 ||
+                   std::abs(packet.mu/a[2]-1)>1e-10)
+                    throw std::runtime_error("index-preserving unfinished duplicate");
+            }
+        }
+    }
     std::cout<<"PASS: pole-local roots, original residuals and physical tangents\n";
 }

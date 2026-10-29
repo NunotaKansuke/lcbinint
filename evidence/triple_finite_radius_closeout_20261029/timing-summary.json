@@ -1,0 +1,65 @@
+[
+  {
+    "case": 21,
+    "value_before_ms": 0.4226999999999981,
+    "value_after_ms": 3.992109999999993,
+    "gradient_before_ms": 0.44456299999999505,
+    "gradient_after_ms": 4.0605629999999895
+  },
+  {
+    "case": 400,
+    "value_before_ms": 0.3422889999999956,
+    "value_after_ms": 3.5242219999999937,
+    "gradient_before_ms": 0.36065600000001474,
+    "gradient_after_ms": 3.5682840000000047
+  },
+  {
+    "case": 433,
+    "value_before_ms": 0.3279330000000025,
+    "value_after_ms": 3.3818429999999955,
+    "gradient_before_ms": 0.3474489999999997,
+    "gradient_after_ms": 3.3467670000000007
+  },
+  {
+    "case": 460,
+    "value_before_ms": 0.33960700000000565,
+    "value_after_ms": 3.773999,
+    "gradient_before_ms": 0.3835229999999967,
+    "gradient_after_ms": 4.104521999999999
+  },
+  {
+    "case": 514,
+    "value_before_ms": 0.3500079999999989,
+    "value_after_ms": 3.7480099999999963,
+    "gradient_before_ms": 0.3682090000000082,
+    "gradient_after_ms": 3.805615000000012
+  },
+  {
+    "case": 515,
+    "value_before_ms": 0.4289160000000014,
+    "value_after_ms": 4.633890000000002,
+    "gradient_before_ms": 0.44887500000000136,
+    "gradient_after_ms": 4.6931129999999985
+  },
+  {
+    "case": 940,
+    "value_before_ms": 23.306120999999987,
+    "value_after_ms": 23.269296999999966,
+    "gradient_before_ms": 256.6184520000001,
+    "gradient_after_ms": 256.9253850000002
+  },
+  {
+    "case": 972,
+    "value_before_ms": 121.563584,
+    "value_after_ms": 121.76092999999999,
+    "gradient_before_ms": 1393.2716109999994,
+    "gradient_after_ms": 1392.7755260000013
+  },
+  {
+    "case": 1508,
+    "value_before_ms": 54.48174699999997,
+    "value_after_ms": 55.075905000000034,
+    "gradient_before_ms": 861.0696570000007,
+    "gradient_after_ms": 859.3107309999999
+  }
+]

@@ -43,7 +43,7 @@ POINT_CASES = [({'alpha': -3.02576713601945,
   0.001)]
 
 @pytest.mark.parametrize("params,times,limb,rtol", POINT_CASES)
-def test_local_faint_images_enable_certified_point_route(params,times,limb,rtol):
+def test_local_faint_images_enable_certified_finite_source_route(params,times,limb,rtol):
     model=lc.LightCurve(lens="triple",param_type="vbm",ld_c=limb,
         options=lc.Options(finite_source_tol=0.,finite_source_reltol=rtol))
     values=[]
@@ -54,7 +54,7 @@ def test_local_faint_images_enable_certified_point_route(params,times,limb,rtol)
         assert np.all(result.gradient_valid)
         assert np.all(np.isfinite(result.gradients))
         assert np.all(np.asarray(result.diagnostics['center_image_count'])==4)
-        assert np.all(np.asarray(result.diagnostics['finite_source_method'])==0)
+        assert np.all(np.asarray(result.diagnostics['finite_source_method'])==1)
         values.append(result.magnifications)
     np.testing.assert_allclose(values[0],values[1],rtol=1e-11,atol=0.)
 

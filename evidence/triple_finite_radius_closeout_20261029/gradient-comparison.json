@@ -1,0 +1,530 @@
+{
+  "native_sha256": "021f6216986b54fbeea6d1bdd107c8ff8fa261c27e0c7b440cf23ab35b662863",
+  "rows": [
+    {
+      "case": 400,
+      "cpu": 0.07790507699999999,
+      "mu": [
+        1000.012536492466
+      ],
+      "value_mu": [
+        1000.012536492466
+      ],
+      "method": [
+        1
+      ],
+      "rows": [
+        {
+          "parameter": "t0",
+          "native": -0.3676590892137028,
+          "reference": -0.3676591309031182,
+          "scaled_error": 3.048231421288489e-08
+        },
+        {
+          "parameter": "u0",
+          "native": -1000036.4493609127,
+          "reference": -1000036.4493604209,
+          "scaled_error": 4.917199048010316e-13
+        },
+        {
+          "parameter": "tE",
+          "native": 0.0,
+          "reference": 0.0,
+          "scaled_error": 0.0
+        },
+        {
+          "parameter": "alpha",
+          "native": -0.00036765908919278445,
+          "reference": -0.0003676591309031182,
+          "scaled_error": 4.1695004205584536e-11
+        },
+        {
+          "parameter": "rho",
+          "native": 2500.1859171084443,
+          "reference": 2500.185908509485,
+          "scaled_error": 3.4379527947455115e-09
+        },
+        {
+          "parameter": "s",
+          "native": 7.11108175652675e-06,
+          "reference": 7.111081756119779e-06,
+          "scaled_error": 4.0696848508226233e-16
+        },
+        {
+          "parameter": "q",
+          "native": 2.374967627838854,
+          "reference": 2.374967627885453,
+          "scaled_error": 1.3807162028387459e-11
+        },
+        {
+          "parameter": "sep2",
+          "native": -0.0677890693177269,
+          "reference": -0.06778906931771272,
+          "scaled_error": 1.3269681961468564e-14
+        },
+        {
+          "parameter": "q2",
+          "native": -3390.046507746459,
+          "reference": -3390.0465077457848,
+          "scaled_error": 1.9887380483405126e-13
+        },
+        {
+          "parameter": "ang",
+          "native": 0.00036760067302672733,
+          "reference": 0.00036760067302662867,
+          "scaled_error": 9.862614265976115e-17
+        }
+      ]
+    },
+    {
+      "case": 403,
+      "cpu": 0.08269575399999998,
+      "mu": [
+        1080.357424046067
+      ],
+      "value_mu": [
+        1080.357424046067
+      ],
+      "method": [
+        1
+      ],
+      "rows": [
+        {
+          "parameter": "t0",
+          "native": -1028197.9808498151,
+          "reference": -1028197.9808499109,
+          "scaled_error": 9.31821677010133e-14
+        },
+        {
+          "parameter": "u0",
+          "native": -552515.4778096757,
+          "reference": -552515.4778095641,
+          "scaled_error": 2.0206147348696856e-13
+        },
+        {
+          "parameter": "tE",
+          "native": -0.0,
+          "reference": 0.0,
+          "scaled_error": 0.0
+        },
+        {
+          "parameter": "alpha",
+          "native": -1028.197980849815,
+          "reference": -1028.197980849911,
+          "scaled_error": 9.322957567192961e-14
+        },
+        {
+          "parameter": "rho",
+          "native": 3160.7049747715228,
+          "reference": 3160.704967140111,
+          "scaled_error": 2.4137014268606635e-09
+        },
+        {
+          "parameter": "s",
+          "native": -53.716234514498204,
+          "reference": -53.71623451450333,
+          "scaled_error": 9.362875881878154e-14
+        },
+        {
+          "parameter": "q",
+          "native": 0.05278750242414543,
+          "reference": 0.052787502424150555,
+          "scaled_error": 4.8707289772912965e-15
+        },
+        {
+          "parameter": "sep2",
+          "native": -1.26679567151259e-08,
+          "reference": -1.2667956715124565e-08,
+          "scaled_error": 1.3350694917479841e-21
+        },
+        {
+          "parameter": "q2",
+          "native": 2.565896096169073,
+          "reference": 2.5658960961666857,
+          "scaled_error": 6.695157480108299e-13
+        },
+        {
+          "parameter": "ang",
+          "native": -2.5840239904718736e-07,
+          "reference": -2.584023990471834e-07,
+          "scaled_error": 3.970465914276615e-21
+        }
+      ]
+    },
+    {
+      "case": 433,
+      "cpu": 0.04471418399999999,
+      "mu": [
+        503.5822608543155
+      ],
+      "value_mu": [
+        503.5822608543155
+      ],
+      "method": [
+        1
+      ],
+      "rows": [
+        {
+          "parameter": "t0",
+          "native": 15806.60261463612,
+          "reference": 15806.602614639645,
+          "scaled_error": 2.230067107587289e-13
+        },
+        {
+          "parameter": "u0",
+          "native": -253114.25716837915,
+          "reference": -253114.2571684074,
+          "scaled_error": 1.1164802821303685e-13
+        },
+        {
+          "parameter": "tE",
+          "native": 0.0,
+          "reference": 0.0,
+          "scaled_error": 0.0
+        },
+        {
+          "parameter": "alpha",
+          "native": 15.806602614636127,
+          "reference": 15.806602614639646,
+          "scaled_error": 2.0937978838070763e-13
+        },
+        {
+          "parameter": "rho",
+          "native": 318.89479482457983,
+          "reference": 318.8947948487861,
+          "scaled_error": 7.566943482949641e-11
+        },
+        {
+          "parameter": "s",
+          "native": -25.584068199388412,
+          "reference": -25.584068199391528,
+          "scaled_error": 1.1720290035892076e-13
+        },
+        {
+          "parameter": "q",
+          "native": -2504675.5195079395,
+          "reference": -2504675.5195082417,
+          "scaled_error": 1.2065996271728467e-13
+        },
+        {
+          "parameter": "sep2",
+          "native": 9.020477652904627e-05,
+          "reference": 9.020477652906045e-05,
+          "scaled_error": 1.4174664782778866e-17
+        },
+        {
+          "parameter": "q2",
+          "native": -15288.019924860266,
+          "reference": -15288.019924866645,
+          "scaled_error": 4.172403378100091e-13
+        },
+        {
+          "parameter": "ang",
+          "native": -0.00010282620864788434,
+          "reference": -0.0001028262086479039,
+          "scaled_error": 1.9554285993115794e-17
+        }
+      ]
+    },
+    {
+      "case": 460,
+      "cpu": 0.01236986799999995,
+      "mu": [
+        221.01303126410528
+      ],
+      "value_mu": [
+        221.01303126410528
+      ],
+      "method": [
+        1
+      ],
+      "rows": [
+        {
+          "parameter": "t0",
+          "native": 46016.89294447012,
+          "reference": 46016.892944468564,
+          "scaled_error": 3.383585883243735e-14
+        },
+        {
+          "parameter": "u0",
+          "native": 16381.275995696029,
+          "reference": 16381.275995694292,
+          "scaled_error": 1.0603745662952201e-13
+        },
+        {
+          "parameter": "tE",
+          "native": 0.0,
+          "reference": 0.0,
+          "scaled_error": 0.0
+        },
+        {
+          "parameter": "alpha",
+          "native": 46.01689294447013,
+          "reference": 46.016892944468566,
+          "scaled_error": 3.324749724569213e-14
+        },
+        {
+          "parameter": "rho",
+          "native": 26.988970107173877,
+          "reference": 26.988970108204114,
+          "scaled_error": 3.6808686596105205e-11
+        },
+        {
+          "parameter": "s",
+          "native": 0.00047478146055978206,
+          "reference": 0.0004747814605597588,
+          "scaled_error": 2.3245100257163117e-17
+        },
+        {
+          "parameter": "q",
+          "native": 477.1328530253868,
+          "reference": 477.13285302536343,
+          "scaled_error": 4.8862246139260335e-14
+        },
+        {
+          "parameter": "sep2",
+          "native": -47478.20795835167,
+          "reference": -47478.20795834935,
+          "scaled_error": 4.8885197936760303e-14
+        },
+        {
+          "parameter": "q2",
+          "native": -0.02350481045522501,
+          "reference": -0.023504810455218135,
+          "scaled_error": 6.718526174501972e-15
+        },
+        {
+          "parameter": "ang",
+          "native": -46.0168938648025,
+          "reference": -46.01689386480402,
+          "scaled_error": 3.234074668775341e-14
+        }
+      ]
+    },
+    {
+      "case": 467,
+      "cpu": 0.0019411750000000172,
+      "mu": [
+        10.02800351864905
+      ],
+      "value_mu": [
+        10.02800351864905
+      ],
+      "method": [
+        1
+      ],
+      "rows": [
+        {
+          "parameter": "t0",
+          "native": -0.20550084922167144,
+          "reference": -0.20550085096103518,
+          "scaled_error": 1.4428556686528423e-09
+        },
+        {
+          "parameter": "u0",
+          "native": -99.44995072617175,
+          "reference": -99.44995071985704,
+          "scaled_error": 6.286421182175288e-11
+        },
+        {
+          "parameter": "tE",
+          "native": 0.0,
+          "reference": 0.0,
+          "scaled_error": 0.0
+        },
+        {
+          "parameter": "alpha",
+          "native": -0.020550084922167144,
+          "reference": -0.020550085096103565,
+          "scaled_error": 1.7043398786801798e-10
+        },
+        {
+          "parameter": "rho",
+          "native": 0.6881612447314667,
+          "reference": 0.6881610658891816,
+          "scaled_error": 1.0593911250888367e-07
+        },
+        {
+          "parameter": "s",
+          "native": -0.0034935547335770223,
+          "reference": -0.003493554741758948,
+          "scaled_error": 8.153441130207603e-12
+        },
+        {
+          "parameter": "q",
+          "native": 1.038305530039922e-06,
+          "reference": 1.0383055300210024e-06,
+          "scaled_error": 1.89195200238666e-17
+        },
+        {
+          "parameter": "sep2",
+          "native": -5.891229735303955e-10,
+          "reference": -5.891229735073395e-10,
+          "scaled_error": 2.3056005200107718e-20
+        },
+        {
+          "parameter": "q2",
+          "native": -5.442569140887664e-06,
+          "reference": -5.442569140658059e-06,
+          "scaled_error": 2.29603971376734e-16
+        },
+        {
+          "parameter": "ang",
+          "native": 8.023576687936895e-10,
+          "reference": 8.023576687325873e-10,
+          "scaled_error": 6.110217743904124e-20
+        }
+      ]
+    },
+    {
+      "case": 484,
+      "cpu": 0.083879278,
+      "mu": [
+        1149.4586146080874
+      ],
+      "value_mu": [
+        1149.4586146080874
+      ],
+      "method": [
+        1
+      ],
+      "rows": [
+        {
+          "parameter": "t0",
+          "native": -205035.07111856504,
+          "reference": -205035.07111851458,
+          "scaled_error": 2.461325060350281e-13
+        },
+        {
+          "parameter": "u0",
+          "native": -1311856.080341633,
+          "reference": -1311856.0803409433,
+          "scaled_error": 5.257008380238552e-13
+        },
+        {
+          "parameter": "tE",
+          "native": 0.0,
+          "reference": 0.0,
+          "scaled_error": 0.0
+        },
+        {
+          "parameter": "alpha",
+          "native": -205.03507111856516,
+          "reference": -205.0350711185146,
+          "scaled_error": 2.45405895230354e-13
+        },
+        {
+          "parameter": "rho",
+          "native": 3845.323185186484,
+          "reference": 3845.3231631913427,
+          "scaled_error": 5.718484969457207e-09
+        },
+        {
+          "parameter": "s",
+          "native": -0.008263432199624533,
+          "reference": -0.008263432199622906,
+          "scaled_error": 1.6138348059657554e-15
+        },
+        {
+          "parameter": "q",
+          "native": -82618715.15189542,
+          "reference": -82618715.15187919,
+          "scaled_error": 1.9641269310296587e-13
+        },
+        {
+          "parameter": "sep2",
+          "native": -3.2494109413228514,
+          "reference": -3.2494109413223518,
+          "scaled_error": 1.1756932148479207e-13
+        },
+        {
+          "parameter": "q2",
+          "native": 15588.174655217808,
+          "reference": 15588.174655199777,
+          "scaled_error": 1.1566771401419646e-12
+        },
+        {
+          "parameter": "ang",
+          "native": 206.07434180595132,
+          "reference": 206.07434180590295,
+          "scaled_error": 2.336057139125899e-13
+        }
+      ]
+    },
+    {
+      "case": 515,
+      "cpu": 0.0030677490000000085,
+      "mu": [
+        10.03746105433066
+      ],
+      "value_mu": [
+        10.03746105433066
+      ],
+      "method": [
+        1
+      ],
+      "rows": [
+        {
+          "parameter": "t0",
+          "native": 3.5320795177540276e-06,
+          "reference": 3.5320794675095032e-06,
+          "scaled_error": 5.024434693841895e-14
+        },
+        {
+          "parameter": "u0",
+          "native": -99.6261694197058,
+          "reference": -99.62616941964967,
+          "scaled_error": 5.57835764282672e-13
+        },
+        {
+          "parameter": "tE",
+          "native": 0.0,
+          "reference": 0.0,
+          "scaled_error": 0.0
+        },
+        {
+          "parameter": "alpha",
+          "native": 3.5320795088722434e-07,
+          "reference": 3.5320794675095033e-07,
+          "scaled_error": 4.1362725492921425e-15
+        },
+        {
+          "parameter": "rho",
+          "native": 0.0023085445116126104,
+          "reference": 0.0023085445104083766,
+          "scaled_error": 1.201460137116491e-12
+        },
+        {
+          "parameter": "s",
+          "native": 9.822053038768203e-06,
+          "reference": 9.822053038770092e-06,
+          "scaled_error": 1.888864919845664e-18
+        },
+        {
+          "parameter": "q",
+          "native": -3.705300677970935e-12,
+          "reference": -3.70530067789393e-12,
+          "scaled_error": 7.700453735600616e-23
+        },
+        {
+          "parameter": "sep2",
+          "native": 6.729852320822557e-10,
+          "reference": 6.729852320820453e-10,
+          "scaled_error": 2.1041406817657086e-22
+        },
+        {
+          "parameter": "q2",
+          "native": 7.402398807687823e-08,
+          "reference": 7.402398807702044e-08,
+          "scaled_error": 1.4220888038324806e-19
+        },
+        {
+          "parameter": "ang",
+          "native": 7.351902727748676e-12,
+          "reference": 7.351902727746382e-12,
+          "scaled_error": 2.2941337301106716e-24
+        }
+      ]
+    }
+  ]
+}

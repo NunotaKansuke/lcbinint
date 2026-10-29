@@ -1,0 +1,22 @@
+{
+  "native_sha256": "021f6216986b54fbeea6d1bdd107c8ff8fa261c27e0c7b440cf23ab35b662863",
+  "conditions": 1856,
+  "counts": {
+    "gradient:ok": 1854,
+    "value:ok": 1854,
+    "gradient:exception": 2,
+    "value:exception": 2
+  },
+  "classification_regressions": [],
+  "classification_changes": [],
+  "value_comparisons": 4764,
+  "maximum_error_over_requested": 0.8167345901752832,
+  "value_exceedances": [],
+  "independent_gradient_checks": 70,
+  "maximum_scaled_gradient_error": 1.0593911250888367e-07,
+  "invariant_curves": 167,
+  "invariant_checks": 501,
+  "invariant_errors": [],
+  "invariant_exceedances": [],
+  "max_invariant_gradient": 2.377476721309528e-05
+}

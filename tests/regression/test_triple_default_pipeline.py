@@ -31,7 +31,7 @@ def test_default_and_explicit_backend_agree(limb):
 
 
 @pytest.mark.parametrize('limb',[0.,.5])
-@pytest.mark.parametrize('x,y,rho,method',[(3.,.8,.001,0),(.5,.3,.01,1),(.1,.15,.15,7)])
+@pytest.mark.parametrize('x,y,rho,method',[(3.,.8,.001,1),(.5,.3,.01,1),(.1,.15,.15,7)])
 def test_routes_and_tangents(limb,x,y,rho,method):
     model=curve(limb);p=parameters(x,y,rho)
     value=model.info([0.],p)
@@ -97,12 +97,21 @@ def test_approximation_pullback_in_both_coordinate_conventions(param_type,x,y,rh
         np.testing.assert_allclose(result.gradients[0,j],fd,rtol=2e-4,atol=1e-5,err_msg=param_type+' '+name)
 
 
-def test_point_pullback_with_secondary_dominant_mass():
+def test_finite_source_pullback_with_secondary_dominant_mass():
     model=curve(.5);p=parameters(3.,.8,.001);p.update(q=4.,q2=5/3,s=1.1)
     out=model.info([0.],p,with_gradient=True)
     assert out.status.tolist()==[0]
-    assert out.diagnostics['finite_source_method'].tolist()==[0]
+    assert out.diagnostics['finite_source_method'].tolist()==[1]
     for j,name in enumerate(out.gradient_parameters):
         h=1e-5;pp=dict(p);pm=dict(p);pp[name]+=h;pm[name]-=h
         fd=(model.magnification([0.],pp).magnifications[0]-model.magnification([0.],pm).magnifications[0])/(2*h)
         np.testing.assert_allclose(out.gradients[0,j],fd,rtol=2e-4,atol=1e-5,err_msg=name)
+
+
+@pytest.mark.parametrize("options",[dict(mode=0),dict(adaptive_hex_threshold=0.)])
+def test_explicit_point_approximation_retains_its_contract(options):
+    model=curve(**options);p=parameters(3.,.8,.001)
+    result=model.info([0.],p,with_gradient=True)
+    assert result.status.tolist()==[0]
+    assert result.diagnostics['finite_source_method'].tolist()==[0]
+    assert result.gradients[0,list(result.gradient_parameters).index('rho')]==0.

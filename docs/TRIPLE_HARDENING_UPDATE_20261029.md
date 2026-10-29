@@ -27,3 +27,7 @@ branchは引き続き `experiment/algebraic_boundary`。新規worktreeは作成�
 ## Critical-loop進行・Newton重複像の修正
 
 最新は [triple_local_chart_followup_20261029/REPORT.md](../evidence/triple_local_chart_followup_20261029/REPORT.md)。計1856条件・8160 epochで値／微分とも1854条件成功、停止は439・499の2条件。旧成功の分類回帰0、独立参照等のgateを通した4764比較で要求値誤差超過0、501不変性検査・C++33件・対象Python171件成功。新規56条件は56/56（旧採用版23/22）。critical-loopの親円盤の丸め床、未完了Newtonによる重複像、幾何証明の仕事順を修正し、16個のgeometry-only winding witnessを再利用する。正確性修正済み中間版との繰り返し比較で、467の微分は約3.8秒→2.3ms、515は約4.0秒→0.44ms。重いLDのangular仕事・失敗frontierと、point近似の有限光源ρ微分の精度保証は残る。VBM MultiPolyの約89.34→約1e41の誤値も公開APIで再現し、参照に使っていない。bindingと実際のwrapperを含むprovenance closureを今回拡張した。
+
+## Finite-radius tangents and index-preserving duplicates
+
+最新は [triple_finite_radius_closeout_20261029/REPORT.md](../evidence/triple_finite_radius_closeout_20261029/REPORT.md)。通常の正rhoのpoint近似をjoint hexへ置換し、以前0だったrho微分の4反例を修正。13点の評価順で総数4・正負像数を保って残る未収束重複も、Newton補正量による再研磨で修正した。1856条件で成功分類の回帰0、4764値比較で超過0、独立70微分・501不変性検査・Python226件・C++33件成功。ただし軽いpoint領域は約9–11倍の費用増で、重いLDの高速化ではない。439・499の積分停止は未解決であり、全体の完成とは扱わない。
