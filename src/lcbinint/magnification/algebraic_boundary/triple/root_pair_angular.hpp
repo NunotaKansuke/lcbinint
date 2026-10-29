@@ -341,6 +341,26 @@ template<int N,class Ray,class Work> std::optional<PairIntegral<N>> critical_arc
                         if(shifted){const auto& q=shifted_nodes.offsets[k];sh=center[0]*q[1]+center[1]*q[0];ch=center[1]*q[1]+center[0]*q[0];}else
                         if(!map.left&&!map.right&&std::abs(u)<=64){const double e=std::expm1(std::abs(u)),inverse=1/(1+e);sh=std::copysign(.5*e*(1+inverse),u);ch=1+.5*e*(e*inverse);}else
                         {sh=std::sinh(u);ch=std::cosh(u);}const double t=active.pair.mean.value+h*sh,one=1+t*t;
+                        // Keep the stable factorized scalar field and its summation
+                        // order. Coefficient tangent contractions can cancel badly
+                        // for small physical derivatives; evaluate the original
+                        // physical jet at these same sinh-chart nodes instead.
+                        if constexpr(physical_transport){
+                            double scalar_q=q[4].value;for(int d=3;d>=0;--d)scalar_q=scalar_q*t+q[d].value;
+                            double denominator=one*one*one;
+                            for(const auto& pole:active.poles)denominator*=((pole[2].value*t+pole[1].value)*t+pole[0].value);
+                            const double ratio=scalar_q/denominator;if(!(ratio>0)||!std::isfinite(ratio))return std::nullopt;
+                            const double density=2*active.inverse_rho*(-v)*ch*ch*std::sqrt(ratio);
+                            const double theta=basis+2*std::atan(t),jac=2*h*ch/one,root=density/(R*jac);
+                            double error=0;const auto jet=ray.sample(theta,error);++work.evaluations;
+                            std::array<double,N> rhs{};
+                            if(error<=tangent_phi_roundoff*root*root){for(int k=0;k<N;++k)rhs[k]=jet.dp[k]+jet.dR*motion[k];}
+                            else{using W=local_precision::Q;const auto precise=local_precision::evaluate<true>(W(R),W(theta),p);++work.quad_samples;for(int k=0;k<N;++k)rhs[k]=double(precise.dp[k]+precise.dR*W(motion[k]));}
+                            const double weight=rule.w[k]*span*fraction_width*node[1];
+                            moments[0]+=weight*density;
+                            for(int k=0;k<N;++k)result.gradient[k]+=weight*jac*(motion[k]*root+R*rhs[k]/(2*root));
+                            continue;
+                        }
                         double Q=q[4].value;for(int d=3;d>=0;--d)Q=Q*t+q[d].value;
                         const double Qt=((4*q[4].value*t+3*q[3].value)*t+2*q[2].value)*t+q[1].value;
                         std::array<double,2> pole{},inverse_pole{};double denominator_slope=6*t/one;
@@ -373,7 +393,8 @@ template<int N,class Ray,class Work> std::optional<PairIntegral<N>> critical_arc
                     for(int i=0;i<N;++i)result.gradient[i]+=weight*value.dp[i];
                 }
             }
-            if(moving){const auto& q=active.pair.quotient;
+            if(moving&&physical_transport){result.flux+=piece_moments[0];}
+            if(moving&&!physical_transport){const auto& q=active.pair.quotient;
                     result.flux+=piece_moments[0];for(int k=0;k<N;++k){double partial=-piece_moments[0]*active.rho.dp[k]*active.inverse_rho+piece_moments[1]*active.pair.mean.dp[k]+piece_moments[2]*active.pair.square.dp[k];
                         if constexpr(!physical_transport)partial+=piece_moments[14]*moving_lo.dp[k]+piece_moments[15]*moving_hi.dp[k];
                         for(int d=0;d<5;++d)partial+=piece_moments[3+d]*q[d].dp[k];for(int d=0;d<2;++d)for(int e=0;e<3;++e)partial+=piece_moments[8+3*d+e]*active.poles[d][e].dp[k];

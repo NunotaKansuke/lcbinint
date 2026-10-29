@@ -1,0 +1,24 @@
+{
+  "native_sha256": "863253398bab41c1d9fbc3018282234fbad67ad3ac57ad9d649ea9b32cb5f7df",
+  "conditions": 1880,
+  "epochs": 8280,
+  "counts": {
+    "gradient:ok": 1880,
+    "value:ok": 1880
+  },
+  "recovered": [],
+  "classification_regressions": [],
+  "value_comparisons": 4800,
+  "value_exceedances": [],
+  "maximum_error_over_requested": 0.8167345901752832,
+  "independent_tangents": 90,
+  "maximum_scaled_independent_tangent": 2.197500184887381e-07,
+  "invariant_curves": 170,
+  "invariant_checks": 510,
+  "invariant_errors": [],
+  "invariant_exceedances": [],
+  "maximum_scaled_invariant_gradient": 2.377476721309528e-05,
+  "maximum_worker_rss_kib": 70584,
+  "cpp_tests": 34,
+  "target_python_tests": 260
+}

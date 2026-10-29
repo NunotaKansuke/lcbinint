@@ -683,7 +683,12 @@ if(weighted)detail+=uniform_weight_*panel_detail::interpolation_detail(rule,samp
    radial_error_=have&&previous_cells_.size()==next_cells.size()?cell_error:INFINITY;
    radial_error_=std::max(radial_error_,(QuadratureErrorPolicy::weighted_detail_floor/QuadratureErrorPolicy::difference_safety)*detail);
    // Never accept a one/three-node coincidence as a geometry certificate.
-   const auto tuning=active_patterson_tuning();const int default_minimum=mixed_?3:(use_kronrod()?2:(Fejer?5:3));const int minimum=weighted_&&!uniform_?4:(map_.a>=tuning.selected_lo&&map_.b<=tuning.selected_hi&&tuning.minimum_radial?tuning.minimum_radial:default_minimum);
+   const auto tuning=active_patterson_tuning();
+   // Unweighted LD charts can have nearly flat flux while their
+   // material angular transport still varies. Keep a fixed 31-node
+   // Patterson floor, as a coordinate-resolution guard before the scalar
+   // convergence test. No derivative error enters the controller.
+   const int default_minimum=mixed_?3:(use_kronrod()?2:((Fejer||!uniform_)?5:3));const int minimum=weighted_&&!uniform_?4:(map_.a>=tuning.selected_lo&&map_.b<=tuning.selected_hi&&tuning.minimum_radial?tuning.minimum_radial:default_minimum);
    if(lev<minimum)radial_error_=INFINITY;
 #if defined(LCBININT_TRIPLE_MULTIRATE_ARCS) && defined(LCBININT_TRIPLE_SECTOR_BOUNDARY_WITNESS)
    if(!boundary_ok){radial_error_=INFINITY;if(lev>=4)split_level=4;}
