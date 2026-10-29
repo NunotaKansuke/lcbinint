@@ -23,3 +23,7 @@ branchは引き続き `experiment/algebraic_boundary`。新規worktreeは作成�
 ## イベント精度・遠方caustic証明の追加検証
 
 最新は [triple_event_precision_20261029/REPORT.md](../evidence/triple_event_precision_20261029/REPORT.md)。1800条件・7880 epochで値／微分とも1791条件成功、9条件停止、成功分類の回帰0。再監査した4502精度比較で要求誤差超過0、480不変性検査・C++33件・対象Python120件通過。小さいfoldと像ごとのsupport丸めを修正し、遠方で全causticの外側かつ無限遠へ接続することを証明する幾何guardを追加。遠方case514は正確性修正済み中間版との同条件測定で値656→0.300ms、微分478→0.318ms。VBMの1.0返却を独立80桁参照と照合し、未検証のflat値は厳密参照から除外した。無条件frame優先試作は独立alpha微分反例により棄却。残る9条件と重いLDは未解決で、全微分精度の認証ではない。
+
+## Critical-loop進行・Newton重複像の修正
+
+最新は [triple_local_chart_followup_20261029/REPORT.md](../evidence/triple_local_chart_followup_20261029/REPORT.md)。計1856条件・8160 epochで値／微分とも1854条件成功、停止は439・499の2条件。旧成功の分類回帰0、独立参照等のgateを通した4764比較で要求値誤差超過0、501不変性検査・C++33件・対象Python171件成功。新規56条件は56/56（旧採用版23/22）。critical-loopの親円盤の丸め床、未完了Newtonによる重複像、幾何証明の仕事順を修正し、16個のgeometry-only winding witnessを再利用する。正確性修正済み中間版との繰り返し比較で、467の微分は約3.8秒→2.3ms、515は約4.0秒→0.44ms。重いLDのangular仕事・失敗frontierと、point近似の有限光源ρ微分の精度保証は残る。VBM MultiPolyの約89.34→約1e41の誤値も公開APIで再現し、参照に使っていない。bindingと実際のwrapperを含むprovenance closureを今回拡張した。

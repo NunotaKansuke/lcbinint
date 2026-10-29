@@ -1,0 +1,201 @@
+"""Extreme critical-loop progress and unfinished Newton duplicate regressions."""
+import numpy as np
+import pytest
+import lcbinint as lc
+
+# Independent 70-digit original-equation source-disk quadrature, retaining
+# four distinct images at every sample; GL8/16 and 32/64 angular convergence.
+CASES = [{'name': 'near_collinear_or_clustered-0400',
+  'family': 'near_collinear_or_clustered',
+  'params': {'t0': 0.0,
+             'u0': 0.001,
+             'tE': 1.0,
+             'alpha': -2.3964942839961085,
+             's': 0.01,
+             'q': 1e-08,
+             'q2': 1e-07,
+             'sep2': 0.005,
+             'ang': 0.0,
+             'rho': 1e-05},
+  'epochs': [-1.0, -0.2, 0.0, 0.2, 1.0],
+  'limb': 0.0,
+  'rtol': 0.001,
+  'case': 400,
+  'references': {'2': 1000.0125364924304}},
+ {'name': 'near_collinear_or_clustered-0403',
+  'family': 'near_collinear_or_clustered',
+  'params': {'t0': 0.0,
+             'u0': 0.001,
+             'tE': 1.0,
+             'alpha': 2.5380033324900486,
+             's': 10.0,
+             'q': 10000.0,
+             'q2': 1e-07,
+             'sep2': 10.00001,
+             'ang': 3.141592643589793,
+             'rho': 1e-05},
+  'epochs': [-1.0, -0.2, 0.0, 0.2, 1.0],
+  'limb': 0.0,
+  'rtol': 0.0001,
+  'case': 403,
+  'references': {'2': 1080.357424046059}},
+ {'name': 'near_collinear_or_clustered-0433',
+  'family': 'near_collinear_or_clustered',
+  'params': {'t0': 0.0,
+             'u0': 0.001,
+             'tE': 1.0,
+             'alpha': 1.6963505531657619,
+             's': 10.0,
+             'q': 0.0001,
+             'q2': 1e-07,
+             'sep2': 17.0,
+             'ang': 3.141592643589793,
+             'rho': 1e-05},
+  'epochs': [-1.0, -0.2, 0.0, 0.2, 1.0],
+  'limb': 0.0,
+  'rtol': 0.0001,
+  'case': 433,
+  'references': {'2': 503.58226085433597}},
+ {'name': 'near_collinear_or_clustered-0460',
+  'family': 'near_collinear_or_clustered',
+  'params': {'t0': 0.0,
+             'u0': 0.001,
+             'tE': 1.0,
+             'alpha': 0.5334661239777159,
+             's': 0.01,
+             'q': 1e-08,
+             'q2': 100.0,
+             'sep2': 0.005,
+             'ang': 0.0,
+             'rho': 1e-05},
+  'epochs': [-1.0, -0.2, 0.0, 0.2, 1.0],
+  'limb': 0.0,
+  'rtol': 0.001,
+  'case': 460,
+  'references': {'2': 221.0130312641042}},
+ {'name': 'near_collinear_or_clustered-0467',
+  'family': 'near_collinear_or_clustered',
+  'params': {'t0': 0.0,
+             'u0': 0.1,
+             'tE': 1.0,
+             'alpha': -2.5094939170597206,
+             's': 1.0,
+             'q': 10000.0,
+             'q2': 1e-07,
+             'sep2': 1.001,
+             'ang': 1e-10,
+             'rho': 0.003},
+  'epochs': [-1.0, -0.2, 0.0, 0.2, 1.0],
+  'limb': 0.5,
+  'rtol': 0.0001,
+  'case': 467,
+  'references': {'0': 1.3380319053259828,
+                 '1': 4.544728459150133,
+                 '2': 10.028003518559899,
+                 '3': 4.556983837440612,
+                 '4': 1.3381345438929093}},
+ {'name': 'near_collinear_or_clustered-0484',
+  'family': 'near_collinear_or_clustered',
+  'params': {'t0': 0.0,
+             'u0': 0.001,
+             'tE': 1.0,
+             'alpha': 2.3148921982993347,
+             's': 100.0,
+             'q': 1e-08,
+             'q2': 0.01,
+             'sep2': 50.0,
+             'ang': 0.0,
+             'rho': 1e-05},
+  'epochs': [-1.0, -0.2, 0.0, 0.2, 1.0],
+  'limb': 0.0,
+  'rtol': 0.001,
+  'case': 484,
+  'references': {'2': 1149.4586146080644}},
+ {'name': 'near_collinear_or_clustered-0515',
+  'family': 'near_collinear_or_clustered',
+  'params': {'t0': 0.0,
+             'u0': 0.1,
+             'tE': 1.0,
+             'alpha': 2.399844737493482,
+             's': 0.01,
+             'q': 10000.0,
+             'q2': 1e-07,
+             'sep2': 0.01001,
+             'ang': 1e-10,
+             'rho': 1e-05},
+  'epochs': [-1.0, -0.2, 0.0, 0.2, 1.0],
+  'limb': 0.5,
+  'rtol': 0.0001,
+  'case': 515,
+  'references': {'0': 1.3380949944868161,
+                 '1': 4.555555600528158,
+                 '2': 10.037461054330652,
+                 '3': 4.555555496060232,
+                 '4': 1.3380949901159684}}]
+
+def curve(c):
+    return lc.LightCurve(lens="triple",param_type="vbm",ld_c=c["limb"],
+        options=lc.Options(finite_source_tol=0.,finite_source_reltol=c["rtol"]))
+
+@pytest.mark.parametrize("case",CASES,ids=lambda c:str(c["case"]))
+@pytest.mark.parametrize("gradient",[False,True])
+def test_critical_loop_values(case,gradient):
+    m=curve(case)
+    result=m.magnification(case["epochs"],case["params"],with_gradient=gradient)
+    assert np.all(result.status==0)
+    if gradient:
+        assert np.all(result.gradient_valid)
+        assert np.all(np.isfinite(result.gradients))
+    for j,reference in case["references"].items():
+        assert abs(result.magnifications[int(j)]/reference-1)<=case["rtol"]
+
+@pytest.mark.parametrize("case",CASES,ids=lambda c:str(c["case"]))
+def test_cold_and_retained_caustic_proof_agree(case):
+    m=curve(case)
+    cold=m.magnification(case["epochs"],case["params"],with_gradient=True)
+    warm=m.magnification(case["epochs"],case["params"],with_gradient=True)
+    assert np.all(cold.status==0) and np.all(warm.status==0)
+    assert np.max(np.abs(warm.magnifications/cold.magnifications-1))<=case["rtol"]
+    assert np.max(np.abs(warm.gradients-cold.gradients)/(1+np.abs(cold.gradients)))<=1e-4
+
+# Hex routes retain a finite-source rho derivative. Point routes deliberately
+# differentiate the point approximation; their zero rho derivative is not
+# certified against the full finite-source model by a value tolerance.
+HEX_REFERENCES = [(403, 't0', -1028197.9808499109),
+ (403, 'u0', -552515.4778095641),
+ (403, 'tE', 0.0),
+ (403, 'alpha', -1028.197980849911),
+ (403, 'rho', 3160.704967140111),
+ (403, 's', -53.71623451450333),
+ (403, 'q', 0.052787502424150555),
+ (403, 'sep2', -1.2667956715124565e-08),
+ (403, 'q2', 2.5658960961666857),
+ (403, 'ang', -2.584023990471834e-07),
+ (467, 't0', -0.20550085096103518),
+ (467, 'u0', -99.44995071985704),
+ (467, 'tE', 0.0),
+ (467, 'alpha', -0.020550085096103565),
+ (467, 'rho', 0.6881610658891816),
+ (467, 's', -0.003493554741758948),
+ (467, 'q', 1.0383055300210024e-06),
+ (467, 'sep2', -5.891229735073395e-10),
+ (467, 'q2', -5.442569140658059e-06),
+ (467, 'ang', 8.023576687325873e-10),
+ (484, 't0', -205035.07111851458),
+ (484, 'u0', -1311856.0803409433),
+ (484, 'tE', 0.0),
+ (484, 'alpha', -205.0350711185146),
+ (484, 'rho', 3845.3231631913427),
+ (484, 's', -0.008263432199622906),
+ (484, 'q', -82618715.15187919),
+ (484, 'sep2', -3.2494109413223518),
+ (484, 'q2', 15588.174655199777),
+ (484, 'ang', 206.07434180590295)]
+
+@pytest.mark.parametrize("case_id,name,reference",HEX_REFERENCES)
+def test_hex_tangents_against_independent_disk_differences(case_id,name,reference):
+    case=next(c for c in CASES if c["case"]==case_id)
+    result=curve(case).magnification([0.],case["params"],with_gradient=True)
+    assert result.status.tolist()==[0] and np.all(result.gradient_valid)
+    column=list(result.gradient_parameters).index(name)
+    assert abs(result.gradients[0,column]-reference)/(1+abs(reference))<=1e-4

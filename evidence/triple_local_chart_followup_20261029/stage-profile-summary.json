@@ -1,0 +1,122 @@
+[
+  {
+    "case": 972,
+    "epoch": 1,
+    "frame": 0,
+    "plan_seconds": 0.038342703,
+    "integral_seconds": 1.24447036,
+    "completed": 0,
+    "valid": 0,
+    "stop": "refinement_budget",
+    "nodes": 258761,
+    "exclusive_seconds": {
+      "topology": 0.190999815,
+      "endpoint": 0.147887305,
+      "chart": 0.10367889,
+      "pair": 8.756e-06,
+      "angular": 0.740796224,
+      "witness": 0.000110979
+    },
+    "other_seconds": 0.060988390999999975
+  },
+  {
+    "case": 972,
+    "epoch": 1,
+    "frame": 1,
+    "plan_seconds": 0.041752407,
+    "integral_seconds": 0.041204805,
+    "completed": 0,
+    "valid": 0,
+    "stop": "event_box_budget",
+    "nodes": 0,
+    "exclusive_seconds": {
+      "topology": 0,
+      "endpoint": 0,
+      "chart": 0,
+      "pair": 0,
+      "angular": 0,
+      "witness": 0
+    },
+    "other_seconds": 0.041204805
+  },
+  {
+    "case": 972,
+    "epoch": 1,
+    "frame": 2,
+    "plan_seconds": 0.012553696,
+    "integral_seconds": 0.008534888,
+    "completed": 1,
+    "valid": 1,
+    "stop": "converged_value_mesh",
+    "nodes": 2659,
+    "exclusive_seconds": {
+      "topology": 0.004833016,
+      "endpoint": 0.00047101,
+      "chart": 0.000314604,
+      "pair": 8.502e-06,
+      "angular": 0.001108409,
+      "witness": 0.000161106
+    },
+    "other_seconds": 0.0016382409999999995
+  },
+  {
+    "case": 1508,
+    "epoch": 1,
+    "frame": 0,
+    "plan_seconds": 0.008183442,
+    "integral_seconds": 0.273113855,
+    "completed": 1,
+    "valid": 1,
+    "stop": "converged_value_mesh",
+    "nodes": 70716,
+    "exclusive_seconds": {
+      "topology": 0.003943861,
+      "endpoint": 0.038280005,
+      "chart": 0.028053787,
+      "pair": 0,
+      "angular": 0.180482736,
+      "witness": 9.609e-06
+    },
+    "other_seconds": 0.022343857000000023
+  },
+  {
+    "case": 1508,
+    "epoch": 1,
+    "frame": 1,
+    "plan_seconds": 0.005637378,
+    "integral_seconds": 0.002341318,
+    "completed": 1,
+    "valid": 1,
+    "stop": "converged_value_mesh",
+    "nodes": 1615,
+    "exclusive_seconds": {
+      "topology": 0.001478222,
+      "endpoint": 0.000140876,
+      "chart": 0.000107011,
+      "pair": 3.333e-06,
+      "angular": 0.000373706,
+      "witness": 1.6563e-05
+    },
+    "other_seconds": 0.00022160699999999997
+  },
+  {
+    "case": 1508,
+    "epoch": 1,
+    "frame": 2,
+    "plan_seconds": 0.015559865,
+    "integral_seconds": 0.012063144,
+    "completed": 1,
+    "valid": 1,
+    "stop": "converged_value_mesh",
+    "nodes": 3023,
+    "exclusive_seconds": {
+      "topology": 0.008960239,
+      "endpoint": 0.000560983,
+      "chart": 0.000242048,
+      "pair": 0,
+      "angular": 0.001097732,
+      "witness": 9.515e-06
+    },
+    "other_seconds": 0.001192627
+  }
+]

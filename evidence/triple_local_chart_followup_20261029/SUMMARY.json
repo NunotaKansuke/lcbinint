@@ -1,0 +1,244 @@
+{
+  "conditions": 1856,
+  "epochs": 8160,
+  "native_sha256": "8fc87192444d742e1dfa48bad43800b03b638f09f476d1f8638020bce36a6534",
+  "counts": {
+    "value": {
+      "ok": 1854,
+      "exception": 2
+    },
+    "gradient": {
+      "ok": 1854,
+      "exception": 2
+    }
+  },
+  "remaining": [
+    439,
+    499
+  ],
+  "reference_validation": {
+    "comparisons": 4764,
+    "points": 2382,
+    "conditions": 534,
+    "maximum_ratio": 0.8167345901752832,
+    "exceedances": [],
+    "new_reference_exclusions": {
+      "reference_curve_failure": 37,
+      "reference_disagreement": 42
+    }
+  },
+  "invariants": {
+    "curves": 167,
+    "checks": 501,
+    "errors": [],
+    "exceedances": [],
+    "maximum_value": 5.832621496892898e-07,
+    "maximum_scaled_gradient": 2.377476721309528e-05
+  },
+  "vbm_63_conditions": {
+    "SinglePoly": {
+      "ok": 29,
+      "worker_exit:-24": 32,
+      "worker_exit:-11": 1,
+      "worker_exit:-6": 1
+    },
+    "MultiPoly": {
+      "ok": 56,
+      "worker_exit:-24": 6,
+      "worker_exit:-6": 1
+    },
+    "NoPoly": {
+      "worker_exit:-11": 24,
+      "ok": 29,
+      "worker_exit:-24": 6,
+      "worker_exit:-6": 4
+    }
+  },
+  "vbm_independent_exceedances": [
+    {
+      "case": 0,
+      "engine": "SinglePoly",
+      "requested": 0.001,
+      "relative_error": 6.416035174752902e+27,
+      "ratio": 6.416035174752902e+30
+    },
+    {
+      "case": 6,
+      "engine": "SinglePoly",
+      "requested": 0.001,
+      "relative_error": 1154.8229082678383,
+      "ratio": 1154822.9082678384
+    },
+    {
+      "case": 8,
+      "engine": "SinglePoly",
+      "requested": 0.001,
+      "relative_error": 0.00781986673471513,
+      "ratio": 7.819866734715131
+    },
+    {
+      "case": 11,
+      "engine": "SinglePoly",
+      "requested": 0.0001,
+      "relative_error": 0.510950034952057,
+      "ratio": 5109.50034952057
+    },
+    {
+      "case": 14,
+      "engine": "SinglePoly",
+      "requested": 0.001,
+      "relative_error": 0.36648986531934535,
+      "ratio": 366.48986531934537
+    },
+    {
+      "case": 16,
+      "engine": "SinglePoly",
+      "requested": 0.001,
+      "relative_error": 1.6682776849483178e+17,
+      "ratio": 1.6682776849483176e+20
+    },
+    {
+      "case": 22,
+      "engine": "SinglePoly",
+      "requested": 0.001,
+      "relative_error": 3521092667542724.0,
+      "ratio": 3.521092667542724e+18
+    },
+    {
+      "case": 35,
+      "engine": "SinglePoly",
+      "requested": 0.0001,
+      "relative_error": 0.00046464931731149406,
+      "ratio": 4.646493173114941
+    },
+    {
+      "case": 40,
+      "engine": "SinglePoly",
+      "requested": 0.001,
+      "relative_error": 0.0012067767959987874,
+      "ratio": 1.2067767959987874
+    },
+    {
+      "case": 43,
+      "engine": "SinglePoly",
+      "requested": 0.0001,
+      "relative_error": 0.30825156706531387,
+      "ratio": 3082.5156706531384
+    },
+    {
+      "case": 46,
+      "engine": "SinglePoly",
+      "requested": 0.001,
+      "relative_error": 11.222174571950037,
+      "ratio": 11222.174571950036
+    },
+    {
+      "case": 51,
+      "engine": "SinglePoly",
+      "requested": 0.0001,
+      "relative_error": 0.004571422076934395,
+      "ratio": 45.714220769343946
+    },
+    {
+      "case": 56,
+      "engine": "SinglePoly",
+      "requested": 0.001,
+      "relative_error": 418713.6384646801,
+      "ratio": 418713638.46468014
+    },
+    {
+      "case": 57,
+      "engine": "SinglePoly",
+      "requested": 0.0001,
+      "relative_error": 1.1638646157580162e+17,
+      "ratio": 1.1638646157580162e+21
+    },
+    {
+      "case": 58,
+      "engine": "SinglePoly",
+      "requested": 0.0001,
+      "relative_error": 1.2709540966372181e+17,
+      "ratio": 1.270954096637218e+21
+    },
+    {
+      "case": 61,
+      "engine": "SinglePoly",
+      "requested": 0.001,
+      "relative_error": 0.0485512378286872,
+      "ratio": 48.5512378286872
+    },
+    {
+      "case": 32,
+      "engine": "MultiPoly",
+      "requested": 0.001,
+      "relative_error": 1.167207730897705e+39,
+      "ratio": 1.167207730897705e+42
+    }
+  ],
+  "maximum_worker_rss_kib": 70600,
+  "value_gradient_largest": [
+    {
+      "case": 813,
+      "ratio": 0.816722278926374
+    },
+    {
+      "case": 1505,
+      "ratio": 0.731347780697611
+    },
+    {
+      "case": 965,
+      "ratio": 0.6461196025893123
+    },
+    {
+      "case": 974,
+      "ratio": 0.5749329095694478
+    },
+    {
+      "case": 425,
+      "ratio": 0.4843581660907148
+    }
+  ],
+  "warm_largest": [
+    {
+      "case": 321,
+      "engine": "gradient",
+      "ratio": 0.0058326180940593275
+    },
+    {
+      "case": 321,
+      "engine": "value",
+      "ratio": 0.005453743999739302
+    },
+    {
+      "case": 1777,
+      "engine": "gradient",
+      "ratio": 0.002459119439190971
+    },
+    {
+      "case": 1777,
+      "engine": "value",
+      "ratio": 0.002453786441813932
+    },
+    {
+      "case": 131,
+      "engine": "gradient",
+      "ratio": 5.475770503693411e-05
+    }
+  ],
+  "tests": {
+    "cpp_passed": 33,
+    "target_python_passed": 171,
+    "legacy_python_passed": 18,
+    "legacy_baseline_failures": [
+      "tests/regression/test_triple_lens_point_source.py::test_triple_lens_auto_blocks_fast_paths_inside_five_source_radii",
+      "tests/regression/test_triple_lens_point_source.py::test_triple_lens_auto_does_not_fall_back_to_source_plane",
+      "tests/regression/test_triple_lens_point_source.py::test_triple_lens_auto_nbin_uses_calibrated_cartesian_resolution",
+      "tests/regression/test_triple_lens_point_source.py::test_triple_lens_auto_respects_a_small_max_source_bins_cap",
+      "tests/regression/test_triple_lens_point_source.py::test_triple_lens_finite_source_auto_uses_seed_complete_polar",
+      "tests/regression/test_triple_lens_point_source.py::test_triple_lens_finite_source_cartesian_inverse_ray",
+      "tests/regression/test_triple_lens_point_source.py::test_triple_lens_light_curve_smoke",
+      "tests/regression/test_triple_lens_point_source.py::test_triple_lens_polar_seeds_finite_source_only_fold_component",
+      "tests/regression/test_triple_lens_point_source.py::test_triple_lens_warm_roots_do_not_retry_only_because_images_are_deduplicated"
+    ]
+  }
+}

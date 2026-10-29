@@ -1,0 +1,685 @@
+{
+  "counts": {
+    "gradient": {
+      "ok": 1854,
+      "exception": 2
+    },
+    "value": {
+      "ok": 1854,
+      "exception": 2
+    }
+  },
+  "classification_changes": [
+    {
+      "case": 1,
+      "group": "holdout",
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 1,
+      "group": "holdout",
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 4,
+      "group": "holdout",
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 4,
+      "group": "holdout",
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 5,
+      "group": "holdout",
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 5,
+      "group": "holdout",
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 7,
+      "group": "holdout",
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 10,
+      "group": "holdout",
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 10,
+      "group": "holdout",
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 15,
+      "group": "holdout",
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 15,
+      "group": "holdout",
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 16,
+      "group": "holdout",
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 16,
+      "group": "holdout",
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 23,
+      "group": "holdout",
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 23,
+      "group": "holdout",
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 24,
+      "group": "holdout",
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 24,
+      "group": "holdout",
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 25,
+      "group": "holdout",
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 25,
+      "group": "holdout",
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 26,
+      "group": "holdout",
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 26,
+      "group": "holdout",
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 27,
+      "group": "holdout",
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 27,
+      "group": "holdout",
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 30,
+      "group": "holdout",
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 30,
+      "group": "holdout",
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 32,
+      "group": "holdout",
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 32,
+      "group": "holdout",
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 33,
+      "group": "holdout",
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 33,
+      "group": "holdout",
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 34,
+      "group": "holdout",
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 34,
+      "group": "holdout",
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 35,
+      "group": "holdout",
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 35,
+      "group": "holdout",
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 36,
+      "group": "holdout",
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 36,
+      "group": "holdout",
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 37,
+      "group": "holdout",
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 37,
+      "group": "holdout",
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 38,
+      "group": "holdout",
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 38,
+      "group": "holdout",
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 39,
+      "group": "holdout",
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 39,
+      "group": "holdout",
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 40,
+      "group": "holdout",
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 40,
+      "group": "holdout",
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 43,
+      "group": "holdout",
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 43,
+      "group": "holdout",
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 44,
+      "group": "holdout",
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 44,
+      "group": "holdout",
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 45,
+      "group": "holdout",
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 45,
+      "group": "holdout",
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 47,
+      "group": "holdout",
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 47,
+      "group": "holdout",
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 48,
+      "group": "holdout",
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 48,
+      "group": "holdout",
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 49,
+      "group": "holdout",
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 49,
+      "group": "holdout",
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 50,
+      "group": "holdout",
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 50,
+      "group": "holdout",
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 51,
+      "group": "holdout",
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 51,
+      "group": "holdout",
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 52,
+      "group": "holdout",
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 52,
+      "group": "holdout",
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 53,
+      "group": "holdout",
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 53,
+      "group": "holdout",
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 54,
+      "group": "holdout",
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 54,
+      "group": "holdout",
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 55,
+      "group": "holdout",
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 55,
+      "group": "holdout",
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 400,
+      "group": "main",
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 400,
+      "group": "main",
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 403,
+      "group": "main",
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 403,
+      "group": "main",
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 433,
+      "group": "main",
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 433,
+      "group": "main",
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 460,
+      "group": "main",
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 460,
+      "group": "main",
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 467,
+      "group": "main",
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 467,
+      "group": "main",
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 484,
+      "group": "main",
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 484,
+      "group": "main",
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 515,
+      "group": "main",
+      "engine": "gradient",
+      "before": "exception",
+      "after": "ok"
+    },
+    {
+      "case": 515,
+      "group": "main",
+      "engine": "value",
+      "before": "exception",
+      "after": "ok"
+    }
+  ],
+  "regressions": [],
+  "largest_value_changes": [
+    {
+      "case": 0,
+      "group": "holdout",
+      "engine": "gradient",
+      "relative": 7.813730304451205e-05
+    },
+    {
+      "case": 0,
+      "group": "holdout",
+      "engine": "value",
+      "relative": 7.813728689720634e-05
+    },
+    {
+      "case": 2,
+      "group": "holdout",
+      "engine": "value",
+      "relative": 6.250989591771727e-05
+    },
+    {
+      "case": 2,
+      "group": "holdout",
+      "engine": "gradient",
+      "relative": 6.250868331991732e-05
+    },
+    {
+      "case": 22,
+      "group": "holdout",
+      "engine": "gradient",
+      "relative": 3.728364597632705e-05
+    },
+    {
+      "case": 22,
+      "group": "holdout",
+      "engine": "value",
+      "relative": 3.72836292986678e-05
+    },
+    {
+      "case": 466,
+      "group": "main",
+      "engine": "value",
+      "relative": 2.8259491781090773e-05
+    },
+    {
+      "case": 466,
+      "group": "main",
+      "engine": "gradient",
+      "relative": 2.825888956548006e-05
+    },
+    {
+      "case": 8,
+      "group": "holdout",
+      "engine": "gradient",
+      "relative": 2.0169906571165797e-05
+    },
+    {
+      "case": 8,
+      "group": "holdout",
+      "engine": "value",
+      "relative": 2.0169906571165797e-05
+    }
+  ],
+  "independent_value_comparisons": 30,
+  "independent_value_maximum_ratio": 0.03166233098039761,
+  "independent_value_exceedances": [],
+  "finite_source_gradient_exceedances": [
+    {
+      "case": 400,
+      "parameter": "rho",
+      "method": "triple point-source curvature and certified caustic clearance",
+      "native": 0.0,
+      "finite_source_reference": 2500.185908509485,
+      "scaled_difference": 0.999600189655396,
+      "fd_scaled_scatter": 5.623775739963753e-11
+    },
+    {
+      "case": 433,
+      "parameter": "rho",
+      "method": "triple point-source curvature and certified caustic clearance",
+      "native": 0.0,
+      "finite_source_reference": 318.8947948487861,
+      "scaled_difference": 0.9968739722680617,
+      "fd_scaled_scatter": 1.422174759259617e-11
+    },
+    {
+      "case": 460,
+      "parameter": "rho",
+      "method": "triple point-source curvature and certified caustic clearance",
+      "native": 0.0,
+      "finite_source_reference": 26.988970108204114,
+      "scaled_difference": 0.9642716400019706,
+      "fd_scaled_scatter": 2.6493379219476382e-12
+    },
+    {
+      "case": 515,
+      "parameter": "rho",
+      "method": "triple point-source curvature and certified caustic clearance",
+      "native": 0.0,
+      "finite_source_reference": 0.0023085445104083766,
+      "scaled_difference": 0.0023032274074207535,
+      "fd_scaled_scatter": 1.2115096093258489e-17
+    }
+  ]
+}

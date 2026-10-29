@@ -1941,6 +1941,38 @@ std::vector<TripleImageCandidate> PointSourceMagnifier::triple_image_candidates(
     }
     for (int i = 0; i < physical_count; ++i)
         positive_count += images[static_cast<std::size_t>(i)].jacobian_determinant > 0.0;
+    if(distinct_positive_lenses &&
+       ((expected_images>=4 && physical_count>expected_images) ||
+        physical_count!=2*positive_count+2)) {
+        // An unfinished Newton iterate can pass the source residual floor
+        // while lying near an already accepted bright image. Continue from
+        // the retained iterate, not its distant polynomial seed, then apply
+        // the same physical residual and spatial duplicate tests again.
+        // An independent count or the necessary physical index triggers
+        // repair; neither selects a prefix of the requested size or licenses
+        // dropping a distinct valid root.
+        std::vector<TripleImageCandidate> repaired;
+        repaired.reserve(images.size());
+        for(int i=0;i<physical_count;++i) {
+            const auto refined=polish_triple_image_root_high_precision(geometry,source,
+                images[static_cast<std::size_t>(i)].position);
+            const Complex z{refined.x,refined.y};
+            const double residual=triple_residual(geometry,source,z);
+            const double determinant=triple_jacobian_determinant(geometry,z);
+            if(!(residual<=absolute_tolerance) || !std::isfinite(determinant) || determinant==0)continue;
+            bool duplicate=false;
+            for(auto& old:repaired)if(std::norm(z-Complex{old.position.x,old.position.y})<kDedupTol2) {
+                if(residual<old.residual)old={refined,determinant,residual,false};
+                duplicate=true;break;
+            }
+            if(!duplicate)repaired.push_back({refined,determinant,residual,false});
+        }
+        const int repaired_count=static_cast<int>(repaired.size());
+        repaired.insert(repaired.end(),images.begin()+physical_count,images.end());
+        images=std::move(repaired);physical_count=repaired_count;positive_count=0;
+        for(int i=0;i<physical_count;++i)positive_count+=images[static_cast<std::size_t>(i)].jacobian_determinant>0;
+        diagnostics.root_used_high_precision=diagnostics.root_needs_high_precision=1;
+    }
     // For three distinct positive point masses, N_negative=N_positive+2.
     // An even total alone can hide lost pole images in a multi-image region.
     const bool missing_negative = distinct_positive_lenses &&

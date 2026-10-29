@@ -1,0 +1,16 @@
+{
+  "cpp_passed": 33,
+  "target_python_passed": 171,
+  "legacy_python_passed": 18,
+  "legacy_baseline_failures": [
+    "tests/regression/test_triple_lens_point_source.py::test_triple_lens_auto_blocks_fast_paths_inside_five_source_radii",
+    "tests/regression/test_triple_lens_point_source.py::test_triple_lens_auto_does_not_fall_back_to_source_plane",
+    "tests/regression/test_triple_lens_point_source.py::test_triple_lens_auto_nbin_uses_calibrated_cartesian_resolution",
+    "tests/regression/test_triple_lens_point_source.py::test_triple_lens_auto_respects_a_small_max_source_bins_cap",
+    "tests/regression/test_triple_lens_point_source.py::test_triple_lens_finite_source_auto_uses_seed_complete_polar",
+    "tests/regression/test_triple_lens_point_source.py::test_triple_lens_finite_source_cartesian_inverse_ray",
+    "tests/regression/test_triple_lens_point_source.py::test_triple_lens_light_curve_smoke",
+    "tests/regression/test_triple_lens_point_source.py::test_triple_lens_polar_seeds_finite_source_only_fold_component",
+    "tests/regression/test_triple_lens_point_source.py::test_triple_lens_warm_roots_do_not_retry_only_because_images_are_deduplicated"
+  ]
+}

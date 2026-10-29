@@ -7883,6 +7883,40 @@ inline std::pair<double,int> triple_caustic_clearance(
     }
     return prepared.caustic_clearance(canonical,required);
 }
+inline std::pair<double,int> triple_alternate_caustic_clearance(
+        const model::TripleLensGeometry& physical,SourcePosition source,double rho,
+        double required,int budget=256) {
+    namespace kernel=algebraic_boundary::triple;
+    static thread_local std::array<kernel::PreparedRegularSupport,2> alternate;
+    std::array<kernel::Complex,3> lenses;
+    for(int j=0;j<3;++j)lenses[j]={physical.lens_positions[j].x,physical.lens_positions[j].y};
+    const std::array<std::array<int,3>,2> orders{{{1,0,2},{2,0,1}}};
+    for(std::size_t k=0;k<orders.size();++k) {
+        const auto order=orders[k];
+        const double m1=physical.masses[order[1]],m2=physical.masses[order[2]];
+        if(!(1-m1-m2>0) || m1+m2>1)continue;
+        const auto frame=kernel::primary_frame(std::array<kernel::Complex,3>{
+            lenses[order[0]],lenses[order[1]],lenses[order[2]]},
+            {source.x,source.y},rho,m1,m2);
+        const auto proof=alternate[k].caustic_clearance(frame.geometry,required,budget);
+        if(proof.first>required)return proof;
+    }
+    return {0,-1};
+}
+inline std::pair<double,int> triple_continue_caustic_clearance(
+        const model::TripleLensGeometry& physical,SourcePosition source,double rho,
+        const algebraic_boundary::triple::Geometry& canonical,double required,
+        algebraic_boundary::triple::PreparedRegularSupport& prepared) {
+    const auto ordinary=triple_caustic_clearance(physical,source,canonical,required,prepared);
+    if(ordinary.first>required)return ordinary;
+    // Try a cheap alternative before extending an ill-conditioned canonical
+    // tree. Neither the proof coordinates nor its budget change a flux/IFT.
+    const auto alternate=triple_alternate_caustic_clearance(physical,source,rho,required);
+    if(alternate.first>required)return alternate;
+    const auto continued=prepared.caustic_clearance(canonical,required,65536);
+    if(continued.first>required)return continued;
+    return triple_alternate_caustic_clearance(physical,source,rho,required,65536);
+}
 inline bool triple_refine_support_events(
         algebraic_boundary::triple::RadialEventPlan& plan,
         const algebraic_boundary::triple::Geometry& geometry) {
@@ -7948,7 +7982,7 @@ template<bool Gradient> auto triple_algebraic_epoch(
     out.value.center_image_count=safety.image_count;
     const double error=6*safety.quadrupole_indicator*rho*rho;
     if(std::isfinite(error)&&error<=budget(out.point_magnification)) {
-        const auto clear=triple_caustic_clearance(geometry,source,canonical.geometry,point_distance,prepared);
+        const auto clear=triple_continue_caustic_clearance(geometry,source,rho,canonical.geometry,point_distance,prepared);
         if(clear.first>point_distance&&clear.second>=4) {
             const auto p=triple_approximation::point<Gradient>(point,geometry,source,clear.second);
             const auto complete_safety=point.triple_safety_diagnostic(geometry,source);
@@ -7963,7 +7997,16 @@ template<bool Gradient> auto triple_algebraic_epoch(
         }
     }
     const double hex_distance=std::max(5.,finite.hex_threshold)*rho;
-    const auto clear=triple_caustic_clearance(geometry,source,canonical.geometry,hex_distance,prepared);
+    auto clear=triple_caustic_clearance(geometry,source,canonical.geometry,hex_distance,prepared);
+    if(clear.first<=hex_distance && finite.adaptive_hex_threshold>0) {
+        clear=triple_alternate_caustic_clearance(geometry,source,rho,hex_distance);
+        // Curvature is only a cost screen here: spend more geometric proof
+        // work before an integral when a finite-source approximation may be
+        // useful. The final joint packet still meets the original tolerance.
+        // Do not let an unproved odd/duplicate seed count suppress this proof.
+        if(clear.first<=hex_distance && std::isfinite(error) && error<=100*budget(out.point_magnification))
+            clear=triple_continue_caustic_clearance(geometry,source,rho,canonical.geometry,hex_distance,prepared);
+    }
     out.value.caustic_distance=clear.first;
     if(clear.first>hex_distance&&finite.adaptive_hex_threshold>0) {
         const auto hex=triple_approximation::hex<Gradient>(point,geometry,source,rho,limb_darkening_gamma(finite),clear.second);
@@ -8142,6 +8185,39 @@ template<bool Gradient> auto triple_algebraic_epoch(
             if constexpr(Gradient)out.gradient=kernel::unpermute_physical_gradient(out.gradient,order);
             out.value.diagnostic_stop+=":secondary_chart_"+std::to_string(order[0])+std::to_string(order[1]);
             break;
+        }
+    }
+    if(!out.value.converged) {
+        // A root cluster can be an artefact of the caustic polynomial frame.
+        // Change only its geometric proof coordinates, then evaluate the
+        // original physical point/hex packet including every image and IFT.
+        // This is a final rescue after all integral routes have refused.
+        // Continue the same caustic frontier with a bounded larger budget;
+        // high-magnification caustic-free queries can need thousands of arcs.
+        const auto clear=triple_continue_caustic_clearance(geometry,source,rho,
+            canonical.geometry,hex_distance,prepared);
+        if(clear.first>hex_distance) {
+            if(clear.first>point_distance) {
+                const auto packet=triple_approximation::point<Gradient>(point,geometry,source,clear.second);
+                const auto safety=point.triple_safety_diagnostic(geometry,source);
+                const double estimate=6*safety.quadrupole_indicator*rho*rho;
+                if(packet.valid && std::isfinite(estimate) && estimate<=budget(packet.mu)) {
+                    out.point_magnification=packet.mu;
+                    accept(packet.mu,estimate,FiniteSourceMethod::point_source,1,
+                        "triple point source and continued reframed certified caustic clearance");
+                    out.value.caustic_distance=clear.first;out.value.center_image_count=packet.images;
+                    if constexpr(Gradient){out.gradient=packet.gradient;out.gradient_valid=packet.gradient_valid;}
+                    return out;
+                }
+            }
+            const auto hex=triple_approximation::hex<Gradient>(point,geometry,source,rho,
+                limb_darkening_gamma(finite),clear.second);
+            if(!hex.valid || hex.error>budget(hex.mu))return out;
+            accept(hex.mu,hex.error,FiniteSourceMethod::hexadecapole,13,
+                "triple hexadecapole and reframed certified caustic clearance");
+            out.value.caustic_distance=clear.first;out.value.center_image_count=clear.second;
+            if constexpr(Gradient){out.gradient=hex.gradient;out.gradient_valid=hex.gradient_valid;}
+            return out;
         }
     }
     return out;

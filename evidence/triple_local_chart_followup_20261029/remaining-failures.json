@@ -1,0 +1,890 @@
+[
+  {
+    "case": 439,
+    "engine": "value",
+    "input": {
+      "name": "near_collinear_or_clustered-0439",
+      "family": "near_collinear_or_clustered",
+      "params": {
+        "t0": 0.0,
+        "u0": 0.001,
+        "tE": 1.0,
+        "alpha": 2.912898561527994,
+        "s": 100.0,
+        "q": 10000.0,
+        "q2": 0.01,
+        "sep2": 100.00009999999999,
+        "ang": 3.141592643589793,
+        "rho": 0.003
+      },
+      "epochs": [
+        -1.0,
+        -0.2,
+        0.0,
+        0.2,
+        1.0
+      ],
+      "limb": 0.0,
+      "rtol": 0.0001
+    },
+    "error": "RuntimeError('algebraic_boundary: no finite mu candidate')",
+    "raw_native": {
+      "source_x": [
+        0.9737365765245962,
+        0.19456595065625823,
+        -0.00022670581082629985,
+        -0.1950193622779108,
+        -0.9741899881462488
+      ],
+      "source_y": [
+        -0.22767977410863527,
+        -0.04631512544759539,
+        -0.0009739632823354225,
+        0.04436719888292455,
+        0.22573184754396441
+      ],
+      "mu": [
+        1.3347242411700209,
+        4.845956042366236,
+        null,
+        5.326771270573342,
+        1.3486603581366137
+      ],
+      "point_source_magnification": [
+        1.3347242411700209,
+        4.845832182015764,
+        101.83454788684561,
+        5.326605790389852,
+        1.3486603581366137
+      ],
+      "error_estimate": [
+        7.505810459918261e-06,
+        9.372432114351936e-09,
+        null,
+        1.525279922119172e-08,
+        7.957428730409183e-06
+      ],
+      "value_converged": [
+        1,
+        1,
+        0,
+        1,
+        1
+      ],
+      "fully_converged": [
+        1,
+        1,
+        0,
+        1,
+        1
+      ],
+      "support_certified": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "frontier_discovery_completed": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "seed_support_proven": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "center_image_count": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "augmented_seed_count": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "node_evaluations": [
+        1,
+        13,
+        0,
+        13,
+        1
+      ],
+      "finite_source_method": [
+        0,
+        1,
+        7,
+        1,
+        0
+      ],
+      "integrator_backend": [
+        "point_source",
+        "hexadecapole",
+        "seeded_radial_frontier_nested_fejer",
+        "hexadecapole",
+        "point_source"
+      ],
+      "finite_source_method_name": [
+        "point_source",
+        "hexadecapole",
+        "algebraic_boundary",
+        "hexadecapole",
+        "point_source"
+      ],
+      "stop": [
+        "triple point-source curvature and certified caustic clearance",
+        "triple hexadecapole and certified caustic clearance",
+        "degenerate_radial_event",
+        "triple hexadecapole and certified caustic clearance",
+        "triple point-source curvature and certified caustic clearance"
+      ],
+      "seconds": [
+        3.4621e-05,
+        0.000594311,
+        0.766525496,
+        0.00061296,
+        4.4088e-05
+      ],
+      "point_source_safety_flags": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "caustic_distances": [
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    }
+  },
+  {
+    "case": 439,
+    "engine": "gradient",
+    "input": {
+      "name": "near_collinear_or_clustered-0439",
+      "family": "near_collinear_or_clustered",
+      "params": {
+        "t0": 0.0,
+        "u0": 0.001,
+        "tE": 1.0,
+        "alpha": 2.912898561527994,
+        "s": 100.0,
+        "q": 10000.0,
+        "q2": 0.01,
+        "sep2": 100.00009999999999,
+        "ang": 3.141592643589793,
+        "rho": 0.003
+      },
+      "epochs": [
+        -1.0,
+        -0.2,
+        0.0,
+        0.2,
+        1.0
+      ],
+      "limb": 0.0,
+      "rtol": 0.0001
+    },
+    "error": "RuntimeError('algebraic_boundary: no finite mu candidate')",
+    "raw_native": {
+      "mu": [
+        1.3347242411700209,
+        4.845956042366236,
+        null,
+        5.326771270573342,
+        1.3486603581366137
+      ],
+      "error_estimate": [
+        7.505810459918261e-06,
+        9.372432114351936e-09,
+        null,
+        1.525279922119172e-08,
+        7.957428730409183e-06
+      ],
+      "value_converged": [
+        1,
+        1,
+        0,
+        1,
+        1
+      ],
+      "fully_converged": [
+        1,
+        1,
+        0,
+        1,
+        1
+      ],
+      "support_certified": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "seed_support_proven": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "frontier_discovery_completed": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "gradient_valid": [
+        1,
+        1,
+        0,
+        1,
+        1
+      ],
+      "gradients": [
+        -0.6976483087279406,
+        0.000875110530092954,
+        0.6976483087279406,
+        -0.001572758838820909,
+        0.0,
+        6.830339470229218e-07,
+        -6.79684732045338e-05,
+        -3.487602949566696e-05,
+        -1.7274677891334864e-11,
+        -4.073610908433138e-10,
+        -22.36193523874703,
+        0.13504313343247354,
+        4.4723870477494065,
+        -0.049370561925241696,
+        0.08257981501076392,
+        2.182744147121603e-05,
+        -0.002181033882177333,
+        -0.00022356097568603607,
+        -5.469043049782683e-10,
+        -1.242835366688341e-08,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        27.253044547363892,
+        0.18142772231060444,
+        5.450608909472779,
+        0.06353858900948484,
+        0.11033029043427146,
+        -2.6468195486238648e-05,
+        0.002650232858831032,
+        -0.00027246067101189636,
+        6.608683030096763e-10,
+        1.580778523525336e-08,
+        0.7338854625356792,
+        0.0009386930837241847,
+        0.7338854625356792,
+        0.0016725785462598786,
+        0.0,
+        -7.106814313742662e-07,
+        7.14562696586346e-05,
+        -3.66877253293744e-05,
+        1.7584946597335717e-11,
+        4.046632782365843e-10
+      ],
+      "gradient_parameters": [
+        "t0",
+        "u0",
+        "tE",
+        "alpha",
+        "rho",
+        "q",
+        "s",
+        "q2",
+        "sep2",
+        "ang"
+      ],
+      "local_gradients": [
+        -0.6796822293267086,
+        0.1573085999774689,
+        0.0,
+        0.3453455251965251,
+        -0.0034848744099885438,
+        -7.0291398640200856e-09,
+        -1.6905336120388796e-09,
+        0.679682236373123,
+        -0.15730859828286164,
+        -1.727467793207093e-11,
+        -4.073606662079523e-12,
+        -21.81031890756354,
+        4.9380536064506,
+        0.08257981501076392,
+        2.1264708151924636,
+        -0.1095795996842697,
+        -2.1952589761081333e-07,
+        -5.0117240133488616e-08,
+        21.81031912763634,
+        -4.9380535562090735,
+        -5.469043062211024e-10,
+        -1.2428340691637862e-10,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        26.50233400209123,
+        -6.355127501523677,
+        0.11033029043427146,
+        2.857215272555797,
+        0.13204495959171708,
+        2.6379459394236867e-07,
+        6.299895484263059e-08,
+        -26.502334266546683,
+        6.355127438366642,
+        6.608683045904532e-10,
+        1.5807768766615626e-10,
+        0.7145646867728371,
+        -0.16729035143471482,
+        0.0,
+        0.3704424315430206,
+        0.003490716229973372,
+        6.928328778733675e-09,
+        1.5688513701779298e-09,
+        -0.7145646937187509,
+        0.16729034986181684,
+        1.7584946637802004e-11,
+        4.04662855988764e-12
+      ],
+      "point_source_magnification": [
+        1.3347242411700209,
+        4.845832182015764,
+        101.83454788684561,
+        5.326605790389852,
+        1.3486603581366137
+      ],
+      "source_x": [
+        0.9737365765245962,
+        0.19456595065625823,
+        -0.00022670581082629985,
+        -0.1950193622779108,
+        -0.9741899881462488
+      ],
+      "source_y": [
+        -0.22767977410863527,
+        -0.04631512544759539,
+        -0.0009739632823354225,
+        0.04436719888292455,
+        0.22573184754396441
+      ],
+      "node_evaluations": [
+        1,
+        13,
+        0,
+        13,
+        1
+      ],
+      "finite_source_method": [
+        0,
+        1,
+        7,
+        1,
+        0
+      ],
+      "center_image_count": [
+        4,
+        4,
+        4,
+        4,
+        4
+      ],
+      "augmented_seed_count": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "stop": [
+        "triple point-source curvature and certified caustic clearance",
+        "triple hexadecapole and certified caustic clearance",
+        "degenerate_radial_event",
+        "triple hexadecapole and certified caustic clearance",
+        "triple point-source curvature and certified caustic clearance"
+      ],
+      "finite_source_method_name": [
+        "point_source",
+        "hexadecapole",
+        "algebraic_boundary",
+        "hexadecapole",
+        "point_source"
+      ]
+    }
+  },
+  {
+    "case": 499,
+    "engine": "value",
+    "input": {
+      "name": "near_collinear_or_clustered-0499",
+      "family": "near_collinear_or_clustered",
+      "params": {
+        "t0": 0.0,
+        "u0": 0.001,
+        "tE": 1.0,
+        "alpha": -1.239697241437293,
+        "s": 100.0,
+        "q": 10000.0,
+        "q2": 1e-07,
+        "sep2": 100.00009999999999,
+        "ang": 3.141592643589793,
+        "rho": 0.1
+      },
+      "epochs": [
+        -1.0,
+        -0.2,
+        0.0,
+        0.2,
+        1.0
+      ],
+      "limb": 0.0,
+      "rtol": 0.0001
+    },
+    "error": "RuntimeError('algebraic_boundary: no finite mu candidate')",
+    "raw_native": {
+      "source_x": [
+        -0.3241369281315983,
+        -0.06407083712932109,
+        0.0009456856212482125,
+        0.0659622083718175,
+        0.32602829937409467
+      ],
+      "source_y": [
+        0.9460107038619654,
+        0.18946220686339538,
+        0.0003250826137528465,
+        -0.18881204163588966,
+        -0.9453605386344597
+      ],
+      "mu": [
+        1.3453506786718639,
+        null,
+        null,
+        null,
+        1.340672566584058
+      ],
+      "point_source_magnification": [
+        1.3439007534597727,
+        5.148774359751721,
+        91.3361471229905,
+        4.989299420716885,
+        1.3392506980442551
+      ],
+      "error_estimate": [
+        5.133293483949863e-06,
+        null,
+        null,
+        null,
+        4.973138360453433e-06
+      ],
+      "value_converged": [
+        1,
+        0,
+        0,
+        0,
+        1
+      ],
+      "fully_converged": [
+        1,
+        0,
+        0,
+        0,
+        1
+      ],
+      "support_certified": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "frontier_discovery_completed": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "seed_support_proven": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "center_image_count": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "augmented_seed_count": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "node_evaluations": [
+        13,
+        0,
+        0,
+        0,
+        13
+      ],
+      "finite_source_method": [
+        1,
+        7,
+        7,
+        7,
+        1
+      ],
+      "integrator_backend": [
+        "hexadecapole",
+        "seeded_radial_frontier_nested_fejer",
+        "seeded_radial_frontier_nested_fejer",
+        "seeded_radial_frontier_nested_fejer",
+        "hexadecapole"
+      ],
+      "finite_source_method_name": [
+        "hexadecapole",
+        "algebraic_boundary",
+        "algebraic_boundary",
+        "algebraic_boundary",
+        "hexadecapole"
+      ],
+      "stop": [
+        "triple hexadecapole and certified caustic clearance",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "triple hexadecapole and certified caustic clearance"
+      ],
+      "seconds": [
+        0.000539898,
+        0.892207725,
+        4.553765291,
+        0.867181848,
+        0.000574798
+      ],
+      "point_source_safety_flags": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "caustic_distances": [
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    }
+  },
+  {
+    "case": 499,
+    "engine": "gradient",
+    "input": {
+      "name": "near_collinear_or_clustered-0499",
+      "family": "near_collinear_or_clustered",
+      "params": {
+        "t0": 0.0,
+        "u0": 0.001,
+        "tE": 1.0,
+        "alpha": -1.239697241437293,
+        "s": 100.0,
+        "q": 10000.0,
+        "q2": 1e-07,
+        "sep2": 100.00009999999999,
+        "ang": 3.141592643589793,
+        "rho": 0.1
+      },
+      "epochs": [
+        -1.0,
+        -0.2,
+        0.0,
+        0.2,
+        1.0
+      ],
+      "limb": 0.0,
+      "rtol": 0.0001
+    },
+    "error": "RuntimeError('algebraic_boundary: no finite mu candidate')",
+    "raw_native": {
+      "mu": [
+        1.3453506786718639,
+        null,
+        null,
+        null,
+        1.340672566584058
+      ],
+      "error_estimate": [
+        5.133293483949863e-06,
+        null,
+        null,
+        null,
+        4.973138360453433e-06
+      ],
+      "value_converged": [
+        1,
+        0,
+        0,
+        0,
+        1
+      ],
+      "fully_converged": [
+        1,
+        0,
+        0,
+        0,
+        1
+      ],
+      "support_certified": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "seed_support_proven": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "frontier_discovery_completed": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "gradient_valid": [
+        1,
+        0,
+        0,
+        0,
+        1
+      ],
+      "gradients": [
+        -0.7257899618825235,
+        -0.007612905386358337,
+        0.7257899618825235,
+        0.006887115424475815,
+        0.029101232151363315,
+        -2.250700632031812e-07,
+        2.2874417581667197e-05,
+        -3.614321994172278e-05,
+        5.961833256226024e-17,
+        1.7027156054049722e-14,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        0.713594148489756,
+        -0.007436379199992876,
+        0.713594148489756,
+        -0.006722785051503144,
+        0.028536959514648824,
+        2.425041708115556e-07,
+        -2.39007483763825e-05,
+        -3.553629804133421e-05,
+        -5.726401109217796e-17,
+        -1.7000213110664534e-14
+      ],
+      "gradient_parameters": [
+        "t0",
+        "u0",
+        "tE",
+        "alpha",
+        "rho",
+        "q",
+        "s",
+        "q2",
+        "sep2",
+        "ang"
+      ],
+      "local_gradients": [
+        0.2287422826845474,
+        -0.6888439541798412,
+        0.029101232151363315,
+        0.3627202856592893,
+        0.0012156746131652798,
+        2.4765072602722553e-09,
+        6.730267010118273e-09,
+        -0.22874228516105474,
+        0.688843947449574,
+        5.961833426497415e-17,
+        1.7027138967292363e-16,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        -0.23900952783336926,
+        0.6724182880464331,
+        0.028536959514648824,
+        0.35431458820274314,
+        -0.001119356431776241,
+        -2.1854492810287437e-09,
+        -6.8728086234360285e-09,
+        0.23900953001881844,
+        -0.6724182811736243,
+        -5.726401279219758e-17,
+        -1.7000196053204415e-16
+      ],
+      "point_source_magnification": [
+        1.3439007534597727,
+        5.148774359751721,
+        91.3361471229905,
+        4.989299420716885,
+        1.3392506980442551
+      ],
+      "source_x": [
+        -0.3241369281315983,
+        -0.06407083712932109,
+        0.0009456856212482125,
+        0.0659622083718175,
+        0.32602829937409467
+      ],
+      "source_y": [
+        0.9460107038619654,
+        0.18946220686339538,
+        0.0003250826137528465,
+        -0.18881204163588966,
+        -0.9453605386344597
+      ],
+      "node_evaluations": [
+        13,
+        0,
+        0,
+        0,
+        13
+      ],
+      "finite_source_method": [
+        1,
+        7,
+        7,
+        7,
+        1
+      ],
+      "center_image_count": [
+        4,
+        4,
+        4,
+        4,
+        4
+      ],
+      "augmented_seed_count": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "stop": [
+        "triple hexadecapole and certified caustic clearance",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "degenerate_radial_event",
+        "triple hexadecapole and certified caustic clearance"
+      ],
+      "finite_source_method_name": [
+        "hexadecapole",
+        "algebraic_boundary",
+        "algebraic_boundary",
+        "algebraic_boundary",
+        "hexadecapole"
+      ]
+    }
+  }
+]

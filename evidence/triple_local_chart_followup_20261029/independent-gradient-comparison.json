@@ -1,0 +1,632 @@
+[
+  {
+    "case": 400,
+    "parameter": "t0",
+    "method": "triple point-source curvature and certified caustic clearance",
+    "native": -0.36764542997116223,
+    "finite_source_reference": -0.3676591309031182,
+    "scaled_difference": 1.0017797305177181e-05,
+    "fd_scaled_scatter": 3.0252527546544722e-09
+  },
+  {
+    "case": 400,
+    "parameter": "u0",
+    "method": "triple point-source curvature and certified caustic clearance",
+    "native": -999998.9470630741,
+    "finite_source_reference": -1000036.4493604209,
+    "scaled_difference": 3.7500892962372783e-05,
+    "fd_scaled_scatter": 7.500655934251862e-07
+  },
+  {
+    "case": 400,
+    "parameter": "tE",
+    "method": "triple point-source curvature and certified caustic clearance",
+    "native": 0.0,
+    "finite_source_reference": 0.0,
+    "scaled_difference": 0.0,
+    "fd_scaled_scatter": 0.0
+  },
+  {
+    "case": 400,
+    "parameter": "alpha",
+    "method": "triple point-source curvature and certified caustic clearance",
+    "native": -0.0003676454300034493,
+    "finite_source_reference": -0.0003676591309031182,
+    "scaled_difference": 1.369586425936189e-08,
+    "fd_scaled_scatter": 4.606902178788388e-13
+  },
+  {
+    "case": 400,
+    "parameter": "rho",
+    "method": "triple point-source curvature and certified caustic clearance",
+    "native": 0.0,
+    "finite_source_reference": 2500.185908509485,
+    "scaled_difference": 0.999600189655396,
+    "fd_scaled_scatter": 5.623775739963753e-11
+  },
+  {
+    "case": 400,
+    "parameter": "s",
+    "method": "triple point-source curvature and certified caustic clearance",
+    "native": 7.111525880989165e-06,
+    "finite_source_reference": 7.111081756119779e-06,
+    "scaled_difference": 4.441217112007726e-10,
+    "fd_scaled_scatter": 1.7734202707297955e-16
+  },
+  {
+    "case": 400,
+    "parameter": "q",
+    "method": "triple point-source curvature and certified caustic clearance",
+    "native": 2.3751157381646495,
+    "finite_source_reference": 2.374967627885453,
+    "scaled_difference": 4.388494810230141e-05,
+    "fd_scaled_scatter": 0.0
+  },
+  {
+    "case": 400,
+    "parameter": "sep2",
+    "method": "triple point-source curvature and certified caustic clearance",
+    "native": -0.0677865253838753,
+    "finite_source_reference": -0.06778906931771272,
+    "scaled_difference": 2.3824310535818673e-06,
+    "fd_scaled_scatter": 4.158960066278101e-16
+  },
+  {
+    "case": 400,
+    "parameter": "q2",
+    "method": "triple point-source curvature and certified caustic clearance",
+    "native": -3389.9193480964195,
+    "finite_source_reference": -3390.0465077457848,
+    "scaled_difference": 3.7498645056852855e-05,
+    "fd_scaled_scatter": 0.0
+  },
+  {
+    "case": 400,
+    "parameter": "ang",
+    "method": "triple point-source curvature and certified caustic clearance",
+    "native": 0.0003675868951553799,
+    "finite_source_reference": 0.00036760067302662867,
+    "scaled_difference": 1.3772808355171874e-08,
+    "fd_scaled_scatter": 4.600746984513034e-17
+  },
+  {
+    "case": 403,
+    "parameter": "t0",
+    "method": "triple hexadecapole and certified caustic clearance",
+    "native": -1028197.9808498151,
+    "finite_source_reference": -1028197.9808499109,
+    "scaled_difference": 9.31821677010133e-14,
+    "fd_scaled_scatter": 3.860939147944523e-09
+  },
+  {
+    "case": 403,
+    "parameter": "u0",
+    "method": "triple hexadecapole and certified caustic clearance",
+    "native": -552515.4778096757,
+    "finite_source_reference": -552515.4778095641,
+    "scaled_difference": 2.0206147348696856e-13,
+    "fd_scaled_scatter": 8.190351007514263e-07
+  },
+  {
+    "case": 403,
+    "parameter": "tE",
+    "method": "triple hexadecapole and certified caustic clearance",
+    "native": -0.0,
+    "finite_source_reference": 0.0,
+    "scaled_difference": 0.0,
+    "fd_scaled_scatter": 0.0
+  },
+  {
+    "case": 403,
+    "parameter": "alpha",
+    "method": "triple hexadecapole and certified caustic clearance",
+    "native": -1028.197980849815,
+    "finite_source_reference": -1028.197980849911,
+    "scaled_difference": 9.322957567192961e-14,
+    "fd_scaled_scatter": 8.351464959752241e-09
+  },
+  {
+    "case": 403,
+    "parameter": "rho",
+    "method": "triple hexadecapole and certified caustic clearance",
+    "native": 3160.7049747715228,
+    "finite_source_reference": 3160.704967140111,
+    "scaled_difference": 2.4137014268606635e-09,
+    "fd_scaled_scatter": 6.568174186274814e-11
+  },
+  {
+    "case": 403,
+    "parameter": "s",
+    "method": "triple hexadecapole and certified caustic clearance",
+    "native": -53.716234514498204,
+    "finite_source_reference": -53.71623451450333,
+    "scaled_difference": 9.362875881878154e-14,
+    "fd_scaled_scatter": 8.539825849432333e-11
+  },
+  {
+    "case": 403,
+    "parameter": "q",
+    "method": "triple hexadecapole and certified caustic clearance",
+    "native": 0.05278750242414543,
+    "finite_source_reference": 0.052787502424150555,
+    "scaled_difference": 4.8707289772912965e-15,
+    "fd_scaled_scatter": 2.8332261953462674e-10
+  },
+  {
+    "case": 403,
+    "parameter": "sep2",
+    "method": "triple hexadecapole and certified caustic clearance",
+    "native": -1.26679567151259e-08,
+    "finite_source_reference": -1.2667956715124565e-08,
+    "scaled_difference": 1.3350694917479841e-21,
+    "fd_scaled_scatter": 2.0935610166260706e-19
+  },
+  {
+    "case": 403,
+    "parameter": "q2",
+    "method": "triple hexadecapole and certified caustic clearance",
+    "native": 2.565896096169073,
+    "finite_source_reference": 2.5658960961666857,
+    "scaled_difference": 6.695157480108299e-13,
+    "fd_scaled_scatter": 0.0
+  },
+  {
+    "case": 403,
+    "parameter": "ang",
+    "method": "triple hexadecapole and certified caustic clearance",
+    "native": -2.5840239904718736e-07,
+    "finite_source_reference": -2.584023990471834e-07,
+    "scaled_difference": 3.970465914276615e-21,
+    "fd_scaled_scatter": 1.6199500930248592e-20
+  },
+  {
+    "case": 433,
+    "parameter": "t0",
+    "method": "triple point-source curvature and certified caustic clearance",
+    "native": 15806.451895090968,
+    "finite_source_reference": 15806.602614639645,
+    "scaled_difference": 9.534624088908967e-06,
+    "fd_scaled_scatter": 2.835320093416662e-09
+  },
+  {
+    "case": 433,
+    "parameter": "u0",
+    "method": "triple point-source curvature and certified caustic clearance",
+    "native": -253111.85396321642,
+    "finite_source_reference": -253114.2571684074,
+    "scaled_difference": 9.494509409956313e-06,
+    "fd_scaled_scatter": 1.8836860803574634e-07
+  },
+  {
+    "case": 433,
+    "parameter": "tE",
+    "method": "triple point-source curvature and certified caustic clearance",
+    "native": 0.0,
+    "finite_source_reference": 0.0,
+    "scaled_difference": 0.0,
+    "fd_scaled_scatter": 0.0
+  },
+  {
+    "case": 433,
+    "parameter": "alpha",
+    "method": "triple point-source curvature and certified caustic clearance",
+    "native": 15.80645189509097,
+    "finite_source_reference": 15.806602614639646,
+    "scaled_difference": 8.967877216600927e-06,
+    "fd_scaled_scatter": 1.4779561197542434e-09
+  },
+  {
+    "case": 433,
+    "parameter": "rho",
+    "method": "triple point-source curvature and certified caustic clearance",
+    "native": 0.0,
+    "finite_source_reference": 318.8947948487861,
+    "scaled_difference": 0.9968739722680617,
+    "fd_scaled_scatter": 1.422174759259617e-11
+  },
+  {
+    "case": 433,
+    "parameter": "s",
+    "method": "triple point-source curvature and certified caustic clearance",
+    "native": -25.583825908785172,
+    "finite_source_reference": -25.584068199391528,
+    "scaled_difference": 9.114128226642201e-06,
+    "fd_scaled_scatter": 2.031539213005854e-11
+  },
+  {
+    "case": 433,
+    "parameter": "q",
+    "method": "triple point-source curvature and certified caustic clearance",
+    "native": -2504651.71917241,
+    "finite_source_reference": -2504675.5195082417,
+    "scaled_difference": 9.50235914542265e-06,
+    "fd_scaled_scatter": 1.844669217196036e-09
+  },
+  {
+    "case": 433,
+    "parameter": "sep2",
+    "method": "triple point-source curvature and certified caustic clearance",
+    "native": 9.020398809462217e-05,
+    "finite_source_reference": 9.020477652906045e-05,
+    "scaled_difference": 7.883633241370956e-10,
+    "fd_scaled_scatter": 7.23975746737098e-15
+  },
+  {
+    "case": 433,
+    "parameter": "q2",
+    "method": "triple point-source curvature and certified caustic clearance",
+    "native": -15287.880127202881,
+    "finite_source_reference": -15288.019924866645,
+    "scaled_difference": 9.143664175375282e-06,
+    "fd_scaled_scatter": 0.0
+  },
+  {
+    "case": 433,
+    "parameter": "ang",
+    "method": "triple point-source curvature and certified caustic clearance",
+    "native": -0.00010282546101542093,
+    "finite_source_reference": -0.0001028262086479039,
+    "scaled_difference": 7.475556146582442e-10,
+    "fd_scaled_scatter": 2.1912183264634956e-17
+  },
+  {
+    "case": 460,
+    "parameter": "t0",
+    "method": "triple point-source curvature and certified caustic clearance",
+    "native": 46016.80865382689,
+    "finite_source_reference": 46016.892944468564,
+    "scaled_difference": 1.831692767301788e-06,
+    "fd_scaled_scatter": 2.6333389582303855e-10
+  },
+  {
+    "case": 460,
+    "parameter": "u0",
+    "method": "triple point-source curvature and certified caustic clearance",
+    "native": 16381.245989291678,
+    "finite_source_reference": 16381.275995694292,
+    "scaled_difference": 1.8316382059519174e-06,
+    "fd_scaled_scatter": 4.4648545645194315e-08
+  },
+  {
+    "case": 460,
+    "parameter": "tE",
+    "method": "triple point-source curvature and certified caustic clearance",
+    "native": 0.0,
+    "finite_source_reference": 0.0,
+    "scaled_difference": 0.0,
+    "fd_scaled_scatter": 0.0
+  },
+  {
+    "case": 460,
+    "parameter": "alpha",
+    "method": "triple point-source curvature and certified caustic clearance",
+    "native": 46.01680865382689,
+    "finite_source_reference": 46.016892944468566,
+    "scaled_difference": 1.7927735414831707e-06,
+    "fd_scaled_scatter": 1.7817973032663455e-09
+  },
+  {
+    "case": 460,
+    "parameter": "rho",
+    "method": "triple point-source curvature and certified caustic clearance",
+    "native": 0.0,
+    "finite_source_reference": 26.988970108204114,
+    "scaled_difference": 0.9642716400019706,
+    "fd_scaled_scatter": 2.6493379219476382e-12
+  },
+  {
+    "case": 460,
+    "parameter": "s",
+    "method": "triple point-source curvature and certified caustic clearance",
+    "native": 0.0004747805908800928,
+    "finite_source_reference": 0.0004747814605597588,
+    "scaled_difference": 8.692669541761148e-10,
+    "fd_scaled_scatter": 1.0836876576766022e-19
+  },
+  {
+    "case": 460,
+    "parameter": "q",
+    "method": "triple point-source curvature and certified caustic clearance",
+    "native": 477.13197904310846,
+    "finite_source_reference": 477.13285302536343,
+    "scaled_difference": 1.8279067197385285e-06,
+    "fd_scaled_scatter": 0.0
+  },
+  {
+    "case": 460,
+    "parameter": "sep2",
+    "method": "triple point-source curvature and certified caustic clearance",
+    "native": -47478.12099049391,
+    "finite_source_reference": -47478.20795834935,
+    "scaled_difference": 1.8317040063840775e-06,
+    "fd_scaled_scatter": 8.165237910677273e-11
+  },
+  {
+    "case": 460,
+    "parameter": "q2",
+    "method": "triple point-source curvature and certified caustic clearance",
+    "native": -0.023504767405047196,
+    "finite_source_reference": -0.023504810455218135,
+    "scaled_difference": 4.206152281722555e-08,
+    "fd_scaled_scatter": 1.7242146318125157e-08
+  },
+  {
+    "case": 460,
+    "parameter": "ang",
+    "method": "triple point-source curvature and certified caustic clearance",
+    "native": -46.016809574155666,
+    "finite_source_reference": -46.01689386480402,
+    "scaled_difference": 1.7927736484478862e-06,
+    "fd_scaled_scatter": 1.781763567516882e-13
+  },
+  {
+    "case": 467,
+    "parameter": "t0",
+    "method": "triple hexadecapole and certified caustic clearance",
+    "native": -0.20550084922167144,
+    "finite_source_reference": -0.20550085096103518,
+    "scaled_difference": 1.4428556686528423e-09,
+    "fd_scaled_scatter": 1.598310474183588e-09
+  },
+  {
+    "case": 467,
+    "parameter": "u0",
+    "method": "triple hexadecapole and certified caustic clearance",
+    "native": -99.44995072617175,
+    "finite_source_reference": -99.44995071985704,
+    "scaled_difference": 6.286421182175288e-11,
+    "fd_scaled_scatter": 7.444221240844261e-07
+  },
+  {
+    "case": 467,
+    "parameter": "tE",
+    "method": "triple hexadecapole and certified caustic clearance",
+    "native": 0.0,
+    "finite_source_reference": 0.0,
+    "scaled_difference": 0.0,
+    "fd_scaled_scatter": 0.0
+  },
+  {
+    "case": 467,
+    "parameter": "alpha",
+    "method": "triple hexadecapole and certified caustic clearance",
+    "native": -0.020550084922167144,
+    "finite_source_reference": -0.020550085096103565,
+    "scaled_difference": 1.7043398786801798e-10,
+    "fd_scaled_scatter": 1.8254334430020575e-10
+  },
+  {
+    "case": 467,
+    "parameter": "rho",
+    "method": "triple hexadecapole and certified caustic clearance",
+    "native": 0.6881612447314667,
+    "finite_source_reference": 0.6881610658891816,
+    "scaled_difference": 1.0593911250888367e-07,
+    "fd_scaled_scatter": 1.927137635894496e-10
+  },
+  {
+    "case": 467,
+    "parameter": "s",
+    "method": "triple hexadecapole and certified caustic clearance",
+    "native": -0.0034935547335770223,
+    "finite_source_reference": -0.003493554741758948,
+    "scaled_difference": 8.153441130207603e-12,
+    "fd_scaled_scatter": 8.528816697984709e-12
+  },
+  {
+    "case": 467,
+    "parameter": "q",
+    "method": "triple hexadecapole and certified caustic clearance",
+    "native": 1.038305530039922e-06,
+    "finite_source_reference": 1.0383055300210024e-06,
+    "scaled_difference": 1.89195200238666e-17,
+    "fd_scaled_scatter": 7.622197632682687e-15
+  },
+  {
+    "case": 467,
+    "parameter": "sep2",
+    "method": "triple hexadecapole and certified caustic clearance",
+    "native": -5.891229735303955e-10,
+    "finite_source_reference": -5.891229735073395e-10,
+    "scaled_difference": 2.3056005200107718e-20,
+    "fd_scaled_scatter": 2.1453901111143537e-19
+  },
+  {
+    "case": 467,
+    "parameter": "q2",
+    "method": "triple hexadecapole and certified caustic clearance",
+    "native": -5.442569140887664e-06,
+    "finite_source_reference": -5.442569140658059e-06,
+    "scaled_difference": 2.29603971376734e-16,
+    "fd_scaled_scatter": 0.0
+  },
+  {
+    "case": 467,
+    "parameter": "ang",
+    "method": "triple hexadecapole and certified caustic clearance",
+    "native": 8.023576687936895e-10,
+    "finite_source_reference": 8.023576687325873e-10,
+    "scaled_difference": 6.110217743904124e-20,
+    "fd_scaled_scatter": 9.37609223576559e-22
+  },
+  {
+    "case": 484,
+    "parameter": "t0",
+    "method": "triple hexadecapole and certified caustic clearance",
+    "native": -205035.07111856504,
+    "finite_source_reference": -205035.07111851458,
+    "scaled_difference": 2.461325060350281e-13,
+    "fd_scaled_scatter": 1.4354616098648051e-08
+  },
+  {
+    "case": 484,
+    "parameter": "u0",
+    "method": "triple hexadecapole and certified caustic clearance",
+    "native": -1311856.080341633,
+    "finite_source_reference": -1311856.0803409433,
+    "scaled_difference": 5.257008380238552e-13,
+    "fd_scaled_scatter": 9.412061070440098e-07
+  },
+  {
+    "case": 484,
+    "parameter": "tE",
+    "method": "triple hexadecapole and certified caustic clearance",
+    "native": 0.0,
+    "finite_source_reference": 0.0,
+    "scaled_difference": 0.0,
+    "fd_scaled_scatter": 0.0
+  },
+  {
+    "case": 484,
+    "parameter": "alpha",
+    "method": "triple hexadecapole and certified caustic clearance",
+    "native": -205.03507111856516,
+    "finite_source_reference": -205.0350711185146,
+    "scaled_difference": 2.45405895230354e-13,
+    "fd_scaled_scatter": 2.7688974726368085e-09
+  },
+  {
+    "case": 484,
+    "parameter": "rho",
+    "method": "triple hexadecapole and certified caustic clearance",
+    "native": 3845.323185186484,
+    "finite_source_reference": 3845.3231631913427,
+    "scaled_difference": 5.718484969457207e-09,
+    "fd_scaled_scatter": 7.509368990859612e-11
+  },
+  {
+    "case": 484,
+    "parameter": "s",
+    "method": "triple hexadecapole and certified caustic clearance",
+    "native": -0.008263432199624533,
+    "finite_source_reference": -0.008263432199622906,
+    "scaled_difference": 1.6138348059657554e-15,
+    "fd_scaled_scatter": 6.021771664051327e-17
+  },
+  {
+    "case": 484,
+    "parameter": "q",
+    "method": "triple hexadecapole and certified caustic clearance",
+    "native": -82618715.15189542,
+    "finite_source_reference": -82618715.15187919,
+    "scaled_difference": 1.9641269310296587e-13,
+    "fd_scaled_scatter": 5.23045739209e-15
+  },
+  {
+    "case": 484,
+    "parameter": "sep2",
+    "method": "triple hexadecapole and certified caustic clearance",
+    "native": -3.2494109413228514,
+    "finite_source_reference": -3.2494109413223518,
+    "scaled_difference": 1.1756932148479207e-13,
+    "fd_scaled_scatter": 5.7659652968366e-11
+  },
+  {
+    "case": 484,
+    "parameter": "q2",
+    "method": "triple hexadecapole and certified caustic clearance",
+    "native": 15588.174655217808,
+    "finite_source_reference": 15588.174655199777,
+    "scaled_difference": 1.1566771401419646e-12,
+    "fd_scaled_scatter": 2.1206736884301352e-08
+  },
+  {
+    "case": 484,
+    "parameter": "ang",
+    "method": "triple hexadecapole and certified caustic clearance",
+    "native": 206.07434180595132,
+    "finite_source_reference": 206.07434180590295,
+    "scaled_difference": 2.336057139125899e-13,
+    "fd_scaled_scatter": 2.77664135866727e-13
+  },
+  {
+    "case": 515,
+    "parameter": "t0",
+    "method": "triple point-source curvature and certified caustic clearance",
+    "native": 3.5320794538051814e-06,
+    "finite_source_reference": 3.5320794675095032e-06,
+    "scaled_difference": 1.3704273408381156e-14,
+    "fd_scaled_scatter": 4.5252575371368675e-18
+  },
+  {
+    "case": 515,
+    "parameter": "u0",
+    "method": "triple point-source curvature and certified caustic clearance",
+    "native": -99.62616907427044,
+    "finite_source_reference": -99.62616941964967,
+    "scaled_difference": 3.4323003303941584e-09,
+    "fd_scaled_scatter": 7.453367621695726e-07
+  },
+  {
+    "case": 515,
+    "parameter": "tE",
+    "method": "triple point-source curvature and certified caustic clearance",
+    "native": 0.0,
+    "finite_source_reference": 0.0,
+    "scaled_difference": 0.0,
+    "fd_scaled_scatter": 0.0
+  },
+  {
+    "case": 515,
+    "parameter": "alpha",
+    "method": "triple point-source curvature and certified caustic clearance",
+    "native": 3.532079446699754e-07,
+    "finite_source_reference": 3.5320794675095033e-07,
+    "scaled_difference": 2.0809741926277785e-15,
+    "fd_scaled_scatter": 2.109092764869162e-15
+  },
+  {
+    "case": 515,
+    "parameter": "rho",
+    "method": "triple point-source curvature and certified caustic clearance",
+    "native": 0.0,
+    "finite_source_reference": 0.0023085445104083766,
+    "scaled_difference": 0.0023032274074207535,
+    "fd_scaled_scatter": 1.2115096093258489e-17
+  },
+  {
+    "case": 515,
+    "parameter": "s",
+    "method": "triple point-source curvature and certified caustic clearance",
+    "native": 9.82205308982258e-06,
+    "finite_source_reference": 9.822053038770092e-06,
+    "scaled_difference": 5.105198694620029e-14,
+    "fd_scaled_scatter": 1.8196799482523935e-16
+  },
+  {
+    "case": 515,
+    "parameter": "q",
+    "method": "triple point-source curvature and certified caustic clearance",
+    "native": -3.705300696182969e-12,
+    "finite_source_reference": -3.70530067789393e-12,
+    "scaled_difference": 1.828903927607497e-20,
+    "fd_scaled_scatter": 2.777088381414518e-20
+  },
+  {
+    "case": 515,
+    "parameter": "sep2",
+    "method": "triple point-source curvature and certified caustic clearance",
+    "native": 6.729852297488074e-10,
+    "finite_source_reference": 6.729852320820453e-10,
+    "scaled_difference": 2.333237864835135e-18,
+    "fd_scaled_scatter": 1.7991178310920554e-23
+  },
+  {
+    "case": 515,
+    "parameter": "q2",
+    "method": "triple point-source curvature and certified caustic clearance",
+    "native": 7.402398781997653e-08,
+    "finite_source_reference": 7.402398807702044e-08,
+    "scaled_difference": 2.570438946339362e-16,
+    "fd_scaled_scatter": 0.0
+  },
+  {
+    "case": 515,
+    "parameter": "ang",
+    "method": "triple point-source curvature and certified caustic clearance",
+    "native": 7.351902702257084e-12,
+    "finite_source_reference": 7.351902727746382e-12,
+    "scaled_difference": 2.5489297541408524e-20,
+    "fd_scaled_scatter": 9.079599692409841e-25
+  }
+]

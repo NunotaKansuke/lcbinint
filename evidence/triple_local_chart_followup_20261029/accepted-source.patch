@@ -1,0 +1,540 @@
+diff --git a/src/lcbinint/magnification/algebraic_boundary/triple/regular_support.hpp b/src/lcbinint/magnification/algebraic_boundary/triple/regular_support.hpp
+index 42bf0148..a22b7765 100644
+--- a/src/lcbinint/magnification/algebraic_boundary/triple/regular_support.hpp
++++ b/src/lcbinint/magnification/algebraic_boundary/triple/regular_support.hpp
+@@ -43,7 +43,13 @@ inline std::vector<Disk> cover(const Geometry&p,double phi,double half,std::vect
+   double limit=INFINITY,condition=1,dc=0;for(int j=0;j<3;++j){double a=fast_abs(z-l[j]);limit=std::min(limit,.45*a);condition+=(m[j]+.01)/(a*a);dc+=2*(m[j]+.01)/(a*a*a);}
+   for(int j=0;j<6;++j)if(i!=j)limit=std::min(limit,.45*fast_abs(z-roots[j]));
+   const double beta=(fast_abs(k-phase)+2*std::sin(half/2)+eps*condition)/deriv;
+-  double r=std::max(1.3*beta,eps*(1+fast_abs(z)));bool ok=false;
++  double r=std::max(1.3*beta,eps*(1+fast_abs(z)));
++  // At a machine-limited critical loop, both a phase arc and its endpoint
++  // can otherwise acquire the same minimum disk radius. Subdivision cannot
++  // make strict endpoint inclusion succeed. Give the parent room, then
++  // re-prove its contraction with that actual larger radius below.
++  if(half>0)r=std::max(r,2*std::max(1.3*(fast_abs(k-phase)+eps*condition)/deriv,eps*(1+fast_abs(z))));
++  bool ok=false;
+   for(int attempt=0;attempt<48&&r<limit;++attempt,r*=1.3){double q=eps*(1+dc)/deriv;for(int j=0;j<3;++j){double lower=fast_abs(z-l[j])-r;q+=6*(m[j]+dm)*r/(lower*lower*lower*lower*deriv);}if(beta+q*r<r*(1-eps)&&q<1-eps){ok=true;break;}}
+   if(!ok)return {};
+   Complex w=z;double h=r,cond=1+fast_abs(z);for(int j=0;j<3;++j){double a=fast_abs(z-l[j]);w-=m[j]/std::conj(z-l[j]);h+=(m[j]+dm)*r/(a*(a-r));cond+=(m[j]+.01)/(a-r);}
+@@ -57,6 +63,11 @@ struct Node {double phi,half;int depth,left=-1;bool ready=false;std::vector<Comp
+ class Tree {
+  Geometry geometry_;std::vector<Node> nodes_;
+  Complex witness_source_{};double witness_clearance_=0;int witness_count_=-1;std::size_t witness_hits_=0;
++ struct WindingWitness {Complex source;double clearance;int count;};
++ // Several epochs can each need a narrow caustic proof. Retain a bounded
++ // set of geometry-only balls instead of rewalking thousands of ready arcs
++ // whenever a light curve returns to its central epoch. Never cache flux/IFT.
++ std::vector<WindingWitness> witnesses_;
+  std::vector<Disk> interior_witnesses_;
+  std::optional<std::array<double,3>> refused_query_;
+  std::size_t refusal_hits_=0;
+@@ -105,8 +116,8 @@ class Tree {
+    }
+    return false;
+   }
+-  if(n.depth>=18)return false;
+-  if(n.left<0){if(nodes_.size()>8190)return false;auto phi=n.phi,half=n.half*.5;auto depth=n.depth+1;auto roots=n.roots;int left=nodes_.size();nodes_[id].left=left;nodes_.push_back({phi-half,half,depth,-1,false,roots});nodes_.push_back({phi+half,half,depth,-1,false,roots});}
++  if(n.depth>=24)return false;
++  if(n.left<0){if(nodes_.size()>131070)return false;auto phi=n.phi,half=n.half*.5;auto depth=n.depth+1;auto roots=n.roots;int left=nodes_.size();nodes_[id].left=left;nodes_.push_back({phi-half,half,depth,-1,false,roots});nodes_.push_back({phi+half,half,depth,-1,false,roots});}
+   int left=nodes_[id].left;
+   return visit(left,source,rho,budget,angle,uncertainty,clearance)&&visit(left+1,source,rho,budget,angle,uncertainty,clearance);
+  }
+@@ -117,7 +128,7 @@ public:
+  // both positive and negative source witnesses are invalidated first.
+  void update_geometry(const Geometry& p) {
+   geometry_=p;
+-  witness_clearance_=0;witness_count_=-1;
++  witness_clearance_=0;witness_count_=-1;witnesses_.clear();
+   interior_witnesses_.clear();refused_query_.reset();
+   for(auto& n:nodes_) {
+    n.old_proposal=n.roots.size()==6;
+@@ -137,6 +148,15 @@ public:
+   const double moved=fast_abs(source-witness_source_);
+   const double available=witness_clearance_-moved-eps*(1+witness_clearance_+moved+fast_abs(source)+fast_abs(witness_source_));
+   if(witness_count_>=4 && available>rho){++witness_hits_;return witness_count_;}
++  for(const auto& witness:witnesses_) {
++   const double movement=fast_abs(source-witness.source);
++   const double remaining=witness.clearance-movement-
++       eps*(1+witness.clearance+movement+fast_abs(source)+fast_abs(witness.source));
++   if(remaining>rho) {
++    witness_source_=witness.source;witness_clearance_=witness.clearance;witness_count_=witness.count;
++    ++witness_hits_;return witness_count_;
++   }
++  }
+   for(auto point:interior_witnesses_)if(fast_abs(point.w-source)+point.h<rho-eps*(1+rho+fast_abs(source))) {
+    ++refusal_hits_;return -1;
+   }
+@@ -150,7 +170,9 @@ public:
+   if(winding<0 || winding>3 || fast_abs(angle/(2*pi)-winding)+error/(2*pi)>.1)return -1;
+   const int count=4+2*int(winding);
+   if(count<4 || count>10 || !(clearance>rho))return -1;
+-  witness_source_=source;witness_clearance_=clearance;witness_count_=count;return count;
++  witness_source_=source;witness_clearance_=clearance;witness_count_=count;
++  if(witnesses_.size()==16)witnesses_.erase(witnesses_.begin());
++  witnesses_.push_back({source,clearance,count});return count;
+  }
+  std::pair<double,int> clearance(Complex source,double required,int budget=256) {
+   const int images=count(source,required,budget);
+@@ -509,11 +531,17 @@ class PreparedRegularSupport {
+ public:
+     // Continuous caustic enclosures, reused by scalar routing and by the
+     // later support proof. Refusal is conservative and never accepts a shortcut.
+-    std::pair<double,int> caustic_clearance(const Geometry& p,double required) {
++    std::pair<double,int> caustic_clearance(const Geometry& p,double required,int budget=256) {
+         p.validate();
+         if(!angular_detail::enclosure::environment_ok())return {0,-1};
++        // A rounded unit sum alone does not establish positive primary mass.
++        // Use the same exact-sum sign gate as the full support planner.
++        const double sum=p.m1+p.m2,bvirtual=sum-p.m1;
++        const double sum_error=(p.m1-(sum-bvirtual))+(p.m2-bvirtual);
++        if(!(sum<1 || (sum==1 && sum_error<0)) || !(p.m1>0 && p.m2>0) ||
++           p.a==0 || (p.bx==0 && p.by==0) || (p.bx==p.a && p.by==0))return {0,-1};
+         prepare_lens(p);
+-        return tree_->clearance({p.X,p.Y},required);
++        return tree_->clearance({p.X,p.Y},required,budget);
+     }
+     std::size_t native_seed_solves() const{return native_solves_;}
+     std::size_t continued_seed_hits() const{return continued_seeds_;}
+diff --git a/src/lcbinint/magnification/finite_source_magnifier.cpp b/src/lcbinint/magnification/finite_source_magnifier.cpp
+index 470f3edf..4da96fc4 100644
+--- a/src/lcbinint/magnification/finite_source_magnifier.cpp
++++ b/src/lcbinint/magnification/finite_source_magnifier.cpp
+@@ -7883,6 +7883,40 @@ inline std::pair<double,int> triple_caustic_clearance(
+     }
+     return prepared.caustic_clearance(canonical,required);
+ }
++inline std::pair<double,int> triple_alternate_caustic_clearance(
++        const model::TripleLensGeometry& physical,SourcePosition source,double rho,
++        double required,int budget=256) {
++    namespace kernel=algebraic_boundary::triple;
++    static thread_local std::array<kernel::PreparedRegularSupport,2> alternate;
++    std::array<kernel::Complex,3> lenses;
++    for(int j=0;j<3;++j)lenses[j]={physical.lens_positions[j].x,physical.lens_positions[j].y};
++    const std::array<std::array<int,3>,2> orders{{{1,0,2},{2,0,1}}};
++    for(std::size_t k=0;k<orders.size();++k) {
++        const auto order=orders[k];
++        const double m1=physical.masses[order[1]],m2=physical.masses[order[2]];
++        if(!(1-m1-m2>0) || m1+m2>1)continue;
++        const auto frame=kernel::primary_frame(std::array<kernel::Complex,3>{
++            lenses[order[0]],lenses[order[1]],lenses[order[2]]},
++            {source.x,source.y},rho,m1,m2);
++        const auto proof=alternate[k].caustic_clearance(frame.geometry,required,budget);
++        if(proof.first>required)return proof;
++    }
++    return {0,-1};
++}
++inline std::pair<double,int> triple_continue_caustic_clearance(
++        const model::TripleLensGeometry& physical,SourcePosition source,double rho,
++        const algebraic_boundary::triple::Geometry& canonical,double required,
++        algebraic_boundary::triple::PreparedRegularSupport& prepared) {
++    const auto ordinary=triple_caustic_clearance(physical,source,canonical,required,prepared);
++    if(ordinary.first>required)return ordinary;
++    // Try a cheap alternative before extending an ill-conditioned canonical
++    // tree. Neither the proof coordinates nor its budget change a flux/IFT.
++    const auto alternate=triple_alternate_caustic_clearance(physical,source,rho,required);
++    if(alternate.first>required)return alternate;
++    const auto continued=prepared.caustic_clearance(canonical,required,65536);
++    if(continued.first>required)return continued;
++    return triple_alternate_caustic_clearance(physical,source,rho,required,65536);
++}
+ inline bool triple_refine_support_events(
+         algebraic_boundary::triple::RadialEventPlan& plan,
+         const algebraic_boundary::triple::Geometry& geometry) {
+@@ -7948,7 +7982,7 @@ template<bool Gradient> auto triple_algebraic_epoch(
+     out.value.center_image_count=safety.image_count;
+     const double error=6*safety.quadrupole_indicator*rho*rho;
+     if(std::isfinite(error)&&error<=budget(out.point_magnification)) {
+-        const auto clear=triple_caustic_clearance(geometry,source,canonical.geometry,point_distance,prepared);
++        const auto clear=triple_continue_caustic_clearance(geometry,source,rho,canonical.geometry,point_distance,prepared);
+         if(clear.first>point_distance&&clear.second>=4) {
+             const auto p=triple_approximation::point<Gradient>(point,geometry,source,clear.second);
+             const auto complete_safety=point.triple_safety_diagnostic(geometry,source);
+@@ -7963,7 +7997,16 @@ template<bool Gradient> auto triple_algebraic_epoch(
+         }
+     }
+     const double hex_distance=std::max(5.,finite.hex_threshold)*rho;
+-    const auto clear=triple_caustic_clearance(geometry,source,canonical.geometry,hex_distance,prepared);
++    auto clear=triple_caustic_clearance(geometry,source,canonical.geometry,hex_distance,prepared);
++    if(clear.first<=hex_distance && finite.adaptive_hex_threshold>0) {
++        clear=triple_alternate_caustic_clearance(geometry,source,rho,hex_distance);
++        // Curvature is only a cost screen here: spend more geometric proof
++        // work before an integral when a finite-source approximation may be
++        // useful. The final joint packet still meets the original tolerance.
++        // Do not let an unproved odd/duplicate seed count suppress this proof.
++        if(clear.first<=hex_distance && std::isfinite(error) && error<=100*budget(out.point_magnification))
++            clear=triple_continue_caustic_clearance(geometry,source,rho,canonical.geometry,hex_distance,prepared);
++    }
+     out.value.caustic_distance=clear.first;
+     if(clear.first>hex_distance&&finite.adaptive_hex_threshold>0) {
+         const auto hex=triple_approximation::hex<Gradient>(point,geometry,source,rho,limb_darkening_gamma(finite),clear.second);
+@@ -8144,6 +8187,39 @@ template<bool Gradient> auto triple_algebraic_epoch(
+             break;
+         }
+     }
++    if(!out.value.converged) {
++        // A root cluster can be an artefact of the caustic polynomial frame.
++        // Change only its geometric proof coordinates, then evaluate the
++        // original physical point/hex packet including every image and IFT.
++        // This is a final rescue after all integral routes have refused.
++        // Continue the same caustic frontier with a bounded larger budget;
++        // high-magnification caustic-free queries can need thousands of arcs.
++        const auto clear=triple_continue_caustic_clearance(geometry,source,rho,
++            canonical.geometry,hex_distance,prepared);
++        if(clear.first>hex_distance) {
++            if(clear.first>point_distance) {
++                const auto packet=triple_approximation::point<Gradient>(point,geometry,source,clear.second);
++                const auto safety=point.triple_safety_diagnostic(geometry,source);
++                const double estimate=6*safety.quadrupole_indicator*rho*rho;
++                if(packet.valid && std::isfinite(estimate) && estimate<=budget(packet.mu)) {
++                    out.point_magnification=packet.mu;
++                    accept(packet.mu,estimate,FiniteSourceMethod::point_source,1,
++                        "triple point source and continued reframed certified caustic clearance");
++                    out.value.caustic_distance=clear.first;out.value.center_image_count=packet.images;
++                    if constexpr(Gradient){out.gradient=packet.gradient;out.gradient_valid=packet.gradient_valid;}
++                    return out;
++                }
++            }
++            const auto hex=triple_approximation::hex<Gradient>(point,geometry,source,rho,
++                limb_darkening_gamma(finite),clear.second);
++            if(!hex.valid || hex.error>budget(hex.mu))return out;
++            accept(hex.mu,hex.error,FiniteSourceMethod::hexadecapole,13,
++                "triple hexadecapole and reframed certified caustic clearance");
++            out.value.caustic_distance=clear.first;out.value.center_image_count=clear.second;
++            if constexpr(Gradient){out.gradient=hex.gradient;out.gradient_valid=hex.gradient_valid;}
++            return out;
++        }
++    }
+     return out;
+ }
+ } // namespace
+diff --git a/src/lcbinint/magnification/point_source_magnifier.cpp b/src/lcbinint/magnification/point_source_magnifier.cpp
+index c1066227..e78af084 100644
+--- a/src/lcbinint/magnification/point_source_magnifier.cpp
++++ b/src/lcbinint/magnification/point_source_magnifier.cpp
+@@ -1941,6 +1941,38 @@ std::vector<TripleImageCandidate> PointSourceMagnifier::triple_image_candidates(
+     }
+     for (int i = 0; i < physical_count; ++i)
+         positive_count += images[static_cast<std::size_t>(i)].jacobian_determinant > 0.0;
++    if(distinct_positive_lenses &&
++       ((expected_images>=4 && physical_count>expected_images) ||
++        physical_count!=2*positive_count+2)) {
++        // An unfinished Newton iterate can pass the source residual floor
++        // while lying near an already accepted bright image. Continue from
++        // the retained iterate, not its distant polynomial seed, then apply
++        // the same physical residual and spatial duplicate tests again.
++        // An independent count or the necessary physical index triggers
++        // repair; neither selects a prefix of the requested size or licenses
++        // dropping a distinct valid root.
++        std::vector<TripleImageCandidate> repaired;
++        repaired.reserve(images.size());
++        for(int i=0;i<physical_count;++i) {
++            const auto refined=polish_triple_image_root_high_precision(geometry,source,
++                images[static_cast<std::size_t>(i)].position);
++            const Complex z{refined.x,refined.y};
++            const double residual=triple_residual(geometry,source,z);
++            const double determinant=triple_jacobian_determinant(geometry,z);
++            if(!(residual<=absolute_tolerance) || !std::isfinite(determinant) || determinant==0)continue;
++            bool duplicate=false;
++            for(auto& old:repaired)if(std::norm(z-Complex{old.position.x,old.position.y})<kDedupTol2) {
++                if(residual<old.residual)old={refined,determinant,residual,false};
++                duplicate=true;break;
++            }
++            if(!duplicate)repaired.push_back({refined,determinant,residual,false});
++        }
++        const int repaired_count=static_cast<int>(repaired.size());
++        repaired.insert(repaired.end(),images.begin()+physical_count,images.end());
++        images=std::move(repaired);physical_count=repaired_count;positive_count=0;
++        for(int i=0;i<physical_count;++i)positive_count+=images[static_cast<std::size_t>(i)].jacobian_determinant>0;
++        diagnostics.root_used_high_precision=diagnostics.root_needs_high_precision=1;
++    }
+     // For three distinct positive point masses, N_negative=N_positive+2.
+     // An even total alone can hide lost pole images in a multi-image region.
+     const bool missing_negative = distinct_positive_lenses &&
+diff --git a/tests/triple_algebraic/test_local_images.cpp b/tests/triple_algebraic/test_local_images.cpp
+index 4af365f0..461e7a44 100644
+--- a/tests/triple_algebraic/test_local_images.cpp
++++ b/tests/triple_algebraic/test_local_images.cpp
+@@ -94,7 +94,31 @@ void check_six(const model::TripleLensGeometry& geometry,SourcePosition source,d
+         }
+     }
+ }
++// Independent 70-digit original-equation references. A partially polished
++// duplicate bright image used to survive the residual floor at a hex sample.
++void check_hex_sample_duplicates(const model::TripleLensGeometry& geometry,
++    const std::array<SourcePosition,13>& sources,const std::array<double,13>& references) {
++    PointSourceMagnifier solver;
++    for(int expected:{0,4})for(int warm=0;warm<2;++warm)for(std::size_t j=0;j<sources.size();++j) {
++        const auto p=triple_approximation::point<true>(solver,geometry,sources[j],expected);
++        if(!p.valid || !p.gradient_valid || p.images!=4 || std::abs(p.mu/references[j]-1)>2e-9)
++            throw std::runtime_error("unfinished Newton duplicate in physical point packet");
++        int positive=0,negative=0;
++        for(const auto& root:solver.triple_image_candidates_cached(geometry,sources[j],expected))if(root.physical) {
++            if(!(root.residual<=1e-7))throw std::runtime_error("repaired root residual");
++            (root.jacobian_determinant>0?positive:negative)++;
++        }
++        if(positive!=1 || negative!=3)throw std::runtime_error("repaired physical image index");
++    }
++}
+ int main() {
++    check_hex_sample_duplicates(model::make_triple_lens_geometry_vbm(10.,10000.,10.00001,3.141592643589793,1e-7),
++        std::array<SourcePosition,13>{{{-0.0005676012243667592,-0.0008233036196309087},{-0.0005576012243667591,-0.0008233036196309087},{-0.0005676012243667592,-0.0008133036196309087},{-0.0005776012243667592,-0.0008233036196309087},{-0.0005676012243667592,-0.0008333036196309087},{-0.0005626012243667591,-0.0008233036196309087},{-0.0005676012243667592,-0.0008183036196309087},{-0.0005726012243667592,-0.0008233036196309087},{-0.0005676012243667592,-0.0008283036196309087},{-0.0005605301565548937,-0.0008162325518190432},{-0.0005746722921786246,-0.0008162325518190432},{-0.0005746722921786246,-0.0008303746874427742},{-0.0005605301565548937,-0.0008303746874427742}}},
++        std::array<double,13>{{1080.3416212133175,1074.9898532118962,1090.8134004480403,1085.6463854212802,1070.0432609237778,1077.6713857801553,1085.5556149004535,1083.0001068952888,1075.1709814353828,1083.8707900218262,1091.562021778214,1076.7221219051653,1069.337986856956}});
++    check_hex_sample_duplicates(model::make_triple_lens_geometry_vbm(.01,1e-8,.005,0.,100.),
++        std::array<SourcePosition,13>{{{-0.000508520894752286,0.0008610496499043097},{-0.000498520894752286,0.0008610496499043097},{-0.000508520894752286,0.0008710496499043098},{-0.000518520894752286,0.0008610496499043097},{-0.000508520894752286,0.0008510496499043097},{-0.000503520894752286,0.0008610496499043097},{-0.000508520894752286,0.0008660496499043098},{-0.000513520894752286,0.0008610496499043097},{-0.000508520894752286,0.0008560496499043097},{-0.0005014498269404205,0.0008681207177161752},{-0.0005155919625641515,0.0008681207177161752},{-0.0005155919625641515,0.0008539785820924443},{-0.0005014498269404205,0.0008539785820924443}}},
++        std::array<double,13>{{221.01289631950084,220.53438547204803,220.91946140536967,221.49344898955573,221.10536897715974,220.7733864659846,220.9662989042648,221.25291662703685,221.0592531701345,220.6086609516349,221.28621266574697,221.41827652393417,220.73951468618873}});
++
+     check(model::make_triple_lens_geometry_vbm(19.75305012937681,15.323735743955856,
+         19.051792915401325,.7277460252170198,5.397231219594437e-6),
+         {.2026000906468922,-1.7413544639713545});
+diff --git a/tests/triple_algebraic/test_regular.cpp b/tests/triple_algebraic/test_regular.cpp
+index 3fdcca53..c30d3e71 100644
+--- a/tests/triple_algebraic/test_regular.cpp
++++ b/tests/triple_algebraic/test_regular.cpp
+@@ -257,5 +257,39 @@ int main(){
+       require(tr::refine_event_center(event,frame.geometry,true),
+           "every retained tiny-primary event has a physical precision proof");
+  }
++ // A parent phase disk must strictly contain freshly proved endpoint
++ // disks even when the small critical loop has reached its rounding floor.
++ {
++  tr::Geometry p{.0006780441174736548,-.0007350212070133573,1e-5,
++      1e-8/(1+1e-8+1e-7),1e-7/(1+1e-8+1e-7),.01,.005,0.};
++  const double half=std::ldexp(rs::pi/32,-18),phi=half;
++  std::vector<Complex> roots;const auto parent=rs::cover(p,phi,half,roots);
++  require(parent.size()==6,"machine-scale parent critical cover");
++  for(double sign:{-1.,1.}) {
++   auto seeds=roots;const auto end=rs::cover(p,phi+sign*half,0,seeds);
++   require(end.size()==6,"machine-scale endpoint critical cover");
++   for(int j=0;j<6;++j)require(std::abs(end[j].z-parent[j].z)+end[j].r<parent[j].r,
++       "endpoint floor must fit in re-proved parent disk");
++  }
++  rs::Tree progress(p);
++  require(progress.count({p.X,p.Y},5*p.rho,256)<0,"ordinary query budget remains bounded");
++  require(progress.count({p.X,p.Y},5*p.rho,65536)==4,
++      "continued critical frontier proves high-magnification exterior count");
++  // A distant query replaces the single active witness. The central proof
++  // must still be reusable with zero new phase-box budget.
++  require(progress.count({2.,1.},5*p.rho,65536)==4,"distant winding query");
++  const auto hits=progress.witness_hits();
++  require(progress.count({p.X,p.Y},5*p.rho,0)==4 && progress.witness_hits()==hits+1,
++      "bounded winding witnesses retain a central epoch proof");
++  auto changed=p;changed.m2*=1.01;progress.update_geometry(changed);
++  require(progress.count({p.X,p.Y},5*p.rho,0)<0,
++      "geometry update invalidates every retained winding witness");
++  tr::PreparedRegularSupport validity;
++  auto invalid=p;invalid.X=8;invalid.Y=6;
++  invalid.m1=std::nextafter(.7,INFINITY);invalid.m2=.3;
++  require(invalid.m1+invalid.m2==1.,"rounding masks nonpositive primary mass");
++  require(validity.caustic_clearance(invalid,.01,65536).second<0,
++      "caustic certificate requires an exactly positive primary mass");
++ }
+  std::cout<<"PASS: "<<accepted<<" prepared plans, "<<counts<<" winding counts ("<<multiple<<" with >4 images, maximum "<<max_count<<"), "<<motion_checks<<" quad motion checks, "<<values*4<<" relative value comparisons, "<<bounded<<" bounded-component plans\n";
+ }
+diff --git a/tests/regression/test_triple_caustic_progress.py b/tests/regression/test_triple_caustic_progress.py
+new file mode 100644
+index 00000000..9763cf19
+--- /dev/null
++++ b/tests/regression/test_triple_caustic_progress.py
+@@ -0,0 +1,201 @@
++"""Extreme critical-loop progress and unfinished Newton duplicate regressions."""
++import numpy as np
++import pytest
++import lcbinint as lc
++
++# Independent 70-digit original-equation source-disk quadrature, retaining
++# four distinct images at every sample; GL8/16 and 32/64 angular convergence.
++CASES = [{'name': 'near_collinear_or_clustered-0400',
++  'family': 'near_collinear_or_clustered',
++  'params': {'t0': 0.0,
++             'u0': 0.001,
++             'tE': 1.0,
++             'alpha': -2.3964942839961085,
++             's': 0.01,
++             'q': 1e-08,
++             'q2': 1e-07,
++             'sep2': 0.005,
++             'ang': 0.0,
++             'rho': 1e-05},
++  'epochs': [-1.0, -0.2, 0.0, 0.2, 1.0],
++  'limb': 0.0,
++  'rtol': 0.001,
++  'case': 400,
++  'references': {'2': 1000.0125364924304}},
++ {'name': 'near_collinear_or_clustered-0403',
++  'family': 'near_collinear_or_clustered',
++  'params': {'t0': 0.0,
++             'u0': 0.001,
++             'tE': 1.0,
++             'alpha': 2.5380033324900486,
++             's': 10.0,
++             'q': 10000.0,
++             'q2': 1e-07,
++             'sep2': 10.00001,
++             'ang': 3.141592643589793,
++             'rho': 1e-05},
++  'epochs': [-1.0, -0.2, 0.0, 0.2, 1.0],
++  'limb': 0.0,
++  'rtol': 0.0001,
++  'case': 403,
++  'references': {'2': 1080.357424046059}},
++ {'name': 'near_collinear_or_clustered-0433',
++  'family': 'near_collinear_or_clustered',
++  'params': {'t0': 0.0,
++             'u0': 0.001,
++             'tE': 1.0,
++             'alpha': 1.6963505531657619,
++             's': 10.0,
++             'q': 0.0001,
++             'q2': 1e-07,
++             'sep2': 17.0,
++             'ang': 3.141592643589793,
++             'rho': 1e-05},
++  'epochs': [-1.0, -0.2, 0.0, 0.2, 1.0],
++  'limb': 0.0,
++  'rtol': 0.0001,
++  'case': 433,
++  'references': {'2': 503.58226085433597}},
++ {'name': 'near_collinear_or_clustered-0460',
++  'family': 'near_collinear_or_clustered',
++  'params': {'t0': 0.0,
++             'u0': 0.001,
++             'tE': 1.0,
++             'alpha': 0.5334661239777159,
++             's': 0.01,
++             'q': 1e-08,
++             'q2': 100.0,
++             'sep2': 0.005,
++             'ang': 0.0,
++             'rho': 1e-05},
++  'epochs': [-1.0, -0.2, 0.0, 0.2, 1.0],
++  'limb': 0.0,
++  'rtol': 0.001,
++  'case': 460,
++  'references': {'2': 221.0130312641042}},
++ {'name': 'near_collinear_or_clustered-0467',
++  'family': 'near_collinear_or_clustered',
++  'params': {'t0': 0.0,
++             'u0': 0.1,
++             'tE': 1.0,
++             'alpha': -2.5094939170597206,
++             's': 1.0,
++             'q': 10000.0,
++             'q2': 1e-07,
++             'sep2': 1.001,
++             'ang': 1e-10,
++             'rho': 0.003},
++  'epochs': [-1.0, -0.2, 0.0, 0.2, 1.0],
++  'limb': 0.5,
++  'rtol': 0.0001,
++  'case': 467,
++  'references': {'0': 1.3380319053259828,
++                 '1': 4.544728459150133,
++                 '2': 10.028003518559899,
++                 '3': 4.556983837440612,
++                 '4': 1.3381345438929093}},
++ {'name': 'near_collinear_or_clustered-0484',
++  'family': 'near_collinear_or_clustered',
++  'params': {'t0': 0.0,
++             'u0': 0.001,
++             'tE': 1.0,
++             'alpha': 2.3148921982993347,
++             's': 100.0,
++             'q': 1e-08,
++             'q2': 0.01,
++             'sep2': 50.0,
++             'ang': 0.0,
++             'rho': 1e-05},
++  'epochs': [-1.0, -0.2, 0.0, 0.2, 1.0],
++  'limb': 0.0,
++  'rtol': 0.001,
++  'case': 484,
++  'references': {'2': 1149.4586146080644}},
++ {'name': 'near_collinear_or_clustered-0515',
++  'family': 'near_collinear_or_clustered',
++  'params': {'t0': 0.0,
++             'u0': 0.1,
++             'tE': 1.0,
++             'alpha': 2.399844737493482,
++             's': 0.01,
++             'q': 10000.0,
++             'q2': 1e-07,
++             'sep2': 0.01001,
++             'ang': 1e-10,
++             'rho': 1e-05},
++  'epochs': [-1.0, -0.2, 0.0, 0.2, 1.0],
++  'limb': 0.5,
++  'rtol': 0.0001,
++  'case': 515,
++  'references': {'0': 1.3380949944868161,
++                 '1': 4.555555600528158,
++                 '2': 10.037461054330652,
++                 '3': 4.555555496060232,
++                 '4': 1.3380949901159684}}]
++
++def curve(c):
++    return lc.LightCurve(lens="triple",param_type="vbm",ld_c=c["limb"],
++        options=lc.Options(finite_source_tol=0.,finite_source_reltol=c["rtol"]))
++
++@pytest.mark.parametrize("case",CASES,ids=lambda c:str(c["case"]))
++@pytest.mark.parametrize("gradient",[False,True])
++def test_critical_loop_values(case,gradient):
++    m=curve(case)
++    result=m.magnification(case["epochs"],case["params"],with_gradient=gradient)
++    assert np.all(result.status==0)
++    if gradient:
++        assert np.all(result.gradient_valid)
++        assert np.all(np.isfinite(result.gradients))
++    for j,reference in case["references"].items():
++        assert abs(result.magnifications[int(j)]/reference-1)<=case["rtol"]
++
++@pytest.mark.parametrize("case",CASES,ids=lambda c:str(c["case"]))
++def test_cold_and_retained_caustic_proof_agree(case):
++    m=curve(case)
++    cold=m.magnification(case["epochs"],case["params"],with_gradient=True)
++    warm=m.magnification(case["epochs"],case["params"],with_gradient=True)
++    assert np.all(cold.status==0) and np.all(warm.status==0)
++    assert np.max(np.abs(warm.magnifications/cold.magnifications-1))<=case["rtol"]
++    assert np.max(np.abs(warm.gradients-cold.gradients)/(1+np.abs(cold.gradients)))<=1e-4
++
++# Hex routes retain a finite-source rho derivative. Point routes deliberately
++# differentiate the point approximation; their zero rho derivative is not
++# certified against the full finite-source model by a value tolerance.
++HEX_REFERENCES = [(403, 't0', -1028197.9808499109),
++ (403, 'u0', -552515.4778095641),
++ (403, 'tE', 0.0),
++ (403, 'alpha', -1028.197980849911),
++ (403, 'rho', 3160.704967140111),
++ (403, 's', -53.71623451450333),
++ (403, 'q', 0.052787502424150555),
++ (403, 'sep2', -1.2667956715124565e-08),
++ (403, 'q2', 2.5658960961666857),
++ (403, 'ang', -2.584023990471834e-07),
++ (467, 't0', -0.20550085096103518),
++ (467, 'u0', -99.44995071985704),
++ (467, 'tE', 0.0),
++ (467, 'alpha', -0.020550085096103565),
++ (467, 'rho', 0.6881610658891816),
++ (467, 's', -0.003493554741758948),
++ (467, 'q', 1.0383055300210024e-06),
++ (467, 'sep2', -5.891229735073395e-10),
++ (467, 'q2', -5.442569140658059e-06),
++ (467, 'ang', 8.023576687325873e-10),
++ (484, 't0', -205035.07111851458),
++ (484, 'u0', -1311856.0803409433),
++ (484, 'tE', 0.0),
++ (484, 'alpha', -205.0350711185146),
++ (484, 'rho', 3845.3231631913427),
++ (484, 's', -0.008263432199622906),
++ (484, 'q', -82618715.15187919),
++ (484, 'sep2', -3.2494109413223518),
++ (484, 'q2', 15588.174655199777),
++ (484, 'ang', 206.07434180590295)]
++
++@pytest.mark.parametrize("case_id,name,reference",HEX_REFERENCES)
++def test_hex_tangents_against_independent_disk_differences(case_id,name,reference):
++    case=next(c for c in CASES if c["case"]==case_id)
++    result=curve(case).magnification([0.],case["params"],with_gradient=True)
++    assert result.status.tolist()==[0] and np.all(result.gradient_valid)
++    column=list(result.gradient_parameters).index(name)
++    assert abs(result.gradients[0,column]-reference)/(1+abs(reference))<=1e-4

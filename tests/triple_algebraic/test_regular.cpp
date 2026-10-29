@@ -257,5 +257,39 @@ int main(){
       require(tr::refine_event_center(event,frame.geometry,true),
           "every retained tiny-primary event has a physical precision proof");
  }
+ // A parent phase disk must strictly contain freshly proved endpoint
+ // disks even when the small critical loop has reached its rounding floor.
+ {
+  tr::Geometry p{.0006780441174736548,-.0007350212070133573,1e-5,
+      1e-8/(1+1e-8+1e-7),1e-7/(1+1e-8+1e-7),.01,.005,0.};
+  const double half=std::ldexp(rs::pi/32,-18),phi=half;
+  std::vector<Complex> roots;const auto parent=rs::cover(p,phi,half,roots);
+  require(parent.size()==6,"machine-scale parent critical cover");
+  for(double sign:{-1.,1.}) {
+   auto seeds=roots;const auto end=rs::cover(p,phi+sign*half,0,seeds);
+   require(end.size()==6,"machine-scale endpoint critical cover");
+   for(int j=0;j<6;++j)require(std::abs(end[j].z-parent[j].z)+end[j].r<parent[j].r,
+       "endpoint floor must fit in re-proved parent disk");
+  }
+  rs::Tree progress(p);
+  require(progress.count({p.X,p.Y},5*p.rho,256)<0,"ordinary query budget remains bounded");
+  require(progress.count({p.X,p.Y},5*p.rho,65536)==4,
+      "continued critical frontier proves high-magnification exterior count");
+  // A distant query replaces the single active witness. The central proof
+  // must still be reusable with zero new phase-box budget.
+  require(progress.count({2.,1.},5*p.rho,65536)==4,"distant winding query");
+  const auto hits=progress.witness_hits();
+  require(progress.count({p.X,p.Y},5*p.rho,0)==4 && progress.witness_hits()==hits+1,
+      "bounded winding witnesses retain a central epoch proof");
+  auto changed=p;changed.m2*=1.01;progress.update_geometry(changed);
+  require(progress.count({p.X,p.Y},5*p.rho,0)<0,
+      "geometry update invalidates every retained winding witness");
+  tr::PreparedRegularSupport validity;
+  auto invalid=p;invalid.X=8;invalid.Y=6;
+  invalid.m1=std::nextafter(.7,INFINITY);invalid.m2=.3;
+  require(invalid.m1+invalid.m2==1.,"rounding masks nonpositive primary mass");
+  require(validity.caustic_clearance(invalid,.01,65536).second<0,
+      "caustic certificate requires an exactly positive primary mass");
+ }
  std::cout<<"PASS: "<<accepted<<" prepared plans, "<<counts<<" winding counts ("<<multiple<<" with >4 images, maximum "<<max_count<<"), "<<motion_checks<<" quad motion checks, "<<values*4<<" relative value comparisons, "<<bounded<<" bounded-component plans\n";
 }

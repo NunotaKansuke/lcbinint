@@ -43,7 +43,13 @@ inline std::vector<Disk> cover(const Geometry&p,double phi,double half,std::vect
   double limit=INFINITY,condition=1,dc=0;for(int j=0;j<3;++j){double a=fast_abs(z-l[j]);limit=std::min(limit,.45*a);condition+=(m[j]+.01)/(a*a);dc+=2*(m[j]+.01)/(a*a*a);}
   for(int j=0;j<6;++j)if(i!=j)limit=std::min(limit,.45*fast_abs(z-roots[j]));
   const double beta=(fast_abs(k-phase)+2*std::sin(half/2)+eps*condition)/deriv;
-  double r=std::max(1.3*beta,eps*(1+fast_abs(z)));bool ok=false;
+  double r=std::max(1.3*beta,eps*(1+fast_abs(z)));
+  // At a machine-limited critical loop, both a phase arc and its endpoint
+  // can otherwise acquire the same minimum disk radius. Subdivision cannot
+  // make strict endpoint inclusion succeed. Give the parent room, then
+  // re-prove its contraction with that actual larger radius below.
+  if(half>0)r=std::max(r,2*std::max(1.3*(fast_abs(k-phase)+eps*condition)/deriv,eps*(1+fast_abs(z))));
+  bool ok=false;
   for(int attempt=0;attempt<48&&r<limit;++attempt,r*=1.3){double q=eps*(1+dc)/deriv;for(int j=0;j<3;++j){double lower=fast_abs(z-l[j])-r;q+=6*(m[j]+dm)*r/(lower*lower*lower*lower*deriv);}if(beta+q*r<r*(1-eps)&&q<1-eps){ok=true;break;}}
   if(!ok)return {};
   Complex w=z;double h=r,cond=1+fast_abs(z);for(int j=0;j<3;++j){double a=fast_abs(z-l[j]);w-=m[j]/std::conj(z-l[j]);h+=(m[j]+dm)*r/(a*(a-r));cond+=(m[j]+.01)/(a-r);}
@@ -57,6 +63,11 @@ struct Node {double phi,half;int depth,left=-1;bool ready=false;std::vector<Comp
 class Tree {
  Geometry geometry_;std::vector<Node> nodes_;
  Complex witness_source_{};double witness_clearance_=0;int witness_count_=-1;std::size_t witness_hits_=0;
+ struct WindingWitness {Complex source;double clearance;int count;};
+ // Several epochs can each need a narrow caustic proof. Retain a bounded
+ // set of geometry-only balls instead of rewalking thousands of ready arcs
+ // whenever a light curve returns to its central epoch. Never cache flux/IFT.
+ std::vector<WindingWitness> witnesses_;
  std::vector<Disk> interior_witnesses_;
  std::optional<std::array<double,3>> refused_query_;
  std::size_t refusal_hits_=0;
@@ -105,8 +116,8 @@ class Tree {
    }
    return false;
   }
-  if(n.depth>=18)return false;
-  if(n.left<0){if(nodes_.size()>8190)return false;auto phi=n.phi,half=n.half*.5;auto depth=n.depth+1;auto roots=n.roots;int left=nodes_.size();nodes_[id].left=left;nodes_.push_back({phi-half,half,depth,-1,false,roots});nodes_.push_back({phi+half,half,depth,-1,false,roots});}
+  if(n.depth>=24)return false;
+  if(n.left<0){if(nodes_.size()>131070)return false;auto phi=n.phi,half=n.half*.5;auto depth=n.depth+1;auto roots=n.roots;int left=nodes_.size();nodes_[id].left=left;nodes_.push_back({phi-half,half,depth,-1,false,roots});nodes_.push_back({phi+half,half,depth,-1,false,roots});}
   int left=nodes_[id].left;
   return visit(left,source,rho,budget,angle,uncertainty,clearance)&&visit(left+1,source,rho,budget,angle,uncertainty,clearance);
  }
@@ -117,7 +128,7 @@ public:
  // both positive and negative source witnesses are invalidated first.
  void update_geometry(const Geometry& p) {
   geometry_=p;
-  witness_clearance_=0;witness_count_=-1;
+  witness_clearance_=0;witness_count_=-1;witnesses_.clear();
   interior_witnesses_.clear();refused_query_.reset();
   for(auto& n:nodes_) {
    n.old_proposal=n.roots.size()==6;
@@ -137,6 +148,15 @@ public:
   const double moved=fast_abs(source-witness_source_);
   const double available=witness_clearance_-moved-eps*(1+witness_clearance_+moved+fast_abs(source)+fast_abs(witness_source_));
   if(witness_count_>=4 && available>rho){++witness_hits_;return witness_count_;}
+  for(const auto& witness:witnesses_) {
+   const double movement=fast_abs(source-witness.source);
+   const double remaining=witness.clearance-movement-
+       eps*(1+witness.clearance+movement+fast_abs(source)+fast_abs(witness.source));
+   if(remaining>rho) {
+    witness_source_=witness.source;witness_clearance_=witness.clearance;witness_count_=witness.count;
+    ++witness_hits_;return witness_count_;
+   }
+  }
   for(auto point:interior_witnesses_)if(fast_abs(point.w-source)+point.h<rho-eps*(1+rho+fast_abs(source))) {
    ++refusal_hits_;return -1;
   }
@@ -150,7 +170,9 @@ public:
   if(winding<0 || winding>3 || fast_abs(angle/(2*pi)-winding)+error/(2*pi)>.1)return -1;
   const int count=4+2*int(winding);
   if(count<4 || count>10 || !(clearance>rho))return -1;
-  witness_source_=source;witness_clearance_=clearance;witness_count_=count;return count;
+  witness_source_=source;witness_clearance_=clearance;witness_count_=count;
+  if(witnesses_.size()==16)witnesses_.erase(witnesses_.begin());
+  witnesses_.push_back({source,clearance,count});return count;
  }
  std::pair<double,int> clearance(Complex source,double required,int budget=256) {
   const int images=count(source,required,budget);
@@ -509,11 +531,17 @@ class PreparedRegularSupport {
 public:
     // Continuous caustic enclosures, reused by scalar routing and by the
     // later support proof. Refusal is conservative and never accepts a shortcut.
-    std::pair<double,int> caustic_clearance(const Geometry& p,double required) {
+    std::pair<double,int> caustic_clearance(const Geometry& p,double required,int budget=256) {
         p.validate();
         if(!angular_detail::enclosure::environment_ok())return {0,-1};
+        // A rounded unit sum alone does not establish positive primary mass.
+        // Use the same exact-sum sign gate as the full support planner.
+        const double sum=p.m1+p.m2,bvirtual=sum-p.m1;
+        const double sum_error=(p.m1-(sum-bvirtual))+(p.m2-bvirtual);
+        if(!(sum<1 || (sum==1 && sum_error<0)) || !(p.m1>0 && p.m2>0) ||
+           p.a==0 || (p.bx==0 && p.by==0) || (p.bx==p.a && p.by==0))return {0,-1};
         prepare_lens(p);
-        return tree_->clearance({p.X,p.Y},required);
+        return tree_->clearance({p.X,p.Y},required,budget);
     }
     std::size_t native_seed_solves() const{return native_solves_;}
     std::size_t continued_seed_hits() const{return continued_seeds_;}
