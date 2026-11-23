@@ -174,6 +174,9 @@ inline std::vector<Pair> detect(const PrimaryFrame&pf,const TopologyResult&topo,
   const I tl=positive_detail::point<I>(vl)-positive_detail::point<I>(vc),th=positive_detail::point<I>(vh)-positive_detail::point<I>(vc);
   std::vector<Q> c_band(c.begin(),c.end());
   if(recentred){const int nn=int(c_band.size())-1;for(int i=0;i<nn;++i)for(int k=nn-1;k>=i;--k)c_band[k]+=vc*c_band[k+1];}
+  // Descending copy for the complex pair Newton below (same expansion point).
+  const std::vector<Q> descending_band(c_band.rbegin(),c_band.rend());
+  const Cplx<Q> vc_c(vc,Q(0));
   const long double vc_ld=(long double)vc;
   auto jet_band=[&](Q v){Q t=v-vc;std::array<Q,4> j{};for(int k=int(c_band.size())-1;k>=0;--k){j[3]=j[3]*t+3*j[2];j[2]=j[2]*t+2*j[1];j[1]=j[1]*t+j[0];j[0]=j[0]*t+c_band[k];}return j;};
   auto approximate_jet_band=[&](long double v){long double t=v-vc_ld;std::array<long double,3> j{};long double norm=0;
@@ -261,7 +264,8 @@ inline std::vector<Pair> detect(const PrimaryFrame&pf,const TopologyResult&topo,
   if(!isolated.second)completed=false;
   const auto&stationary_roots=isolated.first;
   for(Q v:stationary_roots){
-   auto j=jet(v);if(j[2]==0)continue;
+   // Band basis: eta = 2 D/D'' is a small difference of large monomial terms.
+   auto j=jet_band(v);if(j[2]==0)continue;
    const Q eta=2*j[0]/j[2];if(eta==0)continue;const Q b=sqrtq(fabsq(eta));
    // A real close pair may terminate exactly at the outer support boundary.
    // Admit only a binary64-sized enclosure there; the later interval and
@@ -292,7 +296,7 @@ inline std::vector<Pair> detect(const PrimaryFrame&pf,const TopologyResult&topo,
    if(known>=2){continue;}
    Cplx<Q> z[2]={eta>0?Cplx<Q>(v,b):Cplx<Q>(v-b,0),eta>0?Cplx<Q>(v,-b):Cplx<Q>(v+b,0)};
    bool good=true;
-   for(auto&root:z){bool converged=false;for(int i=0;i<24;++i){auto f=poly_eval_c(descending.data(),degree,root),df=polyder_eval_c(descending.data(),degree,root);if(cabs2(df)==0)break;auto step=f/df;root=root-step;
+   for(auto&root:z){bool converged=false;for(int i=0;i<24;++i){auto f=poly_eval_c(descending_band.data(),degree,root-vc_c),df=polyder_eval_c(descending_band.data(),degree,root-vc_c);if(cabs2(df)==0)break;auto step=f/df;root=root-step;
      if(cabs(step)<1e-23Q*fmaxq(1,cabs(root))){converged=true;break;}}
     const bool inside=root.re>vl&&root.re<vh;
     const bool enclosed_upper=eta<0&&root.re>=vh-edge_v_tol&&root.re<=vh+edge_v_tol;
