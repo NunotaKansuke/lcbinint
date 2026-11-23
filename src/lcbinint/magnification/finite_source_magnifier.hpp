@@ -172,6 +172,23 @@ public:
 
     const FiniteSourceSettings& settings() const { return settings_; }
 
+    // Radial-origin choice of the binary algebraic-boundary route.  The
+    // kernel's radial variable is v = |z - lens0|^2 with lens0 the mass
+    // 1/(1+q) lens.  Images lie near the critical curve, and the critical
+    // loop about the heavier lens is always the rounder one (relative spread
+    // of v over the loop points nearest each lens, s in [0.2, 10],
+    // q in [1e-5, 0.99]: light-origin spread exceeds heavy-origin spread at
+    // every point).  A heavy origin clusters the D14 roots near multiple
+    // roots (the Einstein ring at small q), so the better-conditioned
+    // polynomial is always the light-lens origin: q >= 1.  The route reflects
+    // q < 1 calls through the exact symmetry
+    //   mu(x, y, rho, q, s) = mu(-x, -y, rho, 1/q, s)   (centre-of-mass frame)
+    // and pulls the Jacobian back.  It is idempotent, so callers that already
+    // pass q >= 1 are unchanged.
+    static bool binary_reflects_to_light_origin(double mass_ratio) {
+        return std::isfinite(mass_ratio) && mass_ratio > 0.0 && mass_ratio < 1.0;
+    }
+
     bool has_binary_caustic_geometry(double separation, double mass_ratio) const {
         return caustic_cache_valid_ && caustic_cache_separation_ == separation &&
             caustic_cache_mass_ratio_ == mass_ratio;

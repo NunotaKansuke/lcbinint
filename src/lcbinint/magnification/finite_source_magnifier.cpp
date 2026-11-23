@@ -7580,6 +7580,20 @@ const char* finite_source_method_name(FiniteSourceMethod method)
 }
 
 
+namespace {
+// d/d(x', y', rho, q', s) at the reflected call -> d/d(x, y, rho, q, s), with
+// x' = -x, y' = -y, q' = 1/q (dq'/dq = -q'^2).
+void pull_back_light_origin_reflection(
+    autodiff::AlgebraicBoundaryJacobian& jacobian, double reflected_mass_ratio)
+{
+    const double dq = -reflected_mass_ratio*reflected_mass_ratio;
+    jacobian.jacobian[0] = -jacobian.jacobian[0];
+    jacobian.jacobian[1] = -jacobian.jacobian[1];
+    jacobian.jacobian[3] *= dq;
+    jacobian.grad_error *= std::max(1.0, std::abs(dq));
+}
+}  // namespace
+
 AlgebraicBoundaryResult FiniteSourceMagnifier::algebraic_boundary_binary_mag(
     double separation,
     double mass_ratio,
@@ -7622,6 +7636,14 @@ FiniteSourceMagnifier::algebraic_boundary_binary_jacobian(
     FiniteSourceResult* value_result, double* point_source_magnification,
     bool barycentric_frame, const PointSourceMagnifier* point_hint) const
 {
+    if (binary_reflects_to_light_origin(mass_ratio)) {
+        const double reflected = 1.0/mass_ratio;
+        auto jacobian = algebraic_boundary_binary_jacobian(separation, reflected,
+            {-source.x, -source.y}, source_radius, algebraic_settings, value_result,
+            point_source_magnification, barycentric_frame, point_hint);
+        pull_back_light_origin_reflection(jacobian, reflected);
+        return jacobian;
+    }
     PointSourceMagnifier local_point;
     const auto& point = point_hint ? *point_hint : local_point;
     const double point_mu = point.binary_safety_diagnostic_cached(
@@ -8798,6 +8820,21 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
     autodiff::AlgebraicBoundaryJacobian* jacobian_out,
     std::array<std::vector<BinaryImage>, 13>* image_stencil) const
 {
+    // Algebraic-boundary route: light-lens radial origin (see the header).
+    // Image seeds and stencils are frame-dependent, so the reflected call
+    // rebuilds its own; algebraic_boundary_binary_jacobian reflects before
+    // it asks for a stencil.
+    if (use_algebraic_boundary && !multipole_only_probe && image_stencil == nullptr &&
+        binary_reflects_to_light_origin(mass_ratio)) {
+        const double reflected = 1.0/mass_ratio;
+        auto result = binary_mag(separation, reflected, {-source.x, -source.y},
+            source_radius, point_source_magnification, nullptr,
+            point_source_magnification_is_exact, point_magnifier_hint, true,
+            algebraic_boundary_atol, algebraic_boundary_rtol, barycentric_frame,
+            false, jacobian_out, nullptr);
+        if (jacobian_out) pull_back_light_origin_reflection(*jacobian_out, reflected);
+        return result;
+    }
     if (binary_separation_seen_ && separation != binary_last_separation_)
         binary_separation_changes_ = true;
     binary_separation_seen_ = true;
