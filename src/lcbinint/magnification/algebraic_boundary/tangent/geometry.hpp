@@ -148,21 +148,54 @@ inline std::vector<Pair> detect(const PrimaryFrame&pf,const TopologyResult&topo,
   size_t end=start;while(end+1<topo.cells.size()&&topo.cells[end+1].kind!=ArcKind::kEmpty)++end;
   const double lo=topo.cells[start].r_lo,hi=topo.cells[end].r_hi;
   const Q vl=Q(lo)*lo,vh=Q(hi)*hi;
+  // Expansion point.  D14 is held as monomials in v about v=0; when a band
+  // sits far from the origin the terms c_k v^k cancel by many orders of
+  // magnitude (e.g. images near the heavy lens's Einstein ring, v~1), so the
+  // double Bernstein signs and the long-double Newton floor are swamped by
+  // rounding.  Re-expand the band about its centre when that shrinks the term
+  // magnitude sum over the band (sum_k |c_k| h^k vs sum_k |c_k| vh^k); the
+  // shift is done in Interval<Q> and rounded outward, so the isolation stays
+  // rigorous.  The Sturm and exact fallbacks below keep the original basis.
+  const auto taylor_shift=[](auto p,const I& x){
+   for(int i=0;i<p.degree;++i)for(int k=p.degree-1;k>=i;--k)p.c[k]=p.c[k]+x*p.c[k+1];return p;};
+  const auto term_sum=[](const positive_detail::Poly<I>& p,double x){
+   double sum=0,power=1;for(int k=0;k<=p.degree;++k){sum+=std::max(std::fabs(double(p.c[k].lo)),std::fabs(double(p.c[k].hi)))*power;power*=x;}return sum;};
+  const auto outward_double=[](const I& x){
+   double l=double(x.lo),h=double(x.hi);
+   if(Q(l)>x.lo)l=std::nextafter(l,-INFINITY);if(Q(h)<x.hi)h=std::nextafter(h,INFINITY);
+   return positive_detail::Interval<double>(l,h);};
+  const Q vmid=(vl+vh)/2;
+  auto dp_band=taylor_shift(dp,positive_detail::point<I>(vmid));
+  const bool recentred=term_sum(dp_band,double((vh-vl)/2))<term_sum(dp,double(vh));
+  const Q vc=recentred?vmid:Q(0);
+  if(!recentred)dp_band=dp;
+  positive_detail::Poly<positive_detail::Interval<double>> dp_band_double;dp_band_double.degree=dp_band.degree;
+  for(int k=0;k<=dp_band.degree;++k)dp_band_double.c[k]=outward_double(dp_band.c[k]);
+  const I tl=positive_detail::point<I>(vl)-positive_detail::point<I>(vc),th=positive_detail::point<I>(vh)-positive_detail::point<I>(vc);
+  std::vector<Q> c_band(c.begin(),c.end());
+  if(recentred){const int nn=int(c_band.size())-1;for(int i=0;i<nn;++i)for(int k=nn-1;k>=i;--k)c_band[k]+=vc*c_band[k+1];}
+  const long double vc_ld=(long double)vc;
+  auto jet_band=[&](Q v){Q t=v-vc;std::array<Q,4> j{};for(int k=int(c_band.size())-1;k>=0;--k){j[3]=j[3]*t+3*j[2];j[2]=j[2]*t+2*j[1];j[1]=j[1]*t+j[0];j[0]=j[0]*t+c_band[k];}return j;};
+  auto approximate_jet_band=[&](long double v){long double t=v-vc_ld;std::array<long double,3> j{};long double norm=0;
+   for(int k=int(c_band.size())-1;k>=0;--k){j[2]=j[2]*t+2*j[1];j[1]=j[1]*t+j[0];j[0]=j[0]*t+(long double)c_band[k];norm=norm*std::fabs(t)+std::fabs((long double)c_band[k]);}
+   return std::make_pair(j,norm);};
   // Bernstein/Descartes exclusion: same-sign coefficients prove there
   // is no stationary root on the interval. One variation isolates one root;
   // multiple variations are bisected with de Casteljau, without dense sampling.
   auto isolate=[&](auto prototype){
   using J=decltype(prototype);
   const auto&d=[&]() -> const positive_detail::Poly<J>& {
-   if constexpr(std::is_same_v<J,I>)return dp;else return dp_double;
+   if constexpr(std::is_same_v<J,I>)return dp_band;else return dp_band_double;
   }();
+  const J el=[&]{if constexpr(std::is_same_v<J,I>)return tl;else return outward_double(tl);}();
+  const J eh=[&]{if constexpr(std::is_same_v<J,I>)return th;else return outward_double(th);}();
   bool complete=true;
   std::array<J,14> bern{};bern[0]=d.c[d.degree];int n=0;
   for(int k=d.degree-1;k>=0;--k){std::array<J,14> next{};
    using T=decltype(J{}.lo);J inv(positive_detail::down(T(1)/T(n+1)),positive_detail::up(T(1)/T(n+1)));
    for(int j=0;j<=n+1;++j){
-    if(j<=n)next[j]=next[j]+bern[j]*positive_detail::point<J>(vl)*J(double(n+1-j))*inv;
-    if(j)next[j]=next[j]+bern[j-1]*positive_detail::point<J>(vh)*J(double(j))*inv;
+    if(j<=n)next[j]=next[j]+bern[j]*el*J(double(n+1-j))*inv;
+    if(j)next[j]=next[j]+bern[j-1]*eh*J(double(j))*inv;
     next[j]=next[j]+d.c[k];
    }bern=next;++n;
   }
@@ -175,15 +208,15 @@ inline std::vector<Pair> detect(const PrimaryFrame&pf,const TopologyResult&topo,
    if(uncertain){complete=false;break;}
    if(!variations)continue;
    if(!uncertain&&variations==1){
-    long double l=(long double)b.l,h=(long double)b.h,v=(l+h)/2;auto jl=approximate_jet(l).first;
-    for(int i=0;i<48;++i){auto evaluated=approximate_jet(v);auto j=evaluated.first;long double step=j[2]!=0?j[1]/j[2]:h-l;
+    long double l=(long double)b.l,h=(long double)b.h,v=(l+h)/2;auto jl=approximate_jet_band(l).first;
+    for(int i=0;i<48;++i){auto evaluated=approximate_jet_band(v);auto j=evaluated.first;long double step=j[2]!=0?j[1]/j[2]:h-l;
      const long double floor=256*std::numeric_limits<long double>::epsilon()*evaluated.second/std::max(std::fabs(j[2]),1e-4900L);
      if(std::fabs(step)<=std::max(floor,1e-16L*std::max(1.L,std::fabs(v))))break;
      if((j[1]>0)==(jl[1]>0)){l=v;jl=j;}else h=v;
      long double next=v-step;v=next>l&&next<h?next:(l+h)/2;
     }
     Q refined=v;bool converged=false;
-    for(int i=0;i<16;++i){auto j=jet(refined);if(j[2]==0)break;Q step=j[1]/j[2];if(fabsq(step)<1e-18Q*fmaxq(1,fabsq(refined))){converged=true;break;}Q next=refined-step;if(!(next>=b.l&&next<=b.h))break;refined=next;}
+    for(int i=0;i<16;++i){auto j=jet_band(refined);if(j[2]==0)break;Q step=j[1]/j[2];if(fabsq(step)<1e-18Q*fmaxq(1,fabsq(refined))){converged=true;break;}Q next=refined-step;if(!(next>=b.l&&next<=b.h))break;refined=next;}
     if(converged)stationary_roots.push_back(refined);else complete=false;continue;
    }
    if(b.depth>=48){complete=false;break;}
