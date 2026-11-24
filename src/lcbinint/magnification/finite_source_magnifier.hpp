@@ -174,20 +174,38 @@ public:
 
     // Radial-origin choice of the binary algebraic-boundary route.  The
     // kernel's radial variable is v = |z - lens0|^2 with lens0 the mass
-    // 1/(1+q) lens.  Images lie near the critical curve, and the critical
-    // loop about the heavier lens is always the rounder one (relative spread
-    // of v over the loop points nearest each lens, s in [0.2, 10],
-    // q in [1e-5, 0.99]: light-origin spread exceeds heavy-origin spread at
-    // every point).  A heavy origin clusters the D14 roots near multiple
-    // roots (the Einstein ring at small q), so the better-conditioned
-    // polynomial is always the light-lens origin: q >= 1.  The route reflects
-    // q < 1 calls through the exact symmetry
-    //   mu(x, y, rho, q, s) = mu(-x, -y, rho, 1/q, s)   (centre-of-mass frame)
-    // and pulls the Jacobian back.  It is idempotent, so callers that already
-    // pass q >= 1 are unchanged.
-    static bool binary_reflects_to_light_origin(double mass_ratio) {
-        return std::isfinite(mass_ratio) && mass_ratio > 0.0 && mass_ratio < 1.0;
-    }
+    // 1/(1+q) lens, so q < 1 puts the origin at the heavy lens and q > 1 at
+    // the light lens.  Both give the same mu through the exact symmetry
+    //   mu(x, y, rho, q, s) = mu(-x, -y, rho, 1/q, s)   (centre-of-mass frame),
+    // and the route picks the origin itself, reflecting the call and pulling
+    // the Jacobian back.  The two origins cost differently:
+    //  - heavy origin: images are round about the heavy lens, so the radial
+    //    quadrature needs 5-30% fewer nodes (up to 1.6x faster at large rho);
+    //  - but when the heavy-lens critical loop is nearly a circle (small q)
+    //    and rho is small, the images hug that Einstein ring, the D14 roots
+    //    are near-multiple and root isolation explodes (4-10x slower, some
+    //    "full radial retries produced no finite ..." throws).
+    // The measured switch (two surveys, 724 (s, q, rho) cells, 40
+    // near-caustic epochs each) is
+    //   heavy origin  iff  max(S_heavy(s, q), rho) >= 0.03,
+    // S_heavy = relative spread (max - min)/max of |z - heavy|^2 over the
+    // critical-curve points nearer the heavy lens.  It had no failures and
+    // was within 3-5% of the per-cell best (always-light: 10-12%).  Over the
+    // epochs this picks, the heavy origin also had fewer Jacobian outliers
+    // (error > 1e-3 of the largest component at rtol 1e-4: 16 vs 29 of
+    // 3440).  The exception is a source limb passing over the heavy lens:
+    // there the heavy origin's Jacobian is worse (15 vs 9 of 64 limb-crossing
+    // epochs, q <= 1e-3), so epochs with
+    //   | |source - heavy| - rho | < 0.05 rho
+    // use the light origin.  A frame switch rebuilds the caustic cache
+    // (~1.3 ms), and a light curve crosses that band at most a few times.
+    // A heavy-origin call that throws or returns a non-finite value is
+    // retried at the light origin.
+    bool binary_uses_heavy_origin(
+        double separation, double mass_ratio, SourcePosition source,
+        double source_radius) const;
+    // S_heavy(s, q) above (cached for the last (|s|, min(q, 1/q))).
+    double binary_heavy_origin_spread(double separation, double mass_ratio) const;
 
     bool has_binary_caustic_geometry(double separation, double mass_ratio) const {
         return caustic_cache_valid_ && caustic_cache_separation_ == separation &&
@@ -323,6 +341,34 @@ public:
         double* enclosure_clearance = nullptr) const;
 
 private:
+    // binary_mag / algebraic_boundary_binary_jacobian in the frame given,
+    // without the radial-origin choice.
+    FiniteSourceResult binary_mag_in_frame(
+        double separation,
+        double mass_ratio,
+        SourcePosition source,
+        double source_radius,
+        double point_source_magnification,
+        const std::vector<SourcePosition>* center_image_seeds,
+        bool point_source_magnification_is_exact,
+        const PointSourceMagnifier* point_magnifier_hint,
+        bool use_algebraic_boundary,
+        double algebraic_boundary_atol,
+        double algebraic_boundary_rtol,
+        bool barycentric_frame,
+        bool multipole_only_probe,
+        autodiff::AlgebraicBoundaryJacobian* jacobian_out,
+        std::array<std::vector<BinaryImage>, 13>* image_stencil) const;
+    autodiff::AlgebraicBoundaryJacobian algebraic_boundary_binary_jacobian_in_frame(
+        double separation,
+        double mass_ratio,
+        SourcePosition source,
+        double source_radius,
+        const AlgebraicBoundarySettings& algebraic_settings,
+        FiniteSourceResult* value_result,
+        double* point_source_magnification,
+        bool barycentric_frame,
+        const PointSourceMagnifier* point_hint) const;
     bool binary_caustic_enclosure_matches(double separation, double mass_ratio) const;
     bool binary_point_topology_clearance(
         double separation, double mass_ratio, SourcePosition source,
@@ -359,6 +405,10 @@ private:
         double caustic_distance) const;
 
     FiniteSourceSettings settings_;
+    mutable bool origin_spread_cache_valid_ = false;
+    mutable double origin_spread_cache_separation_ = 0.0;
+    mutable double origin_spread_cache_mass_ratio_ = 0.0;
+    mutable double origin_spread_cache_value_ = 0.0;
     mutable bool binary_separation_seen_ = false;
     mutable bool binary_separation_changes_ = false;
     mutable double binary_last_separation_ = 0.0;

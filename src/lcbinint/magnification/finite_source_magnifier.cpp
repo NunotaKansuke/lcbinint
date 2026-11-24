@@ -7583,7 +7583,7 @@ const char* finite_source_method_name(FiniteSourceMethod method)
 namespace {
 // d/d(x', y', rho, q', s) at the reflected call -> d/d(x, y, rho, q, s), with
 // x' = -x, y' = -y, q' = 1/q (dq'/dq = -q'^2).
-void pull_back_light_origin_reflection(
+void pull_back_orientation_reflection(
     autodiff::AlgebraicBoundaryJacobian& jacobian, double reflected_mass_ratio)
 {
     const double dq = -reflected_mass_ratio*reflected_mass_ratio;
@@ -7592,7 +7592,77 @@ void pull_back_light_origin_reflection(
     jacobian.jacobian[3] *= dq;
     jacobian.grad_error *= std::max(1.0, std::abs(dq));
 }
+
+bool binary_origin_is_orientable(double mass_ratio)
+{
+    return std::isfinite(mass_ratio) && mass_ratio > 0.0 && mass_ratio != 1.0;
+}
+
+constexpr double kHeavyOriginThreshold = 0.03;
+constexpr double kHeavyOriginLimbBand = 0.05;
+constexpr int kOriginSpreadPhases = 64;
 }  // namespace
+
+double FiniteSourceMagnifier::binary_heavy_origin_spread(
+    double separation, double mass_ratio) const
+{
+    const double a = std::abs(separation);
+    const double q = mass_ratio < 1.0 ? mass_ratio : 1.0/mass_ratio;
+    if (origin_spread_cache_valid_ && origin_spread_cache_separation_ == a &&
+        origin_spread_cache_mass_ratio_ == q)
+        return origin_spread_cache_value_;
+    // Light lens (q/(1+q)) at 0, heavy lens (1/(1+q)) at a.  Critical curve:
+    //   m_l (z - a)^2 + m_h z^2 = e^{i phi} z^2 (z - a)^2.
+    const double m_light = q/(1.0 + q), m_heavy = 1.0/(1.0 + q);
+    math::PolynomialRootSolver solver;
+    std::vector<Complex> coeffs(5);
+    double v_min = std::numeric_limits<double>::infinity(), v_max = 0.0;
+    for (int k = 0; k < kOriginSpreadPhases; ++k) {
+        const double phi = 2.0*M_PI*k/kOriginSpreadPhases;
+        const Complex e(std::cos(phi), std::sin(phi));
+        coeffs[0] = Complex(m_light*a*a, 0.0);
+        coeffs[1] = Complex(-2.0*m_light*a, 0.0);
+        coeffs[2] = Complex(m_light + m_heavy, 0.0) - e*(a*a);
+        coeffs[3] = e*(2.0*a);
+        coeffs[4] = -e;
+        const auto roots = solver.solve(coeffs);
+        if (roots.status != math::RootSolverStatus::ok) continue;
+        for (const auto& z : roots.roots) {
+            const double v_heavy = std::norm(z - a);
+            if (!std::isfinite(v_heavy) || v_heavy > std::norm(z)) continue;
+            v_min = std::min(v_min, v_heavy);
+            v_max = std::max(v_max, v_heavy);
+        }
+    }
+    const double spread = v_max > 0.0 && std::isfinite(v_min)
+        ? (v_max - v_min)/v_max : std::numeric_limits<double>::quiet_NaN();
+    origin_spread_cache_valid_ = true;
+    origin_spread_cache_separation_ = a;
+    origin_spread_cache_mass_ratio_ = q;
+    origin_spread_cache_value_ = spread;
+    return spread;
+}
+
+bool FiniteSourceMagnifier::binary_uses_heavy_origin(
+    double separation, double mass_ratio, SourcePosition source,
+    double source_radius) const
+{
+    if (!binary_origin_is_orientable(mass_ratio) || !std::isfinite(separation) ||
+        separation == 0.0)
+        return false;
+    const double rho = std::isfinite(source_radius) ? std::abs(source_radius) : 0.0;
+    if (rho < kHeavyOriginThreshold) {
+        const double spread = binary_heavy_origin_spread(separation, mass_ratio);
+        if (!(std::isfinite(spread) && spread >= kHeavyOriginThreshold)) return false;
+    }
+    // Centre-of-mass frame: the mass 1/(1+q) lens at -q s/(1+q), the mass
+    // q/(1+q) lens at s/(1+q).
+    const double heavy_x = mass_ratio < 1.0
+        ? -mass_ratio*separation/(1.0 + mass_ratio) : separation/(1.0 + mass_ratio);
+    const double limb_gap =
+        std::abs(std::hypot(source.x - heavy_x, source.y) - rho);
+    return !(limb_gap < kHeavyOriginLimbBand*rho);
+}
 
 AlgebraicBoundaryResult FiniteSourceMagnifier::algebraic_boundary_binary_mag(
     double separation,
@@ -7636,14 +7706,38 @@ FiniteSourceMagnifier::algebraic_boundary_binary_jacobian(
     FiniteSourceResult* value_result, double* point_source_magnification,
     bool barycentric_frame, const PointSourceMagnifier* point_hint) const
 {
-    if (binary_reflects_to_light_origin(mass_ratio)) {
-        const double reflected = 1.0/mass_ratio;
-        auto jacobian = algebraic_boundary_binary_jacobian(separation, reflected,
-            {-source.x, -source.y}, source_radius, algebraic_settings, value_result,
+    if (!binary_origin_is_orientable(mass_ratio))
+        return algebraic_boundary_binary_jacobian_in_frame(separation, mass_ratio,
+            source, source_radius, algebraic_settings, value_result,
             point_source_magnification, barycentric_frame, point_hint);
-        pull_back_light_origin_reflection(jacobian, reflected);
+    const auto run = [&](bool heavy_origin) {
+        if ((mass_ratio < 1.0) == heavy_origin)
+            return algebraic_boundary_binary_jacobian_in_frame(separation, mass_ratio,
+                source, source_radius, algebraic_settings, value_result,
+                point_source_magnification, barycentric_frame, point_hint);
+        const double reflected = 1.0/mass_ratio;
+        auto jacobian = algebraic_boundary_binary_jacobian_in_frame(separation,
+            reflected, {-source.x, -source.y}, source_radius, algebraic_settings,
+            value_result, point_source_magnification, barycentric_frame, point_hint);
+        pull_back_orientation_reflection(jacobian, reflected);
         return jacobian;
+    };
+    if (!binary_uses_heavy_origin(separation, mass_ratio, source, source_radius))
+        return run(false);
+    try {
+        return run(true);   // throws on a non-finite value or derivative
+    } catch (const std::exception&) {
+        return run(false);
     }
+}
+
+autodiff::AlgebraicBoundaryJacobian
+FiniteSourceMagnifier::algebraic_boundary_binary_jacobian_in_frame(
+    double separation, double mass_ratio, SourcePosition source,
+    double source_radius, const AlgebraicBoundarySettings& algebraic_settings,
+    FiniteSourceResult* value_result, double* point_source_magnification,
+    bool barycentric_frame, const PointSourceMagnifier* point_hint) const
+{
     PointSourceMagnifier local_point;
     const auto& point = point_hint ? *point_hint : local_point;
     const double point_mu = point.binary_safety_diagnostic_cached(
@@ -7652,7 +7746,7 @@ FiniteSourceMagnifier::algebraic_boundary_binary_jacobian(
     autodiff::AlgebraicBoundaryJacobian jacobian;
     std::array<std::vector<BinaryImage>, 13> image_stencil;
     jacobian.jacobian.fill(std::numeric_limits<double>::quiet_NaN());
-    auto value = binary_mag(separation, mass_ratio, source, source_radius,
+    auto value = binary_mag_in_frame(separation, mass_ratio, source, source_radius,
         point_mu, nullptr, true, &point, true,
         algebraic_settings.absolute_tolerance, algebraic_settings.relative_tolerance,
         barycentric_frame, false, &jacobian, &image_stencil);
@@ -8820,21 +8914,58 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
     autodiff::AlgebraicBoundaryJacobian* jacobian_out,
     std::array<std::vector<BinaryImage>, 13>* image_stencil) const
 {
-    // Algebraic-boundary route: light-lens radial origin (see the header).
+    const auto in_frame = [&]() {
+        return binary_mag_in_frame(separation, mass_ratio, source, source_radius,
+            point_source_magnification, center_image_seeds,
+            point_source_magnification_is_exact, point_magnifier_hint,
+            use_algebraic_boundary, algebraic_boundary_atol, algebraic_boundary_rtol,
+            barycentric_frame, multipole_only_probe, jacobian_out, image_stencil);
+    };
+    // Algebraic-boundary route: radial-origin choice (see the header).
     // Image seeds and stencils are frame-dependent, so the reflected call
-    // rebuilds its own; algebraic_boundary_binary_jacobian reflects before
-    // it asks for a stencil.
-    if (use_algebraic_boundary && !multipole_only_probe && image_stencil == nullptr &&
-        binary_reflects_to_light_origin(mass_ratio)) {
+    // rebuilds its own; algebraic_boundary_binary_jacobian chooses the frame
+    // before it asks for a stencil.
+    if (!use_algebraic_boundary || multipole_only_probe || image_stencil != nullptr ||
+        !binary_origin_is_orientable(mass_ratio))
+        return in_frame();
+    const auto run = [&](bool heavy_origin) {
+        if ((mass_ratio < 1.0) == heavy_origin) return in_frame();
         const double reflected = 1.0/mass_ratio;
-        auto result = binary_mag(separation, reflected, {-source.x, -source.y},
+        auto result = binary_mag_in_frame(separation, reflected, {-source.x, -source.y},
             source_radius, point_source_magnification, nullptr,
             point_source_magnification_is_exact, point_magnifier_hint, true,
             algebraic_boundary_atol, algebraic_boundary_rtol, barycentric_frame,
             false, jacobian_out, nullptr);
-        if (jacobian_out) pull_back_light_origin_reflection(*jacobian_out, reflected);
+        if (jacobian_out) pull_back_orientation_reflection(*jacobian_out, reflected);
         return result;
+    };
+    if (!binary_uses_heavy_origin(separation, mass_ratio, source, source_radius))
+        return run(false);
+    try {
+        auto result = run(true);
+        if (std::isfinite(result.magnification)) return result;
+    } catch (const std::exception&) {
     }
+    return run(false);
+}
+
+FiniteSourceResult FiniteSourceMagnifier::binary_mag_in_frame(
+    double separation,
+    double mass_ratio,
+    SourcePosition source,
+    double source_radius,
+    double point_source_magnification,
+    const std::vector<SourcePosition>* center_image_seeds,
+    bool point_source_magnification_is_exact,
+    const PointSourceMagnifier* point_magnifier_hint,
+    bool use_algebraic_boundary,
+    double algebraic_boundary_atol,
+    double algebraic_boundary_rtol,
+    bool barycentric_frame,
+    bool multipole_only_probe,
+    autodiff::AlgebraicBoundaryJacobian* jacobian_out,
+    std::array<std::vector<BinaryImage>, 13>* image_stencil) const
+{
     if (binary_separation_seen_ && separation != binary_last_separation_)
         binary_separation_changes_ = true;
     binary_separation_seen_ = true;
