@@ -200,13 +200,14 @@ public:
     // use the light origin.  When the disk covers the heavy lens, some
     // image-plane circles about the heavy lens map entirely inside the
     // source.  For a uniform source their angular integral is exactly 2 pi;
-    // a limb-darkened one integrates sqrt(phi) over them with a periodic
-    // trapezoid capped at 256 nodes (mapped_full_circle).  With the planet
-    // near the heavy lens's Einstein ring (s ~ 1) these circles pass close to
-    // it, sqrt(phi) gets a narrow bump the cap cannot resolve (~1e-3 per
-    // circle), and the heavy-origin integral stops InnerAccuracyLimited
-    // (value_converged false; 2-3x the light-origin time), so limb-darkened
-    // epochs with
+    // a limb-darkened one integrates sqrt(phi).  With the planet near the
+    // heavy lens's Einstein ring (s ~ 1) these circles, and the arcs next to
+    // them, pass close to the planet's pole, where sqrt(phi) has a narrow
+    // bump.  The angular rules now integrate such circles and arcs
+    // adaptively (mapped_full_circle / mapped_radius), so the heavy origin
+    // converges there; but its rtol-1e-4 Jacobian is still ~1e-3 off (the
+    // panels follow the value error only) where the light origin's is
+    // ~1e-8 at the same cost.  So limb-darkened epochs with
     //   |source - heavy| < 1.05 rho
     // use the light origin up front.  A frame switch rebuilds the caustic
     // cache (~1.3 ms), and a light curve crosses that band at most a few

@@ -661,8 +661,11 @@ def test_converged_value_without_coverage_is_not_a_seed_failure(with_gradient):
 
 
 def test_value_failure_takes_priority_over_uncertified_coverage():
+    # Before the adaptive angular rule for full circles and near-planet arcs
+    # this case stopped InnerAccuracyLimited already at tol=1e-7; it now
+    # converges there, and 1e-11 is a genuine inner-accuracy limit.
     params = dict(s=.6, q=1e-4, rho=.05, t0=0., tE=10., u0=-1e-5, alpha=.5)
-    result = curve(.5, tol=1e-7)([0.], params, with_gradient=True,
+    result = curve(.5, tol=1e-11)([0.], params, with_gradient=True,
                                 with_diagnostics=True)
     assert result.status_names.tolist() == ["unconverged"]
     assert not result.all_values_converged

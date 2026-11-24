@@ -898,6 +898,159 @@ inline bool full_circle_periodic_level(
     return true;
 }
 
+// Periodic trapezoid error falls like exp(-M d), d = distance from the
+// real theta axis to the integrand's nearest complex singularity.  On a
+// circle |z| = R about the origin lens the companion lens at a puts poles at
+// theta = +-i |ln(R/a)|, and a circle nearly tangent to the source limb from
+// inside puts sqrt(phi) branch points near the real axis.  When either is
+// close, a fixed lattice can miss the narrow feature at every level (the
+// levels then agree and the estimate lies), so those circles skip the
+// lattice and use the adaptive rule below.
+constexpr double kFullCirclePoleDistance=0.25;
+constexpr double kFullCircleMinPhi=0.05;
+
+struct AngularPanel {
+    double a=0,b=0,value=0,error=0;
+    std::array<double,5> derivative{},derivative_error{};
+};
+
+// One Gauss-Kronrod 7/15 panel of f over [a, b].  f(x, value, derivative)
+// returns false when the integrand is not physical (phi <= 0).
+template <class F>
+inline bool gk15_panel(double a,double b,bool with_jac,const F& f,AngularPanel& panel) {
+    static constexpr double xk[8]={
+        0.991455371120812639206854697526329,0.949107912342758524526189684047851,
+        0.864864423359769072789712788640926,0.741531185599394439863864773280788,
+        0.586087235467691130294144845693013,0.405845151377397166906606412076961,
+        0.207784955007898467600689403773245,0.0};
+    static constexpr double wk[8]={
+        0.022935322010529224963732008058970,0.063092092629978553290700663189204,
+        0.104790010322250183839876322541518,0.140653259715525918745189590510238,
+        0.169004726639267902826583426598550,0.190350578064785409913256402421014,
+        0.204432940075298892414161999234649,0.209482141084727828012999174891714};
+    static constexpr double wg[4]={
+        0.129484966168869693270611432679082,0.279705391489276667901467771423780,
+        0.381830050505118944950369775488975,0.417959183673469387755102040816327};
+    const double c=0.5*(a+b),h=0.5*(b-a);
+    double K=0,G=0;
+    std::array<double,5> dK{},dG{};
+    for(int i=0;i<8;++i) {
+        const int signs=i==7?1:2;
+        for(int side=0;side<signs;++side) {
+            double value=0;
+            std::array<double,5> derivative{};
+            if(!f(c+(side?-h:h)*xk[i],value,derivative))return false;
+            K+=wk[i]*value;
+            if(i&1)G+=wg[i>>1]*value;
+            if(with_jac)for(int j=0;j<5;++j) {
+                dK[j]+=wk[i]*derivative[j];
+                if(i&1)dG[j]+=wg[i>>1]*derivative[j];
+            }
+        }
+    }
+    panel.a=a;panel.b=b;panel.value=h*K;panel.error=std::fabs(h*(K-G));
+    for(int j=0;j<5;++j) {
+        panel.derivative[j]=with_jac?h*dK[j]:0.0;
+        panel.derivative_error[j]=with_jac?std::fabs(h*(dK[j]-dG[j])):0.0;
+    }
+    if(!std::isfinite(panel.value)||!std::isfinite(panel.error))return false;
+    for(int j=0;j<5;++j)
+        if(!std::isfinite(panel.derivative[j])||!std::isfinite(panel.derivative_error[j]))
+            return false;
+    return true;
+}
+
+// Narrow features of the angular integrand have known centres and widths:
+// the companion-lens pole (theta = 0, width |ln(R/a)|) and a near-tangency
+// minimum of phi.  Breakpoints are graded geometrically about each, so no
+// feature is narrower than the panel that holds it: a GK rule, like a
+// lattice, can miss a bump between its nodes and then report a small error.
+struct AngularFeature {
+    double centre=0,width=0;
+};
+
+// Sorted breakpoints in [lo, hi]: `base` equal panels plus the graded
+// points about each feature.  With periodic=true the last panel wraps.
+inline std::vector<double> angular_breakpoints(
+    double lo,double hi,int base,const std::array<AngularFeature,2>& features,
+    int feature_count,bool periodic) {
+    const double span=hi-lo;
+    std::vector<double> points;
+    for(int i=0;i<=base;++i)points.push_back(lo+span*i/base);
+    for(int k=0;k<feature_count;++k) {
+        const double w=std::max(features[k].width,1e-12*span);
+        for(double h=0.5*w;h<0.5*span;h*=2.0)
+            for(double x:{features[k].centre+h,features[k].centre-h}) {
+                if(periodic) {
+                    x=lo+std::fmod(x-lo,span);
+                    if(x<lo)x+=span;
+                }
+                if(x>lo&&x<hi)points.push_back(x);
+            }
+    }
+    std::sort(points.begin(),points.end());
+    std::vector<double> unique;
+    for(double x:points)
+        if(unique.empty()||x-unique.back()>1e-14*std::max(1.0,std::fabs(x)))unique.push_back(x);
+    if(unique.back()<hi)unique.back()=hi;
+    return unique;
+}
+
+// Adaptive GK7/15 bisection from the given breakpoints until the value
+// error is below value_tol.  Panels are chosen from the value alone, so a
+// value-only call and a Jacobian call build the same panels and return the
+// same value bit for bit; the derivative is integrated on those panels.  At
+// the panel cap it returns what it has, with the honest (large) error.
+template <class F>
+inline bool gk15_adaptive(const std::vector<double>& points,bool with_jac,double value_tol,
+                          const F& f,FullCircleLevel& level,double& error) {
+    constexpr int kMaxPanels=384;
+    std::vector<AngularPanel> panels;
+    panels.reserve(kMaxPanels+points.size());
+    for(std::size_t i=0;i+1<points.size();++i) {
+        AngularPanel panel;
+        if(!gk15_panel(points[i],points[i+1],with_jac,f,panel))return false;
+        panels.push_back(panel);
+    }
+    for(;;) {
+        Sum value,value_error;
+        std::array<Sum,5> derivative;
+        for(const auto& panel:panels) {
+            value.add(panel.value);value_error.add(panel.error);
+            for(int j=0;j<5;++j)derivative[j].add(panel.derivative[j]);
+        }
+        level.integral=value.get();
+        for(int j=0;j<5;++j)level.derivative[j]=derivative[j].get();
+        error=value_error.get();
+        if(error<=value_tol||static_cast<int>(panels.size())>=kMaxPanels)return true;
+        std::size_t worst=0;
+        for(std::size_t i=1;i<panels.size();++i)
+            if(panels[i].error>panels[worst].error)worst=i;
+        const AngularPanel parent=panels[worst];
+        const double mid=0.5*(parent.a+parent.b);
+        AngularPanel left,right;
+        if(!gk15_panel(parent.a,mid,with_jac,f,left)||
+           !gk15_panel(mid,parent.b,with_jac,f,right))return false;
+        panels[worst]=left;panels.push_back(right);
+    }
+}
+
+// sqrt(phi) on |z| = R and its parameter derivative (without jac).
+inline bool full_circle_integrand(double R,double theta,const PrimaryFrame& pf,bool with_jac,
+                                  double& value,std::array<double,5>& derivative) {
+    if(with_jac) {
+        const PhiValDP g=phi_val_dP(R,theta,pf);
+        if(!(g.phi>0.0)||!std::isfinite(g.phi))return false;
+        value=std::sqrt(g.phi);
+        for(int j=0;j<5;++j)derivative[j]=g.dP[j]/(2.0*value);
+    } else {
+        const double phi=phi_val(R,theta,pf);
+        if(!(phi>0.0)||!std::isfinite(phi))return false;
+        value=std::sqrt(phi);
+    }
+    return true;
+}
+
 inline AdaptiveSample mapped_full_circle(
     double R,double jac,const LensParams& p,double u,const PrimaryFrame& pf,
     bool with_jac,const AdaptiveConfig* adaptive_cfg=nullptr) {
@@ -914,35 +1067,67 @@ inline AdaptiveSample mapped_full_circle(
     std::array<double,5> dfh{};
     if(u!=0.0) {
         std::array<FullCircleNode,256> nodes{};
-        FullCircleLevel l32{},l64{},l128{},l256{};
+        FullCircleLevel l32{},l64{},l128{},adaptive{};
         if(!full_circle_periodic_level(32,R,pf,with_jac,nodes,l32) ||
            !full_circle_periodic_level(64,R,pf,with_jac,nodes,l64))
             return reject(AdaptiveSampleRejectReason::InnerPhiNonpositive);
         const double atol=adaptive_cfg?adaptive_cfg->tol.mu_atol:1e-8;
         const double rtol=adaptive_cfg?adaptive_cfg->tol.mu_rtol:1e-4;
-        const auto level_meets=[&](const FullCircleLevel& low,
-                                   const FullCircleLevel& high) {
-            const double high_fh=R*high.integral;
-            const double estimate=scale*((1.0-u)*f0+u*high_fh);
+        // Inner tolerance on the angular integral itself.
+        const auto integral_tol=[&](const FullCircleLevel& level) {
+            const double estimate=scale*((1.0-u)*f0+u*R*level.integral);
             const double target=std::max(atol,rtol*std::fabs(estimate));
-            const double value_error=std::fabs(scale*u)*R*
-                                     std::fabs(high.integral-low.integral);
-            if(!(value_error<=0.25*target))return false;
-            return true;
+            return 0.25*target/(std::fabs(scale*u)*R);
         };
-        const FullCircleLevel*low=&l32,*high=&l64;
-        if(!level_meets(*low,*high)) {
-            if(!full_circle_periodic_level(128,R,pf,with_jac,nodes,l128))
-                return reject(AdaptiveSampleRejectReason::InnerPhiNonpositive);
-            low=high;high=&l128;
-            if(!level_meets(*low,*high)) {
-                if(!full_circle_periodic_level(256,R,pf,with_jac,nodes,l256))
+        // l64 holds every fourth slot; node.value = sqrt(phi).
+        int min_slot=0;
+        for(int i=4;i<256;i+=4)
+            if(nodes[i].value<nodes[min_slot].value)min_slot=i;
+        const double h64=kTwoPi/64.0;
+        const double phi_m=std::pow(nodes[(min_slot+252)%256].value,2);
+        const double phi_0=std::pow(nodes[min_slot].value,2);
+        const double phi_p=std::pow(nodes[(min_slot+4)%256].value,2);
+        const double curvature=(phi_m-2.0*phi_0+phi_p)/(h64*h64);
+        double min_phi=phi_0,min_theta=h64*(min_slot/4);
+        if(curvature>0.0) {
+            const double shift=std::clamp(-(phi_p-phi_m)/(2.0*h64*curvature),-h64,h64);
+            min_theta+=shift;
+            min_phi=std::max(0.0,phi_0-0.5*curvature*shift*shift);
+        }
+        const double pole_distance=pf.a>0.0?std::fabs(std::log(R/pf.a)):
+            std::numeric_limits<double>::infinity();
+        std::array<AngularFeature,2> features{};
+        int feature_count=0;
+        if(pole_distance<kFullCirclePoleDistance)
+            features[feature_count++]={0.0,pole_distance};
+        if(min_phi<kFullCircleMinPhi)
+            features[feature_count++]={min_theta,curvature>0.0?
+                std::sqrt(2.0*min_phi/curvature):h64};
+        const bool lattice_safe=feature_count==0;
+        const FullCircleLevel* high=nullptr;
+        double inner_error=0;
+        if(lattice_safe) {
+            if(std::fabs(l64.integral-l32.integral)<=integral_tol(l64)) {
+                high=&l64;inner_error=std::fabs(l64.integral-l32.integral);
+            } else {
+                if(!full_circle_periodic_level(128,R,pf,with_jac,nodes,l128))
                     return reject(AdaptiveSampleRejectReason::InnerPhiNonpositive);
-                low=high;high=&l256;
+                if(std::fabs(l128.integral-l64.integral)<=integral_tol(l128)) {
+                    high=&l128;inner_error=std::fabs(l128.integral-l64.integral);
+                }
             }
         }
+        if(!high) {
+            const auto integrand=[&](double theta,double& value,std::array<double,5>& derivative) {
+                return full_circle_integrand(R,theta,pf,with_jac,value,derivative);
+            };
+            if(!gk15_adaptive(angular_breakpoints(0.0,kTwoPi,8,features,feature_count,true),
+                              with_jac,integral_tol(l64),integrand,adaptive,inner_error))
+                return reject(AdaptiveSampleRejectReason::InnerPhiNonpositive);
+            high=&adaptive;
+        }
         fh=R*high->integral;
-        efh=R*std::fabs(high->integral-low->integral);
+        efh=R*inner_error;
         if(with_jac)for(int j=0;j<5;++j) {
             dfh[j]=jac*R*high->derivative[j];
 
@@ -1816,11 +2001,25 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
             use_angular_research=false;
         }
         bool success=false;
+        // An arc that passes the companion lens closely has a pole at
+        // theta = 0 (mod 2 pi) at distance |ln(R/a)| from the real axis.  The
+        // fixed-order K rules below cannot resolve it, so such an arc goes
+        // straight to the adaptive rule after this loop.
+        double arc_pole=0;
+        bool arc_pole_near=false;
+        if(pf.a>0.0) {
+            const double pole_distance=std::fabs(std::log(R/pf.a));
+            arc_pole=kTwoPi*std::round(0.5*(te+tl)/kTwoPi);
+            arc_pole_near=pole_distance<kFullCirclePoleDistance&&
+                arc_pole>te-pole_distance&&arc_pole<tl+pole_distance;
+        }
+        const double fh_before=fh,efh_before=efh;
+        const std::array<double,5> dfh_before=dfh;
         // Same exact t / reciprocal choices and gates as V2. Parameter
         // derivatives come from regular E=O=0, not singular endpoint IFTs.
         const std::array<double,5> zero{};
         for(bool reciprocal:{false,true}) {
-            if(physical_endpoint_refinement ||
+            if(arc_pole_near || physical_endpoint_refinement ||
                (with_jac&&fused_gradient::com_tangent_replay&&fused_gradient::precise_tangent_replay))break;
             auto ap=reciprocal?arc_pair_jac_reciprocal(te,tl,zero,zero):arc_pair_jac(te,tl,zero,zero);
             if(!ap.ok)continue;
@@ -1874,6 +2073,65 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
                     ? v_times_K_budgeted(ap.m,ap.v,R,pf,cp.p,reciprocal,gate)
                     : v_times_K(ap.m,ap.v,R,pf,cp.p,reciprocal);if(vk.ok){fh+=vk.vK;efh+=vk.estimated_error;success=true;}}
             if(success)break;
+        }
+        // Arc tolerance on R*integral sqrt(phi) dtheta, from this arc's
+        // share (width/2pi) of the requested accuracy on the sample.
+        const double arc_tol=adaptive_cfg?0.25*std::max(
+            adaptive_cfg->tol.mu_atol/std::fabs(scale*u),
+            adaptive_cfg->tol.mu_rtol*R*width):0.0;
+        if(adaptive_cfg&&(arc_pole_near||!success)) {
+            // theta = mid - half cos t, t in [0, pi]: the sqrt(phi) endpoint
+            // zeros become smooth, and endpoint motion enters through the
+            // moving nodes exactly as in the rescue rule below.
+            const double half=0.5*width,mid=te+half;
+            const auto integrand=[&](double t,double& value,std::array<double,5>& derivative) {
+                const double x=-std::cos(t),theta=mid+half*x,dtheta=half*std::sin(t);
+                if(with_jac) {
+                    PhiGrad g;
+                    if(physical_endpoint_refinement) {
+                        double angular;
+                        const auto v=fused_precise_phi(R,theta,pf,&angular);
+                        g={v.phi,angular,v.dP};
+                    } else g=phi_grad_quadrature(R,theta,pf);
+                    if(!(g.phi>0.0)||!std::isfinite(g.phi))return false;
+                    const double root=std::sqrt(g.phi);
+                    value=root*dtheta;
+                    for(int j=0;j<5;++j) {
+                        const double motion=.5*((1-x)*dte[j]+(1+x)*dtl[j]);
+                        derivative[j]=dtheta*(jac*g.dP[j]+g.dphi_dtheta*motion)/(2*root);
+                    }
+                } else {
+                    const double phi=physical_endpoint_refinement
+                        ?fused_precise_phi<false>(R,theta,pf).phi:phi_val(R,theta,pf);
+                    if(!(phi>0.0)||!std::isfinite(phi))return false;
+                    value=std::sqrt(phi)*dtheta;
+                }
+                return std::isfinite(value);
+            };
+            std::array<AngularFeature,2> features{};
+            int feature_count=0;
+            if(arc_pole_near) {
+                const double c=std::clamp((arc_pole-mid)/half,-1.0,1.0);
+                const double tp=std::acos(-c);
+                const double pole_distance=std::fabs(std::log(R/pf.a));
+                features[feature_count++]={tp,
+                    pole_distance/(half*std::max(std::sin(tp),std::sqrt(pole_distance/half)))};
+            }
+            FullCircleLevel arc_level{};
+            double arc_error=0;
+            if(gk15_adaptive(angular_breakpoints(0.0,kPi,4,features,feature_count,false),
+                             with_jac,arc_tol/R,integrand,arc_level,arc_error)) {
+                const double I=arc_level.integral;
+                fh=fh_before+R*I;efh=efh_before+R*arc_error;
+                if(with_jac)for(int j=0;j<5;++j) {
+                    dfh[j]=dfh_before[j]+R*(arc_level.derivative[j]+.5*(dtl[j]-dte[j])*I/half);
+                    if(const auto* motion=fused_gradient::active_motion)
+                        dfh[j]+=jac*motion->radius[j]*I;
+                }
+                success=true;
+            } else if(arc_pole_near) {
+                fh=fh_before;efh=efh_before;dfh=dfh_before;
+            }
         }
         if(!success){
 #ifdef BOUNDARY_FRONTIER_COST_PROFILE
