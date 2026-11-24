@@ -7601,6 +7601,14 @@ bool binary_origin_is_orientable(double mass_ratio)
 constexpr double kHeavyOriginThreshold = 0.03;
 constexpr double kHeavyOriginLimbBand = 0.05;
 constexpr int kOriginSpreadPhases = 64;
+
+// An algebraic-boundary value whose adaptive integral stopped short of its
+// tolerance (e.g. InnerAccuracyLimited) in the radial origin it ran in.
+bool unconverged_algebraic_value(const FiniteSourceResult& result)
+{
+    return result.decision.method == FiniteSourceMethod::algebraic_boundary &&
+        !result.value_converged;
+}
 }  // namespace
 
 double FiniteSourceMagnifier::binary_heavy_origin_spread(
@@ -7727,9 +7735,30 @@ FiniteSourceMagnifier::algebraic_boundary_binary_jacobian(
     };
     if (!binary_uses_heavy_origin(separation, mass_ratio, source, source_radius))
         return run(false);
+    FiniteSourceResult* const caller_value = value_result;
     try {
-        return run(true);   // throws on a non-finite value or derivative
+        FiniteSourceResult heavy_value;
+        value_result = &heavy_value;
+        auto heavy = run(true);   // throws on a non-finite value or derivative
+        value_result = caller_value;
+        if (unconverged_algebraic_value(heavy_value)) {
+            try {
+                FiniteSourceResult light_value;
+                value_result = &light_value;
+                auto light = run(false);
+                value_result = caller_value;
+                if (!unconverged_algebraic_value(light_value)) {
+                    if (caller_value) *caller_value = std::move(light_value);
+                    return light;
+                }
+            } catch (const std::exception&) {
+                value_result = caller_value;
+            }
+        }
+        if (caller_value) *caller_value = std::move(heavy_value);
+        return heavy;
     } catch (const std::exception&) {
+        value_result = caller_value;
         return run(false);
     }
 }
@@ -8946,7 +8975,17 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
         return run(false);
     try {
         auto result = run(true);
-        if (std::isfinite(result.magnification)) return result;
+        if (std::isfinite(result.magnification)) {
+            if (!unconverged_algebraic_value(result)) return result;
+            try {
+                auto light = run(false);
+                if (std::isfinite(light.magnification) &&
+                    !unconverged_algebraic_value(light))
+                    return light;
+            } catch (const std::exception&) {
+            }
+            return result;
+        }
     } catch (const std::exception&) {
     }
     return run(false);
