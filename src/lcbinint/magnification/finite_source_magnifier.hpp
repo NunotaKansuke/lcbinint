@@ -197,7 +197,14 @@ public:
     // there the heavy origin's Jacobian is worse (15 vs 9 of 64 limb-crossing
     // epochs, q <= 1e-3), so epochs with
     //   | |source - heavy| - rho | < 0.05 rho
-    // use the light origin.  A frame switch rebuilds the caustic cache
+    // use the light origin.  A limb-darkened source integrates every circle
+    // of radius R in [0, rho], so it meets that limb case whenever the heavy
+    // lens is inside the disk; there the heavy origin's mu carries a bias
+    // that does not fall with tolerance (1e-6 to 5e-5 relative, Jacobian
+    // 1e-4 to 4e-3, at q 1e-4..1e-3 for rtol 1e-4..1e-9) while the light
+    // origin converges, so limb-darkened epochs with
+    //   |source - heavy| < 1.05 rho
+    // use the light origin too.  A frame switch rebuilds the caustic cache
     // (~1.3 ms), and a light curve crosses that band at most a few times.
     // A heavy-origin call that throws or returns a non-finite value is
     // retried at the light origin.
