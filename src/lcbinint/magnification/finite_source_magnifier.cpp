@@ -7668,11 +7668,7 @@ bool FiniteSourceMagnifier::binary_uses_heavy_origin(
     const double heavy_x = mass_ratio < 1.0
         ? -mass_ratio*separation/(1.0 + mass_ratio) : separation/(1.0 + mass_ratio);
     const double heavy_distance = std::hypot(source.x - heavy_x, source.y);
-    const bool limb_darkened =
-        settings_.limb_darkening_c != 0.0 || settings_.limb_darkening_d != 0.0;
-    if (limb_darkened)
-        return !(heavy_distance < (1.0 + kHeavyOriginLimbBand)*rho);
-    return !(std::abs(heavy_distance - rho) < kHeavyOriginLimbBand*rho);
+    return !(heavy_distance < (1.0 + kHeavyOriginLimbBand)*rho);
 }
 
 AlgebraicBoundaryResult FiniteSourceMagnifier::algebraic_boundary_binary_mag(

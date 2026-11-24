@@ -193,23 +193,15 @@ public:
     // was within 3-5% of the per-cell best (always-light: 10-12%).  Over the
     // epochs this picks, the heavy origin also had fewer Jacobian outliers
     // (error > 1e-3 of the largest component at rtol 1e-4: 16 vs 29 of
-    // 3440).  The exception is a source limb passing over the heavy lens:
-    // there the heavy origin's Jacobian is worse (15 vs 9 of 64 limb-crossing
-    // epochs, q <= 1e-3), so epochs with
-    //   | |source - heavy| - rho | < 0.05 rho
-    // use the light origin.  When the disk covers the heavy lens, some
-    // image-plane circles about the heavy lens map entirely inside the
-    // source.  For a uniform source their angular integral is exactly 2 pi;
-    // a limb-darkened one integrates sqrt(phi).  With the planet near the
-    // heavy lens's Einstein ring (s ~ 1) these circles, and the arcs next to
-    // them, pass close to the planet's pole, where sqrt(phi) has a narrow
-    // bump.  The angular rules now integrate such circles and arcs
-    // adaptively (mapped_full_circle / mapped_radius), so the heavy origin
-    // converges there; but its rtol-1e-4 Jacobian is still ~1e-3 off (the
-    // panels follow the value error only) where the light origin's is
-    // ~1e-8 at the same cost.  So limb-darkened epochs with
-    //   |source - heavy| < 1.05 rho
-    // use the light origin up front.  A frame switch rebuilds the caustic
+    // 3440).  The exception is a disk that covers the heavy lens, uniform
+    // or limb-darkened alike:
+    //   |source - heavy| < 1.05 rho   ->  light origin.
+    // There the heavy origin's rtol-1e-4 Jacobian is ~3e-3 off (radial
+    // panels are refined on the value error only, and with the planet near
+    // the heavy lens's Einstein ring the derivative error stays large),
+    // while the light origin's is ~1e-8 and costs the same or less.  The
+    // band also covers the limb-crossing epochs where the heavy Jacobian was
+    // worse (15 vs 9 of 64, q <= 1e-3).  A frame switch rebuilds the caustic
     // cache (~1.3 ms), and a light curve crosses that band at most a few
     // times.  A heavy-origin call that throws, returns a non-finite value,
     // or returns an algebraic-boundary value that did not converge is
