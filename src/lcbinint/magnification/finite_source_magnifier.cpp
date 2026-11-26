@@ -10115,6 +10115,7 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
             throw std::runtime_error("auto adaptive source flux is outside the representable range");
         AdaptiveFluxRequest cartesian;
         cartesian.target = atol * normalization;
+        cartesian.absolute_target_floor = cartesian.target;
         cartesian.relative_target = rtol;
         cartesian.max_bins = std::min(512, settings_.max_source_bins);
         AdaptivePolarRequest polar;

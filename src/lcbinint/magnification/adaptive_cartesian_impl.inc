@@ -14,7 +14,7 @@ struct AdaptiveStageTimer {
 // geometry solve, not an approximation to the image flux.
 template<class Mapper>
 std::optional<double> adaptive_cartesian_tip_phase(const Mapper& mapper,SourcePosition source,
-    double rho2,double x0,double y0,double hx,double hy,double width,int direction) {
+    double rho2,double x0,double y0,double hx,double hy,double width,int direction,double& leading_width) {
  if constexpr(!std::is_same_v<Mapper,BinaryLensMapper>)return std::nullopt;
  else {
   const double extent=std::max(4*hx,2*width);
@@ -35,8 +35,13 @@ std::optional<double> adaptive_cartesian_tip_phase(const Mapper& mapper,SourcePo
    if(!std::isfinite(norm)||!(v[3]>0))return std::nullopt;
    if(norm<1e-7) {
     const double eta=direction*(y-y0)/hy;
-    if(eta>0 && eta<=1.5 && direction*v[2]>0 &&
-       evaluate(.5*(x+x0),.5*(y+y0))[0]<=0)return eta;
+    if(eta>0 && eta<=2 && direction*v[2]>0 &&
+       evaluate(.5*(x+x0),.5*(y+y0))[0]<=0) {
+        // F(x,y)=0 near a regular y-tip gives width/hx =
+        // 2 sqrt(2 |F_y| hy / F_xx) / hx times sqrt(row distance).
+        leading_width=2*std::sqrt(2*std::abs(v[2])*hy/v[3])/hx;
+        return eta;
+    }
     return std::nullopt;
    }
    const double det=v[1]*v[4]-v[2]*v[3];
@@ -45,7 +50,7 @@ std::optional<double> adaptive_cartesian_tip_phase(const Mapper& mapper,SourcePo
    double step=1;bool moved=false;
    for(int back=0;back<6;++back,step*=.5) {
     const double nx=x+step*dx,ny=y+step*dy,eta=direction*(ny-y0)/hy;
-    if(std::abs(nx-x0)>extent || eta<-.1 || eta>1.6)continue;
+    if(std::abs(nx-x0)>extent || eta<-.1 || eta>2.1)continue;
     const auto trial=evaluate(nx,ny);
     if(std::max(std::abs(trial[0]),std::abs(trial[1])*hx)<norm*rho2){x=nx;y=ny;v=trial;moved=true;break;}
    }
@@ -1598,6 +1603,7 @@ double fill_all_adaptive_cartesian_components_multirun(
         }
         if(lightweight_flux_error_mode() && !error_used_refined && component.first_run_index!=missing_component) {
             std::array<double,2> physical_phases{std::numeric_limits<double>::quiet_NaN(),std::numeric_limits<double>::quiet_NaN()};
+            auto physical_leading=physical_phases;
             if(adaptive && adaptive->defect_correction) {
                 const auto& indices=component_error_runs[run_fill.runs[component.first_run_index].component];
                 for(int end:{0,1}) {
@@ -1606,7 +1612,7 @@ double fill_all_adaptive_cartesian_components_multirun(
                     const auto& fractions=run_fill.run_error_fractions[j];
                     const double left=double(r.lo)-fractions[0],right=double(r.hi)+fractions[1];
                     if(const auto phase=adaptive_cartesian_tip_phase(mapper,source,source_radius2,
-                        .5*(left+right)*incr,double(r.iy)*row_spacing,incr,row_spacing,(right-left)*incr,end?1:-1))physical_phases[end]=*phase;
+                        .5*(left+right)*incr,double(r.iy)*row_spacing,incr,row_spacing,(right-left)*incr,end?1:-1,physical_leading[end]))physical_phases[end]=*phase;
                 }
             }
             const auto outer_error=adaptive_detail::same_grid_outer_error(run_fill,
@@ -1614,7 +1620,7 @@ double fill_all_adaptive_cartesian_components_multirun(
                 &component_error_runs[run_fill.runs[component.first_run_index].component],settings.limb_darkening_d!=0,physical_tip_mask,row_clip==nullptr,
                 adaptive && adaptive->defect_correction?1/(incr*row_spacing):0,
                 adaptive && adaptive->guard_missing_caps,
-                adaptive && adaptive->defect_correction && settings.limb_darkening_d==0,&physical_phases);
+                adaptive && adaptive->defect_correction && settings.limb_darkening_d==0,&physical_phases,&physical_leading);
             auto& c=probe_counters();
             c.boundary_outer_curvature_flux_indicator+=(std::abs(outer_error.signed_residual)+outer_error.uncertainty)*incr*row_spacing;
             c.boundary_outer_signed_flux_residual+=outer_error.signed_residual*incr*row_spacing;
@@ -1837,7 +1843,8 @@ double fill_all_adaptive_cartesian_components_multirun(
         auto current=totals();adaptive->initial_flux=current[0];
         if(adaptive->relative_target>0 && std::isfinite(adaptive->relative_target) &&
            std::isfinite(current[0]) && current[0]!=0)
-            adaptive->target=adaptive->relative_target*std::abs(current[0]);
+            adaptive->target=std::max(adaptive->absolute_target_floor,
+                                      adaptive->relative_target*std::abs(current[0]));
         adaptive->largest_bins=settings.source_bins;
         for(const auto& c:retained)adaptive->largest_bins=std::max({adaptive->largest_bins,c.bins,c.row_bins});
         adaptive->history.push_back({double(settings.source_bins),current[1],double(adaptive->new_maps),double(adaptive->reused_maps),0});

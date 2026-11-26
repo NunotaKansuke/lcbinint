@@ -1560,6 +1560,13 @@ inline SameGridOuterError same_grid_internal_error(const std::vector<SameGridErr
     // retained cap footprint. No arbitrary global safety factor or refill.
     double raw=std::abs(ns[panel[0]].value)+std::abs(ns[panel[count-1]].value);
     for(int k=0;k<count;++k)raw+=std::abs((k?ns[panel[k-1]].value:0)-2*ns[panel[k]].value+(k+1<count?ns[panel[k+1]].value:0));
+    if(held_cap_checks) {
+     const double first=ns[panel[0]].value;
+     const double second=count>1?ns[panel[1]].value:0.;
+     // Only panel[0] is an unresolved end. The far side of this
+     // four-row diagnostic stencil is an artificial truncation.
+     raw+=2*(std::abs(first)+std::abs(second-2*first));
+    }
     result.uncertainty+=raw*(gap?limb_brightness:1)/24;result.resolved=false;
    };
    if(count<4) {local_fallback();continue;}
@@ -1598,7 +1605,7 @@ inline SameGridOuterError same_grid_internal_error(const CartesianRunFillResult&
  return same_grid_internal_error(same_grid_error_nodes(fill,component,weights),limb_brightness);
 }
 inline SameGridOuterError same_grid_outer_error(const CartesianRunFillResult& fill,
-    std::size_t component=std::numeric_limits<std::size_t>::max(),const std::vector<double>* weights=nullptr,double limb_brightness=1,const std::vector<std::size_t>* ordered_runs=nullptr,bool collect_table_density=true,unsigned endpoint_mask=3,bool include_interior=true,double row_flux_correction_scale=0,bool guard_missing_caps=false,bool coarse_shape_check=false,const std::array<double,2>* physical_phases=nullptr) {
+    std::size_t component=std::numeric_limits<std::size_t>::max(),const std::vector<double>* weights=nullptr,double limb_brightness=1,const std::vector<std::size_t>* ordered_runs=nullptr,bool collect_table_density=true,unsigned endpoint_mask=3,bool include_interior=true,double row_flux_correction_scale=0,bool guard_missing_caps=false,bool coarse_shape_check=false,const std::array<double,2>* physical_phases=nullptr,const std::array<double,2>* physical_leading=nullptr) {
     // Keep only row aggregates on the ordinary path. Full interval nodes
     // are materialized from the same ordered index only for a junction.
     std::vector<std::size_t> owned_indices;
@@ -1659,8 +1666,13 @@ inline SameGridOuterError same_grid_outer_error(const CartesianRunFillResult& fi
             const auto iy=rows[i].first;
             if(iy==std::numeric_limits<std::int64_t>::min()||iy==std::numeric_limits<std::int64_t>::max())return SameGridOuterError{0,std::numeric_limits<double>::infinity(),false};
             const bool prev=i>0&&rows[i-1].first==iy-1,next=i+1<rows.size()&&rows[i+1].first==iy+1;
-            raw+=std::abs((prev?rows[i-1].second:0)-2*rows[i].second+(next?rows[i+1].second:0));
-            if(!prev)raw+=std::abs(rows[i].second);if(!next)raw+=std::abs(rows[i].second);
+            double variation=std::abs((prev?rows[i-1].second:0)-2*rows[i].second+(next?rows[i+1].second:0));
+            if(!prev)variation+=std::abs(rows[i].second);
+            if(!next)variation+=std::abs(rows[i].second);
+            // At an unresolved endpoint the slope can change within
+            // one cell. Use the peak midpoint-error weight (1/8)
+            // there, and the smooth-cell average (1/24) elsewhere.
+            raw+=coarse_shape_check && (!prev || !next)?3*variation:variation;
         }
         double uncertainty=static_cast<double>(raw/24);
         if(coarse_shape_check)for(int end:{0,1})if(const auto alternative=shifted_cap_defect(end,1,1))
@@ -1680,6 +1692,10 @@ inline SameGridOuterError same_grid_outer_error(const CartesianRunFillResult& fi
             ld_values[k]=values[k]-limb_brightness*width;values[k]=width;
         }
         const bool physical_phase=physical_phases && std::isfinite((*physical_phases)[end]);
+        // Up to one omitted lattice row is covered by the endpoint
+        // moment recurrence. Only extend the phase range when the lens
+        // map independently locates the physical tip.
+        const double allowed_phase=physical_phase && phase_limit>1 ? 2 : phase_limit;
         const auto quadratic=physical_phase?OuterEndpointModel{}:outer_endpoint_quadratic_model(values,1,1,1,false,
             guard_missing_caps?std::numeric_limits<double>::infinity():1.5);
         const auto cubic=physical_phase?outer_endpoint_fixed_phase_model(values,(*physical_phases)[end]):
@@ -1687,7 +1703,7 @@ inline SameGridOuterError same_grid_outer_error(const CartesianRunFillResult& fi
         if(physical_phase && !cubic.resolved)return fallback();
         const auto model=!cubic.resolved?quadratic:cubic;
         const double endpoint_signed_before=result.signed_residual;
-        if(guard_missing_caps && model.resolved && model.eta>phase_limit && model.leading_coefficient>0) {
+        if(guard_missing_caps && model.resolved && model.eta>allowed_phase && model.leading_coefficient>0) {
             auto incomplete=fallback();
             // A cap phase beyond one row can mean that no lattice centre
             // enters its narrow tip. Account for the fitted missing segment,
@@ -1703,7 +1719,7 @@ inline SameGridOuterError same_grid_outer_error(const CartesianRunFillResult& fi
             incomplete.missing_cap_rows=true;
             return incomplete;
         }
-        if(!model.resolved||model.eta<0||model.eta>phase_limit)return fallback();
+        if(!model.resolved||model.eta<0||model.eta>allowed_phase)return fallback();
         const auto first=end?rows.size()-1:0,second=end?rows.size()-2:1;
         const double w0=weight(first),w1=weight(second);
         if(collect_table_density&&split_ld&&model.eta>1e-12) {
@@ -1727,6 +1743,12 @@ inline SameGridOuterError same_grid_outer_error(const CartesianRunFillResult& fi
         const double next2=cubic_term-model.next_coefficient*model.next_coefficient/(2*model.leading_coefficient);
         const double amplitude=split_ld?limb_brightness:1;
         const auto moments=power_endpoint_quadrature_defects(model.eta,w0,w1);
+        // A correct tip position alone does not validate the leading
+        // width from a finite row stencil. Compare it with the local
+        // curvature of the physical limb at the solved tip.
+        if(physical_phase && physical_leading && std::isfinite((*physical_leading)[end]))
+            result.uncertainty+=amplitude*std::abs((model.leading_coefficient-
+                (*physical_leading)[end])*moments[0]);
         const double next2_defect=amplitude*next2*moments[2];
         result.signed_residual+=next2_defect;
         result.uncertainty+=std::abs(next2_defect)*expansion;

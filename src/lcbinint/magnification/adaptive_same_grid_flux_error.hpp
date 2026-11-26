@@ -36,7 +36,7 @@ inline const auto& smooth_endpoint_moment_table() {
     return smooth;
 }
 inline std::array<double,3> power_endpoint_quadrature_defects(double delta,double first_weight,double second_weight=1) {
-    if(!(std::isfinite(delta)&&delta>=0&&delta<=1.5&&std::isfinite(first_weight)&&std::isfinite(second_weight))) {
+    if(!(std::isfinite(delta)&&delta>=0&&delta<=2&&std::isfinite(first_weight)&&std::isfinite(second_weight))) {
         const double nan=std::numeric_limits<double>::quiet_NaN();return {nan,nan,nan};
     }
     // Shifting the first retained row by one lattice site omits exactly
@@ -65,7 +65,7 @@ inline std::array<double,3> power_endpoint_quadrature_defects(double delta,doubl
 }
 inline double power_endpoint_quadrature_defect(double delta,double first_weight,double second_weight=1,int degree=0) {
     if(degree==3) {
-        if(!(std::isfinite(delta)&&delta>=0&&delta<=1.5&&std::isfinite(first_weight)&&std::isfinite(second_weight)))return std::numeric_limits<double>::quiet_NaN();
+        if(!(std::isfinite(delta)&&delta>=0&&delta<=2&&std::isfinite(first_weight)&&std::isfinite(second_weight)))return std::numeric_limits<double>::quiet_NaN();
         if(delta>1)return power_endpoint_quadrature_defect(delta-1,1,1,3)+std::pow(delta-1,3.5)-(first_weight-1)*std::pow(delta,3.5)-(second_weight-1)*std::pow(delta+1,3.5);
         constexpr std::size_t bins=1024;
         static const auto smooth=[] {
@@ -87,7 +87,7 @@ inline double power_endpoint_quadrature_defect(double delta,double first_weight,
 // Regular cap brightness after integrating linear LD along a row has
 // integer powers. Bernoulli endpoint moments are exact for t and t^2.
 inline double integer_endpoint_quadrature_defect(double delta,double first_weight,double second_weight,int power) {
-    if(!(std::isfinite(delta)&&delta>=0&&delta<=1.5&&std::isfinite(first_weight)&&std::isfinite(second_weight)&&(power>=1&&power<=4)))return std::numeric_limits<double>::quiet_NaN();
+    if(!(std::isfinite(delta)&&delta>=0&&delta<=2&&std::isfinite(first_weight)&&std::isfinite(second_weight)&&(power>=1&&power<=4)))return std::numeric_limits<double>::quiet_NaN();
     const double d=delta;
     const double base=power==1?(d*d-d+1./6)/2:power==2?(d*d*d-1.5*d*d+.5*d)/3:
         power==3?(d*d*d*d-2*d*d*d+d*d-1./30)/4:

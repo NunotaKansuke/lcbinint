@@ -258,6 +258,9 @@ struct AdaptiveFluxRequest {
 
  // Optional relative tolerance, normalized once using the retained initial flux.
  // Zero preserves the existing absolute-flux target contract.
+ // Public LightCurve accepts either absolute or relative tolerance. The
+ // diagnostic flux API retains its explicit relative-precedence contract.
+ double absolute_target_floor=0;
  double relative_target=0,initial_flux=0;
  double target=0,signed_error=0,remainder=0,acceptance_indicator=0;
  int max_bins=512,depth=0,largest_bins=0,max_axis_ratio=4,initial_bins=0;

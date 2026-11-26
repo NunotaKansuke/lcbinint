@@ -78,7 +78,7 @@ inline OuterEndpointModel outer_endpoint_cubic_model(const std::array<double,4>&
 // Known physical tip phase: fit squared width / distance, rather than
 // extrapolating a root from the same four quadrature rows. Row four is held out.
 inline OuterEndpointModel outer_endpoint_fixed_phase_model(const std::array<double,4>& widths,double eta) {
- if(!(eta>1e-10 && eta<=1.5))return {};
+ if(!(eta>1e-10 && eta<=2))return {};
  const double scale=*std::max_element(widths.begin(),widths.end());
  if(!(scale>0))return {};
  std::array<double,3> u;
