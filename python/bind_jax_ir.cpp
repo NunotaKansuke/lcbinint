@@ -11,17 +11,22 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cmath>
 #include <complex>
 #include <cstdint>
+#include <cstdlib>
+#include <fstream>
 #include <deque>
 #include <iterator>
+#include <iomanip>
 #include <limits>
 #include <memory>
 #include <mutex>
 #include <set>
 #include <shared_mutex>
 #include <stdexcept>
+#include <sstream>
 #include <string>
 #include <type_traits>
 #include <unordered_map>
@@ -8516,6 +8521,48 @@ lcbinint::magnification::FiniteSourceSettings algebraic_boundary_finite_settings
     return settings;
 }
 
+std::string algebraic_ffi_failure(const char* route,std::int64_t index,std::int64_t count,
+    double source_x,double source_y,double separation,double mass_ratio,double source_radius,
+    double limb_c,double limb_d,double absolute_tolerance,double relative_tolerance,
+    const std::exception& error,const double* batch_x,const double* batch_y,
+    const double* batch_separation,std::int64_t separation_count) {
+    std::string dump_path;
+    bool dump_written=false;
+    if(const char* directory=std::getenv("LCBININT_FAILURE_DIRECTORY")) {
+        static std::atomic<unsigned long long> sequence{0};
+        dump_path=std::string(directory)+"/native_"+std::to_string(++sequence)+".json";
+        std::ofstream dump(dump_path);
+        dump<<std::setprecision(17)<<"{\"route\":"<<std::quoted(route)
+            <<",\"failure_index\":"<<index<<",\"mass_ratio\":"<<mass_ratio
+            <<",\"source_radius\":"<<source_radius<<",\"limb_c\":"<<limb_c
+            <<",\"limb_d\":"<<limb_d<<",\"absolute_tolerance\":"<<absolute_tolerance
+            <<",\"relative_tolerance\":"<<relative_tolerance;
+        const auto array=[&](const char* name,const double* values,std::int64_t size) {
+            dump<<",\""<<name<<"\":[";
+            for(std::int64_t position=0;position<size;++position) {
+                if(position)dump<<',';
+                dump<<values[position];
+            }
+            dump<<']';
+        };
+        array("source_x",batch_x,count);array("source_y",batch_y,count);
+        array("separation",batch_separation,separation_count);
+        dump<<"}\n";
+        dump.flush();dump_written=dump.good();
+    }
+    std::ostringstream context;
+    context<<std::setprecision(17)<<"algebraic_ffi_input={\"route\":\""<<route
+        <<"\",\"index\":"<<index<<",\"batch_size\":"<<count
+        <<",\"source_x\":"<<source_x<<",\"source_y\":"<<source_y
+        <<",\"separation\":"<<separation<<",\"mass_ratio\":"<<mass_ratio
+        <<",\"source_radius\":"<<source_radius<<",\"limb_c\":"<<limb_c
+        <<",\"limb_d\":"<<limb_d<<",\"absolute_tolerance\":"<<absolute_tolerance
+        <<",\"relative_tolerance\":"<<relative_tolerance
+        <<",\"dump_path\":"<<std::quoted(dump_path)
+        <<",\"dump_written\":"<<(dump_written?"true":"false")<<"}; cause="<<error.what();
+    return context.str();
+}
+
 ffi::Error algebraic_boundary_batch_forward_ffi_impl(
     double absolute_tolerance, double relative_tolerance,
     double limb_c, double limb_d,
@@ -8582,6 +8629,7 @@ ffi::Error algebraic_boundary_batch_forward_ffi_impl(
         const auto index = order.empty() ? position : order[position];
         lcbinint::magnification::FiniteSourceResult value_result;
         double point_source_magnification = std::numeric_limits<double>::quiet_NaN();
+        try {
         const auto value = magnifier.algebraic_boundary_binary_mag(
             separation.typed_data()[(separation_shape.size() == 0) ? 0 : index], *mass_ratio.typed_data(),
             {source_x.typed_data()[index], source_y.typed_data()[index]},
@@ -8596,6 +8644,14 @@ ffi::Error algebraic_boundary_batch_forward_ffi_impl(
         support_required->typed_data()[index] = integrated;
         const double estimate = value_result.magnification;
         magnification->typed_data()[index] = estimate;
+        } catch(const std::exception& error) {
+            return ffi::Error::Internal(algebraic_ffi_failure("value",index,count,
+                source_x.typed_data()[index],source_y.typed_data()[index],
+                separation.typed_data()[(separation_shape.size()==0)?0:index],
+                *mass_ratio.typed_data(),*source_radius.typed_data(),limb_c,limb_d,
+                absolute_tolerance,relative_tolerance,error,source_x.typed_data(),
+                source_y.typed_data(),separation.typed_data(),separation_shape.size()==0?1:count));
+        }
     }
     return ffi::Error::Success();
 }
@@ -8691,6 +8747,7 @@ ffi::Error algebraic_boundary_batch_jacobian_ffi_impl(
         const auto index = order.empty() ? position : order[position];
         lcbinint::magnification::FiniteSourceResult value_result;
         double point_source_magnification = std::numeric_limits<double>::quiet_NaN();
+        try {
         const auto result = magnifier.algebraic_boundary_binary_jacobian(
             separation.typed_data()[(separation_shape.size() == 0) ? 0 : index], *mass_ratio.typed_data(),
             {source_x.typed_data()[index], source_y.typed_data()[index]},
@@ -8717,6 +8774,14 @@ ffi::Error algebraic_boundary_batch_jacobian_ffi_impl(
             std::all_of(mapped.begin(), mapped.end(),
                 [](double component) { return std::isfinite(component); });
         std::copy(mapped.begin(), mapped.end(), row);
+        } catch(const std::exception& error) {
+            return ffi::Error::Internal(algebraic_ffi_failure("jacobian",index,count,
+                source_x.typed_data()[index],source_y.typed_data()[index],
+                separation.typed_data()[(separation_shape.size()==0)?0:index],
+                *mass_ratio.typed_data(),*source_radius.typed_data(),limb_c,limb_d,
+                absolute_tolerance,relative_tolerance,error,source_x.typed_data(),
+                source_y.typed_data(),separation.typed_data(),separation_shape.size()==0?1:count));
+        }
     }
     return ffi::Error::Success();
 }

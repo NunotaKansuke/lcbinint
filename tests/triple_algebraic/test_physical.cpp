@@ -27,6 +27,12 @@ template<class T> std::optional<Jet<T>> physical_reference(T radius,T coordinate
 }
 }
 int main(){
+ for(double x:{std::numeric_limits<double>::denorm_min(),1.,
+               std::numeric_limits<double>::max(),-std::numeric_limits<double>::max()}) {
+  const auto scaled=physical_detail::scale_dyadic<-4>(angular_detail::I<double>(x));
+  const auto exact=-4*(__float128)x;
+  if(!(scaled.lo<=exact && exact<=scaled.hi))throw std::runtime_error("dyadic scale lost enclosure");
+ }
  // Independent endpoint squares, including signed zero and extreme ranges.
  for(int e:{-1074,-600,-1,0,500,1023})for(double lo:{-1.,-.5,0.,.25})for(double width:{.25,.75}) {
   const double a=std::ldexp(lo,e),b=std::ldexp(lo+width,e);

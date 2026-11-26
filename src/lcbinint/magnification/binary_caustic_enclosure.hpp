@@ -6,11 +6,24 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdint>
+#include <cstring>
 #include <limits>
 #include <utility>
 #include <vector>
 
 namespace lcbinint::magnification::detail {
+
+// In the normal squared range sqrt(x*x+y*y) has O(epsilon) relative
+// error, covered by the enclosure padding. Use the scaled libm norm for
+// extreme magnitudes, including underflow of a nonzero component pair.
+inline double binary_caustic_norm(Complex z)
+{
+    const double squared = std::norm(z);
+    if (squared >= 32*std::numeric_limits<double>::min() && std::isfinite(squared))
+        return std::sqrt(squared);
+    return std::abs(z);
+}
 
 using CausticEnclosureDisk = std::pair<SourcePosition, double>;
 
@@ -60,6 +73,36 @@ inline double binary_caustic_radial_clearance(
     return std::max(0.0, distance-radius-roundoff);
 }
 
+// The same critical-phase polynomial occurs in the moving and exact trees
+// and during independent source queries. Cache only the quartic proposals;
+// each caller still proves disjoint disks for its own interval widths.
+inline std::vector<Complex> binary_phase_roots(double separation,double q,double angle,
+                                               const std::array<Complex,5>& coefficients)
+{
+    struct Entry {
+        double separation=0,q=0,angle=0;
+        std::array<Complex,4> roots;
+    };
+    static thread_local std::array<Entry,256> cache;
+    auto bits=[](double x) {
+        std::uint64_t value;
+        std::memcpy(&value,&x,sizeof value);
+        return value;
+    };
+    const auto key=bits(angle) ^ (bits(q)*UINT64_C(0x9e3779b97f4a7c15))
+                              ^ (bits(separation)*UINT64_C(0xbf58476d1ce4e5b9));
+    auto& entry=cache[((key^(key>>32))*UINT64_C(0x9e3779b97f4a7c15))>>56];
+    if(entry.separation==separation && entry.q==q && entry.angle==angle)
+        return {entry.roots.begin(),entry.roots.end()};
+    math::PolynomialRootSolver solver;
+    auto roots=solver.solve(std::vector<Complex>(coefficients.begin(),coefficients.end())).roots;
+    if(roots.size()==4) {
+        entry.separation=separation;entry.q=q;entry.angle=angle;
+        std::copy(roots.begin(),roots.end(),entry.roots.begin());
+    }
+    return roots;
+}
+
 // Enclose *all* critical phases, not just sampled caustic vertices. At a phase
 // centre, Q(z)=-phase*product(z-root_j). On |z-root_i|=r, Rouche gives one root
 // throughout the phase interval if
@@ -93,7 +136,6 @@ inline std::vector<CausticEnclosureDisk> cover_binary_caustic_phase(
     const double m1 = 1.0 / (1.0 + q);
     const double m2 = q * m1;
     constexpr double padding = 256.0 * std::numeric_limits<double>::epsilon();
-    math::PolynomialRootSolver solver;
     const Complex phase = std::polar(1.0, phase_center);
     const std::array<Complex,5> coefficients {
         m2*a*a, -2.0*m2*a, 1.0-phase*a*a, 2.0*phase*a, -phase,
@@ -101,7 +143,7 @@ inline std::vector<CausticEnclosureDisk> cover_binary_caustic_phase(
     const bool cached = reuse_centers && root_centers != nullptr && root_centers->size() == 4;
     std::vector<Complex> local_roots;
     if (!cached) {
-        local_roots=solver.solve(std::vector<Complex>(coefficients.begin(),coefficients.end())).roots;
+        local_roots=binary_phase_roots(a,q,phase_center,coefficients);
         if(root_centers!=nullptr)*root_centers=std::move(local_roots);
     }
     const auto retry = [&]() {
@@ -111,7 +153,6 @@ inline std::vector<CausticEnclosureDisk> cover_binary_caustic_phase(
             for(auto& z:*root_centers) for(int k=0;k<2;++k) {
                 Complex value=coefficients[4],derivative{};
                 for(int j=3;j>=0;--j) {derivative=derivative*z+value;value=value*z+coefficients[j];}
-                if(std::abs(derivative)==0.0)break;
                 const double denominator=std::norm(derivative);
                 if(!(denominator>0.0 && std::isfinite(denominator)))break;
                 const Complex step((value.real()*derivative.real()+value.imag()*derivative.imag())/denominator,
@@ -135,25 +176,28 @@ inline std::vector<CausticEnclosureDisk> cover_binary_caustic_phase(
     std::array<Complex, 5> reconstructed {};
     std::array<double, 5> envelope {};
     reconstructed[0] = -phase;
-    envelope[0] = std::abs(phase);
+    const double phase_norm = binary_caustic_norm(phase);
+    envelope[0] = phase_norm;
+    std::array<double,4> root_norms;
     int degree = 0;
     for (const auto root : roots) {
         if (!std::isfinite(root.real()) || !std::isfinite(root.imag())) {
             if(cached)return retry();
             return {};
         }
+        root_norms[degree] = binary_caustic_norm(root);
         for (int j = degree + 1; j >= 0; --j) {
             reconstructed[j] = (j > 0 ? reconstructed[j-1] : Complex{}) -
                 (j <= degree ? root * reconstructed[j] : Complex{});
             envelope[j] = (j > 0 ? envelope[j-1] : 0.0) +
-                (j <= degree ? std::abs(root)*envelope[j] : 0.0);
+                (j <= degree ? root_norms[degree]*envelope[j] : 0.0);
         }
         ++degree;
     }
     std::array<double, 5> errors {};
     for (int j = 0; j < 5; ++j) {
-        errors[j] = std::abs(coefficients[j]-reconstructed[j]) +
-            padding*(1.0 + std::abs(coefficients[j]) + envelope[j]);
+        errors[j] = binary_caustic_norm(coefficients[j]-reconstructed[j]) +
+            padding*(1.0 + binary_caustic_norm(coefficients[j]) + envelope[j]);
     }
     const double delta = 2.0*std::sin(phase_half_width/2.0) + padding;
     std::array<CausticEnclosureDisk, 4> disks;
@@ -161,15 +205,15 @@ inline std::vector<CausticEnclosureDisk> cover_binary_caustic_phase(
     bool enclosed = true;
     for (int i = 0; i < 4; ++i) {
         const auto root = roots[i];
-        const double d1 = std::abs(root-a), d2 = std::abs(root);
+        const double d1 = binary_caustic_norm(root-a), d2 = root_norms[i];
         std::array<double, 3> separations;
         int n = 0;
         for (int j = 0; j < 4; ++j) if (j != i) {
-            separations[n++] = std::abs(root-roots[j]);
+            separations[n++] = binary_caustic_norm(root-roots[j]);
         }
         const double limit = 0.45*std::min({d1-da, d2,
             separations[0], separations[1], separations[2]});
-        const double derivative = std::abs(phase)*
+        const double derivative = phase_norm*
             separations[0]*separations[1]*separations[2];
         if (!(limit > 0.0 && derivative > 0.0)) { enclosed = false; break; }
         double coefficient_error = errors[4];
@@ -187,7 +231,7 @@ inline std::vector<CausticEnclosureDisk> cover_binary_caustic_phase(
             const double upper_z = d2+radius, upper_a = d1+radius;
             double error_bound = errors[4];
             for (int j = 3; j >= 0; --j) error_bound = error_bound*upper_z + errors[j];
-            const double lower = std::abs(phase)*radius*
+            const double lower = phase_norm*radius*
                 (separations[0]-radius)*(separations[1]-radius)*(separations[2]-radius);
             // Q(z,a+da)-Q(z,a)=(m2-phase*z^2)*(-2*da*(z-a)+da^2).
             // Bound this over the whole separation interval, then add
@@ -208,7 +252,7 @@ inline std::vector<CausticEnclosureDisk> cover_binary_caustic_phase(
         const double map_radius = radius +
             m1*(radius+da)/(d1*(d1-radius-da)) +
             m2*radius/(d2*(d2-radius)) + m1*da;
-        const double roundoff = padding*(1.0+std::abs(root)+std::abs(mapped)+
+        const double roundoff = padding*(1.0+d2+binary_caustic_norm(mapped)+
             m1/(d1-radius-da) + m2/(d2-radius) + m1*da);
         if (!std::isfinite(map_radius) || !std::isfinite(roundoff)) return {};
         disks[i] = {{mapped.real(), mapped.imag()}, map_radius*(1.0+padding)+roundoff};

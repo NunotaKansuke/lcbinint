@@ -1,0 +1,25 @@
+# Caustic clearance and winding across epochs
+
+Measured on rogue1 with Release builds of experiment/algebraic_boundary at 7038d6c2 plus the pre-existing working-tree changes. The starting native module had SHA-256 77f1243c40cb953a8924fdfaed6b4a491411c01137ef55a736537049bb1b7e17. The final module had SHA-256 e620107c93ab073aab7a0fd6d67a1b0d8afaee043e70ea306a8b38e2a7be5b54.
+
+The triple critical-curve tree checks separation across all phase arcs before paying for endpoint solves and winding. A previous caustic-free disk can provide the image count for an overlapping disk once the new disk has independently proved clearance. Both lens trees try the last blocking phase first. The triple tree restores phase order before summing the winding. The triple event planner also skips constructing Bernstein tensors for radial bands with no intersection with the nearby-source cover in the current chart.
+
+## Public light-curve timing
+
+timing.tsv records three paired repetitions on one CPU for each of eight modes and two geometry schedules. Each repetition runs ../eight_mode_speed_20261127/bench.py at offsets 0 and 1 with the verified native build. CPU 2 ran the fixed lens and CPU 6 ran the varying lens. Each mode covers 16 geometries and four two-epoch calls per geometry. The varying run uses --vary-lens to change s and q between calls. Both implementations used absolute tolerance zero and relative tolerance 1e-4. The measurement includes the public call, uses calling-thread CPU time and excludes model construction. Run 2 reversed the implementation order.
+
+An independent value-only comparison used VBM MultiPoly and experiment on fixtures 568 and 889, three original epochs each. Both tolerances were 1e-4. We measured the median of five warm elapsed call times per curve and the median of three paired totals across processes. Uniform times were 20.16 ms before, 17.86 ms after and 6.93 ms for VBM. Linear limb coefficient 0.5 gave 21.13, 18.66 and 109.08 ms respectively.
+
+binary_phase_bench.cpp isolates the binary clearance check. For each mass ratio it queries 96 known caustic locations at 17 consecutive offsets, four times each. All 6,528 queries per ratio conservatively refused the shortcut on both builds. This workload repeatedly reaches the last blocking phase. The full binary light-curve timings changed by less than 0.3% in each mode.
+
+## Numerical checks
+
+Across the fixed and varying public timings, all status, certification, convergence and gradient-validity flags agreed. The maximum relative magnification change was 3.98e-14 and maximum gradient change divided by max(1, the baseline gradient infinity norm) was 1.09e-13. At the centre epoch of each of the 1,768 archived triple geometries we evaluated values and gradients both with uniform brightness and with the archived limb coefficient. All 7,072 serialized outputs matched the starting build exactly, including status zero. A binary static, circular and Keplerian comparison, using 13 epochs, three mass ratios, two source profiles and both value modes, also matched exactly in all 468 epoch/mode evaluations.
+
+sequence.tsv gives times for 41 equally spaced epochs from -0.4 rho to +0.4 rho on each contact fixture with tE=1. Each time is the median of three warm CPU calls. Values, gradients and flags agreed exactly between builds throughout both sequences. The independent VBM reference used absolute tolerance 1e-8 and relative tolerance 1e-6. Its largest relative magnification difference was 4.65e-5.
+
+The unit_core, triple_events, triple_regular, triple_integrator and triple_resultant C++ suites passed. The public triple Python regression suite had 259 passes and the same nine failures in test_triple_lens_point_source.py as the starting build. The regular-support suite includes a fresh-tree comparison for overlapping disks and refusal of a larger disk enclosing a critical point.
+
+Raw JSONL, baseline module, scripts and build/test logs are in the parent checkout under build-accuracy-20261127/winding-cost. measure.sh final runs the paired fixed-geometry comparison there. validate.sh final runs the archived checks. sequence.py and finite_diff.py take a native build directory as their argument. The existing strict uniform references are in build-accuracy-20261127/uniform-search/strict.jsonl. A separate candidate that evaluated physical exclusions before constructing the remaining restricted tensors yielded sub-percent changes in the public timings and was dropped.
+
+The independent u0 derivative step study used VBM absolute tolerance 1e-9 and relative tolerance 1e-8 (gradient_check.tsv). At the smallest step the four uniform results agreed to within 6.82e-6 relative. The largest discrepancy was at fixture 889, t/rho=+0.22, limb=0.5. The VBM finite difference changed from 22377.61 to 22396.35 as the step decreased from 2e-6 to 5e-7. Both experiment builds gave 22334.1543. Tightening experiment to 1e-7 produced 22334.1582, and extrapolating its last two centered differences gave 22334.1582. This checks internal consistency at this epoch. The native limb-darkened VBM differences do not resolve the independent derivative there.

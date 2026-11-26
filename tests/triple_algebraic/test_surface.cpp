@@ -9,6 +9,19 @@ int main(){
   if(angular_detail::choose(n,k)!=reference)throw std::runtime_error("cached exact binomial coefficient");
  }
  Geometry p{.1,.15,.15,.2,.08,1.,-.4,.6};
+ // Forming the angular coefficients needs only the radial derivative.
+ // Compare its factored interval arithmetic to the full two-variable jet.
+ event_detail::CoefficientCache cache{p,{},{},{}};
+ for(double lo:{.25,.999999999,1.})for(double width:{0.,1e-9,.01}) {
+  using I=surface_detail::I;
+  const auto reduced=cache.factored(lo,lo+width);
+  const auto full=boundary_from_radius(event_detail::Jet<I>(I(lo,lo+width),I(1),I(0)),p).coefficients;
+  for(int j=0;j<7;++j) {
+   if(reduced[j].v.lo!=full[j].v.lo || reduced[j].v.hi!=full[j].v.hi ||
+      reduced[j].r.lo!=full[j].r.lo || reduced[j].r.hi!=full[j].r.hi)
+    throw std::runtime_error("factored radial coefficient differs from full jet");
+  }
+ }
  for(bool reciprocal:{false,true}) {
   auto tensor=surface_detail::make(.25,2.,reciprocal,p);
   auto sub=surface_detail::restrict(tensor,.25,2.,-1,1,.5,1.5,-.5,.5);
@@ -29,6 +42,25 @@ int main(){
   for(auto& row:parent.b)for(auto& entry:row) {
    const double value=std::ldexp(double(int(random()%2049)-1024)/1024,exponent);
    entry={std::nextafter(value,-INFINITY),std::nextafter(value,INFINITY)};
+  }
+  const auto fused=surface_detail::derivative_hulls(parent);
+  const auto dr=surface_detail::differences(parent,0),dt=surface_detail::differences(parent,1);
+  const auto equal=[](auto a,auto b){return a.lo==b.lo && a.hi==b.hi;};
+  if(!equal(fused.r,surface_detail::hull(dr)) ||
+     !equal(fused.rt,surface_detail::difference_hull(dr,1)) ||
+     !equal(fused.tt,surface_detail::difference_hull(dt,1)))
+   throw std::runtime_error("fused derivative bounds disagree with scalar bounds");
+  // The fast radial reduction also encloses points displaced from the
+  // dyadic midpoint. Evaluate each endpoint polynomial directly in quad.
+  const surface_detail::I x{.5-9e-7,.5+3e-8};
+  const auto columns=surface_detail::radial_columns(parent,x);
+  for(double u:{x.lo,.5,x.hi})for(int j=0;j<=6;++j)for(bool upper:{false,true}) {
+   std::array<__float128,9> c;
+   for(int i=0;i<=8;++i)c[i]=upper?parent.b[i][j].hi:parent.b[i][j].lo;
+   for(int level=8;level>0;--level)for(int i=0;i<level;++i)
+    c[i]=(1-(__float128)u)*c[i]+(__float128)u*c[i+1];
+   if(!(columns[j].lo<=c[0] && c[0]<=columns[j].hi))
+    throw std::runtime_error("radial midpoint reduction lost a coefficient bound");
   }
   // Independent quad extrema check the early sign test, including
   // cancellation and subnormal differences that round to zero in double.
@@ -52,8 +84,8 @@ int main(){
      throw std::runtime_error("difference hull lost an endpoint enclosure");
    }
   }
-  for(double fraction:{.5,.4375,.3})for(int axis:{0,1}) {
-   const surface_detail::I fraction_box=fraction==.3?
+  for(double fraction:{.5,.5+5e-11,.4375,.3})for(int axis:{0,1}) {
+   const surface_detail::I fraction_box=(fraction==.3 || fraction>.5)?
        surface_detail::I(std::nextafter(fraction,0.),std::nextafter(fraction,1.)):surface_detail::I(fraction);
    auto children=surface_detail::split(parent,axis,fraction_box);
    const int degree=axis?parent.nt:parent.nr,other=axis?parent.nr:parent.nt;

@@ -210,7 +210,7 @@ public:
     bool binary_uses_heavy_origin(
         double separation, double mass_ratio, SourcePosition source,
         double source_radius) const;
-    // S_heavy(s, q) above (cached for the last (|s|, min(q, 1/q))).
+    // Full 64-phase spread for callers that need the numerical value.
     double binary_heavy_origin_spread(double separation, double mass_ratio) const;
 
     bool has_binary_caustic_geometry(double separation, double mass_ratio) const {
@@ -347,6 +347,8 @@ public:
         double* enclosure_clearance = nullptr) const;
 
 private:
+    double measure_heavy_origin_spread(double separation, double mass_ratio,
+                                      bool threshold_only) const;
     // binary_mag / algebraic_boundary_binary_jacobian in the frame given,
     // without the radial-origin choice.
     FiniteSourceResult binary_mag_in_frame(
@@ -415,6 +417,7 @@ private:
     mutable double origin_spread_cache_separation_ = 0.0;
     mutable double origin_spread_cache_mass_ratio_ = 0.0;
     mutable double origin_spread_cache_value_ = 0.0;
+    mutable bool origin_spread_cache_complete_ = false;
     mutable bool binary_separation_seen_ = false;
     mutable bool binary_separation_changes_ = false;
     mutable double binary_last_separation_ = 0.0;
@@ -431,9 +434,9 @@ private:
     mutable double caustic_cache_grid_step_x_ = 1.0;
     mutable double caustic_cache_grid_step_y_ = 1.0;
     mutable int caustic_cache_grid_size_ = 128;
-    mutable std::vector<std::vector<int>> caustic_cache_grid_;
     struct CausticSegRef { int branch; int pos; };
     mutable std::vector<std::vector<CausticSegRef>> caustic_cache_branch_grid_;
+    mutable std::vector<std::vector<int>> caustic_cache_occupied_columns_;
     mutable double caustic_cache_max_seg_len_ = 0.0;
     mutable bool caustic_enclosure_attempted_ = false;
     mutable double caustic_enclosure_separation_ = 0.0;

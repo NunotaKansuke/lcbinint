@@ -10,6 +10,7 @@ template<bool Gradient=false> inline IntegrationResult<Gradient> integrate_value
     const RadialEventPlan* supplied_plan=nullptr,ValueIntegralTrace* trace=nullptr) {
     static_assert(!Gradient,"value-only radial frontier");
     IntegrationResult<Gradient> out;p.validate();
+    options.angular.uniform_shortcuts=limb==0 && !trace && options.relative_tolerance>=1e-4;
     if(trace)trace->relative_tolerance=options.relative_tolerance;
     const bool loose_value=options.relative_tolerance>=1e-4;
     // Root inclusion/count proofs are shared with values. Gradient endpoint

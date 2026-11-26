@@ -1,5 +1,6 @@
 #pragma once
 #include "angular_topology.hpp"
+#include <tuple>
 #include "event_surface.hpp"
 #include <deque>
 #include <map>
@@ -7,8 +8,7 @@ namespace lcbinint::algebraic_boundary::triple {
 namespace event_detail {
 using physical_detail::Jet;
 template<class T> std::optional<Jet<T>> physical(T R,T t,const Geometry&p,bool chart) {
-    if constexpr(std::is_same_v<T,double> || std::is_same_v<T,interval_detail::Interval<double>>)return physical_detail::Ray<T>(R,p).event_jet(t,chart);
-    else return physical_detail::physical(R,t,p,chart);
+    return physical_detail::Ray<T>(R,p).event_jet(t,chart);
 }
 template<class T> Jet<T> evaluate(T R,T t,const Geometry& p,bool reciprocal_chart) {
     const auto coeff=boundary_from_radius(Jet<T>(R,T(1),T(0)),p).coefficients;
@@ -43,20 +43,21 @@ struct PhysicalExclusionData {
         }
     }
 };
-inline bool physical_exclusion(const Box& box,const Geometry& p,const PhysicalExclusionData* prepared=nullptr) {
+inline bool physical_exclusion(const Box& box,const Geometry& p,const PhysicalExclusionData* prepared=nullptr,Box* contracted=nullptr) {
     std::optional<PhysicalExclusionData> local;
     if(!prepared){local.emplace(p);prepared=&*local;}
     const double eps=std::numeric_limits<double>::epsilon();
     const double r=box.rlo+(box.rhi-box.rlo)*.5,t=box.tlo+(box.thi-box.tlo)*.5;
     const double sign=box.reciprocal?-1:1,den=1+t*t;
-    const Complex z=sign*r*Complex((1-t*t)/den,2*t/den),source(p.X,p.Y);
+    const Complex direction=sign*Complex((1-t*t)/den,2*t/den);
+    const Complex z=r*direction,source(p.X,p.Y);
     const double chord=std::max(2*std::abs(box.tlo-t)/std::hypot(1.,box.tlo),
         2*std::abs(box.thi-t)/std::hypot(1.,box.thi))/std::hypot(1.,t);
     const double delta=std::hypot(.5*(box.rhi-box.rlo),std::sqrt(box.rhi)*std::sqrt(r)*chord)+64*eps*(1+box.rhi);
     const auto& lenses=prepared->lenses;const auto& masses=prepared->masses;
     std::array<double,3> image_distance{};
     for(int j=0;j<3;++j) {
-        image_distance[j]=std::abs(z-lenses[j]);
+        image_distance[j]=complex_magnitude(z-lenses[j]);
         const double distance=image_distance[j]+delta+64*eps*(1+image_distance[j]);
         if(!(distance>0))continue;
         double remainder=prepared->source_distance[j]+distance+p.rho;bool valid=true;
@@ -68,40 +69,255 @@ inline bool physical_exclusion(const Box& box,const Geometry& p,const PhysicalEx
         }
         if(valid && (masses[j]-4*eps)/distance>remainder*(1+128*eps)+128*eps)return true;
     }
-    Complex g=z-source,U{};double error=delta,U_error=0,U_condition=0,condition=1+std::abs(z)+prepared->source_norm;
+    // In a thin polar cell the circumscribing disk can cross a lens even
+    // though the whole sector is separated from it in radius or angle.
+    const double dr=std::max(box.rhi-r,r-box.rlo);
+    const double du=dr+.5*box.rhi*chord*chord,dv=box.rhi*chord;
+    std::array<double,3> lower_distance;
+    std::array<Complex,3> inverses;
+    Complex off_axis_source=source;double off_axis_error=0;
+    Complex g=z-source,U{};double error=delta,U_error=0,U_condition=0,condition=1+complex_magnitude(z)+prepared->source_norm;
     for(int j=0;j<3;++j) {
-        const double distance=image_distance[j],lower=distance-delta-64*eps*(1+distance);
+        const double distance=image_distance[j];
+        double lower=distance-delta-64*eps*(1+distance);
+        if(lower<.6*distance) {
+            const double lens_r=prepared->lens_norm[j];
+            const Complex relative=std::conj(direction)*(z-lenses[j]);
+            const double gap=std::max({box.rlo-lens_r,lens_r-box.rhi,
+                std::abs(relative.real())-du,std::abs(relative.imag())-dv});
+            lower=std::max(lower,gap-256*eps*(1+box.rhi+lens_r+distance));
+        }
+        lower_distance[j]=lower;
         if(!(lower>0))return false;
-        const auto inv=1./std::conj(z-lenses[j]);
+        const auto inv=inverse_conjugate(z-lenses[j]);
+        inverses[j]=inv;
         g-=masses[j]*inv;
-        if(j){U+=masses[j]*std::conj(lenses[j])*inv*inv;
-            U_error+=2*(masses[j]+4*eps)*prepared->lens_norm[j]*delta/(lower*lower*lower)+4*eps*prepared->lens_norm[j]/(lower*lower);
-            U_condition+=(masses[j]+4*eps)*std::abs(lenses[j])/(lower*lower);}
+        if(j){off_axis_source+=masses[j]*inv;
+            off_axis_error+=(masses[j]+4*eps)*delta/(lower*distance)+4*eps/lower;
+            U+=masses[j]*std::conj(lenses[j])*inv*inv;
+            U_error+=(masses[j]+4*eps)*prepared->lens_norm[j]*(delta/distance/lower)*(1/distance+1/lower)+4*eps*prepared->lens_norm[j]/(lower*lower);
+            U_condition+=(masses[j]+4*eps)*complex_magnitude(lenses[j])/(lower*lower);}
         error+=(masses[j]+4*eps)*delta/(lower*distance)+4*eps/lower;
+        if(j==0 && box.rlo>0) {
+            // In this polar frame the primary-only map is h(R)*exp(i*theta),
+            // h(R)=R-m0/R. Near the Einstein ring angular motion changes
+            // the mapped source by |h(R)| times the chord, even when the
+            // image-plane displacement is large. Bound R and angle separately.
+            const double dr=std::max(r-box.rlo,box.rhi-r);
+            const double upper_mass=masses[0]+4*eps;
+            const double radial=(dr+8*eps*(1+r))*(1+upper_mass/box.rlo/r);
+            const double amplitude=std::abs(r-masses[0]/r)
+                +64*eps*(1+r+upper_mass/r)+4*eps/r;
+            const double primary=(radial+amplitude*(chord+64*eps)+4*eps/box.rlo)
+                *(1+128*eps);
+            error=std::min(error,primary);
+        }
         condition+=masses[j]/distance;
     }
     error+=128*eps*condition;U_error+=128*eps*(1+U_condition);
-    const double norm=std::abs(g),margin=128*eps*(1+norm+p.rho+error);
+    const double norm=complex_magnitude(g),margin=128*eps*(1+norm+p.rho+error);
     if(norm-error>p.rho+margin || norm+error<p.rho-margin)return true;
     // g_theta=i(z-conj(z)*kappa)=i(g+source-U).
     // Re(conj(g)*i*g)=0 exactly. The primary lens has l_0=0,
     // so it cancels from U instead of inflating a shear error bound.
     const Complex tangent=Complex(0,1)*(source-U);
-    const double tangent_error=U_error+256*eps*(1+prepared->source_norm+std::abs(U));
+    const double tangent_error=U_error+256*eps*(1+prepared->source_norm+complex_magnitude(U));
+    const double speed=complex_magnitude(tangent);
+    // Remove the primary analytically. At a stationary limb,
+    // (R-m0/R)e equals the off-axis source plus one of two diameter tips.
+    // Enclose that vector in a disk, then invert both primary-image branches.
+    // The extra inverse is profitable when the primary dominates. This
+    // mass threshold only selects which enclosure to try.
+    if(contracted && masses[0]>.98 && speed>tangent_error && box.tlo>=-1 && box.thi<=1) {
+        const Complex offset=(p.rho/speed)*(source-U);
+        const double pad=(off_axis_error+2*p.rho*(tangent_error/speed)+
+            512*eps*(condition+p.rho+prepared->source_norm))*(1+128*eps);
+        Box possible{INFINITY,-INFINITY,INFINITY,-INFINITY,box.reciprocal};
+        bool usable=true;
+        for(int tip:{-1,1}) {
+            const Complex v=off_axis_source+double(tip)*offset;
+            const double d=complex_magnitude(v),err=pad+128*eps*(1+d);
+            if(!(d>2*err) || !std::isfinite(d)){usable=false;break;}
+            for(int parity:{-1,1}) {
+                const double h=parity*d;
+                const double root=complex_magnitude({d,2*std::sqrt(masses[0])});
+                const double R=parity>0?.5*(root+h):2*masses[0]/(root+d);
+                // |dR/dh| <= 1, |dR/dm| = 1/sqrt(h^2+4m).
+                const double re=err+8*eps/std::max(d-err,std::sqrt(masses[0]))+
+                    256*eps*(1+R);
+                if(!std::isfinite(R+re)){usable=false;break;}
+                const double rl=std::max(box.rlo,R-re),rh=std::min(box.rhi,R+re);
+                if(rl>rh)continue;
+                const double branch=parity*sign,vx=branch*v.real(),vy=branch*v.imag();
+                // Each projective chart here covers only its front half.
+                if(vx < -err)continue;
+                const double denominator=d+vx;
+                double tl=box.tlo,th=box.thi;
+                if(denominator>4*err && std::isfinite(denominator)) {
+                    const double tc=vy/denominator;
+                    const double te=err*(1+2*std::abs(tc))/(denominator-2*err)+256*eps*(1+std::abs(tc));
+                    tl=std::max(tl,tc-te);th=std::min(th,tc+te);
+                }
+                if(tl>th)continue;
+                possible.rlo=std::min(possible.rlo,rl);possible.rhi=std::max(possible.rhi,rh);
+                possible.tlo=std::min(possible.tlo,tl);possible.thi=std::max(possible.thi,th);
+            }
+        }
+        if(usable) {
+            if(possible.rlo>possible.rhi)return true;
+            if(possible.rlo<possible.rhi && possible.tlo<possible.thi &&
+               (possible.rhi-possible.rlo)*(possible.thi-possible.tlo)<
+               .3*(box.rhi-box.rlo)*(box.thi-box.tlo)){*contracted=possible;return false;}
+        }
+    }
     const double product=std::real(std::conj(g)*tangent);
-    const double product_error=norm*tangent_error+std::abs(tangent)*error+error*tangent_error+
-        256*eps*(1+norm*std::abs(tangent));
-    return std::abs(product)>product_error;
+    const double product_error=norm*tangent_error+speed*error+error*tangent_error+
+        256*eps*(1+norm*speed);
+    if(std::abs(product)>product_error)return true;
+
+    // At a boundary event |g|=rho and g is perpendicular to H=i(source-U).
+    // In the radial frame Im(conj(e)*g) contains no R-m0/R term. Thus
+    // |Im(conj(e)*g)| |H| = rho |Re(conj(e)*H)|. This second test remains
+    // sharp near a primary Einstein ring, where a wide radial box makes the
+    // direct dot-product bound inconclusive.
+    const double perp=std::abs(std::imag(std::conj(direction)*off_axis_source));
+    const double parallel=std::abs(std::real(std::conj(direction)*tangent));
+    const double direction_error=chord+128*eps;
+    const double perp_error=(off_axis_error+complex_magnitude(off_axis_source)*direction_error+
+        256*eps*condition)*(1+128*eps);
+    const double parallel_error=(tangent_error+speed*direction_error+
+        256*eps*(1+speed))*(1+128*eps);
+    const double left=perp*speed,right=p.rho*parallel;
+    const double uncertainty=perp_error*(speed+tangent_error)+perp*tangent_error+
+        p.rho*parallel_error;
+    if(std::abs(left-right)>uncertainty*(1+256*eps)+256*eps*(1+left+right))return true;
+    if(!(speed>tangent_error))return false;
+
+    // At an event g lies at one of the two ends of the source diameter
+    // parallel to source-U. Enclose the lens map about the image-box centre
+    // and test both ends against its radial and transverse displacements.
+    const Complex axis=(source-U)/speed;
+    Complex shear{};
+    double remainder=0,shear_scale=1;
+    for(int j=0;j<3;++j) {
+        const double d=image_distance[j],lower=lower_distance[j];
+        const double mass=masses[j]+4*eps;
+        shear+=masses[j]*inverses[j]*inverses[j];
+        // Exact remainder of the first-order expansion of 1/conj(z-l_j).
+        remainder+=(mass/lower)*(delta/d)*(delta/d)+4*eps/lower;
+        shear_scale+=mass/d/d;
+    }
+    const Complex applied=shear*std::conj(direction);
+    const Complex radial=direction+applied, transverse=Complex(0,1)*(direction-applied);
+    const Complex major=complex_magnitude(radial)*du>=complex_magnitude(transverse)*dv?radial:transverse;
+    const double length=complex_magnitude(major);
+    if(!(length>0 && std::isfinite(length)))return false;
+    const Complex along=major/length;
+    const auto project=[&](Complex v){return std::conj(along)*v;};
+    const auto jr=project(radial),jt=project(transverse);
+    const double pad=remainder+2*p.rho*(tangent_error/speed)
+        +1024*eps*(condition+p.rho+shear_scale*(1+box.rhi+du+dv));
+    const double width_x=(std::abs(jr.real())*du+std::abs(jt.real())*dv+pad)*(1+128*eps);
+    const double width_y=(std::abs(jr.imag())*du+std::abs(jt.imag())*dv+pad)*(1+128*eps);
+    const auto center=project(g),offset=project(p.rho*axis);
+    auto outside=[&](Complex v) {
+        return std::isfinite(v.real()) && std::isfinite(v.imag()) &&
+            (std::abs(v.real())>width_x || std::abs(v.imag())>width_y);
+    };
+    const bool plus=outside(center-offset),minus=outside(center+offset);
+    if(plus && minus)return true;
+    if(!contracted || !std::isfinite(pad))return false;
+
+    const double determinant=std::imag(std::conj(radial)*transverse);
+    // A condition estimate only decides whether to attempt contraction.
+    // Ill-conditioned cells keep the ordinary subdivision proof.
+    const double absolute_det=std::abs(determinant);
+    if(!(absolute_det>0) || (pad*complex_magnitude(transverse)>absolute_det*du*.45 &&
+                            pad*complex_magnitude(radial)>absolute_det*dv*.45))return false;
+    // Invert the linearized image map for each remaining diameter tip.
+    // The nonlinear remainder and the motion of the tip are both enclosed
+    // by pad. Near a singular Jacobian retain the uncontracted cell.
+    const auto cross=[](Complex a,Complex b) {
+        return I(a.real())*I(b.imag())-I(a.imag())*I(b.real());
+    };
+    const auto det=cross(radial,transverse);
+    if(std::abs(det.sign())!=1)return false;
+    const auto inverse=physical_detail::reciprocal_value(det);
+    const double pad_bound=pad*(1+256*eps);
+    const auto xerr=I(-pad_bound,pad_bound)*I(complex_magnitude(transverse)),
+               yerr=I(-pad_bound,pad_bound)*I(complex_magnitude(radial));
+    const double guard=256*eps*(1+box.rhi),curvature=.5*box.rhi*chord*chord+guard;
+    const I x_domain(box.rlo-r-curvature-guard,box.rhi-r+guard),y_domain(-dv-guard,dv+guard);
+    const auto overlap=[](I a,I b){return I(std::max(a.lo,b.lo),std::min(a.hi,b.hi));};
+    Box result{INFINITY,-INFINITY,INFINITY,-INFINITY,box.reciprocal};
+    for(int side:{-1,1}) {
+        if(side==1?plus:minus)continue;
+        const Complex target=(side*p.rho)*axis-g;
+        const I raw_x=(cross(target,transverse)+xerr)*inverse;
+        const I raw_y=(cross(radial,target)+yerr)*inverse;
+        if(!raw_x.valid() || !raw_y.valid())return false;
+        const I x=overlap(x_domain,raw_x),y=overlap(y_domain,raw_y);
+        if(x.lo>x.hi || y.lo>y.hi)continue;
+        if(!x.valid() || !y.valid())return false;
+        // r+x = R' cos(delta theta), y = R' sin(delta theta).
+        const I parallel=I(r)+x;
+        const I rr=overlap(I(box.rlo,box.rhi),parallel+I(-guard,curvature));
+        if(rr.lo>rr.hi)continue;
+        I tt(box.tlo,box.thi);
+        const I den=rr+parallel+I(-guard,guard);
+        if(den.lo>0) {
+            const I q=(y+I(-guard,guard))*physical_detail::reciprocal_value(den);
+            const I divisor=I(1)-I(t)*q;
+            if(divisor.lo>0) {
+                const I coordinate=(I(t)+q)*physical_detail::reciprocal_value(divisor)+I(-256*eps,256*eps);
+                if(coordinate.valid())tt=overlap(tt,coordinate);
+            }
+        }
+        if(tt.lo>tt.hi)continue;
+        result.rlo=std::min(result.rlo,rr.lo);result.rhi=std::max(result.rhi,rr.hi);
+        result.tlo=std::min(result.tlo,tt.lo);result.thi=std::max(result.thi,tt.hi);
+    }
+    if(result.rlo>result.rhi)return true;
+    if(result.rlo<result.rhi && result.tlo<result.thi &&
+       (result.rhi-result.rlo)*(result.thi-result.tlo)<.4*(box.rhi-box.rlo)*(box.thi-box.tlo))
+        *contracted=result;
+    return false;
+
 }
+// The angular polynomial coefficients depend only on R. Keep the same
+// factored arithmetic for their interval values and radial derivatives.
+template<class S> struct RadialDerivative {
+    S value{},derivative{};
+    RadialDerivative()=default;
+    RadialDerivative(double x):value(x){}
+    RadialDerivative(S v,S d):value(v),derivative(d){}
+    friend RadialDerivative operator+(RadialDerivative a,RadialDerivative b) {
+        return {a.value+b.value,a.derivative+b.derivative};
+    }
+    friend RadialDerivative operator-(RadialDerivative a) {
+        return {-a.value,-a.derivative};
+    }
+    friend RadialDerivative operator-(RadialDerivative a,RadialDerivative b) {return a+(-b);}
+    friend RadialDerivative operator*(RadialDerivative a,RadialDerivative b) {
+        return {a.value*b.value,a.derivative*b.value+a.value*b.derivative};
+    }
+};
 template<class T> struct BasicCoefficientCache {
     using Scalar=angular_detail::I<T>;
     const Geometry& geometry;
     std::map<std::pair<double,double>,std::array<Jet<Scalar>,7>> entries;
     std::optional<std::array<surface_detail::RadialPolynomialT<T>,7>> polynomial;
     std::map<std::pair<double,double>,std::array<Jet<Scalar>,7>> direct_entries;
+    std::array<Jet<Scalar>,7> factored(double rlo,double rhi) const {
+        const RadialDerivative<Scalar> radius(Scalar(T(rlo),T(rhi)),Scalar(1));
+        const auto c=boundary_from_radius(radius,geometry).coefficients;
+        std::array<Jet<Scalar>,7> out{};
+        for(int j=0;j<7;++j){out[j].v=c[j].value;out[j].r=c[j].derivative;}
+        return out;
+    }
     std::array<Jet<Scalar>,7> coefficients(double rlo,double rhi) {
         if constexpr(std::is_same_v<T,double>)
-            return boundary_from_radius(Jet<Scalar>(Scalar(T(rlo),T(rhi)),Scalar(1),Scalar(0)),geometry).coefficients;
+            return factored(rlo,rhi);
         else {
             // Geometry-only quad coefficients are reconstructed once. Horner
             // evaluation carries their enclosures into each local R interval.
@@ -125,7 +341,7 @@ template<class T> struct BasicCoefficientCache {
         auto& active=direct?direct_entries:entries;
         auto found=active.find(key);
         if(found==active.end())found=active.emplace(key,direct?
-            boundary_from_radius(Jet<Scalar>(Scalar(T(rlo),T(rhi)),Scalar(1),Scalar(0)),geometry).coefficients:
+            factored(rlo,rhi):
             coefficients(rlo,rhi)).first;
         Jet<Scalar> x(t,Scalar(0),Scalar(1)),value;
         for(int j=6;j>=0;--j) {
@@ -208,19 +424,13 @@ inline Proof prove_surface(const Box& box,const surface_detail::Tensor& polynomi
     // Positive chart widths/degrees do not change this exclusion sign.
     // Scale derivatives only when a local uniqueness test actually needs them.
     if(difference.sign()==1 || difference.sign()==-1)return {1,{},{}};
-    // The broad-box Jacobian generally cannot contract a stationary point.
-    // Keep the cheap convex-hull exclusions here, then subdivide. Retain the
-    // full Krawczyk test once the box is local; this is only a cost decision.
-    if(box.rhi-box.rlo>.02*(1+box.rhi) || box.thi-box.tlo>.05)return {};
     const I rw=I(box.rhi)-I(box.rlo),tw=I(box.thi)-I(box.tlo);
     const I scale_t=I(polynomial.nt)*surface::inverse(tw),scale_r=I(polynomial.nr)*surface::inverse(rw);
     const I theta=difference*scale_t;
-    const auto pt=surface::differences(polynomial,1);
-    const auto pr=surface::differences(polynomial,0);
-    const auto prt=surface::differences(pr,1),ptt=surface::differences(pt,1);
-    Jet<I> f,fm;f.v=value;f.t=theta;f.r=surface::hull(pr)*scale_r;
-    f.rt=surface::hull(prt)*scale_r*scale_t;
-    f.tt=surface::hull(ptt)*scale_t*I(polynomial.nt-1)*surface::inverse(tw);
+    const auto gradients=surface::derivative_hulls(polynomial);
+    Jet<I> f,fm;f.v=value;f.t=theta;f.r=gradients.r*scale_r;
+    f.rt=gradients.rt*scale_r*scale_t;
+    f.tt=gradients.tt*scale_t*I(polynomial.nt-1)*surface::inverse(tw);
     const double rm=box.rlo+(box.rhi-box.rlo)*.5,tm=box.tlo+(box.thi-box.tlo)*.5;
     const I x=surface::fraction(rm,box.rlo,box.rhi),y=surface::fraction(tm,box.tlo,box.thi);
     const auto centre=surface::centre_value_theta(polynomial,x,y,tw);
@@ -249,9 +459,15 @@ inline Proof prove_quad(const Box& b,const Geometry& p,BasicCoefficientCache<__f
     // Binary64 midpoints are exact inputs in the promoted arithmetic.
     const double rd=b.rlo+(b.rhi-b.rlo)*.5;
     const Q rc=cache?Q(rd):rm;
-    auto physical_center=direct?physical(IQ(rc,rc),IQ(tm,tm),p,b.reciprocal):std::nullopt;
-    if(direct && !physical_center)return out;
-    auto fm=physical_center?*physical_center:cache?cache->evaluate(rd,rd,IQ(tm,tm),b.reciprocal,natural):evaluate(IQ(rm,rm),IQ(tm,tm),p,b.reciprocal);
+    Jet<IQ> fm;
+    if(direct) {
+        const auto center=physical_detail::Ray<IQ>(IQ(rc,rc),p).angular(IQ(tm,tm),b.reciprocal);
+        if(!center)return out;
+        fm=f;fm.v=center->v;fm.t=center->t;
+    } else {
+        fm=cache?cache->evaluate(rd,rd,IQ(tm,tm),b.reciprocal,natural):
+            evaluate(IQ(rm,rm),IQ(tm,tm),p,b.reciprocal);
+    }
     auto center=[](IQ a){return (a.lo+a.hi)/2;};
     const Q mr=center(fm.r),mt=center(fm.t),mtt=center(fm.tt),mrt=center(fm.rt),det=mr*mtt-mt*mrt;
     if(det==0 || !finiteq(det))return out;
@@ -469,6 +685,72 @@ inline bool inside_component(const Box&box,const std::vector<ImageExclusion>&ima
     return false;
 }
 }
+// Boundary images of every nearby source lie in the image of a larger
+// source disk. Negative Bernstein coefficients exclude an entire rectangle
+// from that disk. Keep the remaining rectangles as starting boxes only.
+struct NearbySourceCover {
+    Geometry anchor{};
+    double rlo=0,rhi=0;
+    std::vector<event_detail::Box> boxes;
+    int visits=0;
+    bool nearby(const Geometry& p) const {
+        if(anchor.a!=p.a || anchor.bx!=p.bx || anchor.by!=p.by ||
+           anchor.m1!=p.m1 || anchor.m2!=p.m2 || anchor.rho!=p.rho)return false;
+        const auto dx=surface_detail::I(p.X)-surface_detail::I(anchor.X);
+        const auto dy=surface_detail::I(p.Y)-surface_detail::I(anchor.Y);
+        const auto displacement=surface_detail::I(std::max(-dx.lo,dx.hi))
+            +surface_detail::I(std::max(-dy.lo,dy.hi));
+        return displacement.hi<=p.rho;
+    }
+    void prepare(const Geometry& p) {
+        anchor=p;boxes.clear();visits=0;
+        auto disk=p;disk.rho=2*p.rho;
+        RadialEventPlan domain;
+        if(!std::isfinite(disk.rho) || !event_detail::radial_domain(disk,domain))return;
+        rlo=domain.rmin;rhi=domain.rmax;
+        const auto base=surface_detail::radial_base(rlo,rhi,disk);
+        auto visit=[&](auto& self,event_detail::Box b,const surface_detail::Tensor& tensor,int depth)->void {
+            if(visits>=2048){boxes.push_back(b);return;}
+            ++visits;
+            bool outside=true;
+            for(const auto& row:tensor.b)for(const auto coefficient:row)
+                outside=outside && coefficient.lo<=coefficient.hi && coefficient.hi<0;
+            if(outside)return;
+            if(depth==14){boxes.push_back(b);return;}
+            const bool angular=depth%2==0;
+            const double lo=angular?b.tlo:b.rlo,hi=angular?b.thi:b.rhi;
+            const double mid=lo+(hi-lo)*.5;
+            if(!(mid>lo && mid<hi)){boxes.push_back(b);return;}
+            const auto halves=surface_detail::split(tensor,angular,surface_detail::fraction(mid,lo,hi));
+            auto left=b,right=b;
+            (angular?left.thi:left.rhi)=mid;
+            (angular?right.tlo:right.rlo)=mid;
+            self(self,left,halves.first,depth+1);
+            self(self,right,halves.second,depth+1);
+        };
+        for(bool chart:{false,true})visit(visit,{rlo,rhi,-1,1,chart},surface_detail::angular_chart(base,chart),0);
+        // Adjacent pixels often describe the same elongated image. Merging
+        // exact shared edges avoids rebuilding an event tensor for each pixel.
+        for(bool angular:{false,true}) {
+            auto key=[&](const auto& b) {
+                if(angular)return std::make_tuple(b.reciprocal,b.rlo,b.rhi,b.tlo);
+                return std::make_tuple(b.reciprocal,b.tlo,b.thi,b.rlo);
+            };
+            std::sort(boxes.begin(),boxes.end(),[&](const auto& a,const auto& b){return key(a)<key(b);});
+            std::size_t count=0;
+            for(auto b:boxes) {
+                if(count && boxes[count-1].reciprocal==b.reciprocal) {
+                    auto& a=boxes[count-1];
+                    if(angular && a.rlo==b.rlo && a.rhi==b.rhi && a.thi==b.tlo){a.thi=b.thi;continue;}
+                    if(!angular && a.tlo==b.tlo && a.thi==b.thi && a.rhi==b.rlo){a.rhi=b.rhi;continue;}
+                }
+                boxes[count++]=b;
+            }
+            boxes.resize(count);
+        }
+    }
+};
+
 inline RadialEventPlan radial_event_plan(const Geometry& p,int max_boxes=100000,
                                        double flux_tolerance=0,const PartialComponents* components=nullptr,
                                        const CertifiedRadialCover* radial_cover=nullptr) {
@@ -545,10 +827,35 @@ inline RadialEventPlan radial_event_plan(const Geometry& p,int max_boxes=100000,
     };
     if(!narrowed || !radial_cover->unresolved.empty()) {
         const auto radial_base=surface_detail::radial_base(out.rmin,out.rmax,p);
+        static thread_local NearbySourceCover nearby_cover;
+        const bool eligible=max_boxes>=8192 && narrowed;
+        if(eligible && !nearby_cover.nearby(p)) {
+            nearby_cover.anchor=p;
+            nearby_cover.boxes.clear();
+        } else if(eligible && nearby_cover.boxes.empty()) {
+            nearby_cover.prepare(p);
+            out.boxes+=nearby_cover.visits;
+        }
+        const bool use_cover=eligible && !nearby_cover.boxes.empty() &&
+            nearby_cover.boxes.size()<=96 && out.rmin>=nearby_cover.rlo && out.rmax<=nearby_cover.rhi;
         auto append=[&](double lo,double hi) {
             if(!(hi>lo))return;
-            auto base=surface_detail::restrict(radial_base,out.rmin,out.rmax,-1,1,lo,hi,-1,1);
-            for(bool reciprocal:{false,true})pending.push_back({{lo,hi,-1,1,reciprocal},surface_detail::angular_chart(base,reciprocal)});
+            std::optional<surface_detail::Tensor> base;
+            for(bool reciprocal:{false,true}) {
+                // A nearby-source cover may already rule out this entire
+                // radial band in one chart. Only form tensors for survivors.
+                if(use_cover && std::none_of(nearby_cover.boxes.begin(),nearby_cover.boxes.end(),
+                    [&](const auto& b){return b.reciprocal==reciprocal && b.rlo<hi && b.rhi>lo;}))continue;
+                if(!base)base=surface_detail::restrict(radial_base,out.rmin,out.rmax,-1,1,lo,hi,-1,1);
+                const auto chart=surface_detail::angular_chart(*base,reciprocal);
+                if(!use_cover)pending.push_back({{lo,hi,-1,1,reciprocal},chart});
+                else for(auto box:nearby_cover.boxes) {
+                    if(box.reciprocal!=reciprocal)continue;
+                    box.rlo=std::max(lo,box.rlo);box.rhi=std::min(hi,box.rhi);
+                    if(box.rlo<box.rhi)pending.push_back({box,surface_detail::restrict(chart,lo,hi,-1,1,
+                        box.rlo,box.rhi,box.tlo,box.thi)});
+                }
+            }
         };
         if(narrowed)for(auto interval:radial_cover->unresolved)
             append(std::max(out.rmin,interval.first),std::min(out.rmax,interval.second));
@@ -565,7 +872,12 @@ inline RadialEventPlan radial_event_plan(const Geometry& p,int max_boxes=100000,
         // Exclude an empty node before subtracting covered rectangles: its
         // retained tensor already certifies every point, so restrictions
         // and child tensors cannot add useful information.
-        auto proof=prove_surface(box,node.polynomial,p);
+        const bool local_box=box.rhi-box.rlo<=.02*(1+box.rhi) && box.thi-box.tlo<=.05;
+        Box affine=box;
+        if(local_box && physical_exclusion(box,p,&physical_data,&affine))continue;
+        auto did_contract=[&] {return affine.rlo!=box.rlo || affine.rhi!=box.rhi ||
+            affine.tlo!=box.tlo || affine.thi!=box.thi;};
+        auto proof=did_contract()?prove_physical(affine,p):prove_surface(box,node.polynomial,p);
         if(proof.kind==1)continue;
         if(partial && inside_component(box,components->images))continue;
         // Remove certified regions exactly instead of bisecting down to
@@ -591,7 +903,13 @@ inline RadialEventPlan radial_event_plan(const Geometry& p,int max_boxes=100000,
             continue;
         }
         Box proof_region=box;
-        if(physical_exclusion(box,p,&physical_data))continue;
+        if(!local_box && physical_exclusion(box,p,&physical_data,&affine))continue;
+        if(proof.kind==0 && did_contract()) {
+            auto tensor=surface_detail::restrict(node.polynomial,box.rlo,box.rhi,box.tlo,box.thi,
+                affine.rlo,affine.rhi,affine.tlo,affine.thi);
+            pending.push_back({affine,tensor});
+            ++out.contractions;continue;
+        }
         if(proof.kind==0 && (box.rhi-box.rlo)<.01*(1+box.rhi) && (box.thi-box.tlo)<.01) {
             auto local=prove_physical(box,p);
             if(local.kind!=0)proof=local;

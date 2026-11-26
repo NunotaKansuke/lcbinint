@@ -121,11 +121,13 @@ int main(){
   auto critical=rs::cover(p,rs::pi/32,0,roots);require(critical.size()==6,"critical witness fixture");
   auto source=critical.front().w;
   require(tree.count(source,.03)<0,"contained caustic must refuse regular path");
+  require(tree.encloses_critical_point(source,.03),"tree retains a caustic intersection proof");
   auto hits=tree.refusal_hits();
   require(tree.count(source+Complex(.001,0),.03)<0 && tree.refusal_hits()>hits,
           "contained critical point should prove a nearby refusal without a new traversal");
   require(tree.count({.5,.4},.03)==4,"interior witness must not reject a disjoint regular disk");
   rs::Tree limited(p);(void)limited.count({.5,.4},.03,0);
+  require(!limited.encloses_critical_point({.5,.4},.03),"budget exhaustion supplies no intersection proof");
   require(limited.count({.5,.4},.03)==4,"budget refusal must not suppress retained-tree progress");
  }
  // The source limb creates additional boundary events across contact even
@@ -256,6 +258,25 @@ int main(){
   for(auto& event:plan.events)
       require(tr::refine_event_center(event,frame.geometry,true),
           "every retained tiny-primary event has a physical precision proof");
+ }
+ // A count can cross from one certified disk into an overlapping one.
+ // The new disk must independently clear every caustic phase.
+ {
+  const auto& p=geometries.front();
+  const Complex source{2.,2.};
+  constexpr double rho=.02;
+  rs::Tree prepared(p),fresh(p);
+  const auto witness=prepared.clearance(source,rho,65536);
+  require(witness.first>rho && witness.second==4,"exterior winding witness");
+  const auto shifted=source+Complex(witness.first+rho/2,0);
+  require(prepared.count(shifted,rho,65536)==4 && fresh.count(shifted,rho,65536)==4,
+      "overlapping exterior disks agree with a fresh winding calculation");
+  std::vector<Complex> roots;
+  const auto critical=rs::cover(p,.123,0,roots);
+  require(critical.size()==6,"critical point for overlap refusal");
+  const double crossing=std::abs(critical.front().w-source)+critical.front().h+rho;
+  require(prepared.count(source,crossing,65536)<0,
+      "an overlapping winding witness cannot clear a disk containing a caustic");
  }
  // A parent phase disk must strictly contain freshly proved endpoint
  // disks even when the small critical loop has reached its rounding floor.

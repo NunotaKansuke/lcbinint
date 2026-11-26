@@ -1,4 +1,5 @@
 #pragma once
+#include "outward_neighbour.hpp"
 // Isolated degree <=14 enclosure Sturm kernel. The target is exact dyadic
 // PrimaryFrame input, not a previously rounded coefficient vector.
 #include <array>
@@ -20,10 +21,10 @@
 namespace lcbinint::algebraic_boundary::positive_detail {
 template<class T> T up(T x);
 template<class T> T down(T x);
-template<> inline double up(double x) { return std::nextafter(x, INFINITY); }
-template<> inline double down(double x) { return std::nextafter(x, -INFINITY); }
-template<> inline __float128 up(__float128 x) { return nextafterq(x,HUGE_VALQ); }
-template<> inline __float128 down(__float128 x) { return nextafterq(x,-HUGE_VALQ); }
+template<> inline double up(double x) { return rounding::neighbour(x,true); }
+template<> inline double down(double x) { return rounding::neighbour(x,false); }
+template<> inline __float128 up(__float128 x) { return rounding::neighbour(x,true); }
+template<> inline __float128 down(__float128 x) { return rounding::neighbour(x,false); }
 inline bool environment_ok() {
 #ifdef __FAST_MATH__
  return false;
@@ -103,17 +104,17 @@ template<class I> __float128 magnitude(I a) {
  else return fmaxq(fabsq(a.lo),fabsq(a.hi));
 }
 template<class I> struct Poly { std::array<I,15> c{}; int degree=0; };
-template<class I> Poly<I> add(Poly<I> a,Poly<I> b) {
+template<class I> Poly<I> add(Poly<I> a,const Poly<I>& b) {
  a.degree=std::max(a.degree,b.degree);for(int i=0;i<=b.degree;++i)a.c[i]=a.c[i]+b.c[i];return a;
 }
 template<class I> Poly<I> neg(Poly<I> a){for(auto& x:a.c)x=-x;return a;}
-template<class I> Poly<I> mul(Poly<I> a,Poly<I> b) {
+template<class I> Poly<I> mul(const Poly<I>& a,const Poly<I>& b) {
  Poly<I> r;r.degree=a.degree+b.degree;
  if(r.degree>14){r.degree=14;r.c[0]=I(INFINITY);return r;}
  for(int i=0;i<=a.degree;++i)for(int j=0;j<=b.degree;++j)r.c[i+j]=r.c[i+j]+a.c[i]*b.c[j];return r;
 }
 template<class I> Poly<I> times(Poly<I> a,double n){for(auto&x:a.c)x=x*I(n);return a;}
-template<class I> Poly<I> shift(Poly<I> a,int n){Poly<I> r;r.degree=a.degree+n;for(int i=0;i<=a.degree;++i)r.c[i+n]=a.c[i];return r;}
+template<class I> Poly<I> shift(const Poly<I>& a,int n){Poly<I> r;r.degree=a.degree+n;for(int i=0;i<=a.degree;++i)r.c[i+n]=a.c[i];return r;}
 template<class I> Poly<I> constant(I x){Poly<I> p;p.c[0]=x;return p;}
 template<class I> Poly<I> polynomial(const PrimaryFrame& pf) {
  I a(pf.a),m(pf.m0),x(pf.X),y(pf.Y),rho(pf.rho),one(1),two(2);

@@ -86,20 +86,23 @@ inline double finite_up(double value) {
     bits=zero?UINT64_C(1):bits;
     std::memcpy(&value,&bits,sizeof bits);return value;
 }
+#if defined(__SSE2__)
+using interval_detail::packed_up;
+using interval_detail::endpoints;
+using interval_detail::signed_endpoints;
+inline I bounded_interpolate(I a,I b,I fraction) {
+    const __m128d start=signed_endpoints(a);
+    const __m128d delta=packed_up(_mm_sub_pd(signed_endpoints(b),start));
+    const __m128d positive=_mm_cmpge_pd(delta,_mm_setzero_pd());
+    const __m128d weight=_mm_or_pd(_mm_and_pd(positive,_mm_set1_pd(fraction.hi)),
+                                   _mm_andnot_pd(positive,_mm_set1_pd(fraction.lo)));
+    return endpoints(packed_up(_mm_add_pd(start,packed_up(_mm_mul_pd(weight,delta)))));
+}
+#endif
 inline I bounded_midpoint(I a,I b) {
 #if defined(__SSE2__)
-    static_assert(sizeof(I)==2*sizeof(double),"packed interval endpoints required");
-    // Lower and upper endpoints are independent lanes. Flip the lower
-    // endpoint's sign so that both lanes need the same upward neighbour.
-    const __m128d lower_sign=_mm_castsi128_pd(_mm_set_epi64x(0,INT64_MIN));
-    __m128d value=_mm_mul_pd(_mm_add_pd(_mm_loadu_pd(&a.lo),_mm_loadu_pd(&b.lo)),_mm_set1_pd(.5));
-    value=_mm_xor_pd(value,lower_sign);
-    const __m128i one=_mm_set1_epi64x(1),bits=_mm_castpd_si128(value);
-    const __m128i increment=_mm_sub_epi64(one,_mm_slli_epi64(_mm_srli_epi64(bits,63),1));
-    const __m128d zero=_mm_cmpeq_pd(value,_mm_setzero_pd());
-    const __m128d rounded=_mm_or_pd(_mm_and_pd(zero,_mm_castsi128_pd(one)),
-        _mm_andnot_pd(zero,_mm_castsi128_pd(_mm_add_epi64(bits,increment))));
-    I out;_mm_storeu_pd(&out.lo,_mm_xor_pd(rounded,lower_sign));return out;
+    return endpoints(packed_up(_mm_mul_pd(_mm_add_pd(signed_endpoints(a),signed_endpoints(b)),
+                                         _mm_set1_pd(.5))));
 #else
     return {-finite_up(-(a.lo+b.lo)*.5),finite_up((a.hi+b.hi)*.5)};
 #endif
@@ -135,24 +138,73 @@ template<int Weight> inline std::pair<Tensor,Tensor> split_weight(const Tensor& 
                     // multiplication needs no general interval sign dispatch.
                     work[j]={interval_detail::down(interval_detail::down(.5625*a.lo)+interval_detail::down(.4375*b.lo)),
                              interval_detail::up(interval_detail::up(.5625*a.hi)+interval_detail::up(.4375*b.hi))};
+#if defined(__SSE2__)
+                } else if constexpr(Weight==3) {
+                    work[j]=bounded_interpolate(a,b,fraction);
+#endif
                 } else work[j]=interpolate(a,b,fraction);
             }
         }
     }
     return {left,right};
 }
+// A de Casteljau midpoint is a convex combination. Its absolute error
+// grows at most linearly with depth. Bound the whole row once, then add
+// that bound at the two published edges of each level.
+template<int Degree,bool Angular>
+inline void split_midpoint_row(const Tensor& parent,int row,I fraction,Tensor& left,Tensor& right) {
+    std::array<I,Degree+1> work;
+    double magnitude=0;
+    for(int j=0;j<=Degree;++j) {
+        work[j]=Angular?parent.b[row][j]:parent.b[j][row];
+        magnitude=std::max({magnitude,std::abs(work[j].lo),std::abs(work[j].hi)});
+    }
+    // Each interpolation at the true fraction can differ from the exact
+    // midpoint by at most 2*M*|f-1/2|. The extra epsilon factors bound
+    // rounding of the sum, scaling, and accumulated error bound, including
+    // gradual underflow. Callers bound M away from overflow.
+    const double displacement=std::max(.5-fraction.lo,fraction.hi-.5);
+    const double step=4*magnitude*(std::numeric_limits<double>::epsilon()+displacement)
+        +4*std::numeric_limits<double>::denorm_min();
+    for(int level=0;level<=Degree;++level) {
+        auto edge=[&](I a) {
+            if(level==0)return a;
+            const double pad=level*step;
+            return I{-finite_up(-(a.lo-pad)),finite_up(a.hi+pad)};
+        };
+        (Angular?left.b[row][level]:left.b[level][row])=edge(work[0]);
+        (Angular?right.b[row][Degree-level]:right.b[Degree-level][row])=edge(work[Degree-level]);
+        for(int j=0;j<Degree-level;++j) {
+            work[j].lo=(work[j].lo+work[j+1].lo)*.5;
+            work[j].hi=(work[j].hi+work[j+1].hi)*.5;
+        }
+    }
+}
 inline std::pair<Tensor,Tensor> split(const Tensor& parent,int axis,I fraction){
-    if(fraction.lo==.5 && fraction.hi==.5) {
-        // The convex combinations stay inside the original hull. Establish
-        // the finite no-overflow condition once, rather than at every step
-        // of each de Casteljau triangle.
+    if(fraction.lo==.4375 && fraction.hi==.4375)return split_weight<1>(parent,axis,fraction);
+    if(fraction.lo>=0 && fraction.lo<=fraction.hi && fraction.hi<=1) {
+        // Convex combinations stay within the parent hull up to rounding.
+        // Leave room for endpoint differences, products and additions in all
+        // eight levels before using the finite-only outward rounding kernel.
+        constexpr double limit=std::numeric_limits<double>::max()/16;
         bool bounded=true;
         for(int i=0;i<=parent.nr;++i)for(int j=0;j<=parent.nt;++j)
-            bounded=bounded && parent.b[i][j].lo>-std::numeric_limits<double>::max()/4 &&
-                parent.b[i][j].hi<std::numeric_limits<double>::max()/4;
-        if(bounded)return split_weight<0>(parent,axis,fraction);
+            bounded=bounded && parent.b[i][j].lo>-limit && parent.b[i][j].hi<limit &&
+                parent.b[i][j].lo<=parent.b[i][j].hi;
+        if(bounded) {
+            if(parent.nr==8 && parent.nt==6 && fraction.lo>=.5-1e-10 &&
+               fraction.hi<=.5+1e-10) {
+                Tensor left,right;
+                if(axis)for(int i=0;i<=8;++i)split_midpoint_row<6,true>(parent,i,fraction,left,right);
+                else for(int j=0;j<=6;++j)split_midpoint_row<8,false>(parent,j,fraction,left,right);
+                return {left,right};
+            }
+            if(fraction.lo==.5 && fraction.hi==.5)return split_weight<0>(parent,axis,fraction);
+#if defined(__SSE2__)
+            return split_weight<3>(parent,axis,fraction);
+#endif
+        }
     }
-    if(fraction.lo==.4375 && fraction.hi==.4375)return split_weight<1>(parent,axis,fraction);
     return split_weight<2>(parent,axis,fraction);
 }
 // Broad boxes need only exclusion signs, not extrema. Stop as soon as
@@ -232,10 +284,54 @@ inline Tensor differences(const Tensor& t,int axis){
         out.b[i][j]=(axis?t.b[i][j+1]:t.b[i+1][j])-t.b[i][j];
     return out;
 }
+struct DerivativeHulls {I r,rt,tt;};
+inline DerivativeHulls derivative_hulls(const Tensor& t) {
+#if defined(__SSE2__)
+    // A difference a-b in signed endpoints is a plus the swapped lanes
+    // of b. Form each first difference once, retaining only adjacent
+    // entries for mixed and second differences. Round their final hulls
+    // once by monotonicity, as in difference_hull.
+    if(t.nr==8 && t.nt==6) {
+        constexpr double limit=std::numeric_limits<double>::max()/8;
+        const auto valid_limit=_mm_set1_pd(limit);
+        const auto sign=_mm_set1_pd(-0.);
+        auto bounded=_mm_cmpeq_pd(sign,sign);
+        auto hr=_mm_set1_pd(-INFINITY),hrt=hr,htt=hr;
+        for(int i=0;i<=8;++i) {
+            __m128d last_r{},last_t{};
+            for(int j=0;j<=6;++j) {
+                const auto b=signed_endpoints(t.b[i][j]);
+                const auto abs_b=_mm_andnot_pd(sign,b);
+                // The scalar interval operators preserve exact zero inputs.
+                // Use their path for zero intervals and exceptional entries.
+                const auto magnitude=_mm_max_pd(abs_b,_mm_shuffle_pd(abs_b,abs_b,1));
+                bounded=_mm_and_pd(bounded,_mm_and_pd(_mm_cmpgt_pd(magnitude,_mm_setzero_pd()),
+                    _mm_cmplt_pd(abs_b,valid_limit)));
+                const auto neg=_mm_shuffle_pd(b,b,1);
+                if(i<8) {
+                    const auto dr=packed_up(_mm_add_pd(signed_endpoints(t.b[i+1][j]),neg));
+                    hr=_mm_max_pd(hr,dr);
+                    if(j)hrt=_mm_max_pd(hrt,_mm_add_pd(dr,_mm_shuffle_pd(last_r,last_r,1)));
+                    last_r=dr;
+                }
+                if(j<6) {
+                    const auto dt=packed_up(_mm_add_pd(signed_endpoints(t.b[i][j+1]),neg));
+                    if(j)htt=_mm_max_pd(htt,_mm_add_pd(dt,_mm_shuffle_pd(last_t,last_t,1)));
+                    last_t=dt;
+                }
+            }
+        }
+        if(_mm_movemask_pd(bounded)==3)
+            return {endpoints(hr),endpoints(packed_up(hrt)),endpoints(packed_up(htt))};
+    }
+#endif
+    const auto pr=differences(t,0),pt=differences(t,1);
+    return {hull(pr),difference_hull(pr,1),difference_hull(pt,1)};
+}
 inline std::array<I,9> point_weights(int degree,I x) {
     std::array<I,9> xp{},yp{},out{};
     if(x.lo==.5 && x.hi==.5) {
-        for(int j=0;j<=degree;++j)out[j]=I(std::ldexp(double(angular_detail::choose(degree,j)),-degree));
+        for(int j=0;j<=degree;++j)out[j]=I(double(angular_detail::choose(degree,j))/double(1u<<degree));
         return out;
     }
     xp[0]=yp[0]=I(1);const I y=I(1)-x;
@@ -243,10 +339,42 @@ inline std::array<I,9> point_weights(int degree,I x) {
     for(int j=0;j<=degree;++j)out[j]=I(angular_detail::choose(degree,j))*xp[j]*yp[degree-j];
     return out;
 }
-inline std::pair<I,I> centre_value_theta(const Tensor& t,I x,I y,I theta_width) {
-    const auto rx=point_weights(t.nr,x),ty=point_weights(t.nt,y),dy=point_weights(t.nt-1,y);
+inline std::array<I,7> radial_columns(const Tensor& t,I x) {
+    // A polar midpoint in binary64 may be displaced slightly from the
+    // exact Bernstein midpoint. Use exact dyadic weights for the radial
+    // reduction and bound the displacement with |dP/dx| <= 2*n*max|b|.
+    // The remaining angular reduction uses the original interval weights.
+    if(t.nr==8 && t.nt==6 && x.lo>=.499999 && x.hi<=.500001 && x.lo<=x.hi) {
+        constexpr double weights[]={1./256,8./256,28./256,56./256,70./256,
+                                    56./256,28./256,8./256,1./256};
+        constexpr double eps=std::numeric_limits<double>::epsilon();
+        const double error_factor=32*(eps+std::max(std::abs(x.lo-.5),std::abs(x.hi-.5)));
+        std::array<double,7> lo{},hi{},magnitude{};
+        for(int i=0;i<9;++i)for(int j=0;j<7;++j) {
+            const auto b=t.b[i][j];
+            lo[j]+=weights[i]*b.lo;
+            hi[j]+=weights[i]*b.hi;
+            magnitude[j]=std::max(magnitude[j],std::max(std::abs(b.lo),std::abs(b.hi)));
+        }
+        std::array<I,7> columns;
+        bool bounded=true;
+        for(int j=0;j<7;++j) {
+            // Nine products and eight additions of a convex combination.
+            const double pad=magnitude[j]*error_factor+32*std::numeric_limits<double>::denorm_min();
+            bounded=bounded && std::isfinite(lo[j]) && std::isfinite(hi[j]) &&
+                magnitude[j]<std::numeric_limits<double>::max()/4;
+            columns[j]={interval_detail::down(lo[j]-pad),interval_detail::up(hi[j]+pad)};
+        }
+        if(bounded)return columns;
+    }
+    const auto rx=point_weights(t.nr,x);
     std::array<I,7> columns{};
     for(int j=0;j<=t.nt;++j)for(int i=0;i<=t.nr;++i)columns[j]=columns[j]+rx[i]*t.b[i][j];
+    return columns;
+}
+inline std::pair<I,I> centre_value_theta(const Tensor& t,I x,I y,I theta_width) {
+    const auto columns=radial_columns(t,x);
+    const auto ty=point_weights(t.nt,y),dy=point_weights(t.nt-1,y);
     I value,theta;
     for(int j=0;j<=t.nt;++j)value=value+ty[j]*columns[j];
     for(int j=0;j<t.nt;++j)theta=theta+dy[j]*(columns[j+1]-columns[j]);

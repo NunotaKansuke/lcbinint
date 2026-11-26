@@ -8,6 +8,12 @@
 
 namespace lcbinint::algebraic_boundary::triple {
 using Complex = std::complex<double>;
+inline double complex_magnitude(Complex z) {
+    const double squared=std::norm(z);
+    if(squared>=32*std::numeric_limits<double>::min() && std::isfinite(squared))
+        return std::sqrt(squared);
+    return std::abs(z);
+}
 // The ordinary range needs one real reciprocal. Preserve scaled complex
 // division for extreme distances where squaring or the reciprocal is unsafe.
 inline Complex inverse_conjugate(Complex d) {
@@ -115,68 +121,43 @@ template<class T> inline BoundaryT<T> boundary_from_radius(T R,const Geometry& p
     using coefficient_detail::C;
     using coefficient_detail::conj;
     const T rho(p.rho);
-    const std::array<C<T>,3> lenses{C<T>{},C<T>{T(p.a)},C<T>{T(p.bx),T(p.by)}};
-    // Reconstruct the normalized primary mass in the selected arithmetic.
-    const std::array<T,3> masses{T(1)-T(p.m1)-T(p.m2),T(p.m1),T(p.m2)};
-    std::array<C<T>,4> d{};d[0]=C<T>(T(1));
-    int degree=0;
-    for(int j=0;j<3;++j) {
-        std::array<C<T>,4> next{};
-        for(int k=0;k<=degree;++k) {
-            next[k]=next[k]+C<T>(R)*d[k];
-            next[k+1]=next[k+1]-conj(lenses[j])*d[k];
-        }
-        d=next;++degree;
-    }
+    // With u on the unit circle and b the conjugate of the third lens,
+    // D=R(R-a*u)(R-b*u). Collect N=(R*u-source)*D minus the three
+    // deflection terms. The normalized masses sum to one exactly.
+    const T a(p.a),m1(p.m1),m2(p.m2),r2=R*R,excess=r2-T(1);
+    const C<T> b{T(p.bx),-T(p.by)},ab{a*b.re,a*b.im},source{T(p.X),T(p.Y)};
     BoundaryT<T> out;
-    const C<T> source{T(p.X),T(p.Y)};
-    for(int k=0;k<3;++k) {
-        out.denominator[k]=d[k];
-        out.numerator[k]=out.numerator[k]-source*d[k];
-        out.numerator[k+1]=out.numerator[k+1]+C<T>(R)*d[k];
-    }
-    for(int j=0;j<3;++j) {
-        std::array<C<T>,3> part{};part[0]=C<T>(T(1));
-        int n=0;
-        for(int k=0;k<3;++k) if(k!=j) {
-            std::array<C<T>,3> next{};
-            for(int i=0;i<=n;++i) {
-                next[i]=next[i]+C<T>(R)*part[i];
-                next[i+1]=next[i+1]-conj(lenses[k])*part[i];
-            }
-            part=next;++n;
-        }
-        for(int k=0;k<3;++k)
-            out.numerator[k+1]=out.numerator[k+1]-C<T>(masses[j])*part[k];
-    }
+    auto& d=out.denominator;
+    d[0]=C<T>(R*r2);
+    d[1]={-r2*(a+b.re),-r2*b.im};
+    d[2]={R*ab.re,R*ab.im};
+    auto& n=out.numerator;
+    n[0]={-source.re*d[0].re,-source.im*d[0].re};
+    n[1]=C<T>(r2*excess)-source*d[1];
+    const T third_weight=excess+m2;
+    n[2]=C<T>{-R*((excess+m1)*a+third_weight*b.re),-R*third_weight*b.im}-source*d[2];
+    const T outer_weight=excess+m1+m2;
+    n[3]={outer_weight*ab.re,outer_weight*ab.im};
     std::array<C<T>,4> h{};
+    const T rho2=rho*rho;
     for(int k=0;k<=3;++k) {
-        for(int j=0;j+k<3;++j)
-            h[k]=h[k]+C<T>(rho*rho)*out.denominator[j+k]*conj(out.denominator[j]);
-        for(int j=0;j+k<4;++j)
-            h[k]=h[k]-out.numerator[j+k]*conj(out.numerator[j]);
+        C<T> area{};
+        for(int j=0;j+k<3;++j)area=area+d[j+k]*conj(d[j]);
+        h[k]={rho2*area.re,rho2*area.im};
+        for(int j=0;j+k<4;++j)h[k]=h[k]-n[j+k]*conj(n[j]);
     }
-    for(int k=0;k<=3;++k) {
-        std::array<C<T>,7> poly{};poly[0]=C<T>(T(1));
-        int n=0;
-        for(int i=0;i<2*k;++i) {
-            std::array<C<T>,7> next{};
-            for(int j=0;j<=n;++j) {
-                next[j]=next[j]+poly[j];
-                next[j+1]=next[j+1]+C<T>(T(0),T(1))*poly[j];
-            }
-            poly=next;++n;
-        }
-        for(int i=0;i<3-k;++i) {
-            std::array<C<T>,7> next{};
-            for(int j=0;j<=n;++j) {
-                next[j]=next[j]+poly[j];next[j+2]=next[j+2]+poly[j];
-            }
-            poly=next;n+=2;
-        }
-        for(int j=0;j<7;++j)
-            out.coefficients[j]=out.coefficients[j]+T(k==0?1:2)*(h[k]*poly[j]).re;
-    }
+    // For t=tan(theta/2), harmonic k contributes the real part of
+    // h[k]*(1+i*t)^(2*k)*(1+t*t)^(3-k), doubled for k>0.
+    // Even powers use only real parts, odd powers only imaginary parts.
+    // Opposite ends of the sextic share these sums and differences.
+    const T even06=h[0].re+T(2)*h[2].re;
+    const T delta06=T(2)*(h[1].re+h[3].re);
+    const T even24=T(3)*h[0].re-T(10)*h[2].re;
+    const T delta24=T(2)*(h[1].re-T(15)*h[3].re);
+    const T odd15=-T(4)*(h[1].im+T(3)*h[3].im);
+    const T delta15=T(8)*h[2].im;
+    out.coefficients={even06+delta06,odd15-delta15,even24+delta24,
+        T(8)*(T(5)*h[3].im-h[1].im),even24-delta24,odd15+delta15,even06-delta06};
     return out;
 }
 template<class T> inline BoundaryT<T> boundary_as(double radius,const Geometry& p) {

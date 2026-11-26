@@ -117,7 +117,7 @@ template<class ComponentFactory=projected_event_detail::NoComponents>
 inline RadialEventPlan projected_radial_event_plan(const Geometry&p,int max_boxes,
         double flux_tolerance,const PartialComponents* components=nullptr,
         const std::vector<projected_event_detail::Guess>* previous_events=nullptr,
-        ComponentFactory make_components={}) {
+        ComponentFactory make_components={},bool try_global_first=false) {
     using namespace projected_event_detail;
     // The measured coefficient tier is the hardware extended significand.
     // Keep the incumbent planner on platforms with software quad or no
@@ -178,7 +178,13 @@ inline RadialEventPlan projected_radial_event_plan(const Geometry&p,int max_boxe
                 out.events.push_back(*event);++out.resultant_events;continue;
             }
         }
-        if(n.depth>=12){unresolved_s.emplace_back(left.lo,right.hi);continue;}
+        // Every child coefficient is a convex combination of the parent
+        // coefficients. If each interval already contains zero, no descendant
+        // can have a strict sign under interval subdivision. Hand the entire
+        // cell to the physical solver now.
+        const bool indeterminate=count<0 && std::all_of(n.coefficients.begin(),
+            n.coefficients.end(),[](I c){return c.lo<=0 && c.hi>=0;});
+        if(indeterminate || n.depth>=12){unresolved_s.emplace_back(left.lo,right.hi);continue;}
         auto halves=resultant_detail::split(n.coefficients);
         pending.push_back({2*n.index+1,n.depth+1,halves.second});
         pending.push_back({2*n.index,n.depth+1,halves.first});
@@ -199,7 +205,21 @@ inline RadialEventPlan projected_radial_event_plan(const Geometry&p,int max_boxe
     if(cover.unresolved.empty() && out.events.empty() && (!partial || components->events.empty())) {
         out.reason="resultant_empty_events";return out;
     }
-    return radial_event_plan(p,max_boxes-out.resultant_nodes,flux_tolerance,
+    // For a uniform source the radial integrand needs only the total arc
+    // length. A single certified complement avoids constructing a second
+    // event plan and quadrature domain per regular image. If the coarse
+    // search runs out of work, spend the remaining budget on components.
+    int remaining=max_boxes-out.resultant_nodes;
+    int first_boxes=0;
+    if(try_global_first && !components && !cover.unresolved.empty() && remaining>=16384) {
+        auto direct=radial_event_plan(p,8192,flux_tolerance,nullptr,&cover);
+        if(direct.completed)return direct;
+        first_boxes=std::min(8192,direct.boxes);
+        remaining-=first_boxes;
+    }
+    auto result=radial_event_plan(p,remaining,flux_tolerance,
         cover.unresolved.empty()?components:fallback_components(),&cover);
+    result.boxes+=first_boxes;
+    return result;
 }
 }

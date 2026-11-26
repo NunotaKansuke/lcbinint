@@ -14,9 +14,10 @@ namespace lcbinint::algebraic_boundary::exact_support_detail {
             if(x!=0) {
                 int exponent;
                 double mantissa=std::frexp(x, &exponent);
-                n=static_cast<long long>(std::ldexp(mantissa, 53));
-                e=exponent-53;
-                normalize();
+                const auto digits=static_cast<long long>(std::ldexp(mantissa,53));
+                const int zeros=__builtin_ctzll(static_cast<unsigned long long>(digits));
+                n=digits/(1LL<<zeros);
+                e=exponent-53+zeros;
             }
         }
         void normalize() {
@@ -39,8 +40,11 @@ namespace lcbinint::algebraic_boundary::exact_support_detail {
         if(b.n==0)return a;
         Dyadic r;
         r.e=std::min(a.e, b.e);
-        r.n=(a.n<<(a.e-r.e))+(b.n<<(b.e-r.e));
-        r.normalize();
+        // At different exponents one aligned numerator is even and the
+        // other is odd, so their sum is already in lowest terms.
+        if(a.e>b.e)r.n=(a.n<<(a.e-b.e))+b.n;
+        else if(b.e>a.e)r.n=a.n+(b.n<<(b.e-a.e));
+        else {r.n=a.n+b.n;r.normalize();}
         return r;
     }
     inline Dyadic operator-(const Dyadic&a, const Dyadic&b) {
@@ -194,15 +198,14 @@ namespace lcbinint::algebraic_boundary::exact_support_detail {
         constexpr int denominator=24024;
         first=Box{};
         first.hi=vmax;
-        for(int i=0; i<=14; ++i) {
-            int choose=1;
-            for(int k=0; k<=i; ++k) {
-                if(k)choose=choose*(i-k+1)/k;
-                Integer term=p.c[k].n;
-                term<<=p.c[k].e+power*k-base;
-                first.b[i]+=term*(denominator/binomial[k])*choose;
-            }
+        // Each output is the binomial transform of the scaled power
+        // coefficients. Pascal summation needs only exact integer additions.
+        for(int k=0;k<=14;++k) {
+            first.b[k]=p.c[k].n*(denominator/binomial[k]);
+            first.b[k]<<=p.c[k].e+power*k-base;
         }
+        for(int row=1;row<=14;++row)
+            for(int k=14;k>=row;--k)first.b[k]+=first.b[k-1];
         return true;
     }
     inline Result isolate(const lcbinint::algebraic_boundary::PrimaryFrame& pf, int maximum_nodes=2048) {

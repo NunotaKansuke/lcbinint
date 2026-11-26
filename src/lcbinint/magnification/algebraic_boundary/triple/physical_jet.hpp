@@ -74,6 +74,21 @@ template<class T> std::optional<Jet<T>> physical(T radius,T coordinate,const Geo
 template<class T> coefficient_detail::C<T> real_scale(coefficient_detail::C<T> z,T scale) {
     return {z.re*scale,z.im*scale};
 }
+// Integer powers of two with magnitude >= 1 scale binary endpoints
+// exactly, including subnormals. Leave overflow unbounded.
+template<int Factor,class T> inline T scale_dyadic(T x) {
+    static_assert(Factor==2 || Factor==-2 || Factor==-4);
+    return T(Factor)*x;
+}
+template<int Factor> inline interval_detail::Interval<double> scale_dyadic(interval_detail::Interval<double> x) {
+    static_assert(Factor==2 || Factor==-2 || Factor==-4);
+    const double lo=Factor*(Factor>0?x.lo:x.hi),hi=Factor*(Factor>0?x.hi:x.lo);
+    constexpr double limit=std::numeric_limits<double>::max();
+    return {std::min(lo,limit),std::max(hi,-limit)};
+}
+template<class T> inline coefficient_detail::C<T> complex_square(coefficient_detail::C<T> z) {
+    return {square_value(z.re)-square_value(z.im),scale_dyadic<2>(z.re*z.im)};
+}
 template<class T> struct AngularEvaluation {T v,t;};
 // A radial quadrature node uses the same primary term and source/lenses
 // for every Newton iterate and every endpoint proof. Prepare them once.
@@ -94,18 +109,18 @@ public:
         const T one(1),t2=square_value(coordinate),den=one+t2;
         if(!valid_ || !positive_value(den))return std::nullopt;
         const T inv=reciprocal_value(den),inv2=inv*inv;
-        const C unit{orient((one-t2)*inv,chart),orient(T(2)*coordinate*inv,chart)};
+        const C unit{orient((one-t2)*inv,chart),orient(scale_dyadic<2>(coordinate)*inv,chart)};
         const C z=real_scale(unit,radius_);
-        const C tangent{orient(T(-4)*coordinate*inv2,chart),orient(T(2)*(one-t2)*inv2,chart)};
+        const C tangent{orient(scale_dyadic<-4>(coordinate)*inv2,chart),orient(scale_dyadic<2>(one-t2)*inv2,chart)};
         C g=real_scale(unit,radial_)-source_,shear{};
         for(int j=0;j<2;++j) {
             const C d=coefficient_detail::conj(z-lenses_[j]);const T norm=square_value(d.re)+square_value(d.im);
             if(!positive_value(norm))return std::nullopt;
             const C inverse=real_scale(coefficient_detail::conj(d),reciprocal_value(norm));
-            g=g-real_scale(inverse,masses_[j]);shear=shear+real_scale(inverse*inverse,masses_[j]);
+            g=g-real_scale(inverse,masses_[j]);shear=shear+real_scale(complex_square(inverse),masses_[j]);
         }
         const C dg=real_scale(tangent,radial_)+coefficient_detail::conj(real_scale(tangent,radius_))*shear;
-        return AngularEvaluation<T>{rho_squared_-square_value(g.re)-square_value(g.im),T(-2)*(g.re*dg.re+g.im*dg.im)};
+        return AngularEvaluation<T>{rho_squared_-square_value(g.re)-square_value(g.im),scale_dyadic<-2>(g.re*dg.re+g.im*dg.im)};
     }
     // Spatial event derivatives use the lens-map inverse powers already
     // needed for F and F_t. Build higher derivatives only if exclusion fails.
@@ -113,42 +128,42 @@ public:
         const T one(1),t2=square_value(coordinate),den=one+t2;
         if(!valid_ || !positive_value(den))return std::nullopt;
         const T inv=reciprocal_value(den),inv2=inv*inv;
-        const C unit{orient((one-t2)*inv,chart),orient(T(2)*coordinate*inv,chart)};
-        const C tangent{orient(T(-4)*coordinate*inv2,chart),orient(T(2)*(one-t2)*inv2,chart)};
+        const C unit{orient((one-t2)*inv,chart),orient(scale_dyadic<2>(coordinate)*inv,chart)};
+        const C tangent{orient(scale_dyadic<-4>(coordinate)*inv2,chart),orient(scale_dyadic<2>(one-t2)*inv2,chart)};
         const C z=real_scale(unit,radius_);
         C g=real_scale(unit,radial_)-source_,shear{};
-        std::array<C,2> inverses;
+        std::array<C,2> inverses,squares;
         for(int j=0;j<2;++j) {
             const C d=coefficient_detail::conj(z-lenses_[j]);const T norm=square_value(d.re)+square_value(d.im);
             if(!positive_value(norm))return std::nullopt;
             const C v=real_scale(coefficient_detail::conj(d),reciprocal_value(norm));
-            inverses[j]=v;g=g-real_scale(v,masses_[j]);shear=shear+real_scale(v*v,masses_[j]);
+            inverses[j]=v;squares[j]=complex_square(v);g=g-real_scale(v,masses_[j]);shear=shear+real_scale(squares[j],masses_[j]);
         }
         const C gt=real_scale(tangent,radial_)+coefficient_detail::conj(real_scale(tangent,radius_))*shear;
         Jet<T> out;out.v=rho_squared_-square_value(g.re)-square_value(g.im);
-        out.t=T(-2)*(g.re*gt.re+g.im*gt.im);
+        out.t=scale_dyadic<-2>(g.re*gt.re+g.im*gt.im);
         if constexpr(std::is_same_v<T,interval_detail::Interval<double>>) {
             if(exclude_first && (std::abs(out.v.sign())==1 || std::abs(out.t.sign())==1))return out;
         }
-        C third{};for(int j=0;j<2;++j)third=third+real_scale(inverses[j]*inverses[j]*inverses[j],masses_[j]);
+        C third{};for(int j=0;j<2;++j)third=third+real_scale(squares[j]*inverses[j],masses_[j]);
         const T inv3=inv2*inv;
-        const C second{orient(T(-4)*(one-T(3)*t2)*inv3,chart),orient(T(-4)*coordinate*(T(3)-t2)*inv3,chart)};
+        const C second{orient(scale_dyadic<-4>(one-T(3)*t2)*inv3,chart),orient(scale_dyadic<-4>(coordinate)*(T(3)-t2)*inv3,chart)};
         const T radial_r=one+(one-masses_[0]-masses_[1])*reciprocal_value(square_value(radius_));
         const C gr=real_scale(unit,radial_r)+coefficient_detail::conj(unit)*shear;
         const C grt=real_scale(tangent,radial_r)+coefficient_detail::conj(tangent)*shear-
-            real_scale(coefficient_detail::conj(unit)*coefficient_detail::conj(tangent)*third,T(2)*radius_);
+            real_scale(coefficient_detail::conj(unit)*coefficient_detail::conj(tangent)*third,scale_dyadic<2>(radius_));
         const C gtt=real_scale(second,radial_)+coefficient_detail::conj(real_scale(second,radius_))*shear-
-            real_scale(coefficient_detail::conj(tangent)*coefficient_detail::conj(tangent)*third,T(2)*radius_*radius_);
-        out.r=T(-2)*(g.re*gr.re+g.im*gr.im);
-        out.rt=T(-2)*(gr.re*gt.re+gr.im*gt.im+g.re*grt.re+g.im*grt.im);
-        out.tt=T(-2)*(square_value(gt.re)+square_value(gt.im)+g.re*gtt.re+g.im*gtt.im);
+            real_scale(coefficient_detail::conj(tangent)*coefficient_detail::conj(tangent)*third,scale_dyadic<2>(radius_)*radius_);
+        out.r=scale_dyadic<-2>(g.re*gr.re+g.im*gr.im);
+        out.rt=scale_dyadic<-2>(gr.re*gt.re+gr.im*gt.im+g.re*grt.re+g.im*grt.im);
+        out.tt=scale_dyadic<-2>(square_value(gt.re)+square_value(gt.im)+g.re*gtt.re+g.im*gtt.im);
         return out;
     }
     std::optional<T> value(T coordinate,bool chart) const {
         const T one(1),t2=square_value(coordinate),den=one+t2;
         if(!valid_ || !positive_value(den))return std::nullopt;
         const T inv=reciprocal_value(den);
-        const C unit{orient((one-t2)*inv,chart),orient(T(2)*coordinate*inv,chart)};
+        const C unit{orient((one-t2)*inv,chart),orient(scale_dyadic<2>(coordinate)*inv,chart)};
         const C z=real_scale(unit,radius_);
         C g=real_scale(unit,radial_)-source_;
         for(int j=0;j<2;++j) {

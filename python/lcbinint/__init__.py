@@ -964,15 +964,14 @@ class LightCurve:
             )
             values = np.asarray(raw["mu"], dtype=float).reshape(-1)
             converged = np.asarray(raw["fully_converged"], dtype=bool).reshape(-1)
-            converged &= np.isfinite(values)
+            # lightcurve_value has already checked every magnification.
             support = np.asarray(raw["support_certified"], dtype=bool).reshape(-1)
             integrated = np.asarray(raw["integrator_used"], dtype=bool).reshape(-1)
             value_converged = np.asarray(raw["value_converged"], dtype=bool).reshape(-1)
-            value_converged = value_converged & np.isfinite(values)
             seeds = np.asarray(raw["seed_support_proven"], dtype=bool).reshape(-1)
             discovery = np.asarray(raw["frontier_discovery_completed"], dtype=bool).reshape(-1)
-            raw["value_fallback_used"] = np.zeros(values.shape, dtype=bool)
-            raw["value_fallback_kind"] = np.full(values.shape, "none")
+            if with_diagnostics:
+                raw["value_fallback_kind"] = raw["value_fallback_kind"].astype(str)
             status = np.where(
                 ~value_converged,
                 LightCurveInfo.UNCONVERGED,
@@ -992,7 +991,7 @@ class LightCurve:
                 status=status,
                 value_converged=value_converged,
                 support_certified=support,
-                diagnostics=raw,
+                diagnostics=raw if with_gradient or with_diagnostics else None,
                 seed_support_proven=seeds,
                 frontier_discovery_completed=discovery,
                 support_required=integrated,
@@ -1121,11 +1120,13 @@ class LightCurve:
         names = core + extra
         unsupported = {"limb_darkening_c", "limb_darkening_d"} & set(names)
         active = tuple(k for k in names if k not in unsupported)
-        initial = jnp.asarray(
+        # This mapping is the eager native path. Pack the host scalars once
+        # and let the compiled transform transfer both arguments at dispatch.
+        initial = np.asarray(
             [parameters[k] if k in parameters else _value(parameters, k) for k in active],
-            dtype=jnp.float64,
+            dtype=np.float64,
         )
-        epochs = jnp.atleast_1d(jnp.asarray(times, dtype=jnp.float64))
+        epochs = np.atleast_1d(np.asarray(times, dtype=np.float64))
 
         def geometry(vector, epochs):
             p = dict(parameters, **dict(zip(active, vector)))
@@ -1146,10 +1147,10 @@ class LightCurve:
         transform = np.asarray(cached[1](initial, epochs))
         local = np.asarray(diagnostics["local_gradients"])
         mapped = np.einsum("ni,nip->np", local, transform)
-        gradients = np.full((len(epochs), len(names)), np.nan)
-        for i, name in enumerate(active):
-            gradients[:, names.index(name)] = mapped[:, i]
+        gradients = mapped
         if unsupported:
+            gradients = np.full((len(epochs), len(names)), np.nan)
+            gradients[:, [names.index(name) for name in active]] = mapped
             gradients = self._fill_missing_gradient_candidates(
                 times, merged, names, gradients,
                 force_columns=(names.index(k) for k in unsupported),
@@ -1500,7 +1501,7 @@ class LightCurve:
         )
         if not with_gradient:
             return (
-                result if with_diagnostics
+                result if with_diagnostics or result.diagnostics is None
                 else replace(result, diagnostics=None)
             )
 

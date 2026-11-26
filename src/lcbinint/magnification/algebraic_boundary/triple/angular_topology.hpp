@@ -74,36 +74,150 @@ template<class T> int variations(const Polynomial<T>& b) {
 template<class T> I<T> power_value(const Polynomial<T>& p,int degree,I<T> x) {
     I<T> y=p[degree];for(int j=degree-1;j>=0;--j)y=y*x+p[j];return y;
 }
+// Within the two compact charts, a degree-six Horner recurrence cannot
+// overflow if every input is below max/16. Establish this once per solve.
+template<class T> struct PowerEvaluator {
+    const Polynomial<T>& p;
+    int degree;
+    bool bounded=false;
+    PowerEvaluator(const Polynomial<T>& polynomial,int n,double lo,double hi):p(polynomial),degree(n) {
+#if defined(__SSE2__)
+        if constexpr(std::is_same_v<T,double>) {
+            bounded=lo>=-1 && hi<=1;
+            constexpr double limit=std::numeric_limits<double>::max()/16;
+            for(int j=0;j<=degree;++j)
+                bounded=bounded && p[j].lo>-limit && p[j].hi<limit && p[j].lo<=p[j].hi;
+        }
+#endif
+    }
+    I<T> operator()(I<T> x)const {
+#if defined(__SSE2__)
+        if constexpr(std::is_same_v<T,double>)if(bounded && x.lo==x.hi) {
+            using namespace interval_detail;
+            if(x.lo==0)return p[0];
+            const auto scale=_mm_set1_pd(std::abs(x.lo));
+            auto y=signed_endpoints(p[degree]);
+            for(int j=degree-1;j>=0;--j) {
+                if(x.lo<0)y=_mm_shuffle_pd(y,y,1);
+                y=packed_up(_mm_mul_pd(y,scale));
+                if(!p[j].zero())y=packed_up(_mm_add_pd(y,signed_endpoints(p[j])));
+            }
+            return endpoints(y);
+        }
+#endif
+        return power_value(p,degree,x);
+    }
+};
+// Abel's identity writes p(x) on [0,1] as a convex combination of
+// its coefficient prefix sums, with weights (1-x)*x^j and x^degree.
+// Check both half charts, using p(-x) on the negative half. A failed
+// sign test leaves the existing critical-point isolation in charge.
+template<class T> bool excludes_unit_chart(const Polynomial<T>& p,int degree,double lo,double hi) {
+    const int sign=p[0].sign();
+    if(std::abs(sign)!=1 || lo<-1 || hi>1)return false;
+    T positive=sign>0?p[0].lo:-p[0].hi,negative=positive;
+    for(int j=1;j<=degree;++j) {
+        const auto c=sign>0?p[j]:-p[j];
+        if(!c.valid())return false;
+        if(hi>0) {
+            positive=enclosure::down(positive+c.lo);
+            if(!(positive>0))return false;
+        }
+        if(lo<0) {
+            negative=enclosure::down(negative+(j%2?-c.hi:c.lo));
+            if(!(negative>0))return false;
+        }
+    }
+    return true;
+}
+// At the bottom of derivative isolation, enclose both quadratic roots
+// directly. A sign-uncertain discriminant, a chart edge, or a wide root
+// enclosure is left to the monotonicity solver.
+inline bool quadratic_roots(const Polynomial<double>& p,double lo,double hi,double tolerance,
+        std::vector<std::pair<double,double>>& roots) {
+    const auto a=p[2],b=p[1],c=p[0];
+    const auto disc=physical_detail::square_value(b)-I<double>(4)*a*c;
+    if(!disc.valid())return false;
+    if(disc.hi<0)return true;
+    if(!(disc.lo>0))return false;
+    const I<double> radical(enclosure::down(std::sqrt(disc.lo)),enclosure::up(std::sqrt(disc.hi)));
+    // Using q/a and c/q avoids cancellation at the smaller root.
+    const auto q=I<double>(-.5)*(b+(b.lo>=0?radical:-radical));
+    auto inverse=[](I<double> v){return I<double>(enclosure::down(1/v.hi),enclosure::up(1/v.lo));};
+    if(!q.valid() || std::abs(q.sign())!=1 || std::abs(a.sign())!=1)return false;
+    auto left=q*inverse(a),right=c*inverse(q);
+    if(left.lo>right.lo)std::swap(left,right);
+    if(!left.valid() || !right.valid() || left.hi>=right.lo)return false;
+    for(auto x:{left,right}) {
+        if(x.hi<lo || x.lo>hi)continue;
+        if(x.lo<=lo || x.hi>=hi || !(x.hi>x.lo) || x.hi-x.lo>tolerance)return false;
+    }
+    for(auto x:{left,right})if(x.lo>lo && x.hi<hi)roots.emplace_back(x.lo,x.hi);
+    return true;
+}
 // A complete real-root count by derivative monotonicity. Every critical
 // interval is enclosed recursively and must exclude a zero of its parent.
 // Ambiguous signs retain the general Bernstein fallback below.
 template<class T> bool monotone_roots(const Polynomial<T>& p,int degree,double lo,double hi,
-        double tolerance,std::vector<std::pair<double,double>>& roots,int& work,int budget) {
+        double tolerance,std::vector<std::pair<double,double>>& roots,int& work,int budget,bool use_proposals=false) {
     if(++work>budget)return false;
     while(degree>0 && p[degree].zero())--degree;
     if(!p[degree].valid() || p[degree].sign()==2)return false;
     if(degree==0)return p[0].sign()==1 || p[0].sign()==-1;
+    if(degree>=3 && excludes_unit_chart(p,degree,lo,hi))return true;
+    if constexpr(std::is_same_v<T,double>)
+        if(degree==2 && quadratic_roots(p,lo,hi,tolerance,roots))return true;
     Polynomial<T> derivative{};
     for(int j=1;j<=degree;++j)derivative[j-1]=I<T>(j)*p[j];
     std::vector<std::pair<double,double>> critical;
     if(degree>1 && !monotone_roots(derivative,degree-1,lo,hi,
-            std::max(tolerance,1e-9),critical,work,budget))return false;
-    for(auto band:critical) {
-        auto v=power_value(p,degree,I<T>(T(band.first),T(band.second)));
-        if(v.sign()!=1 && v.sign()!=-1)return false;
-    }
+            std::max(tolerance,1e-9),critical,work,budget,use_proposals))return false;
+    const PowerEvaluator<T> evaluate(p,degree,lo,hi);
+    // A simple crossing in a monotone segment is already unique. Find a
+    // candidate with scalar Newton steps and verify its two endpoint signs.
+    // Any failed proposal leaves the original interval Newton solve intact.
+    std::array<double,7> center{};
+    if(use_proposals)for(int j=0;j<=degree;++j)center[j]=double(p[j].lo*.5+p[j].hi*.5);
+    auto propose=[&](double& a,double& b,int orientation) {
+        double x=a+(b-a)*.5,l=a,h=b;
+        for(int iteration=0;iteration<16;++iteration) {
+            double f=center[degree],slope=0;
+            for(int j=degree-1;j>=0;--j){slope=slope*x+f;f=f*x+center[j];}
+            if(!std::isfinite(f) || slope==0)return false;
+            const double step=f/slope;
+            if(std::abs(step)<.125*tolerance) {
+                const double lo=std::max(a,x-.375*tolerance),hi=std::min(b,x+.375*tolerance);
+                if(hi>lo && hi-lo<=tolerance && evaluate(I<T>(lo)).sign()==orientation &&
+                   evaluate(I<T>(hi)).sign()==-orientation){a=lo;b=hi;return true;}
+                return false;
+            }
+            if((f>0)==(orientation>0))l=x;else h=x;
+            const double next=x-step;
+            x=next>l && next<h?next:l+(h-l)*.5;
+        }
+        return false;
+    };
     double left=lo;
+    int sl=evaluate(I<T>(left)).sign();
+    if(sl!=1 && sl!=-1)return false;
     for(std::size_t k=0;k<=critical.size();++k) {
-        double right=k<critical.size()?critical[k].first:hi;
-        auto fl=power_value(p,degree,I<T>(left)),fr=power_value(p,degree,I<T>(right));
-        int sl=fl.sign(),sr=fr.sign();
-        if((sl!=1 && sl!=-1) || (sr!=1 && sr!=-1))return false;
+        const bool has_band=k<critical.size();
+        const double right=has_band?critical[k].first:hi;
+        // A strict interval sign is valid at both ends of the critical band.
+        // Carry it across the band to the following monotone segment.
+        const I<T> band(T(right),T(has_band?critical[k].second:right));
+        const int sr=evaluate(band).sign();
+        if(sr!=1 && sr!=-1)return false;
         if(sl!=sr) {
             double a=left,b=right;
+            if(use_proposals && b-a>tolerance) {
+                if(++work>budget)return false;
+                propose(a,b,sl);
+            }
             for(int iteration=0;iteration<64 && b-a>tolerance;++iteration) {
                 if(++work>budget)return false;
                 const double m=a+(b-a)*.5;
-                const auto fm=power_value(p,degree,I<T>(m));
+                const auto fm=evaluate(I<T>(m));
                 const auto d=power_value(derivative,degree-1,I<T>(T(a),T(b)));
                 bool contracted=false;
                 if(d.valid() && (d.lo>0 || d.hi<0)) {
@@ -118,29 +232,31 @@ template<class T> bool monotone_roots(const Polynomial<T>& p,int degree,double l
                 if(!contracted) {
                     const int sm=fm.sign();
                     if(sm!=1 && sm!=-1)return false;
-                    // Recover a sign bracket after a Newton contraction.
-                    const int sa=power_value(p,degree,I<T>(a)).sign();
-                    if(sa!=1 && sa!=-1)return false;
-                    if(sa==sm)a=m;else b=m;
+                    // Contraction preserves the unique root in [a,b]. Its
+                    // orientation is fixed throughout this monotone segment,
+                    // including when the root coincides with a new endpoint.
+                    if(sl==sm)a=m;else b=m;
                 }
             }
             if(!(b>a) || b-a>tolerance)return false;
             roots.emplace_back(a,b);
         }
-        if(k<critical.size())left=critical[k].second;
+        if(has_band){left=critical[k].second;sl=sr;}
     }
     return true;
 }
 template<class T=double> inline bool contract_physical(double radius,const Geometry& p,bool chart,double& lo,double& hi,
                                double tolerance) {
+    if(2*(hi-lo)<=tolerance)return true;
+    const physical_detail::Ray<I<T>> ray(I<T>(radius),p);
     for(int iteration=0;iteration<16;++iteration) {
         if(2*(hi-lo)<=tolerance)return true;
         const double mid=lo+(hi-lo)*.5;
-        const auto f=physical_detail::angular(I<T>(radius),I<T>(mid),p,chart);
-        const auto range=physical_detail::angular(I<T>(radius),I<T>(lo,hi),p,chart);
+        const auto f=ray.value(I<T>(mid),chart);
+        const auto range=ray.angular(I<T>(lo,hi),chart);
         if(!f || !range || !range->t.valid() || !(range->t.lo>0 || range->t.hi<0))return false;
         const auto inv=I<T>(enclosure::down(1/range->t.hi),enclosure::up(1/range->t.lo));
-        const auto candidate=I<T>(mid)-f->v*inv;
+        const auto candidate=I<T>(mid)-(*f)*inv;
         double lower=double(candidate.lo),upper=double(candidate.hi);
         if(T(lower)>candidate.lo)lower=std::nextafter(lower,-INFINITY);
         if(T(upper)<candidate.hi)upper=std::nextafter(upper,INFINITY);
@@ -211,6 +327,7 @@ struct AngularOptions {
     bool fast_roots=true;
     const std::vector<ImageExclusion>* exclusions=nullptr;
     const ImageExclusion* inclusion=nullptr;
+    bool uniform_shortcuts=false;
 };
 struct AngularTopology {
     boost::container::small_vector<AngularBracket,6> roots;
@@ -259,14 +376,23 @@ inline AngularTopology finish_topology(AngularTopology out,double R,const Geomet
         double hi=std::nextafter(std::tan((root.hi-shift)*.5)+pad,INFINITY);
         bool ok=angular_detail::contract_physical(R,p,chart,lo,hi,1e-12);
         if(!ok && options.allow_quad) {
-            ++out.quad_promotions;
-            ok=angular_detail::contract_physical<__float128>(R,p,chart,lo,hi,1e-12);
-            ++out.quad_boxes;
+            if constexpr(std::numeric_limits<long double>::digits==64)
+                ok=angular_detail::contract_physical<long double>(R,p,chart,lo,hi,1e-12);
+            if(!ok) {
+                ++out.quad_promotions;
+                ok=angular_detail::contract_physical<__float128>(R,p,chart,lo,hi,1e-12);
+                ++out.quad_boxes;
+            }
         }
         if(!ok)return false;
         root.lo=std::max(root.lo,std::nextafter(shift+2*std::atan(lo),-INFINITY));
         root.hi=std::min(root.hi,std::nextafter(shift+2*std::atan(hi),INFINITY));
         return root.hi>root.lo;
+    };
+    // Once two proposals have identical brackets, deterministic contraction
+    // of either one gives the same interval. Let the caller re-isolate roots.
+    const auto identical=[](AngularBracket a,AngularBracket b) {
+        return a.lo==b.lo && a.hi==b.hi;
     };
     auto precise_bracket=[&](AngularBracket& root,double goal) {
         using Q=__float128;using IQ=angular_detail::I<Q>;
@@ -281,7 +407,8 @@ inline AngularTopology finish_topology(AngularTopology out,double R,const Geomet
         if(Q(lo)>a)lo=std::nextafter(lo,-INFINITY);
         if(Q(hi)<b)hi=std::nextafter(hi,INFINITY);
         ++out.quad_promotions;
-        const auto sign=[&](double t){const auto q=physical_detail::angular(IQ(R),IQ(t),p,chart);return q?q->v.sign():2;};
+        const physical_detail::Ray<IQ> ray(IQ(R),p);
+        const auto sign=[&](double t){const auto q=ray.value(IQ(t),chart);return q?q->sign():2;};
         int sl=sign(lo),sh=sign(hi);if((sl!=1&&sl!=-1)||(sh!=1&&sh!=-1)||sl==sh)return false;
         for(int iteration=0;iteration<80 && 2*(hi-lo)>goal;++iteration){
             if(angular_detail::contract_physical<Q>(R,p,chart,lo,hi,goal))break;
@@ -325,11 +452,13 @@ inline AngularTopology finish_topology(AngularTopology out,double R,const Geomet
         // Coarse flux-budget brackets can touch even though isolation proved
         // distinct roots. Tighten only this pair, preserving other roots and
         // their completeness certificate.
+        if(identical(out.roots[i-1],out.roots[i])) {out.reason="overlapping_root_brackets";return out;}
         if(options.endpoint_tolerance>1e-12) {
             repair_bracket(out.roots[i-1]);repair_bracket(out.roots[i]);
         }
         if(options.allow_quad)for(int attempt=0;attempt<8 && out.roots[i-1].hi>=out.roots[i].lo;++attempt){
             const auto& a=out.roots[i-1];const auto& b=out.roots[i];
+            if(identical(a,b))break;
             double goal=std::min(1e-12,.125*std::max(std::abs((b.lo+b.hi-a.lo-a.hi)*.5),std::min(a.hi-a.lo,b.hi-b.lo)));
             goal=std::max(1e-30,std::ldexp(goal,-4*attempt));
             if(!precise_bracket(out.roots[i-1],goal)||!precise_bracket(out.roots[i],goal))break;
@@ -379,17 +508,21 @@ inline AngularTopology finish_topology(AngularTopology out,double R,const Geomet
 // Promote only one unresolved continued root. Previously proved siblings and
 // the band's crossing count remain valid; no new global sextic isolation is
 // needed merely because this root's binary64 residual is cancellation-limited.
-inline std::optional<AngularBracket> continued_root_quad(double R,double coordinate,bool chart,
+template<class Q> inline std::optional<AngularBracket> continued_root_precise(double R,double coordinate,bool chart,
         const Geometry& p,const AngularOptions& options) {
-    using namespace angular_detail;using Q=__float128;using IQ=I<Q>;
+    using namespace angular_detail;using IQ=I<Q>;
+    const physical_detail::Ray<Q> scalar_ray(Q(R),p);
+    const physical_detail::Ray<IQ> proof_ray(IQ(R),p);
     Q t=coordinate;
     for(int iteration=0;iteration<12;++iteration) {
-        const auto f=physical_detail::angular(Q(R),t,p,chart);
+        const auto f=scalar_ray.angular(t,chart);
         if(!f || f->t==0 || !finiteq(f->v) || !finiteq(f->t))return std::nullopt;
         const Q step=f->v/f->t;
         if(!finiteq(step) || fabsq(step)>Q(.1))return std::nullopt;
         t-=step;
-        if(fabsq(step)<Q(1e-30)*(1+fabsq(t)))break;
+        if constexpr(std::is_same_v<Q,long double>) {
+            if(std::abs(step)<4*std::numeric_limits<Q>::epsilon()*(1+std::abs(t)))break;
+        } else if(fabsq(step)<Q(1e-30)*(1+fabsq(t)))break;
     }
     auto angle_bracket=[&](IQ k)->std::optional<AngularBracket> {
         auto lower=[](Q x){double d=double(x);return Q(d)>x?std::nextafter(d,-INFINITY):d;};
@@ -405,20 +538,21 @@ inline std::optional<AngularBracket> continued_root_quad(double R,double coordin
     };
     const Q sign_width=Q(options.endpoint_tolerance)*Q(.15);
     const IQ bracket(enclosure::down(t-sign_width),enclosure::up(t+sign_width));
-    const auto left=physical_detail::boundary_value(IQ(Q(R),Q(R)),IQ(bracket.lo,bracket.lo),p,chart);
-    const auto right=physical_detail::boundary_value(IQ(Q(R),Q(R)),IQ(bracket.hi,bracket.hi),p,chart);
+    const auto left=proof_ray.value(IQ(bracket.lo,bracket.lo),chart);
+    const auto right=proof_ray.value(IQ(bracket.hi,bracket.hi),chart);
     if(left && right && left->sign()*right->sign()==-1) {
         auto result=angle_bracket(bracket);
         if(result)return result;
     }
-    const auto point=physical_detail::angular(IQ(Q(R),Q(R)),IQ(t,t),p,chart);
-    const auto f=physical_detail::angular(Q(R),t,p,chart);
+    if constexpr(std::is_same_v<Q,long double>)return std::nullopt;
+    const auto point=proof_ray.angular(IQ(t,t),chart);
+    const auto f=scalar_ray.angular(t,chart);
     if(!point || !f || f->t==0)return std::nullopt;
     const IQ A(Q(1)/f->t,Q(1)/f->t);
     Q width=Q(options.endpoint_tolerance)*Q(.1);
     for(int attempt=0;attempt<8;++attempt) {
         const IQ domain(enclosure::down(t-width),enclosure::up(t+width));
-        const auto range=physical_detail::angular(IQ(Q(R),Q(R)),domain,p,chart);
+        const auto range=proof_ray.angular(domain,chart);
         if(range) {
             const auto residual=IQ(1)-A*range->t;
             const auto k=IQ(t,t)-A*point->v+residual*(domain-IQ(t,t));
@@ -431,6 +565,45 @@ inline std::optional<AngularBracket> continued_root_quad(double R,double coordin
     }
     return std::nullopt;
 }
+// A point evaluation, separate from the interval proof for a whole box.
+// Bound forward error in the factored lens map before squaring its residual.
+// This avoids expanded-polynomial cancellation at a faint companion pole.
+class AngularPointSign {
+    using T=long double;
+    static constexpr T eps=std::numeric_limits<T>::epsilon();
+    const Geometry& p_;
+    T r_,primary_,base_error_;
+public:
+    AngularPointSign(double R,const Geometry& p):p_(p),r_(R) {
+        primary_=r_-(T(1)-T(p.m1)-T(p.m2))/r_;
+        base_error_=64*eps*(1+r_+(1+std::abs(T(p.m1))+std::abs(T(p.m2)))/r_+
+            std::abs(T(p.X))+std::abs(T(p.Y)));
+    }
+    int operator()(double coordinate,bool chart)const {
+        if constexpr(std::numeric_limits<T>::digits!=64 || std::numeric_limits<T>::max_exponent<8192)return 0;
+        if(!(std::abs(coordinate)<=5))return 0;
+        const T t=coordinate,square=t*t,factor=(chart?T(-1):T(1))/(1+square);
+        const T u=(1-square)*factor,v=2*t*factor;
+        T gx=primary_*u-p_.X,gy=primary_*v-p_.Y,err=base_error_;
+        for(int j=0;j<2;++j) {
+            const T x=j?p_.bx:p_.a,y=j?p_.by:0,m=j?p_.m2:p_.m1;
+            const T dx=r_*u-x,dy=r_*v-y,lower=std::max(std::abs(dx),std::abs(dy));
+            // Position, chart and subtraction errors in Euclidean norm.
+            const T shift=32*eps*(1+r_+std::abs(x)+std::abs(y));
+            if(!(lower>2*shift))return 0;
+            const T scale=m/(dx*dx+dy*dy);
+            gx-=dx*scale;gy-=dy*scale;
+            // The exact inversion map changes by |delta|/(|z| |z+delta|).
+            // Include rounded reciprocal, scaling and both accumulated sums.
+            err+=std::abs(m)/lower*(2*shift/lower+32*eps)+
+                16*eps*(std::abs(gx)+std::abs(gy));
+        }
+        const T norm=gx*gx+gy*gy,rho2=T(p_.rho)*p_.rho,delta=rho2-norm;
+        err*=2;
+        const T bound=2*err*(std::abs(gx)+std::abs(gy)+err)+16*eps*(rho2+norm);
+        return delta>bound?1:delta<-bound?-1:0;
+    }
+};
 // An event-free radial band certifies the total crossing count. Continue
 // those roots locally, prove disjoint root enclosures, and account for every
 // crossing; the global sextic solver remains the fallback for an unresolved
@@ -456,6 +629,8 @@ inline AngularTopology continued_topology(double R,const Geometry& p,const Angul
     const double pi=std::acos(-1.),eps=std::numeric_limits<double>::epsilon();
     const physical_detail::Ray<double> ray(R,p);
     const physical_detail::Ray<I<double>> proof_ray(I<double>(R),p);
+    std::optional<AngularPointSign> physical_sign;
+    if(options.uniform_shortcuts && options.allow_quad)physical_sign.emplace(R,p);
     std::optional<point_polynomial_detail::Cache<double>::Radius> point_polynomial;
     std::optional<point_polynomial_detail::Cache<long double>::Radius> wide_point_polynomial;
     if(cache && cache->identity==std::array<double,8>{p.X,p.Y,p.rho,p.m1,p.m2,p.a,p.bx,p.by} &&
@@ -463,12 +638,12 @@ inline AngularTopology continued_topology(double R,const Geometry& p,const Angul
         // Polynomial signs imply physical signs only away from lens poles.
         // Verify absence of poles on this whole radius circle once.
         const auto r2=I<double>(R)*I<double>(R);
-        if((r2-I<double>(p.a)*I<double>(p.a)).sign()!=0 &&
-           (r2-I<double>(p.bx)*I<double>(p.bx)-I<double>(p.by)*I<double>(p.by)).sign()!=0) {
+        if(std::abs((r2-I<double>(p.a)*I<double>(p.a)).sign())==1 &&
+           std::abs((r2-I<double>(p.bx)*I<double>(p.bx)-I<double>(p.by)*I<double>(p.by)).sign())==1) {
             if(options.endpoint_tolerance>=1e-10) {
                 if(!cache->point_signs)cache->point_signs=std::make_shared<const point_polynomial_detail::Cache<double>>(cache->lens_context?cache->lens_context->table<double>(p):point_polynomial_detail::Cache<double>(p));
                 point_polynomial=cache->point_signs->at(R);
-            } else if constexpr(std::numeric_limits<long double>::digits==64) {
+            } else if(!options.uniform_shortcuts && std::numeric_limits<long double>::digits==64) {
                 if(!cache->wide_point_signs)cache->wide_point_signs=std::make_shared<const point_polynomial_detail::Cache<long double>>(cache->lens_context?cache->lens_context->table<long double>(p):point_polynomial_detail::Cache<long double>(p));
                 wide_point_polynomial=cache->wide_point_signs->at(R);
             }
@@ -517,6 +692,10 @@ inline AngularTopology continued_topology(double R,const Geometry& p,const Angul
         auto sign_at=[&](double t) {
             if(point_polynomial){const int sign=point_polynomial->sign(t,chart);if(sign)return sign;}
             if(wide_point_polynomial){const int sign=wide_point_polynomial->sign(t,chart);if(sign)return sign;}
+            if(physical_sign) {
+                const int sign=(*physical_sign)(t,chart);
+                if(sign)return sign;
+            }
             const auto value=proof_ray.value(I<double>(t),chart);
             return value?value->sign():0;
         };
@@ -556,9 +735,15 @@ inline AngularTopology continued_topology(double R,const Geometry& p,const Angul
             width*=4;
         }
         if(!proven && options.allow_quad) {
-            ++out.quad_promotions;
-            auto bracket=continued_root_quad(R,coordinate,chart,p,options);
-            if(bracket){out.roots.push_back(*bracket);++out.quad_boxes;proven=true;}
+            std::optional<AngularBracket> bracket;
+            if constexpr(std::numeric_limits<long double>::digits==64)
+                bracket=continued_root_precise<long double>(R,coordinate,chart,p,options);
+            if(!bracket) {
+                ++out.quad_promotions;
+                bracket=continued_root_precise<__float128>(R,coordinate,chart,p,options);
+                if(bracket)++out.quad_boxes;
+            }
+            if(bracket){out.roots.push_back(*bracket);proven=true;}
         }
         if(!proven){out.reason="continuation_inclusion";return out;}
     }
@@ -605,7 +790,7 @@ inline AngularTopology angular_topology(double R,const Geometry& p,
         std::vector<std::pair<double,double>> contracted_roots;int contracted_work=0;
         if(options.fast_roots && monotone_roots(chart(*quad_coefficients,reciprocal_chart),6,lo,hi,
                 options.endpoint_tolerance*.5,contracted_roots,contracted_work,
-                options.maximum_boxes-out.double_boxes-out.quad_boxes)) {
+                options.maximum_boxes-out.double_boxes-out.quad_boxes,options.uniform_shortcuts)) {
             out.quad_boxes+=contracted_work;
             for(auto root:contracted_roots)accept(root.first,root.second,reciprocal_chart);
             return;
@@ -647,7 +832,7 @@ inline AngularTopology angular_topology(double R,const Geometry& p,
     for(bool reciprocal_chart:{false,true}) {
         const auto power=chart(coefficients,reciprocal_chart);
         std::vector<std::pair<double,double>> fast_roots;int fast_work=0;
-        if(options.fast_roots && monotone_roots(power,6,-1.,1.,std::max(options.endpoint_tolerance*.5,1e-7),fast_roots,fast_work,options.maximum_boxes)) {
+        if(options.fast_roots && monotone_roots(power,6,-1.,1.,std::max(options.endpoint_tolerance*.5,1e-7),fast_roots,fast_work,options.maximum_boxes,options.uniform_shortcuts)) {
             out.double_boxes+=fast_work;
             for(auto root:fast_roots) {
                 double lo=root.first,hi=root.second;

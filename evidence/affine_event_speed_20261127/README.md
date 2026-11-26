@@ -1,0 +1,21 @@
+# Affine event contraction and finite-source timing
+
+On rogue1, experiment/algebraic_boundary at 7038d6c2 with working-tree changes. Compared with the preceding factored-event working build. Native SHA-256 before 9d1a9391092d57b16ab7d7fefa97d8e537de23667486364415f89b1fdde79b97, after b07282fd6a0e7d7be8bfaafd416ab6e04961de74c38fbb8b6c832a466acbbd09. Each driver checks the imported extension path.
+
+The triple radial search encloses displacements allowed by the two possible limb normals using the local lens-map Jacobian and a nonlinear remainder. When the interval determinant admits inversion and the combined enclosure is small, it proves the contracted box directly before restricting the polynomial. On 56 queries completion, counts and the first three probe fields matched individually. The number of visited boxes fell from 45,011 to 32,388. The angular solver reuses first differences for derivative bounds and can prove local crossing brackets in hardware extended precision before binary128. Other trials included a wider Bernstein clipping pass, a lens-pole inverse atlas and generic SIMD rounding.
+
+The binary solver reduces exact polynomial coefficients with Pascal additions and first tries a native signed 128-bit bounded-integer root isolation. Unresolved signs promote to wider arithmetic. The caustic grid visits occupied columns and evaluates each candidate segment once. The 900 geometry fixtures reproduced every baseline radial interval and endpoint sign. On 720 source positions spanning nine lens geometries, sampled-polyline distances agreed with a complete segment scan to 4.45e-16 absolute.
+
+## Measurements
+
+timing.tsv gives three matched pairs from ../eight_mode_speed_20261127/bench.py. Each mode contains 16 geometries, four two-epoch calls per geometry, CPU 2 and a single thread. The driver times the public call with thread CPU time, using absolute tolerance zero and relative tolerance 1e-4. Run 2 reversed the before/after order. The reported multiplier divides before and after medians. Calls within a geometry can reuse support. The binary stress inputs all return status 3 on both builds. All 512 triple evaluations return status 0.
+
+vendors.jsonl contains separate public-API wall times for 13-epoch static, circular and Keplerian binaries, plus two three-epoch triple curves, with absolute and relative tolerance both 1e-4. Values use original VBM, binary derivatives use ../autodiff-vbm JAX x64 and synchronized results. The six-epoch triple sums from three independent repeat runs were 21.48 ms vs 6.94 ms uniform and 23.07 ms vs 109.06 ms for linear limb coefficient 0.5 (experiment vs VBM). Independent strict VBM MultiPoly (absolute tolerance 1e-8, relative tolerance 1e-6) gave maximum relative value error 3.964e-5 over 32 distinct triple epoch/profile inputs checked for both public modes.
+
+## Numerical checks
+
+All 1,768 archived triple central epochs completed in both value and gradient modes. The largest before/after relative magnification change was 2.19e-8. The maximum gradient difference, using the per-epoch infinity norm divided by max(1, old gradient infinity norm), was 1.605e-5. For the largest case (1411), the mass-ratio derivative moved from 223941.86 to 223938.27 in the archived sequence. A fresh evaluation at tolerance 1e-6 returned 223938.275 on both builds. On 288 held-out epoch/mode evaluations the maxima were 5.04e-11 and 3.91e-8. Status, validity and support flags agreed throughout.
+
+For 468 binary epoch/mode evaluations spanning static, circular and Keplerian lenses, q of 0.01, 1 and 10, both profiles and both gradient modes, all magnifications and flags agreed. The normalized gradient change was at most 9.18e-16. Both builds returned 404 status 0 and 64 status 3. Five targeted C++ suites passed. The full triple Python regression set produced 259 passes and the same nine pre-existing point-source test failures.
+
+Drivers, raw outputs, rejected trials and build/test logs are in the parent checkout under build-accuracy-20261127/interval-speed. paired.sh generates the paired timing data, metrics.py compares diagnostics, orbit.py exercises moving lenses, ref.py generates strict VBM checks and gridcheck.cpp compares polyline distances.

@@ -21,6 +21,11 @@ namespace lcbinint::algebraic_boundary::tangent {
 
 using cd = std::complex<double>;
 
+template<class T>
+inline T quartic_inner_product(const std::complex<T>& a,const std::complex<T>& b) {
+    return a.real()*b.real()+a.imag()*b.imag();
+}
+
 struct QuarticCoeffs {
     std::array<double, 5> p;  // ascending: p0 + p1 t + ... + p4 t^4
 };
@@ -65,9 +70,9 @@ inline QuarticCoeffs boundary_quartic_extended(double R, const PrimaryFrame& pf)
     const Wide upper=(radius+separation)*(radius+separation);
     return QuarticCoeffs{{
         double(scale*lower-std::norm(constant)),
-        double(-2*(constant*std::conj(linear)).real()),
-        double(scale*(lower+upper)-std::norm(linear)-2*(constant*std::conj(quadratic)).real()),
-        double(-2*(linear*std::conj(quadratic)).real()),
+        double(-2*quartic_inner_product(constant,linear)),
+        double(scale*(lower+upper)-std::norm(linear)-2*quartic_inner_product(constant,quadratic)),
+        double(-2*quartic_inner_product(linear,quadratic)),
         double(scale*upper-std::norm(quadratic))}};
 }
 
@@ -81,9 +86,9 @@ inline QuarticCoeffs boundary_quartic(double R, const PrimaryFrame& pf) {
     const double k = rho2 * R2;
     const double lin0 = k * bm, lin2 = k * (bm + bp), lin4 = k * bp;
     const double a0 = std::norm(cT0);
-    const double a1 = 2.0 * (cT0 * std::conj(cT1)).real();
-    const double a2 = std::norm(cT1) + 2.0 * (cT0 * std::conj(cT2)).real();
-    const double a3 = 2.0 * (cT1 * std::conj(cT2)).real();
+    const double a1 = 2.0 * quartic_inner_product(cT0,cT1);
+    const double a2 = std::norm(cT1) + 2.0 * quartic_inner_product(cT0,cT2);
+    const double a3 = 2.0 * quartic_inner_product(cT1,cT2);
     const double a4 = std::norm(cT2);
     return QuarticCoeffs{{lin0 - a0, -a1, lin2 - a2, -a3, lin4 - a4}};
 }
@@ -113,15 +118,15 @@ inline QuarticCoeffs boundary_quartic_dR(double R, const PrimaryFrame& pf) {
     const cd dcT1 = cd(0.0, 2.0) * (dn2 - dn0);
     const cd dcT2 = dn1 - dn0 - dn2;
 
-    const double da0 = 2.0 * (dcT0 * std::conj(cT0)).real();
+    const double da0 = 2.0 * quartic_inner_product(dcT0,cT0);
     const double da1 =
-        2.0 * (dcT0 * std::conj(cT1) + cT0 * std::conj(dcT1)).real();
+        2.0 * (quartic_inner_product(dcT0,cT1) + quartic_inner_product(cT0,dcT1));
     const double da2 =
-        2.0 * (dcT1 * std::conj(cT1)).real() +
-        2.0 * (dcT0 * std::conj(cT2) + cT0 * std::conj(dcT2)).real();
+        2.0 * quartic_inner_product(dcT1,cT1) +
+        2.0 * (quartic_inner_product(dcT0,cT2) + quartic_inner_product(cT0,dcT2));
     const double da3 =
-        2.0 * (dcT1 * std::conj(cT2) + cT1 * std::conj(dcT2)).real();
-    const double da4 = 2.0 * (dcT2 * std::conj(cT2)).real();
+        2.0 * (quartic_inner_product(dcT1,cT2) + quartic_inner_product(cT1,dcT2));
+    const double da4 = 2.0 * quartic_inner_product(dcT2,cT2);
 
     return QuarticCoeffs{
         {dlin0 - da0, -da1, dlin2 - da2, -da3, dlin4 - da4}};
@@ -154,15 +159,15 @@ inline QuarticParamJac boundary_quartic_dp(double R, const PrimaryFrame& pf) {
 
     auto assemble = [&](cd dcT0, cd dcT1, cd dcT2, double dlin0, double dlin2,
                         double dlin4) -> std::array<double, 5> {
-        const double da0 = 2.0 * (dcT0 * std::conj(cT0)).real();
+        const double da0 = 2.0 * quartic_inner_product(dcT0,cT0);
         const double da1 =
-            2.0 * (dcT0 * std::conj(cT1) + cT0 * std::conj(dcT1)).real();
+            2.0 * (quartic_inner_product(dcT0,cT1) + quartic_inner_product(cT0,dcT1));
         const double da2 =
-            2.0 * (dcT1 * std::conj(cT1)).real() +
-            2.0 * (dcT0 * std::conj(cT2) + cT0 * std::conj(dcT2)).real();
+            2.0 * quartic_inner_product(dcT1,cT1) +
+            2.0 * (quartic_inner_product(dcT0,cT2) + quartic_inner_product(cT0,dcT2));
         const double da3 =
-            2.0 * (dcT1 * std::conj(cT2) + cT1 * std::conj(dcT2)).real();
-        const double da4 = 2.0 * (dcT2 * std::conj(cT2)).real();
+            2.0 * (quartic_inner_product(dcT1,cT2) + quartic_inner_product(cT1,dcT2));
+        const double da4 = 2.0 * quartic_inner_product(dcT2,cT2);
         return {dlin0 - da0, -da1, dlin2 - da2, -da3, dlin4 - da4};
     };
     auto dcT = [](cd dn0, cd dn1, cd dn2, cd& d0, cd& d1, cd& d2) {

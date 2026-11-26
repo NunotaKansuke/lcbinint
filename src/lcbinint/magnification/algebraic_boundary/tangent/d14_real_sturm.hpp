@@ -1,4 +1,5 @@
 #pragma once
+#include "../outward_neighbour.hpp"
 // Isolated degree <=14 enclosure Sturm kernel. The target is exact dyadic
 // PrimaryFrame input, not a previously rounded coefficient vector.
 #include <array>
@@ -20,10 +21,10 @@
 namespace lcbinint::algebraic_boundary::tangent::positive_detail {
 template<class T> T up(T x);
 template<class T> T down(T x);
-template<> inline double up(double x) { return std::nextafter(x, INFINITY); }
-template<> inline double down(double x) { return std::nextafter(x, -INFINITY); }
-template<> inline __float128 up(__float128 x) { return nextafterq(x,HUGE_VALQ); }
-template<> inline __float128 down(__float128 x) { return nextafterq(x,-HUGE_VALQ); }
+template<> inline double up(double x) { return rounding::neighbour(x,true); }
+template<> inline double down(double x) { return rounding::neighbour(x,false); }
+template<> inline __float128 up(__float128 x) { return rounding::neighbour(x,true); }
+template<> inline __float128 down(__float128 x) { return rounding::neighbour(x,false); }
 inline bool environment_ok() {
 #ifdef __FAST_MATH__
  return false;

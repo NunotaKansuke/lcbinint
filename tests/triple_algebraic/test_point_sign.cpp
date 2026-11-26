@@ -19,6 +19,8 @@ template<class T> int exercise() {
    }
    const int sign=polynomial.sign(t,chart);
    const auto reference=physical_detail::Ray<IQ>(IQ(R),p).value(IQ(t),chart);
+   const int physical_sign=AngularPointSign(R,p)(t,chart);
+   if(physical_sign)check(reference && reference->sign()==physical_sign,"physical error bound at random point");
    if(sign && reference){check(reference->sign()==sign,"independent physical sign");++checks;}
   }
  }
@@ -30,6 +32,8 @@ template<class T> int exercise() {
    for(double width:{1e-6,1e-10,1e-12,1e-14})for(int side:{-1,1}) {
     const double point=t+side*width;const int sign=polynomial.sign(point,chart);
     const auto reference=physical_detail::Ray<IQ>(IQ(R),contact).value(IQ(point),chart);
+    const int physical_sign=AngularPointSign(R,contact)(point,chart);
+    if(physical_sign)check(reference && reference->sign()==physical_sign,"physical error bound near crossing");
     if(sign && reference){check(reference->sign()==sign,"near-root sign");++checks;}
    }
   }
@@ -74,4 +78,24 @@ template<class T> int exercise() {
  }
  return checks;
 }
-int main(){auto a=exercise<double>(),b=exercise<long double>();std::cout<<"PASS point signs and coefficient enclosures: "<<a+b<<"\n";}
+void check_pole_guard() {
+    Geometry p{.1,.15,.15,.2,.08,1.,.3,.4};
+    AngularOptions options;
+    options.endpoint_tolerance=1e-8;
+    // Seed positions only propose roots. The cache is prepared before the
+    // first proposal is tested, independently of whether continuation wins.
+    AngularTopology seeds;
+    seeds.roots={{.1,.11},{.4,.41}};
+    for (double radius : {1.,.5,.9}) {
+        AngularCoefficientCache cache(p);
+        cache.point_sign_threshold=1;
+        continued_topology(radius,p,seeds,options,2,&cache);
+        check(bool(cache.point_signs)==(radius==.9),"pole-free radius required for polynomial signs");
+    }
+    AngularTopology duplicate;
+    duplicate.roots={{.1,.11},{.1,.11}};
+    const auto result=finish_topology(duplicate,.9,p,options);
+    check(!result.completed && result.quad_promotions==0,
+          "identical proposals should request re-isolation immediately");
+}
+int main(){check_pole_guard();auto a=exercise<double>(),b=exercise<long double>();std::cout<<"PASS point signs and coefficient enclosures: "<<a+b<<"\n";}

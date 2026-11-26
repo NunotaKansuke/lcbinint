@@ -1,0 +1,7 @@
+# Angular support and binary orbital gradient timing
+
+Compared two Release builds from the working tree based on 7038d6c2. The baseline includes the optimizations already in the checkout at the start of this comparison. The driver is ../vbm_quick_20261127/compare.py with the lcbinint package directory supplied as the first argument. It verifies the native extension import paths. Raw paired runs are in build-accuracy-20261127/hotpaths/vbm-{before,after}-{1,2,3}.jsonl in the parent checkout.
+
+Each timing is the sum of two warm curve times on CPU 2. Each curve time is the median of five calls, and timing.tsv gives the median sum across three processes per build. Times are milliseconds. Both tolerances are 1e-4. Binary uses 13 epochs each at q=0.01 and 10. Triple uses three epochs each from fixtures 568 and 889. Value references use VBMicrolensing (Multipoly for triple). Binary gradient references use warmed, synchronized JAX x64 autodiff-vbm. The reference column uses the runs paired with the updated build.
+
+Across 1024 epoch and mode combinations, the two builds agreed on status, gradient validity and support decisions. Largest normalized changes were 5.14e-12 for magnification and 1.21e-9 for the gradient vector (infinity norm, denominator floored at one). The separate 920-epoch binary orbital sweep at q from 0.001 to 1000 gave identical serialized numerical and diagnostic outputs after removing elapsed time. The focused suite passed 71 Python tests and six C++ tests. The external timing sample includes triple values only.

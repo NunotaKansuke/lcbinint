@@ -1,0 +1,9 @@
+orbit	ld	gradient	before_ms_epoch	after_ms_epoch	speed_ratio
+circular	0.0	False	0.19306	0.16964	1.138
+circular	0.0	True	0.40514	0.38454	1.054
+circular	0.5	False	0.20833	0.18043	1.155
+circular	0.5	True	0.54401	0.50011	1.088
+kepler	0.0	False	0.19328	0.16741	1.155
+kepler	0.0	True	0.41917	0.38961	1.076
+kepler	0.5	False	0.2029	0.17731	1.144
+kepler	0.5	True	0.54193	0.50877	1.065

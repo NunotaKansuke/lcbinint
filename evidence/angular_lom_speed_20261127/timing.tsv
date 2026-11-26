@@ -1,0 +1,15 @@
+orbit	ld	output	epochs	before_ms	after_ms	ref_ms	speedup	after_over_ref
+static	0.0	value_exp	26	1.311	1.335	2.173	0.982	0.614
+static	0.0	grad_exp	26	2.578	2.481	2.915	1.039	0.851
+static	0.5	value_exp	26	1.409	1.314	3.317	1.072	0.396
+static	0.5	grad_exp	26	3.245	2.956	5.159	1.098	0.573
+circular	0.0	value_exp	26	2.953	2.709	2.288	1.090	1.184
+circular	0.0	grad_exp	26	6.074	5.406	3.000	1.124	1.802
+circular	0.5	value_exp	26	2.800	2.734	4.857	1.024	0.563
+circular	0.5	grad_exp	26	7.015	6.599	6.547	1.063	1.008
+kepler	0.0	value_exp	26	2.814	2.715	2.218	1.037	1.224
+kepler	0.0	grad_exp	26	6.072	5.621	3.272	1.080	1.718
+kepler	0.5	value_exp	26	2.920	2.873	4.762	1.017	0.603
+kepler	0.5	grad_exp	26	7.235	6.699	6.571	1.080	1.019
+triple	0.0	value_exp	6	85.375	46.182	7.355	1.849	6.279
+triple	0.5	value_exp	6	72.021	46.300	111.008	1.556	0.417

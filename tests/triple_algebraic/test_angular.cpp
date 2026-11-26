@@ -5,6 +5,33 @@
 using namespace lcbinint::algebraic_boundary::triple;
 void check(bool ok,const char* message) {if(!ok)throw std::runtime_error(message);}
 int main() {
+    {
+        angular_detail::Polynomial<double> positive{};
+        positive[0]=1;positive[1]=-.75;positive[3]=.5;
+        check(angular_detail::excludes_unit_chart(positive,3,-1,1),"positive prefix sums");
+        positive[1]=-2;
+        check(!angular_detail::excludes_unit_chart(positive,3,-1,1),
+              "sign change on the positive chart requires isolation");
+        positive[1]=2;
+        check(!angular_detail::excludes_unit_chart(positive,3,-1,1),
+              "sign change on the negative chart requires isolation");
+        angular_detail::Polynomial<double> p{};
+        p[2]=1; p[1]=-1; p[0]=std::ldexp(1.,-48);
+        std::vector<std::pair<double,double>> roots;
+        check(angular_detail::quadratic_roots(p,-2,2,1e-12,roots) && roots.size()==2,
+              "separated quadratic roots");
+        const __float128 large=(1+sqrtq(1-4*(__float128)p[0].lo))/2;
+        const __float128 small=(__float128)p[0].lo/large;
+        check(roots[0].first<=small && small<=roots[0].second &&
+              roots[1].first<=large && large<=roots[1].second,"stable small quadratic root");
+        roots.clear();p[0]=.25;
+        check(!angular_detail::quadratic_roots(p,-2,2,1e-12,roots) && roots.empty(),
+              "multiple quadratic root requires isolation");
+        p[0]=0;
+        check(!angular_detail::quadratic_roots(p,0,2,1e-12,roots) && roots.empty(),
+              "chart-edge root requires isolation");
+    }
+
     Geometry p{.1,.15,.15,.2,.08,1.,-.4,.6};
     int nonempty=0,promotions=0;
     for(int k=0;k<60;++k) {
@@ -36,6 +63,26 @@ int main() {
 
     auto disabled=angular_topology(.93,p,{1e-13,8192,false});
     check(disabled.completed || std::string(disabled.reason)=="precision_required","no silent low precision acceptance");
+    {
+        using I=angular_detail::I<double>;
+        const std::array<double,6> exact{{-.875,-.5,-.25,.125,.375,.75}};
+        angular_detail::Polynomial<double> polynomial{};
+        polynomial[0]=I(1);
+        int degree=0;
+        for(double root:exact) {
+            ++degree;
+            for(int j=degree;j>=1;--j)
+                polynomial[j]=polynomial[j-1]-I(root)*polynomial[j];
+            polynomial[0]=-I(root)*polynomial[0];
+        }
+        std::vector<std::pair<double,double>> roots;
+        int work=0;
+        check(angular_detail::monotone_roots(polynomial,degree,-1,1,1e-9,roots,work,8192,true)
+              && roots.size()==exact.size(),"certified Newton proposals retain all six crossings");
+        for(std::size_t j=0;j<roots.size();++j)
+            check(roots[j].first<=exact[j] && exact[j]<=roots[j].second &&
+                  roots[j].second-roots[j].first<=1e-9,"Newton proposal brackets the known root");
+    }
     auto empty=angular_topology(.05,p);
     check(empty.completed && empty.quad_promotions==0,"ordinary empty radius stays double");
     // A tiny disk centred on a mapped image creates a close pair of roots.
@@ -55,7 +102,10 @@ int main() {
     auto continued=continued_topology(narrow_R,tiny,narrow,{1e-15,8192,true});
     check(continued.completed && continued.roots.size()==narrow.roots.size(),
           "local promoted continuation retains complete crossing count");
-    check(continued.quad_promotions>0,"cancellation-limited continued root promotes locally");
+    // Extended precision can certify this bracket before binary128.
+    // Disabling both promotion stages below must still fail closed.
+    if constexpr(std::numeric_limits<long double>::digits!=64)
+        check(continued.quad_promotions>0,"cancellation-limited continued root promotes locally");
     for(auto root:continued.roots) {
         const auto a=local_precision::evaluate<false>(narrow_R,root.lo,tiny).phi;
         const auto b=local_precision::evaluate<false>(narrow_R,root.hi,tiny).phi;

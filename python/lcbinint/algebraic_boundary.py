@@ -101,15 +101,15 @@ def lightcurve_value(
     for key in ("mu", "gradients"):
         if key in output and not np.all(np.isfinite(output[key])):
             raise RuntimeError("algebraic_boundary: no finite " + key + " candidate")
-    output["value_converged"] = output["value_converged"].astype(bool)
-    output["fully_converged"] = output["fully_converged"].astype(bool)
+    output["value_converged"] = output["value_converged"].astype(bool, copy=False)
+    output["fully_converged"] = output["fully_converged"].astype(bool, copy=False)
     output["frontier_discovery_completed"] = output[
         "frontier_discovery_completed"
-    ].astype(bool)
-    output["support_certified"] = output["support_certified"].astype(bool)
-    output["seed_support_proven"] = output["seed_support_proven"].astype(bool)
+    ].astype(bool, copy=False)
+    output["support_certified"] = output["support_certified"].astype(bool, copy=False)
+    output["seed_support_proven"] = output["seed_support_proven"].astype(bool, copy=False)
     if "gradient_valid" in output:
-        output["gradient_valid"] = output["gradient_valid"].astype(bool)
+        output["gradient_valid"] = output["gradient_valid"].astype(bool, copy=False)
     output["value_fallback_used"] = np.zeros_like(
         output["support_certified"], dtype=bool
     )

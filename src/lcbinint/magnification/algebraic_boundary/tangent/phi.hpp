@@ -154,7 +154,9 @@ inline PhiValDP fused_precise_phi(double R,double theta,const PrimaryFrame&pf,do
  auto inverse=[](Z a){Q n=a.re*a.re+a.im*a.im;return Z{a.re/n,-a.im/n};};
  auto dot=[](Z a,Z b){return a.re*b.re+a.im*b.im;};
  const Q r=Q(R)+fused_gradient::radius_offset,m=pf.m0,n=1-m,rho=pf.rho;
- const Z z{r*cosq(Q(theta)),r*sinq(Q(theta))},zb{z.re,-z.im};
+ Q sine,cosine;
+ sincosq(Q(theta),&sine,&cosine);
+ const Z z{r*cosine,r*sine},zb{z.re,-z.im};
  const Z i=inverse(zb),j=inverse(sub(zb,{pf.a,0}));
  const Z g=sub(sub(sub(z,scale(i,m)),scale(j,n)),{pf.X,pf.Y});
  const Q norm=dot(g,g),r2=rho*rho;

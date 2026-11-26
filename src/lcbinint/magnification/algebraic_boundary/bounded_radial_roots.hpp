@@ -17,21 +17,23 @@ struct SupportRootResult {
 namespace bounded_detail {
 using Coefficient=boost::multiprecision::number<boost::multiprecision::cpp_int_backend<
     256,256,boost::multiprecision::signed_magnitude,boost::multiprecision::checked,void>>;
-struct CoefficientBox {
+template<class Int> struct BasicBox {
     double lo=0,hi=0;
-    std::array<Coefficient,15> b;
+    std::array<Int,15> b;
     unsigned error=0;
     int count=0;
 };
-struct Result {
+using CoefficientBox=BasicBox<Coefficient>;
+template<class Int> struct BasicResult {
     bool completed=false;
-    std::vector<CoefficientBox> boxes;
+    std::vector<BasicBox<Int>> boxes;
 };
-inline int sign(const Coefficient& value,unsigned error) {
-    const Coefficient bound(error);
+using Result=BasicResult<Coefficient>;
+template<class Int> inline int sign(const Int& value,unsigned error) {
+    const Int bound(error);
     return value>bound?1:value<-bound?-1:value==0 && error==0?0:2;
 }
-inline int variations(const CoefficientBox& box) {
+template<class Int> inline int variations(const BasicBox<Int>& box) {
     int last=0,count=0;
     for(const auto& coefficient:box.b) {
         const int current=sign(coefficient,box.error);
@@ -43,13 +45,19 @@ inline int variations(const CoefficientBox& box) {
     }
     return count;
 }
-inline Coefficient floor_div(const Coefficient& value,int bits) {
+template<class Int> inline Int floor_div(const Int& value,int bits) {
     if(!bits)return value;
-    const Coefficient mask=(Coefficient(1)<<bits)-1;
-    return value<0?-((-value+mask)>>bits):Coefficient(value>>bits);
+    if constexpr(std::is_same_v<Int,__int128>) {
+        // GCC implements an arithmetic right shift on the native signed type.
+        static_assert((__int128(-3)>>1)==-2);
+        return value>>bits;
+    } else {
+        const Int mask=(Int(1)<<bits)-1;
+        return value<0?-((-value+mask)>>bits):Int(value>>bits);
+    }
 }
-inline std::pair<CoefficientBox,CoefficientBox> split(const CoefficientBox& box) {
-    CoefficientBox left,right;
+template<class Int> inline std::pair<BasicBox<Int>,BasicBox<Int>> split(const BasicBox<Int>& box) {
+    BasicBox<Int> left,right;
     if(box.error>=4096) {
         left.count=right.count=-1;
         return {std::move(left),std::move(right)};
@@ -69,15 +77,17 @@ inline std::pair<CoefficientBox,CoefficientBox> split(const CoefficientBox& box)
     left.count=variations(left);right.count=variations(right);
     return {std::move(left),std::move(right)};
 }
-inline Result isolate_box(const Box& source,int precision=192) {
-    Result out;
-    if(precision<32 || precision>224)return out;
+template<class Int=Coefficient> inline BasicResult<Int> isolate_box(const Box& source,int precision=192) {
+    BasicResult<Int> out;
+    using LocalBox=BasicBox<Int>;
+    constexpr int max_bits=std::is_same_v<Int,__int128>?112:224;
+    if(precision<32 || precision>max_bits)return out;
     int magnitude=0;
     for(const auto& coefficient:source.b)if(coefficient!=0)
         magnitude=std::max(magnitude,int(boost::multiprecision::msb(
             coefficient<0?-coefficient:coefficient))+1);
     const int drop=std::max(0,magnitude-precision);
-    CoefficientBox first;
+    LocalBox first;
     first.lo=source.lo;first.hi=source.hi;
     for(int i=0;i<=14;++i) {
         const auto& value=source.b[i];
@@ -85,13 +95,13 @@ inline Result isolate_box(const Box& source,int precision=192) {
         const Integer absolute=negative?-value:value;
         const Integer center=absolute>>drop;
         first.error|=(center<<drop)!=absolute;
-        first.b[i]=negative?-Coefficient(center):Coefficient(center);
+        first.b[i]=negative?-Int(center):Int(center);
     }
     // At most precision bits initially, plus 14 summation bits and the small
     // accumulated error. Even precision=224 stays below the checked 256 bits.
     first.count=variations(first);
     const double minimum=first.lo,maximum=first.hi;
-    std::vector<CoefficientBox> pending;
+    std::vector<LocalBox> pending;
     pending.push_back(std::move(first));
     int nodes=0;
     while(!pending.empty()) {
@@ -111,8 +121,8 @@ inline Result isolate_box(const Box& source,int precision=192) {
         pending.push_back(std::move(children.first));
     }
     std::sort(out.boxes.begin(),out.boxes.end(),
-        [](const CoefficientBox& a,const CoefficientBox& b){return a.lo<b.lo;});
-    auto refine=[](CoefficientBox& box) {
+        [](const LocalBox& a,const LocalBox& b){return a.lo<b.lo;});
+    auto refine=[](LocalBox& box) {
         const double mid=.5*(box.lo+box.hi);
         if(!(mid>box.lo && mid<box.hi))return false;
         auto children=split(box);
@@ -139,14 +149,18 @@ inline SupportRootResult radial_support_roots(const PrimaryFrame& pf) {
     SupportRootResult out;
     Box source;
     if(!make_radial_bernstein_box(pf,source))return out;
-    auto bounded=bounded_detail::isolate_box(source);
-    if(bounded.completed) {
+    auto accept=[&](const auto& bounded) {
+        if(!bounded.completed)return false;
         out.completed=out.used_bounded=true;
         for(const auto& box:bounded.boxes)
             out.boxes.push_back({box.lo,box.hi,bounded_detail::sign(box.b[0],box.error),
                 bounded_detail::sign(box.b[14],box.error)});
-        return out;
-    }
+        return true;
+    };
+    // A child coefficient is a floored convex combination. With 112
+    // input bits even the largest unscaled degree-14 sum fits in 126 bits.
+    if(accept(bounded_detail::isolate_box<__int128>(source,112)))return out;
+    if(accept(bounded_detail::isolate_box(source)))return out;
     // Reuse the exact coefficients already formed; uncertainty never accepts
     // a sign, and does not require constructing the polynomial a second time.
     auto exact=isolate_bernstein(std::move(source));

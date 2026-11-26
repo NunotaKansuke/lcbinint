@@ -1,4 +1,5 @@
 #pragma once
+#include "outward_neighbour.hpp"
 // Local certificate for the binary64 quartic used by the incumbent cold
 // cross-check. This does not certify coefficient construction from physics.
 #include <array>
@@ -20,11 +21,11 @@ inline bool regular(double x){
     return bits==0 || (exponent!=0 && exponent!=0x7ff0000000000000ULL);
 }
 inline double down(double x){
-    const double v=std::nextafter(x,-std::numeric_limits<double>::infinity());
+    const double v=rounding::neighbour(x,false);
     return std::fabs(v)<std::numeric_limits<double>::min() ? -std::numeric_limits<double>::min():v;
 }
 inline double up(double x){
-    const double v=std::nextafter(x,std::numeric_limits<double>::infinity());
+    const double v=rounding::neighbour(x,true);
     return std::fabs(v)<std::numeric_limits<double>::min() ? std::numeric_limits<double>::min():v;
 }
 inline Interval point(double x){return {x,x,regular(x)};}

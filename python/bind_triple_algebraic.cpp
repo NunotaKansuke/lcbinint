@@ -27,7 +27,7 @@ template<bool Gradient> py::dict compute(const std::array<triple::Complex,3>& le
         if(std::isfinite(rtol) && rtol>=1e-4 &&
                 std::isfinite(atol) && atol>=0 && std::isfinite(limb) && limb>=0 && limb<=1) {
             static thread_local triple::PreparedRegularSupport prepared;
-            plan=prepared.plan(frame.geometry,rtol,event_budget,!Gradient);regular_stop=plan.reason;
+            plan=prepared.plan(frame.geometry,rtol,event_budget,!Gradient,!Gradient && limb==0);regular_stop=plan.reason;
         }
 #endif
         result=triple::integrate<Gradient>(frame.geometry,limb,options,plan.completed?&plan:nullptr);

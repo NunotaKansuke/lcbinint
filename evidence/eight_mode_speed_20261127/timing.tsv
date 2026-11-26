@@ -1,0 +1,17 @@
+workload	lens	ld	gradient	epochs	integrated	status_ok	valid_grad	before_ms_epoch	after_ms_epoch	speed_ratio
+trajectory	binary	0.0	False	128	128	0		0.84896	0.60353	1.407
+trajectory	binary	0.0	True	128	128	0	128	1.91505	1.56906	1.221
+trajectory	binary	0.5	False	128	128	0		0.83247	0.5909	1.409
+trajectory	binary	0.5	True	128	128	0	128	2.75281	2.47238	1.113
+trajectory	triple	0.0	False	128	128	128		9.54579	9.10774	1.048
+trajectory	triple	0.0	True	128	128	128	128	8.14571	7.69486	1.059
+trajectory	triple	0.5	False	128	128	128		9.88168	9.50712	1.039
+trajectory	triple	0.5	True	128	128	128	128	8.93748	8.42986	1.06
+lens_and_trajectory	binary	0.0	False	64	64	0		0.95546	0.7707	1.24
+lens_and_trajectory	binary	0.0	True	64	64	0	64	2.01124	1.74215	1.154
+lens_and_trajectory	binary	0.5	False	64	64	0		0.92829	0.7583	1.224
+lens_and_trajectory	binary	0.5	True	64	64	0	64	2.9282	2.59998	1.126
+lens_and_trajectory	triple	0.0	False	64	64	64		11.37242	10.70666	1.062
+lens_and_trajectory	triple	0.0	True	64	64	64	64	10.11357	9.47099	1.068
+lens_and_trajectory	triple	0.5	False	64	64	64		12.9025	12.1756	1.06
+lens_and_trajectory	triple	0.5	True	64	64	64	64	11.13758	10.35427	1.076

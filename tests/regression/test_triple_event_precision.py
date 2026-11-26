@@ -237,3 +237,19 @@ def test_periodic_large_ld_source_retains_support(gradient):
         for name, value in [("t0", -.85691791415), ("rho", .35785029400)]:
             column = list(result.gradient_parameters).index(name)
             assert result.gradients[0, column] == pytest.approx(value, abs=1e-6)
+
+
+def test_faint_ld_companion_keeps_mass_tangent_on_value_mesh():
+    # Fixture 0254, central epoch. VBM MultiPoly central differences with
+    # h/q2 = 1/4, 1/8, 1/16 and RelTol = 1e-7..1e-9 give 0.07115.
+    # This loose value-controlled mesh previously shifted this tangent to 0.1166.
+    params = dict(t0=1.7066820080282907, u0=.004157141579177903, tE=3.645580107300685,
+                  alpha=.9943580077282936, s=6.191327428148515, q=1.0234402992399783e-7,
+                  q2=3.324762586600572e-6, sep2=.6319805188018487,
+                  ang=-.374951570123077, rho=.44476934628017645)
+    curve = lc.LightCurve(lens="triple", param_type="vbm", ld_c=1.,
+                          options=lc.Options(finite_source_tol=1e-4, finite_source_reltol=1e-4))
+    result = curve.magnification([params["t0"]], params, with_gradient=True)
+    assert result.status[0] == 0 and result.gradient_valid[0]
+    column = list(result.gradient_parameters).index("q2")
+    assert result.gradients[0, column] == pytest.approx(.07115, abs=.01)

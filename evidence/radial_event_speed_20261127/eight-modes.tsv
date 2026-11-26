@@ -1,0 +1,9 @@
+lens	ld	gradient	epochs	OK	before_ms_per_epoch	after_ms_per_epoch	speedup
+binary	0.0	False	128	0	0.5279	0.5129	1.029
+binary	0.0	True	128	0	1.3977	1.3434	1.04
+binary	0.5	False	128	0	0.5138	0.5041	1.019
+binary	0.5	True	128	0	2.207	2.1696	1.017
+triple	0.0	False	128	128	6.1314	3.947	1.553
+triple	0.0	True	128	128	5.6164	3.2217	1.743
+triple	0.5	False	128	128	6.5521	4.133	1.585
+triple	0.5	True	128	128	6.3643	3.9089	1.628

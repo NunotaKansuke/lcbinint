@@ -1463,10 +1463,11 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
     }
     std::array<double,5> df0{},dfh{};
     const auto pc=u!=0?arc_pc:QuarticCoeffs{};
-    QuarticParamJac dpc{};if(with_jac) {
+    // Uniform brightness needs only the implicit endpoint derivatives below.
+    QuarticParamJac dpc{};if(with_jac && u!=0) {
         dpc=boundary_quartic_dp(R,pf);
         if(const auto* motion=fused_gradient::active_motion) {
-            const auto radial=boundary_quartic_dR(R,pf);
+            const auto radial=radial_hermite_requested?pc_R:boundary_quartic_dR(R,pf);
             for(int j=0;j<5;++j)for(int k=0;k<5;++k)dpc.dp[j][k]+=radial.p[k]*motion->radius[j];
         }
     }

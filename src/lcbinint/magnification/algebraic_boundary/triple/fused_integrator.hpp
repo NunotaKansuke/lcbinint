@@ -13,6 +13,7 @@ template<bool Gradient=false,template<bool>class PanelWorkspace=RadialPanel> inl
     const Geometry& p,double limb,IntegrationOptions options={},
     const RadialEventPlan* supplied_plan=nullptr,ValueIntegralTrace* trace=nullptr) {
     IntegrationResult<Gradient> out;p.validate();
+    options.angular.uniform_shortcuts=limb==0 && !trace && options.relative_tolerance>=1e-4;
     if(trace)trace->relative_tolerance=options.relative_tolerance;
     // Gradient instantiation carries values and first derivatives through
     // the SAME adaptive frontier. The controller observes values only for

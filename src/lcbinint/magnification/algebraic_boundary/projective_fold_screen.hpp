@@ -1,4 +1,5 @@
 #pragma once
+#include "outward_neighbour.hpp"
 
 // Cheap, fail-open necessary-condition screens for the adaptive projective
 // fold probe.  These checks do not promote an event: a possible event still
@@ -20,10 +21,10 @@ struct Interval {
 };
 
 inline double down(double x) {
-    return std::nextafter(x,-std::numeric_limits<double>::infinity());
+    return rounding::neighbour(x,false);
 }
 inline double up(double x) {
-    return std::nextafter(x,std::numeric_limits<double>::infinity());
+    return rounding::neighbour(x,true);
 }
 inline Interval point(double x) {
     return {x,x};

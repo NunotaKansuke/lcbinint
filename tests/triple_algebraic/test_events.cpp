@@ -81,6 +81,59 @@ int main(){
   check(event_detail::prove_quad(box,frame.geometry).kind==2,
         "independent local physical uniqueness proof");
  }
+ // Construct a stationary limb through a chosen image. Its source is one
+ // radius along either normal to the mapped angular tangent.
+ int contractions=0;
+ for(auto geometry:{p,Geometry{0,0,.001,.0001,.0003,2.78,-.54,.22}}) {
+  const auto lenses=geometry.lenses();const auto masses=geometry.masses();
+  for(bool chart:{false,true})for(double R:{.589,.7,.9998,1.,1.0002,1.3})
+   for(double t:{-.96,-.43,-.005,.12,.77}) {
+    const Complex e=(chart?-1.:1.)*Complex(1-t*t,2*t)/(1+t*t);
+    const Complex z=R*e;Complex mapped=z,shear{};
+    for(int j=0;j<3;++j) {
+     const Complex inv=1./std::conj(z-lenses[j]);
+     mapped-=masses[j]*inv;shear+=masses[j]*inv*inv;
+    }
+    const Complex normal=z-std::conj(z)*shear;
+    for(double side:{-1.,1.}) {
+     const Complex source=mapped+side*geometry.rho*normal/std::abs(normal);
+     geometry.X=source.real();geometry.Y=source.imag();
+     check(!event_detail::physical_exclusion({R-1e-9,R+1e-9,t-1e-9,t+1e-9,chart},geometry),
+           "stationary limb survives radial-frame exclusion");
+     const event_detail::Box original{R-1e-7,R+2e-6,t-.02,t+.0001,chart};
+     auto narrowed=original;
+     check(!event_detail::physical_exclusion(original,geometry,nullptr,&narrowed),
+           "off-center stationary limb survives anisotropic exclusion");
+     check(narrowed.rlo<=R && R<=narrowed.rhi && narrowed.tlo<=t && t<=narrowed.thi,
+           "contracted enclosure retains known contact");
+     contractions+=(narrowed.rlo>original.rlo || narrowed.rhi<original.rhi ||
+                    narrowed.tlo>original.tlo || narrowed.thi<original.thi);
+    }
+   }
+ }
+ check(contractions>0,"constructed stationary limbs exercise contraction");
+ {
+  NearbySourceCover cover;cover.prepare(p);
+  for(auto shift:{-.5,0.,.5}) {
+   auto moved=p;moved.X+=shift*p.rho;
+   check(cover.nearby(moved),"nearby source fits enlarged disk");
+   const auto direct=radial_event_plan(moved,200000);
+   check(direct.completed,"independent single-source support");
+   for(const auto& e:direct.events) {
+    const auto overlaps=[&](const auto& box) {
+     if(box.rlo>e.radius_hi || box.rhi<e.radius_lo)return false;
+     if(box.reciprocal==e.reciprocal)return box.tlo<=e.coordinate_hi && box.thi>=e.coordinate_lo;
+     if(e.coordinate_lo*e.coordinate_hi<=0)return false;
+     return box.tlo<=-1/e.coordinate_hi && box.thi>=-1/e.coordinate_lo;
+    };
+    check(std::any_of(cover.boxes.begin(),cover.boxes.end(),overlaps),"nearby cover contains every stationary limb");
+   }
+  }
+  auto outside=p;outside.Y+=2*p.rho;
+  check(!cover.nearby(outside),"distant source invalidates the cover");
+  auto new_lens=p;new_lens.m2=std::nextafter(p.m2,0.);
+  check(!cover.nearby(new_lens),"mass change invalidates the cover");
+ }
  auto budget=radial_event_plan(p,1);check(!budget.completed,"event budget fails closed");
  std::cout<<"PASS: global interval event coverage, "<<plan.events.size()<<" physical folds; boxes="<<plan.boxes<<"\n";
 }

@@ -22,10 +22,7 @@ constexpr double pi=3.14159265358979323846;
 // a hardware square root. Keep libm's scaled hypot at extreme magnitudes.
 // The few-ulp roundoff stays inside this planner's existing eps margins.
 template<class T> inline auto fast_abs(T x){return std::abs(x);}
-inline double fast_abs(Complex z) {
- const double n=std::norm(z);
- if(n>=32*std::numeric_limits<double>::min() && std::isfinite(n))return std::sqrt(n);
- return std::abs(z);
+inline double fast_abs(Complex z) {return complex_magnitude(z);
 }
 
 struct Disk {Complex z,w;double r=0,h=0;};
@@ -71,7 +68,11 @@ class Tree {
  std::vector<Disk> interior_witnesses_;
  std::optional<std::array<double,3>> refused_query_;
  std::size_t refusal_hits_=0;
- bool visit(int id,Complex source,double rho,int&budget,double&angle,double&uncertainty,double&clearance){
+ // Node indices survive subdivision. Complete the separation test before
+ // solving arc endpoints or accumulating winding for this source disk.
+ std::vector<int> clear_arcs_;
+ int last_blocked_phase_=-1;
+ bool visit(int id,Complex source,double rho,int&budget){
   if(!nodes_[id].ready){
    if(--budget<0)return false;
    auto&n=nodes_[id];
@@ -95,12 +96,7 @@ class Tree {
   auto&n=nodes_[id];bool clear=n.disks.size()==6;
   if(clear)for(auto d:n.disks){double distance=fast_abs(d.w-source);if(distance-d.h<=rho+eps*(1+distance+rho)){clear=false;break;}}
   if(clear){
-   for(auto disk:n.disks) {
-    const double distance=fast_abs(disk.w-source);
-    clearance=std::min(clearance,distance-disk.h-eps*(1+distance+disk.h+fast_abs(source)));
-   }
-   if(n.ends[0].empty())for(int side=0;side<2;++side){auto roots=n.roots;n.ends[side]=cover(geometry_,n.phi+(side?1:-1)*n.half,0,roots);if(n.ends[side].size()!=6){n.ends[0].clear();n.ends[1].clear();return false;}for(int j=0;j<6;++j)if(fast_abs(n.ends[side][j].z-n.disks[j].z)+n.ends[side][j].r>=n.disks[j].r){n.ends[0].clear();n.ends[1].clear();return false;}}
-   for(int j=0;j<6;++j){auto a=n.ends[0][j],b=n.ends[1][j];auto u=a.w-source,v=b.w-source;const auto cross=std::conj(u)*v;angle+=std::atan2(cross.imag(),cross.real());uncertainty+=2*a.h/fast_abs(u)+2*b.h/fast_abs(v)+eps;}
+   clear_arcs_.push_back(id);
    return true;
   }
   for(auto d:n.disks)if(fast_abs(d.w-source)<rho-eps*(1+rho+fast_abs(source))) {
@@ -119,7 +115,7 @@ class Tree {
   if(n.depth>=24)return false;
   if(n.left<0){if(nodes_.size()>131070)return false;auto phi=n.phi,half=n.half*.5;auto depth=n.depth+1;auto roots=n.roots;int left=nodes_.size();nodes_[id].left=left;nodes_.push_back({phi-half,half,depth,-1,false,roots});nodes_.push_back({phi+half,half,depth,-1,false,roots});}
   int left=nodes_[id].left;
-  return visit(left,source,rho,budget,angle,uncertainty,clearance)&&visit(left+1,source,rho,budget,angle,uncertainty,clearance);
+  return visit(left,source,rho,budget)&&visit(left+1,source,rho,budget);
  }
 public:
  explicit Tree(const Geometry&p):geometry_(p){for(int j=0;j<32;++j)nodes_.push_back({2*pi*(j+.5)/32,pi/32,0});}
@@ -141,6 +137,11 @@ public:
    n.disks.clear();n.ends[0].clear();n.ends[1].clear();
   }
  }
+ bool encloses_critical_point(Complex source,double rho) const {
+  for(const auto& point:interior_witnesses_)
+   if(fast_abs(point.w-source)+point.h<rho-eps*(1+rho+fast_abs(source)))return true;
+  return false;
+ }
  int count(Complex source,double rho,int budget=256){
   if(!(rho>0) || !std::isfinite(rho+source.real()+source.imag()))return -1;
   // The same witness-clearance reuse as BinaryCausticTree. This caches
@@ -148,28 +149,80 @@ public:
   const double moved=fast_abs(source-witness_source_);
   const double available=witness_clearance_-moved-eps*(1+witness_clearance_+moved+fast_abs(source)+fast_abs(witness_source_));
   if(witness_count_>=4 && available>rho){++witness_hits_;return witness_count_;}
+  // Intersecting caustic-free disks have the same image count. Remember
+  // the count provisionally; the current disk must still prove clearance.
+  int overlapping_count=available>-rho?witness_count_:-1;
   for(const auto& witness:witnesses_) {
    const double movement=fast_abs(source-witness.source);
    const double remaining=witness.clearance-movement-
        eps*(1+witness.clearance+movement+fast_abs(source)+fast_abs(witness.source));
+   if(remaining>-rho)overlapping_count=witness.count;
    if(remaining>rho) {
     witness_source_=witness.source;witness_clearance_=witness.clearance;witness_count_=witness.count;
     ++witness_hits_;return witness_count_;
    }
   }
-  for(auto point:interior_witnesses_)if(fast_abs(point.w-source)+point.h<rho-eps*(1+rho+fast_abs(source))) {
+  if(encloses_critical_point(source,rho)) {
    ++refusal_hits_;return -1;
   }
   if(refused_query_ && *refused_query_==std::array<double,3>{source.real(),source.imag(),rho}) {++refusal_hits_;return -1;}
-  double angle=0,error=0,clearance=INFINITY;
-  for(int j=0;j<32;++j)if(!visit(j,source,rho,budget,angle,error,clearance)) {
-   if(budget>=0)refused_query_=std::array<double,3>{source.real(),source.imag(),rho};return -1;
+  clear_arcs_.clear();
+  // Keep only the phase index as a hint. Recheck the current source and
+  // put the arcs back in phase order before summing the winding angle.
+  const int first=last_blocked_phase_;
+  if(first>=0 && !visit(first,source,rho,budget)) {
+   if(budget>=0)refused_query_=std::array<double,3>{source.real(),source.imag(),rho};
+   return -1;
   }
-  if(!std::isfinite(angle) || !std::isfinite(error) || !std::isfinite(clearance))return -1;
-  const double winding=std::round(angle/(2*pi));
-  if(winding<0 || winding>3 || fast_abs(angle/(2*pi)-winding)+error/(2*pi)>.1)return -1;
-  const int count=4+2*int(winding);
-  if(count<4 || count>10 || !(clearance>rho))return -1;
+  const auto first_size=clear_arcs_.size();
+  for(int j=0;j<32;++j) {
+   if(j==first)continue;
+   if(!visit(j,source,rho,budget)) {
+    last_blocked_phase_=j;
+    if(budget>=0)refused_query_=std::array<double,3>{source.real(),source.imag(),rho};
+    return -1;
+   }
+   if(j+1==first)
+    std::rotate(clear_arcs_.begin(),clear_arcs_.begin()+first_size,clear_arcs_.end());
+  }
+  double angle=0,error=0,clearance=INFINITY;
+  for(int id:clear_arcs_) {
+   auto& n=nodes_[id];
+   for(auto disk:n.disks) {
+    const double distance=fast_abs(disk.w-source);
+    clearance=std::min(clearance,distance-disk.h-eps*(1+distance+disk.h+fast_abs(source)));
+   }
+   if(overlapping_count>=4)continue;
+   if(n.ends[0].empty()) {
+    for(int side=0;side<2;++side) {
+     auto roots=n.roots;
+     auto& ends=n.ends[side];
+     ends=cover(geometry_,n.phi+(side?1:-1)*n.half,0,roots);
+     bool contained=ends.size()==6;
+     for(int j=0;contained && j<6;++j)
+      contained=fast_abs(ends[j].z-n.disks[j].z)+ends[j].r<n.disks[j].r;
+     if(!contained) {
+      n.ends[0].clear();n.ends[1].clear();
+      refused_query_=std::array<double,3>{source.real(),source.imag(),rho};
+      return -1;
+     }
+    }
+   }
+   for(int j=0;j<6;++j) {
+    const auto& a=n.ends[0][j];const auto& b=n.ends[1][j];
+    const auto u=a.w-source,v=b.w-source,cross=std::conj(u)*v;
+    angle+=std::atan2(cross.imag(),cross.real());
+    error+=2*a.h/fast_abs(u)+2*b.h/fast_abs(v)+eps;
+   }
+  }
+  if(!std::isfinite(clearance) || !(clearance>rho))return -1;
+  int count=overlapping_count;
+  if(count<4) {
+   if(!std::isfinite(angle) || !std::isfinite(error))return -1;
+   const double winding=std::round(angle/(2*pi));
+   if(winding<0 || winding>3 || fast_abs(angle/(2*pi)-winding)+error/(2*pi)>.1)return -1;
+   count=4+2*int(winding);
+  }
   witness_source_=source;witness_clearance_=clearance;witness_count_=count;
   if(witnesses_.size()==16)witnesses_.erase(witnesses_.begin());
   witnesses_.push_back({source,clearance,count});return count;
@@ -480,14 +533,14 @@ class PreparedRegularSupport {
     // circle, and every branch is certified anew at the current epoch.
     std::optional<double> regular_phase_origin_;
     Complex regular_phase_source_{};
-    RadialEventPlan contact_plan(const Geometry&p,double tolerance,int budget) {
+    RadialEventPlan contact_plan(const Geometry&p,double tolerance,int budget,bool try_global_first) {
         RadialEventPlan out;out.reason="regular_caustic_or_budget";
         if(budget<64)return out;
         const auto* previous=event_seed_geometry_ && event_seed_geometry_->rho==p.rho &&
             std::hypot(p.X-event_seed_geometry_->X,p.Y-event_seed_geometry_->Y)<=p.rho*.75
             ?&event_seeds_:nullptr;
         auto projected=[&](auto make_components) {
-            auto result=projected_radial_event_plan(p,budget,tolerance*.1,nullptr,previous,make_components);
+            auto result=projected_radial_event_plan(p,budget,tolerance*.1,nullptr,previous,make_components,try_global_first);
             if(result.completed && result.resultant_nodes>0 && result.events.size()<=64) {
                 event_seeds_.clear();
                 for(auto event:result.events)
@@ -543,10 +596,14 @@ public:
         prepare_lens(p);
         return tree_->clearance({p.X,p.Y},required,budget);
     }
+    bool encloses_critical_point(const Geometry& p,double radius) const {
+        return identity_ && *identity_==std::array<double,5>{p.m1,p.m2,p.a,p.bx,p.by} &&
+            tree_->encloses_critical_point({p.X,p.Y},radius);
+    }
     std::size_t native_seed_solves() const{return native_solves_;}
     std::size_t continued_seed_hits() const{return continued_seeds_;}
-    RadialEventPlan plan(const Geometry& p,double relative_tolerance,int event_budget=1000000,bool allow_omission=true) {
-        auto out=plan_impl(p,relative_tolerance,event_budget,allow_omission);
+    RadialEventPlan plan(const Geometry& p,double relative_tolerance,int event_budget=1000000,bool allow_omission=true,bool try_global_first=false) {
+        auto out=plan_impl(p,relative_tolerance,event_budget,allow_omission,try_global_first);
         if(out.completed) {
             if(!lens_context_ || !lens_context_->matches(p))lens_context_=std::make_shared<point_polynomial_detail::LensContext>(p);
             lens_context_->note_query();out.lens_context=lens_context_;
@@ -566,7 +623,7 @@ private:
             identity_=identity;regular_phase_origin_.reset();image_seeds_.clear();refused_partial_.reset();event_seeds_.clear();event_seed_geometry_.reset();
         }
     }
-    RadialEventPlan plan_impl(const Geometry& p,double relative_tolerance,int event_budget,bool allow_omission) {
+    RadialEventPlan plan_impl(const Geometry& p,double relative_tolerance,int event_budget,bool allow_omission,bool try_global_first) {
         RadialEventPlan out;
         // This optimization is validated for loose relative value requests.
         // Strict references retain the full planner. Gradients prohibit omission.
@@ -583,7 +640,7 @@ private:
         if(!angular_detail::enclosure::environment_ok()){out.reason="floating_environment";return out;}
         prepare_lens(p);
         const int expected=tree_->count({p.X,p.Y},p.rho);
-        if(expected<0)return contact_plan(p,relative_tolerance,event_budget);
+        if(expected<0)return contact_plan(p,relative_tolerance,event_budget,try_global_first);
         std::vector<Complex> proposals;
         // Root positions are reusable proposals, not flux/support results.
         // The caustic tree independently supplies N. N disjoint point-source

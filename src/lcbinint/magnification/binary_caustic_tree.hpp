@@ -18,6 +18,7 @@ class BinaryCausticTree {
     double separation_=0.0,q_=0.0,width_=0.0;
     std::vector<Node> nodes_;
     unsigned long long generation_=0;
+    int last_blocked_phase_=0;
     SourcePosition witness_source_{};
     double witness_clearance_=0.0;
 
@@ -103,10 +104,15 @@ public:
             padding*(1.0+witness_clearance_+moved+std::abs(source.x)+std::abs(source.y));
         if(available>required)return available;
         int budget=128;
-        double lower=std::numeric_limits<double>::infinity();
+        // Revisit the previously blocking phase first on nearby epochs.
+        // Its enclosure and the query disk are checked afresh on every call.
+        const int first=last_blocked_phase_;
+        double lower=visit(first,source,required,budget);
+        if(!(lower>required))return 0.0;
         for(int k=0;k<16;++k) {
+            if(k==first)continue;
             lower=std::min(lower,visit(k,source,required,budget));
-            if(!(lower>required))return 0.0;
+            if(!(lower>required)){last_blocked_phase_=k;return 0.0;}
         }
         witness_source_=source;witness_clearance_=lower;
         return lower;

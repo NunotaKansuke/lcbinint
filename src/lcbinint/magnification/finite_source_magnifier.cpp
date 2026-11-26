@@ -1589,7 +1589,10 @@ bool continue_critical_roots(const std::vector<Complex>& c, std::vector<Complex>
     constexpr double tolerance = 128.0*std::numeric_limits<double>::epsilon();
     std::array<double, 5> coefficient_sizes;
     for (int j = 0; j < 5; ++j) coefficient_sizes[j] = std::abs(c[j]);
-    for (auto& z : roots) {
+    std::array<double, 4> root_sizes;
+    if (roots.size() != root_sizes.size()) return false;
+    for (std::size_t index = 0; index < roots.size(); ++index) {
+        auto& z = roots[index];
         bool converged = false;
         for (int iteration = 0; iteration < 8; ++iteration) {
             Complex value = c[4], derivative = 0.0;
@@ -1600,8 +1603,11 @@ bool continue_critical_roots(const std::vector<Complex>& c, std::vector<Complex>
             const double z_size = std::abs(z);
             double scale = coefficient_sizes[4];
             for (int j = 3; j >= 0; --j) scale = scale*z_size+coefficient_sizes[j];
-            if (std::abs(value) <= tolerance*scale) { converged = true; break; }
-            if (!(std::abs(derivative) > 0.0)) break;
+            if (std::abs(value) <= tolerance*scale) {
+                root_sizes[index] = z_size;
+                converged = true;
+                break;
+            }
             const double denominator = std::norm(derivative);
             if (!(denominator > 0.0 && std::isfinite(denominator))) return false;
             z -= Complex((value.real()*derivative.real()+value.imag()*derivative.imag())/denominator,
@@ -1614,10 +1620,10 @@ bool continue_critical_roots(const std::vector<Complex>& c, std::vector<Complex>
     // Reconstruct the complete quartic before accepting continuation.
     std::array<Complex, 5> reconstructed{};
     std::array<double, 5> envelope{};
-    reconstructed[0] = c[4]; envelope[0] = std::abs(c[4]);
+    reconstructed[0] = c[4]; envelope[0] = coefficient_sizes[4];
     int degree = 0;
     for (const auto z : roots) {
-        const double z_size = std::abs(z);
+        const double z_size = root_sizes[degree];
         for (int j = degree+1; j >= 0; --j) {
             reconstructed[j] = (j > 0 ? reconstructed[j-1] : Complex{}) -
                 (j <= degree ? z*reconstructed[j] : Complex{});
@@ -1628,7 +1634,7 @@ bool continue_critical_roots(const std::vector<Complex>& c, std::vector<Complex>
     }
     for (int j = 0; j < 5; ++j)
         if (!(std::abs(reconstructed[j]-c[j]) <=
-              tolerance*(std::abs(c[j])+envelope[j]))) return false;
+              tolerance*(coefficient_sizes[j]+envelope[j]))) return false;
     return true;
 }
 
@@ -1641,6 +1647,7 @@ std::vector<std::vector<SourcePosition>> build_binary_critical_curves(
         std::vector<std::vector<Complex>> roots;
         std::vector<std::array<std::array<Complex, 4>, 4>> predictors;
         std::vector<std::array<Complex, 4>> mass_predictors;
+        std::vector<Complex> phases;
     };
     thread_local PhaseRoots previous;
     const bool warm = previous.bins == bins &&
@@ -1648,6 +1655,11 @@ std::vector<std::vector<SourcePosition>> build_binary_critical_curves(
         (previous.mass_ratio < 1.0) == (mass_ratio < 1.0) &&
         std::abs(mass_ratio-previous.mass_ratio) < 0.001*mass_ratio &&
         std::abs(separation-previous.separation) < 0.001*std::abs(separation);
+    if (bins != previous.bins) {
+        previous.phases.resize(bins/2+1);
+        for (int i = 0; i <= bins/2; ++i)
+            previous.phases[i] = std::polar(1.0, 2.0*kPi*i/bins);
+    }
     if (!warm) {
         previous.roots.assign(bins/2+1, {});
         previous.predictors.resize(bins/2+1);
@@ -1663,7 +1675,7 @@ std::vector<std::vector<SourcePosition>> build_binary_critical_curves(
     const double mass_delta = m2-previous_q/(1.0+previous_q);
     math::PolynomialRootSolver solver;
     for (int i = 0; i <= bins/2; ++i) {
-        const Complex phase = std::polar(1.0, 2.0*kPi*i/bins);
+        const Complex phase = previous.phases[i];
         const auto coefficients = critical_curve_polynomial_coefficients(separation, mass_ratio, phase);
         auto& roots = previous.roots[i];
         if (warm) {
@@ -6906,10 +6918,8 @@ void FiniteSourceMagnifier::clear_binary_epoch_caches() const
     caustic_clearance_witness_ = 0.0;
     caustic_enclosure_.clear();
     caustic_cache_valid_ = false;
-    caustic_cache_branches_.clear();
-    caustic_cache_points_.clear();
-    caustic_cache_grid_.clear();
-    caustic_cache_branch_grid_.clear();
+    // Keep the prepared lens geometry dormant. Only an explicit distance
+    // query for the same lens can reactivate it after an epoch reset.
     binary_seed_cache_.clear();
     binary_probe_magnifiers_.clear();
     result_cache_valid_ = false;
@@ -7033,14 +7043,20 @@ void FiniteSourceMagnifier::ensure_binary_caustic_cache(
     double separation_tolerance) const
 {
     const int bins = std::max(settings_.caustic_bins, 32);
-    const bool cache_matches = caustic_cache_valid_ &&
-                               caustic_cache_bins_ == bins &&
-                               caustic_cache_mass_ratio_ == mass_ratio &&
-                               std::signbit(caustic_cache_separation_) ==
-                                   std::signbit(separation) &&
-                               std::abs(caustic_cache_separation_ - separation) <=
-                                   std::max(separation_tolerance, 0.0);
+    const bool same_lens = caustic_cache_bins_ == bins &&
+        caustic_cache_mass_ratio_ == mass_ratio &&
+        std::signbit(caustic_cache_separation_) == std::signbit(separation);
+    if (same_lens && caustic_cache_separation_ == separation) {
+        caustic_cache_valid_ = true;
+        return;
+    }
+    const bool cache_matches = caustic_cache_valid_ && same_lens &&
+        std::abs(caustic_cache_separation_ - separation) <=
+            std::max(separation_tolerance, 0.0);
     if (!cache_matches) {
+        // Publish the new key only after the spatial index is complete.
+        caustic_cache_valid_ = false;
+        caustic_cache_bins_ = 0;
         const auto critical_curves =
             build_binary_critical_curves(separation, mass_ratio, bins);
         caustic_cache_branches_ = map_binary_critical_curves_to_caustics(
@@ -7064,26 +7080,16 @@ void FiniteSourceMagnifier::ensure_binary_caustic_cache(
         const double height = std::max(caustic_cache_max_y_ - caustic_cache_min_y_, 1.0e-12);
         caustic_cache_grid_step_x_ = width / static_cast<double>(caustic_cache_grid_size_);
         caustic_cache_grid_step_y_ = height / static_cast<double>(caustic_cache_grid_size_);
-        caustic_cache_grid_.resize(
-            static_cast<std::size_t>(caustic_cache_grid_size_ * caustic_cache_grid_size_));
-        for (auto& cell : caustic_cache_grid_) cell.clear();
-        for (std::size_t i = 0; i < caustic_cache_points_.size(); ++i) {
-            const auto& point = caustic_cache_points_[i];
-            const int ix = std::clamp(static_cast<int>((point.x - caustic_cache_min_x_) /
-                                           caustic_cache_grid_step_x_),
-                0,
-                caustic_cache_grid_size_ - 1);
-            const int iy = std::clamp(static_cast<int>((point.y - caustic_cache_min_y_) /
-                                           caustic_cache_grid_step_y_),
-                0,
-                caustic_cache_grid_size_ - 1);
-            caustic_cache_grid_[static_cast<std::size_t>(iy * caustic_cache_grid_size_ + ix)]
-                .push_back(static_cast<int>(i));
-        }
-        // Build branch-position grid for fast per-segment distance queries.
+        // Each segment starts at one sampled point. Index both queries by
+        // that point once, in the original branch and sample order.
         caustic_cache_branch_grid_.resize(
             static_cast<std::size_t>(caustic_cache_grid_size_ * caustic_cache_grid_size_));
-        for (auto& cell : caustic_cache_branch_grid_) cell.clear();
+        caustic_cache_occupied_columns_.resize(caustic_cache_grid_size_);
+        for (int iy = 0; iy < caustic_cache_grid_size_; ++iy) {
+            auto& columns = caustic_cache_occupied_columns_[iy];
+            for (int ix : columns) caustic_cache_branch_grid_[iy * caustic_cache_grid_size_ + ix].clear();
+            columns.clear();
+        }
         // max_seg_len is used as a safety margin when bounding the grid search
         // radius in binary_caustic_distance. The monodromy reconstruction makes
         // every branch a physical closed curve, including its last-to-first
@@ -7105,11 +7111,12 @@ void FiniteSourceMagnifier::ensure_binary_caustic_cache(
                 const int iy = std::clamp(
                     static_cast<int>((pt.y - caustic_cache_min_y_) / caustic_cache_grid_step_y_),
                     0, caustic_cache_grid_size_ - 1);
-                caustic_cache_branch_grid_[
-                    static_cast<std::size_t>(iy * caustic_cache_grid_size_ + ix)]
-                    .push_back({b, j});
+                auto& cell = caustic_cache_branch_grid_[iy * caustic_cache_grid_size_ + ix];
+                if (cell.empty()) caustic_cache_occupied_columns_[iy].push_back(ix);
+                cell.push_back({b, j});
             }
         }
+        for (auto& columns : caustic_cache_occupied_columns_) std::sort(columns.begin(), columns.end());
         caustic_cache_max_seg_len_ = std::sqrt(max_seg2);
 
         caustic_cache_valid_ = true;
@@ -7210,7 +7217,9 @@ double FiniteSourceMagnifier::binary_caustic_distance(
 
     // Search the branch grid within nearest_dist + max_seg_len to catch all segments
     // whose distance to source could be less than nearest_dist.
-    const double seg_radius = nearest_dist + caustic_cache_max_seg_len_;
+    const double reach = nearest_dist + caustic_cache_max_seg_len_;
+    const double seg_radius = reach + 16 * std::numeric_limits<double>::epsilon() *
+        (1 + reach + std::abs(source.x) + std::abs(source.y));
     const int ix0 = std::clamp(
         static_cast<int>((source.x - seg_radius - caustic_cache_min_x_) /
                          caustic_cache_grid_step_x_),
@@ -7230,7 +7239,10 @@ double FiniteSourceMagnifier::binary_caustic_distance(
 
     double distance = nearest_dist;
     for (int iy = iy0; iy <= iy1; ++iy) {
-        for (int ix = ix0; ix <= ix1; ++ix) {
+        const auto& columns = caustic_cache_occupied_columns_[iy];
+        for (auto col = std::lower_bound(columns.begin(), columns.end(), ix0);
+             col != columns.end() && *col <= ix1; ++col) {
+            const int ix = *col;
             for (const auto& ref : caustic_cache_branch_grid_[
                     static_cast<std::size_t>(iy * caustic_cache_grid_size_ + ix)]) {
                 const auto& branch =
@@ -7239,12 +7251,9 @@ double FiniteSourceMagnifier::binary_caustic_distance(
                 if (n < 2) {
                     continue;
                 }
-                const int prev = (ref.pos > 0) ? ref.pos - 1 : n - 1;
-                const int next = (ref.pos + 1) % n;
-                distance = std::min(distance,
-                    point_segment_distance(source,
-                        branch[static_cast<std::size_t>(prev)],
-                        branch[static_cast<std::size_t>(ref.pos)]));
+                // A segment closer than nearest_dist has its start within
+                // nearest_dist + max_seg_len. Visit it once from that start.
+                const int next = ref.pos + 1 == n ? 0 : ref.pos + 1;
                 distance = std::min(distance,
                     point_segment_distance(source,
                         branch[static_cast<std::size_t>(ref.pos)],
@@ -7439,7 +7448,7 @@ double FiniteSourceMagnifier::binary_sampled_caustic_distance(
         return std::numeric_limits<double>::infinity();
     }
 
-    if (search_radius > 0.0 && !caustic_cache_grid_.empty()) {
+    if (search_radius > 0.0 && !caustic_cache_branch_grid_.empty()) {
         const int ix0 = std::clamp(static_cast<int>((source.x - search_radius - caustic_cache_min_x_) /
                                        caustic_cache_grid_step_x_),
             0,
@@ -7457,11 +7466,14 @@ double FiniteSourceMagnifier::binary_sampled_caustic_distance(
             0,
             caustic_cache_grid_size_ - 1);
         for (int iy = iy0; iy <= iy1; ++iy) {
-            for (int ix = ix0; ix <= ix1; ++ix) {
+            const auto& columns = caustic_cache_occupied_columns_[iy];
+            for (auto col = std::lower_bound(columns.begin(), columns.end(), ix0);
+                 col != columns.end() && *col <= ix1; ++col) {
+                const int ix = *col;
                 const auto& cell =
-                    caustic_cache_grid_[static_cast<std::size_t>(iy * caustic_cache_grid_size_ + ix)];
-                for (const int index : cell) {
-                    const auto& point = caustic_cache_points_[static_cast<std::size_t>(index)];
+                    caustic_cache_branch_grid_[static_cast<std::size_t>(iy * caustic_cache_grid_size_ + ix)];
+                for (const auto& ref : cell) {
+                    const auto& point = caustic_cache_branches_[ref.branch][ref.pos];
                     const double dx = source.x - point.x;
                     const double dy = source.y - point.y;
                     const double candidate = dx * dx + dy * dy;
@@ -7614,9 +7626,16 @@ bool unconverged_algebraic_value(const FiniteSourceResult& result)
 double FiniteSourceMagnifier::binary_heavy_origin_spread(
     double separation, double mass_ratio) const
 {
+    return measure_heavy_origin_spread(separation, mass_ratio, false);
+}
+
+double FiniteSourceMagnifier::measure_heavy_origin_spread(
+    double separation, double mass_ratio, bool threshold_only) const
+{
     const double a = std::abs(separation);
     const double q = mass_ratio < 1.0 ? mass_ratio : 1.0/mass_ratio;
-    if (origin_spread_cache_valid_ && origin_spread_cache_separation_ == a &&
+    if (origin_spread_cache_valid_ && (threshold_only || origin_spread_cache_complete_) &&
+        origin_spread_cache_separation_ == a &&
         origin_spread_cache_mass_ratio_ == q)
         return origin_spread_cache_value_;
     // Light lens (q/(1+q)) at 0, heavy lens (1/(1+q)) at a.  Critical curve:
@@ -7625,11 +7644,21 @@ double FiniteSourceMagnifier::binary_heavy_origin_spread(
     math::PolynomialRootSolver solver;
     std::vector<Complex> coeffs(5);
     double v_min = std::numeric_limits<double>::infinity(), v_max = 0.0;
+    static const auto phases = [] {
+        std::array<Complex, kOriginSpreadPhases> result;
+        for (int k = 0; k < kOriginSpreadPhases; ++k) {
+            const double phi = 2.0*M_PI*k/kOriginSpreadPhases;
+            result[k] = {std::cos(phi), std::sin(phi)};
+        }
+        return result;
+    }();
+    coeffs[0] = Complex(m_light*a*a, 0.0);
+    coeffs[1] = Complex(-2.0*m_light*a, 0.0);
+    bool complete = true;
     for (int k = 0; k < kOriginSpreadPhases; ++k) {
-        const double phi = 2.0*M_PI*k/kOriginSpreadPhases;
-        const Complex e(std::cos(phi), std::sin(phi));
-        coeffs[0] = Complex(m_light*a*a, 0.0);
-        coeffs[1] = Complex(-2.0*m_light*a, 0.0);
+        // Opposite phases first. All 64 original quartics remain available
+        // when a subset cannot establish the threshold.
+        const Complex e = phases[k/2 + (k%2)*(kOriginSpreadPhases/2)];
         coeffs[2] = Complex(m_light + m_heavy, 0.0) - e*(a*a);
         coeffs[3] = e*(2.0*a);
         coeffs[4] = -e;
@@ -7641,14 +7670,23 @@ double FiniteSourceMagnifier::binary_heavy_origin_spread(
             v_min = std::min(v_min, v_heavy);
             v_max = std::max(v_max, v_heavy);
         }
+        if (threshold_only && v_max > 0.0) {
+            const double spread = (v_max - v_min)/v_max;
+            // The exact spread 1-min/max can only grow as roots are added.
+            // Near the threshold finish the scan to retain its rounded result.
+            if (spread > kHeavyOriginThreshold + 8*std::numeric_limits<double>::epsilon()) {
+                complete = false;
+                break;
+            }
+        }
     }
-    const double spread = v_max > 0.0 && std::isfinite(v_min)
-        ? (v_max - v_min)/v_max : std::numeric_limits<double>::quiet_NaN();
     origin_spread_cache_valid_ = true;
     origin_spread_cache_separation_ = a;
     origin_spread_cache_mass_ratio_ = q;
-    origin_spread_cache_value_ = spread;
-    return spread;
+    origin_spread_cache_complete_ = complete;
+    origin_spread_cache_value_ = v_max > 0.0 && std::isfinite(v_min)
+        ? (v_max - v_min)/v_max : std::numeric_limits<double>::quiet_NaN();
+    return origin_spread_cache_value_;
 }
 
 bool FiniteSourceMagnifier::binary_uses_heavy_origin(
@@ -7659,16 +7697,23 @@ bool FiniteSourceMagnifier::binary_uses_heavy_origin(
         separation == 0.0)
         return false;
     const double rho = std::isfinite(source_radius) ? std::abs(source_radius) : 0.0;
-    if (rho < kHeavyOriginThreshold) {
-        const double spread = binary_heavy_origin_spread(separation, mass_ratio);
-        if (!(std::isfinite(spread) && spread >= kHeavyOriginThreshold)) return false;
-    }
     // Centre-of-mass frame: the mass 1/(1+q) lens at -q s/(1+q), the mass
     // q/(1+q) lens at s/(1+q).
     const double heavy_x = mass_ratio < 1.0
         ? -mass_ratio*separation/(1.0 + mass_ratio) : separation/(1.0 + mass_ratio);
     const double heavy_distance = std::hypot(source.x - heavy_x, source.y);
-    return !(heavy_distance < (1.0 + kHeavyOriginLimbBand)*rho);
+    if (heavy_distance < (1.0 + kHeavyOriginLimbBand)*rho) return false;
+    if (rho >= kHeavyOriginThreshold) return true;
+    // At a critical point closer to the heavy lens, r_light >= r_heavy.
+    // Triangle and reverse triangle inequalities in
+    // |m_heavy/(z-z_heavy)^2 + m_light/(z-z_light)^2| = 1 give
+    // m_heavy-m_light <= r_heavy^2 <= m_heavy+m_light = 1.
+    // Thus 1-min(r_heavy^2)/max(r_heavy^2) <= 2*m_light at every phase.
+    const double q = mass_ratio < 1.0 ? mass_ratio : 1.0/mass_ratio;
+    const double spread_bound = (2*q)/(1+q);
+    if (spread_bound < kHeavyOriginThreshold - 8*std::numeric_limits<double>::epsilon())
+        return false;
+    return measure_heavy_origin_spread(separation, mass_ratio, true) >= kHeavyOriginThreshold;
 }
 
 AlgebraicBoundaryResult FiniteSourceMagnifier::algebraic_boundary_binary_mag(
@@ -8053,7 +8098,7 @@ inline std::pair<double,int> triple_continue_caustic_clearance(
         const algebraic_boundary::triple::Geometry& canonical,double required,
         algebraic_boundary::triple::PreparedRegularSupport& prepared) {
     const auto ordinary=triple_caustic_clearance(physical,source,canonical,required,prepared);
-    if(ordinary.first>required)return ordinary;
+    if(ordinary.first>required || prepared.encloses_critical_point(canonical,required))return ordinary;
     // Try a cheap alternative before extending an ill-conditioned canonical
     // tree. Neither the proof coordinates nor its budget change a flux/IFT.
     const auto alternate=triple_alternate_caustic_clearance(physical,source,rho,required);
@@ -8160,7 +8205,8 @@ template<bool Gradient> auto triple_algebraic_epoch(
     }
     const double hex_distance=std::max(5.,finite.hex_threshold)*rho;
     auto clear=triple_caustic_clearance(geometry,source,canonical.geometry,hex_distance,prepared);
-    if(clear.first<=hex_distance && finite.adaptive_hex_threshold>0) {
+    if(clear.first<=hex_distance && finite.adaptive_hex_threshold>0 &&
+       !prepared.encloses_critical_point(canonical.geometry,hex_distance)) {
         clear=triple_alternate_caustic_clearance(geometry,source,rho,hex_distance);
         // Curvature is only a cost screen here: spend more geometric proof
         // work before an integral when a finite-source approximation may be
@@ -8211,7 +8257,8 @@ template<bool Gradient> auto triple_algebraic_epoch(
     options.relative_tolerance=accuracy.relative_tolerance;
     kernel::RadialEventPlan plan;
     if(accuracy.relative_tolerance>=1e-4)
-        plan=triple_support_preparation().plan(frame.geometry,accuracy.relative_tolerance,options.event_box_budget,!Gradient);
+        plan=triple_support_preparation().plan(frame.geometry,accuracy.relative_tolerance,options.event_box_budget,!Gradient,
+            !Gradient && finite.limb_darkening_c==0);
     else plan=triple_strict_support(frame.geometry,options.event_box_budget);
     const auto complete=[](const auto& result) {
         bool valid=result.converged&&result.support_complete;
