@@ -795,7 +795,7 @@ int main()
         std::abs(options.point_source_threshold - 20.0) > 1e-12 ||
         std::abs(options.hexadecapole_threshold - 3.0) > 1e-12 ||
         options.source_bins != 50 ||
-        options.automatic_source_bins != 1 || options.max_source_bins != 400 ||
+        options.automatic_source_bins != 1 || options.max_source_bins != 512 ||
         std::abs(options.finite_source_tol) > 1e-12 ||
         std::abs(options.finite_source_reltol) > 1e-12 ||
         std::abs(options.bennett_delta_c - 0.15) > 1e-12) {

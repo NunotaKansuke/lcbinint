@@ -197,6 +197,27 @@ def test_triple_lens_quadruple_retry_recovers_vbm_physical_images():
     )
 
 
+def test_triple_lens_retains_demagnified_point_image():
+    # At the last epoch a 70-digit solve of the lens equation resolves
+    # four images. The faintest contributes only 3.77e-16 to the total.
+    curve = lcbinint.LightCurve(lens="triple", options=lcbinint.Options(param_type="vbm"))
+    result = curve.info(
+        [-15.09967433790312, -3.30235216674743, 1.121643647435953],
+        t0=2.596308918830414,
+        tE=5.898661085577844,
+        u0=0.7268218490932719,
+        alpha=0.7460135235209582,
+        s=0.055584330833938864,
+        q=6.134463444726674e-6,
+        q2=0.10339960976563041,
+        sep2=2.168260842990772,
+        ang=-1.2672530322588555,
+        rho=0.0,
+    )
+    assert result.image_counts[-1] == 4
+    assert result.point_source_magnifications[-1] == pytest.approx(1.497426498003635, rel=1e-12)
+
+
 def test_triple_lens_finite_source_cartesian_inverse_ray():
     light_curve = lcbinint.LightCurve(
         lens="triple",

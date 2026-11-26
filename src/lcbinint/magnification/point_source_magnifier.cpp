@@ -694,11 +694,12 @@ Polynomial product_without_lens(
 // basis costs the old full construction once per lens geometry; every
 // subsequent source position only evaluates the cubic in yc (~50 complex
 // multiplies instead of ~30 heap-allocating polynomial products).
+template<class PolynomialType>
 struct TriplePolynomialBasis {
     bool valid = false;
     model::TripleLensGeometry geometry {};
-    std::array<Polynomial, 4> d;
-    std::array<Polynomial, 3> e;
+    std::array<PolynomialType, 4> d;
+    std::array<PolynomialType, 3> e;
 };
 
 bool same_triple_basis_geometry(
@@ -715,10 +716,10 @@ bool same_triple_basis_geometry(
     return true;
 }
 
-const TriplePolynomialBasis& triple_polynomial_basis(
+const TriplePolynomialBasis<Polynomial>& triple_polynomial_basis(
     const model::TripleLensGeometry& geometry)
 {
-    thread_local TriplePolynomialBasis cache;
+    thread_local TriplePolynomialBasis<Polynomial> cache;
     if (cache.valid && same_triple_basis_geometry(cache.geometry, geometry)) {
         return cache;
     }
@@ -832,10 +833,15 @@ QuadComplex quad_coefficient_at(const QuadPolynomial& polynomial, std::size_t in
     return index < polynomial.size() ? polynomial[index] : QuadComplex(0.0);
 }
 
-QuadPolynomial quad_triple_polynomial_coefficients(
-    const model::TripleLensGeometry& geometry,
-    SourcePosition source)
+const TriplePolynomialBasis<QuadPolynomial>& quad_triple_polynomial_basis(
+    const model::TripleLensGeometry& geometry)
 {
+    thread_local TriplePolynomialBasis<QuadPolynomial> cache;
+    if (cache.valid && same_triple_basis_geometry(cache.geometry, geometry)) {
+        return cache;
+    }
+    cache.valid = false;
+
     std::array<QuadComplex, 3> lens_positions;
     for (std::size_t i = 0; i < lens_positions.size(); ++i) {
         lens_positions[i] = QuadComplex(
@@ -874,8 +880,8 @@ QuadPolynomial quad_triple_polynomial_coefficients(
     const QuadPolynomial b02 = quad_multiply_polynomial(b[0], b[2]);
     const QuadPolynomial b12 = quad_multiply_polynomial(b[1], b[2]);
 
-    std::array<QuadPolynomial, 4> d;
-    std::array<QuadPolynomial, 3> e;
+    auto& d = cache.d;
+    auto& e = cache.e;
     d[3] = p3;
     d[2] = quad_multiply_polynomial(
         p2,
@@ -907,6 +913,18 @@ QuadPolynomial quad_triple_polynomial_coefficients(
                 quad_scale_polynomial(b02, QuadComplex(masses[1]))),
             quad_scale_polynomial(b01, QuadComplex(masses[2]))));
 
+    cache.geometry = geometry;
+    cache.valid = true;
+    return cache;
+}
+
+QuadPolynomial quad_triple_polynomial_coefficients(
+    const model::TripleLensGeometry& geometry,
+    SourcePosition source)
+{
+    const auto& basis = quad_triple_polynomial_basis(geometry);
+    const auto& d = basis.d;
+    const auto& e = basis.e;
     const QuadComplex y(
         QuadReal(source.x), QuadReal(source.y));
     const QuadComplex yc(y.real, -y.imag);
@@ -1004,38 +1022,44 @@ bool run_quadruple_aberth(
     const QuadPolynomial& coefficients,
     std::array<QuadComplex, kTriplePolynomialDegree>& roots)
 {
-    static const QuadReal update_tolerance("1e-28");
+    static const QuadReal update_tolerance_squared("1e-56");
     constexpr int maximum_iterations = 180;
     std::array<QuadComplex, kTriplePolynomialDegree> next;
     for (int iteration = 0; iteration < maximum_iterations; ++iteration) {
-        QuadReal maximum_update = 0;
+        // Each unordered pair contributes opposite terms to the two sums.
+        // Accumulate in root-index order, using one reciprocal per pair.
+        std::array<QuadComplex, kTriplePolynomialDegree> repulsion {};
+        for (std::size_t i = 0; i < roots.size(); ++i) {
+            for (std::size_t j = i + 1; j < roots.size(); ++j) {
+                const QuadComplex delta = roots[i] - roots[j];
+                if (delta.real == 0 && delta.imag == 0) return false;
+                const QuadComplex reciprocal = QuadComplex(1.0) / delta;
+                repulsion[i] += reciprocal;
+                repulsion[j] -= reciprocal;
+            }
+        }
+        bool small_updates = true;
         for (std::size_t i = 0; i < roots.size(); ++i) {
             QuadComplex value;
             QuadComplex derivative;
             quad_polynomial_value_and_derivative(
                 coefficients, roots[i], value, derivative);
-            QuadComplex root_repulsion;
-            for (std::size_t j = 0; j < roots.size(); ++j) {
-                if (j == i) continue;
-                const QuadComplex separation = roots[i] - roots[j];
-                if (quad_abs(separation) == 0) return false;
-                root_repulsion += QuadComplex(1.0) / separation;
-            }
-            QuadComplex denominator = derivative - value * root_repulsion;
-            if (quad_abs(denominator) == 0) {
+            QuadComplex denominator = derivative - value * repulsion[i];
+            if (denominator.real == 0 && denominator.imag == 0) {
                 denominator = derivative;
             }
-            if (quad_abs(denominator) == 0) return false;
+            if (denominator.real == 0 && denominator.imag == 0) return false;
             const QuadComplex step = value / denominator;
             next[i] = roots[i] - step;
             if (!quad_isfinite(next[i])) return false;
-            maximum_update = std::max(
-                maximum_update,
-                quad_abs(step) / std::max(QuadReal(1.0), quad_abs(next[i])));
+            if (small_updates) {
+                const QuadReal norm = next[i].real * next[i].real + next[i].imag * next[i].imag;
+                const QuadReal step_norm = step.real * step.real + step.imag * step.imag;
+                small_updates = step_norm <= update_tolerance_squared * std::max(QuadReal(1.0), norm);
+            }
         }
         roots = next;
-        if (maximum_update <= update_tolerance &&
-            quad_roots_are_usable(coefficients, roots)) {
+        if (small_updates && quad_roots_are_usable(coefficients, roots)) {
             return true;
         }
     }
@@ -1060,6 +1084,7 @@ bool solve_triple_polynomial_quadruple(
     for (auto& coefficient : coefficients) coefficient = coefficient / leading;
 
     std::array<QuadComplex, kTriplePolynomialDegree> roots;
+    static const QuadReal separation_tolerance("1e-12");
     bool finite_seeds = true;
     bool separated_seeds = true;
     for (std::size_t i = 0; i < roots.size(); ++i) {
@@ -1067,11 +1092,10 @@ bool solve_triple_polynomial_quadruple(
             QuadReal(double_roots[i].real()),
             QuadReal(double_roots[i].imag()));
         finite_seeds = finite_seeds && quad_isfinite(roots[i]);
+        const QuadReal minimum_separation = separation_tolerance *
+            std::max(QuadReal(1.0), quad_abs(roots[i]));
         for (std::size_t j = 0; j < i; ++j) {
-            const QuadReal scale = std::max(
-                QuadReal(1.0), quad_abs(roots[i]));
-            if (quad_abs(roots[i] - roots[j]) <
-                QuadReal("1e-12") * scale) {
+            if (quad_abs(roots[i] - roots[j]) < minimum_separation) {
                 separated_seeds = false;
             }
         }
